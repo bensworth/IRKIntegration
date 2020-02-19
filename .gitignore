@@ -1,0 +1,11 @@
+*DS_Store
+notes_irk.pdf
+*.synctex*
+*.log
+*.aux
+*.out
+*.bbl
+*.blg
+*.thm
+*.fls
+*latexmk
