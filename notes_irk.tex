@@ -164,14 +164,16 @@ where $\mathcal{L}$ is a real-valued spatial operator or Jacobian independent of
 Here, we revive some of the older Runge-Kutta work in the light of a changing
 computational landscape, developing a new iterative approach to solve \eqref{eq:kron1}.
 The new method effectively requires $s$ real-valued linear solves of matrices along the
-lines of $M - \delta t\eta\mathcal{L}$, for some $\eta > 0$, and is easily implemented
+lines of $\eta M - \delta t\mathcal{L}$, for some $\eta > 1$, and is easily implemented
 using existing preconditioners and parallel software libraries. In addition, some of
 the results generalize to the weaker scenario of commuting spatial operators,
 $\mathcal{L}_i\mathcal{L}_j = \mathcal{L}_j\mathcal{L}_i$,
-which provides a first step towards the fast solution of time-dependent IRK. 
+which provides a first step towards the fast solution of time-dependent IRK.
 
-\Cref{sec:intro:prev} 
+\tcb{ALso maybe useful in solving SDIRK because $\eta \gg a_{ij}$??}
 
+
+\todo{outline sections}
 
 % ----------------------------------------------------------------------------------------------------------- %
 % ----------------------------------------------------------------------------------------------------------- %
@@ -368,9 +370,7 @@ The RK stage system in \eqref{eq:k0} can be reformulated as \todo{cite Will}
 %
 For ease of notation, let us scale both sides of the system by a block-diagonal mass matrix 
 and, excusing the slight abuse of notation, let $\mathcal{L}_i \mapsto \delta t M^{-1}\mathcal{L}_i$,
-$i=1,..,s$. Note the time step is now included in $\mathcal{L}_i$. Because $\mathcal{L}_i$ is
-time-dependent, it is possible that $\delta t$ is also time-dependent.
-Now let $\alpha_{ij}$ denote the $ij$-element of $A_0^{-1}$ (assuming $A_0$ is
+$i=1,..,s$. Note the time step $\delta t$ for the given Runge-Kutta step is now included in $\mathcal{L}_i$. Now let $\alpha_{ij}$ denote the $ij$-element of $A_0^{-1}$ (assuming $A_0$ is
 invertible). Then, solving \eqref{eq:k0} can be effectively reduced to inverting the operator
 %
 \begin{align}\nonumber
@@ -381,12 +381,12 @@ invertible). Then, solving \eqref{eq:k0} can be effectively reduced to inverting
 	\label{eq:k1}
 \end{align}
 %
+
 Note, there are a number of methods with one explicit stage preceded or followed by several
 fully implicit and coupled stages. In such cases, $A_0$ is
-not invertible, but the explicit stage can be eliminated from the system. The remaining operator
-can then be reformulated as above, and the inverse that must be applied takes the form of
-\eqref{eq:k1} but based on a principle submatrix of $A_0$.
-
+not invertible, but the explicit stage can be eliminated from the system (by doing an explicit
+time step). The remaining operator can then be reformulated as above, and the inverse that
+must be applied takes the form of \eqref{eq:k1} but based on a principle submatrix of $A_0$.
 
 % ----------------------------------------------------------------------------------------------------------- %
 % ----------------------------------------------------------------------------------------------------------- %
@@ -465,7 +465,7 @@ block (rather than a block-diagonal matrix). The Runge-Kutta update is then give
 
 The adjugate simply consists of linear combinations of $I$ and $\mathcal{L}$, and an
 analytical form can be derived for an arbitrary $s\times s$ matrix, where $s\sim\mathcal{O}(1)$.
-Computing this operator analytically is easiest using a computer algebraic system
+Computing this operator analytically is easiest using a computer algebra program
 such as Mathematica. Applying its action will consist of some set of vector summations
 and matrix-vector multiplications. In particular, the diagonal elements of
 $\textnormal{adj}(\mathcal{M}_s)$ are monic polynomials in $\mathcal{L}$ of degree
@@ -523,7 +523,7 @@ in which case $\textnormal{det}({M}_s)^{-1} = P_s(\mathcal{L})^{-1}$, where
 $P_s(x)$ is the characteristic polynomial of $A_0^{-1}$ (see \Cref{lem:inv}).
 
 In contrast to some of the original work on solving IRK systems, where LU factorizations
-were the dominant cost and system sizes relatively small, explicitly forming and inverting
+were the dominant cost and system sizes relatively small \todo{cite}, explicitly forming and inverting
 $P_s(\mathcal{L})$ for numerical PDEs is typically not a viable option in high-performance
 simulation on modern computing architectures. Instead, by computing the eigenvalues
 $\{\lambda_i\}$ of $A_0^{-1}$, we can express $P_s(\mathcal{L})$ in a factored form, 
@@ -551,9 +551,9 @@ conditioned like $1/h^2$ for mesh spacing $h$ (worse for high-order discretizati
 so considering $\mathcal{L}^2$ directly results in conditioning $\sim\mathcal{O}(1/h^4)$.
 Moreover, many fast parallel methods such as multigrid are not well-suited for solving
 a polynomial in $\mathcal{L}$. The point of \eqref{eq:imag1} is that by considering
-conjugate pairs of eigenvalues, the resulting operator is real-valued. Thus, what if
-we precondition \eqref{eq:imag1} with the inverse of the real-valued quadratic polynomial,
-$(\eta I - \mathcal{L})(\eta I - \mathcal{L})$? Expanding, the preconditioned operator
+conjugate pairs of eigenvalues, the resulting operator is real-valued. Thus, consider
+preconditioning \eqref{eq:imag1} with the inverse of the real-valued quadratic polynomial,
+$(\eta I - \mathcal{L})(\eta I - \mathcal{L})$. Expanding, the preconditioned operator
 takes the form
 %
 \begin{align}\nonumber
@@ -563,7 +563,8 @@ takes the form
 \end{align}
 %
 
-It turns out, the preconditioned operator in \eqref{eq:prec1} is very well-conditioned. 
+It turns out, by assumptions on $\mathcal{L}$ that yield a stable time-propagation scheme,
+the preconditioned operator in \eqref{eq:prec1} is very well-conditioned. 
 \Cref{th:fov} analyzes the field-of-values of $\mathcal{P}_A$, denoted $W(\mathcal{P}_A)$,
 as a measure of the preconditioning, and \Cref{cor:gmres} extends this preconditioning to
 prove fast convergence of GMRES. 
@@ -616,13 +617,13 @@ $(\mathcal{L}+\mathcal{L}^T)/2 \leq 0$.
 \tcb{This is somehow related/necessary to RK stability??}
 It follows that the real part of eigenvalues of $\mathcal{L}$ are non-positive and,
 thus, $(I - \tfrac{1}{\eta}\mathcal{L})$ cannot have a zero eigenvalue and must be
-invertible. Furthermore, by assumption on $\mathcal{L}$, the symmetric part of
-$(I - \tfrac{1}{\eta}\mathcal{L})$ is symmetric positive definite and it follows
-that the symmetric part of $(I - \tfrac{1}{\eta}\mathcal{L})^{-2}$ is as well.
+invertible. Furthermore, it also follows that the symmetric part of
+$(I - \tfrac{1}{\eta}\mathcal{L})$ is symmetric positive definite and thus
+the symmetric part of $(I - \tfrac{1}{\eta}\mathcal{L})^{-2}$ is as well.
 This yields a lower bound of zero on the real-axis for $W(E)$, that is,
 Re$(W(E)) > 0$. 
 
-Now, note that by the assumption $(\mathcal{L}+\mathcal{L}^T)/2 \leq 0$, and we have
+Now, note that by the assumption $(\mathcal{L}+\mathcal{L}^T)/2 \leq 0$, we have
 %
 \begin{align}\label{eq:norm1}
 \frac{\left\langle (I - \tfrac{1}{\eta}\mathcal{L})\mathbf{x},(I - \tfrac{1}{\eta}\mathcal{L})\mathbf{x}\right\rangle}
@@ -751,3 +752,286 @@ $(\eta I - \mathcal{L})$, representing the action of $(\eta I - \mathcal{L})^{-2
 
 
 \end{document}
+
+
+ADJUGATE FORMS, b^T * A0^{-1} * Adj(Ms)
+Let M = A0^{-1}, with entries {m_ij}, b = b[b1,...,bs], and xx = spatial operator L
+
+Stiffly accurate RK (b0^TA0^{-1} = [0,...,0,1])
+-----------------------------------------------
+s = 2
+  -m21,
+  m11 - xx
+
+s = 3
+  -m22 m31 + m21 m32 + m31 xx, 
+  m12 m31 - m11 m32 + m32 xx,
+  -m12 m21 + m11 m22 - m11 xx - m22 xx + xx^2
+
+s = 4
+  m23 m32 m41 - m22 m33 m41 - m23 m31 m42 + m21 m33 m42 + m22 m31 m43 - 
+	 m21 m32 m43 + m22 m41 xx + m33 m41 xx - m21 m42 xx - m31 m43 xx - 
+	 m41 xx^2,
+  -m13 m32 m41 + m12 m33 m41 + m13 m31 m42 - m11 m33 m42 - 
+	 m12 m31 m43 + m11 m32 m43 - m12 m41 xx + m11 m42 xx + m33 m42 xx - 
+	 m32 m43 xx - m42 xx^2, 
+  m13 m22 m41 - m12 m23 m41 - m13 m21 m42 + m11 m23 m42 + m12 m21 m43 - 
+	 m11 m22 m43 - m13 m41 xx - m23 m42 xx + m11 m43 xx + m22 m43 xx - 
+	 m43 xx^2,
+  -m13 m22 m31 + m12 m23 m31 + m13 m21 m32 - m11 m23 m32 - 
+	 m12 m21 m33 + m11 m22 m33 + m12 m21 xx - m11 m22 xx + m13 m31 xx + 
+	 m23 m32 xx - m11 m33 xx - m22 m33 xx + m11 xx^2 + m22 xx^2 + 
+	 m33 xx^2 - xx^3
+
+s = 5
+  m24 m33 m42 m51 - m23 m34 m42 m51 - m24 m32 m43 m51 + 
+	  m22 m34 m43 m51 + m23 m32 m44 m51 - m22 m33 m44 m51 - 
+	  m24 m33 m41 m52 + m23 m34 m41 m52 + m24 m31 m43 m52 - 
+	  m21 m34 m43 m52 - m23 m31 m44 m52 + m21 m33 m44 m52 + 
+	  m24 m32 m41 m53 - m22 m34 m41 m53 - m24 m31 m42 m53 + 
+	  m21 m34 m42 m53 + m22 m31 m44 m53 - m21 m32 m44 m53 - 
+	  m23 m32 m41 m54 + m22 m33 m41 m54 + m23 m31 m42 m54 - 
+	  m21 m33 m42 m54 - m22 m31 m43 m54 + m21 m32 m43 m54 - 
+	  m23 m32 m51 xx + m22 m33 m51 xx - m24 m42 m51 xx - m34 m43 m51 xx + 
+	  m22 m44 m51 xx + m33 m44 m51 xx + m23 m31 m52 xx - m21 m33 m52 xx + 
+	  m24 m41 m52 xx - m21 m44 m52 xx - m22 m31 m53 xx + m21 m32 m53 xx + 
+	  m34 m41 m53 xx - m31 m44 m53 xx - m22 m41 m54 xx - m33 m41 m54 xx + 
+	  m21 m42 m54 xx + m31 m43 m54 xx - m22 m51 xx^2 - m33 m51 xx^2 - 
+	  m44 m51 xx^2 + m21 m52 xx^2 + m31 m53 xx^2 + m41 m54 xx^2 + 
+	  m51 xx^3,
+  -m14 m33 m42 m51 + m13 m34 m42 m51 + m14 m32 m43 m51 - 
+	  m12 m34 m43 m51 - m13 m32 m44 m51 + m12 m33 m44 m51 + 
+	  m14 m33 m41 m52 - m13 m34 m41 m52 - m14 m31 m43 m52 + 
+	  m11 m34 m43 m52 + m13 m31 m44 m52 - m11 m33 m44 m52 - 
+	  m14 m32 m41 m53 + m12 m34 m41 m53 + m14 m31 m42 m53 - 
+	  m11 m34 m42 m53 - m12 m31 m44 m53 + m11 m32 m44 m53 + 
+	  m13 m32 m41 m54 - m12 m33 m41 m54 - m13 m31 m42 m54 + 
+	  m11 m33 m42 m54 + m12 m31 m43 m54 - m11 m32 m43 m54 + 
+	  m13 m32 m51 xx - m12 m33 m51 xx + m14 m42 m51 xx - m12 m44 m51 xx - 
+	  m13 m31 m52 xx + m11 m33 m52 xx - m14 m41 m52 xx - m34 m43 m52 xx + 
+	  m11 m44 m52 xx + m33 m44 m52 xx + m12 m31 m53 xx - m11 m32 m53 xx + 
+	  m34 m42 m53 xx - m32 m44 m53 xx + m12 m41 m54 xx - m11 m42 m54 xx - 
+	  m33 m42 m54 xx + m32 m43 m54 xx + m12 m51 xx^2 - m11 m52 xx^2 - 
+	  m33 m52 xx^2 - m44 m52 xx^2 + m32 m53 xx^2 + m42 m54 xx^2 + 
+	  m52 xx^3, 
+  m14 m23 m42 m51 - m13 m24 m42 m51 - m14 m22 m43 m51 + 
+	  m12 m24 m43 m51 + m13 m22 m44 m51 - m12 m23 m44 m51 - 
+	  m14 m23 m41 m52 + m13 m24 m41 m52 + m14 m21 m43 m52 - 
+	  m11 m24 m43 m52 - m13 m21 m44 m52 + m11 m23 m44 m52 + 
+	  m14 m22 m41 m53 - m12 m24 m41 m53 - m14 m21 m42 m53 + 
+	  m11 m24 m42 m53 + m12 m21 m44 m53 - m11 m22 m44 m53 - 
+	  m13 m22 m41 m54 + m12 m23 m41 m54 + m13 m21 m42 m54 - 
+	  m11 m23 m42 m54 - m12 m21 m43 m54 + m11 m22 m43 m54 - 
+	  m13 m22 m51 xx + m12 m23 m51 xx + m14 m43 m51 xx - m13 m44 m51 xx + 
+	  m13 m21 m52 xx - m11 m23 m52 xx + m24 m43 m52 xx - m23 m44 m52 xx - 
+	  m12 m21 m53 xx + m11 m22 m53 xx - m14 m41 m53 xx - m24 m42 m53 xx + 
+	  m11 m44 m53 xx + m22 m44 m53 xx + m13 m41 m54 xx + m23 m42 m54 xx - 
+	  m11 m43 m54 xx - m22 m43 m54 xx + m13 m51 xx^2 + m23 m52 xx^2 - 
+	  m11 m53 xx^2 - m22 m53 xx^2 - m44 m53 xx^2 + m43 m54 xx^2 + 
+	  m53 xx^3,
+  -m14 m23 m32 m51 + m13 m24 m32 m51 + m14 m22 m33 m51 - 
+	  m12 m24 m33 m51 - m13 m22 m34 m51 + m12 m23 m34 m51 + 
+	  m14 m23 m31 m52 - m13 m24 m31 m52 - m14 m21 m33 m52 + 
+	  m11 m24 m33 m52 + m13 m21 m34 m52 - m11 m23 m34 m52 - 
+	  m14 m22 m31 m53 + m12 m24 m31 m53 + m14 m21 m32 m53 - 
+	  m11 m24 m32 m53 - m12 m21 m34 m53 + m11 m22 m34 m53 + 
+	  m13 m22 m31 m54 - m12 m23 m31 m54 - m13 m21 m32 m54 + 
+	  m11 m23 m32 m54 + m12 m21 m33 m54 - m11 m22 m33 m54 - 
+	  m14 m22 m51 xx + m12 m24 m51 xx - m14 m33 m51 xx + m13 m34 m51 xx + 
+	  m14 m21 m52 xx - m11 m24 m52 xx - m24 m33 m52 xx + m23 m34 m52 xx + 
+	  m14 m31 m53 xx + m24 m32 m53 xx - m11 m34 m53 xx - m22 m34 m53 xx - 
+	  m12 m21 m54 xx + m11 m22 m54 xx - m13 m31 m54 xx - m23 m32 m54 xx + 
+	  m11 m33 m54 xx + m22 m33 m54 xx + m14 m51 xx^2 + m24 m52 xx^2 + 
+	  m34 m53 xx^2 - m11 m54 xx^2 - m22 m54 xx^2 - m33 m54 xx^2 + 
+	  m54 xx^3, 
+  m14 m23 m32 m41 - m13 m24 m32 m41 - m14 m22 m33 m41 + 
+	  m12 m24 m33 m41 + m13 m22 m34 m41 - m12 m23 m34 m41 - 
+	  m14 m23 m31 m42 + m13 m24 m31 m42 + m14 m21 m33 m42 - 
+	  m11 m24 m33 m42 - m13 m21 m34 m42 + m11 m23 m34 m42 + 
+	  m14 m22 m31 m43 - m12 m24 m31 m43 - m14 m21 m32 m43 + 
+	  m11 m24 m32 m43 + m12 m21 m34 m43 - m11 m22 m34 m43 - 
+	  m13 m22 m31 m44 + m12 m23 m31 m44 + m13 m21 m32 m44 - 
+	  m11 m23 m32 m44 - m12 m21 m33 m44 + m11 m22 m33 m44 + 
+	  m13 m22 m31 xx - m12 m23 m31 xx - m13 m21 m32 xx + m11 m23 m32 xx + 
+	  m12 m21 m33 xx - m11 m22 m33 xx + m14 m22 m41 xx - m12 m24 m41 xx + 
+	  m14 m33 m41 xx - m13 m34 m41 xx - m14 m21 m42 xx + m11 m24 m42 xx + 
+	  m24 m33 m42 xx - m23 m34 m42 xx - m14 m31 m43 xx - m24 m32 m43 xx + 
+	  m11 m34 m43 xx + m22 m34 m43 xx + m12 m21 m44 xx - m11 m22 m44 xx + 
+	  m13 m31 m44 xx + m23 m32 m44 xx - m11 m33 m44 xx - m22 m33 m44 xx - 
+	  m12 m21 xx^2 + m11 m22 xx^2 - m13 m31 xx^2 - m23 m32 xx^2 + 
+	  m11 m33 xx^2 + m22 m33 xx^2 - m14 m41 xx^2 - m24 m42 xx^2 - 
+	  m34 m43 xx^2 + m11 m44 xx^2 + m22 m44 xx^2 + m33 m44 xx^2 - 
+	  m11 xx^3 - m22 xx^3 - m33 xx^3 - m44 xx^3 + xx^4
+
+Full implicit RK
+----------------
+s = 2
+  -b1 m12 m21 + b1 m11 m22 - b1 m11 xx - b2 m21 xx,
+  -b2 m12 m21 + b2 m11 m22 - b1 m12 xx - b2 m22 xx
+
+s = 3
+  -b1 m13 m22 m31 + b1 m12 m23 m31 + b1 m13 m21 m32 - b1 m11 m23 m32 -
+     b1 m12 m21 m33 + b1 m11 m22 m33 + b1 m12 m21 xx - b1 m11 m22 xx + 
+     b1 m13 m31 xx - b3 m22 m31 xx + b2 m23 m31 xx + b3 m21 m32 xx - 
+     b1 m11 m33 xx - b2 m21 m33 xx + b1 m11 xx^2 + b2 m21 xx^2 + 
+     b3 m31 xx^2,
+  -b2 m13 m22 m31 + b2 m12 m23 m31 + b2 m13 m21 m32 - 
+     b2 m11 m23 m32 - b2 m12 m21 m33 + b2 m11 m22 m33 + b2 m12 m21 xx - 
+     b2 m11 m22 xx + b3 m12 m31 xx - b3 m11 m32 xx + b1 m13 m32 xx + 
+     b2 m23 m32 xx - b1 m12 m33 xx - b2 m22 m33 xx + b1 m12 xx^2 + 
+     b2 m22 xx^2 + b3 m32 xx^2,
+  -b3 m13 m22 m31 + b3 m12 m23 m31 + 
+     b3 m13 m21 m32 - b3 m11 m23 m32 - b3 m12 m21 m33 + b3 m11 m22 m33 +
+     b2 m13 m21 xx - b1 m13 m22 xx - b2 m11 m23 xx + b1 m12 m23 xx + 
+     b3 m13 m31 xx + b3 m23 m32 xx - b3 m11 m33 xx - b3 m22 m33 xx + 
+     b1 m13 xx^2 + b2 m23 xx^2 + b3 m33 xx^2
+
+s = 4
+  b1 m14 m23 m32 m41 - b1 m13 m24 m32 m41 - b1 m14 m22 m33 m41 + 
+	  b1 m12 m24 m33 m41 + b1 m13 m22 m34 m41 - b1 m12 m23 m34 m41 - 
+	  b1 m14 m23 m31 m42 + b1 m13 m24 m31 m42 + b1 m14 m21 m33 m42 - 
+	  b1 m11 m24 m33 m42 - b1 m13 m21 m34 m42 + b1 m11 m23 m34 m42 + 
+	  b1 m14 m22 m31 m43 - b1 m12 m24 m31 m43 - b1 m14 m21 m32 m43 + 
+	  b1 m11 m24 m32 m43 + b1 m12 m21 m34 m43 - b1 m11 m22 m34 m43 - 
+	  b1 m13 m22 m31 m44 + b1 m12 m23 m31 m44 + b1 m13 m21 m32 m44 - 
+	  b1 m11 m23 m32 m44 - b1 m12 m21 m33 m44 + b1 m11 m22 m33 m44 + 
+	  b1 m13 m22 m31 xx - b1 m12 m23 m31 xx - b1 m13 m21 m32 xx + 
+	  b1 m11 m23 m32 xx + b1 m12 m21 m33 xx - b1 m11 m22 m33 xx + 
+	  b1 m14 m22 m41 xx - b1 m12 m24 m41 xx + b4 m23 m32 m41 xx - 
+	  b3 m24 m32 m41 xx + b1 m14 m33 m41 xx - b4 m22 m33 m41 xx + 
+	  b2 m24 m33 m41 xx - b1 m13 m34 m41 xx + b3 m22 m34 m41 xx - 
+	  b2 m23 m34 m41 xx - b1 m14 m21 m42 xx + b1 m11 m24 m42 xx - 
+	  b4 m23 m31 m42 xx + b3 m24 m31 m42 xx + b4 m21 m33 m42 xx - 
+	  b3 m21 m34 m42 xx - b1 m14 m31 m43 xx + b4 m22 m31 m43 xx - 
+	  b2 m24 m31 m43 xx - b4 m21 m32 m43 xx + b1 m11 m34 m43 xx + 
+	  b2 m21 m34 m43 xx + b1 m12 m21 m44 xx - b1 m11 m22 m44 xx + 
+	  b1 m13 m31 m44 xx - b3 m22 m31 m44 xx + b2 m23 m31 m44 xx + 
+	  b3 m21 m32 m44 xx - b1 m11 m33 m44 xx - b2 m21 m33 m44 xx - 
+	  b1 m12 m21 xx^2 + b1 m11 m22 xx^2 - b1 m13 m31 xx^2 + 
+	  b3 m22 m31 xx^2 - b2 m23 m31 xx^2 - b3 m21 m32 xx^2 + 
+	  b1 m11 m33 xx^2 + b2 m21 m33 xx^2 - b1 m14 m41 xx^2 + 
+	  b4 m22 m41 xx^2 - b2 m24 m41 xx^2 + b4 m33 m41 xx^2 - 
+	  b3 m34 m41 xx^2 - b4 m21 m42 xx^2 - b4 m31 m43 xx^2 + 
+	  b1 m11 m44 xx^2 + b2 m21 m44 xx^2 + b3 m31 m44 xx^2 - b1 m11 xx^3 - 
+	  b2 m21 xx^3 - b3 m31 xx^3 - b4 m41 xx^3, 
+   b2 m14 m23 m32 m41 - b2 m13 m24 m32 m41 - b2 m14 m22 m33 m41 + 
+	  b2 m12 m24 m33 m41 + b2 m13 m22 m34 m41 - b2 m12 m23 m34 m41 - 
+	  b2 m14 m23 m31 m42 + b2 m13 m24 m31 m42 + b2 m14 m21 m33 m42 - 
+	  b2 m11 m24 m33 m42 - b2 m13 m21 m34 m42 + b2 m11 m23 m34 m42 + 
+	  b2 m14 m22 m31 m43 - b2 m12 m24 m31 m43 - b2 m14 m21 m32 m43 + 
+	  b2 m11 m24 m32 m43 + b2 m12 m21 m34 m43 - b2 m11 m22 m34 m43 - 
+	  b2 m13 m22 m31 m44 + b2 m12 m23 m31 m44 + b2 m13 m21 m32 m44 - 
+	  b2 m11 m23 m32 m44 - b2 m12 m21 m33 m44 + b2 m11 m22 m33 m44 + 
+	  b2 m13 m22 m31 xx - b2 m12 m23 m31 xx - b2 m13 m21 m32 xx + 
+	  b2 m11 m23 m32 xx + b2 m12 m21 m33 xx - b2 m11 m22 m33 xx + 
+	  b2 m14 m22 m41 xx - b2 m12 m24 m41 xx - b4 m13 m32 m41 xx + 
+	  b3 m14 m32 m41 xx + b4 m12 m33 m41 xx - b3 m12 m34 m41 xx - 
+	  b2 m14 m21 m42 xx + b2 m11 m24 m42 xx + b4 m13 m31 m42 xx - 
+	  b3 m14 m31 m42 xx - b4 m11 m33 m42 xx + b1 m14 m33 m42 xx + 
+	  b2 m24 m33 m42 xx + b3 m11 m34 m42 xx - b1 m13 m34 m42 xx - 
+	  b2 m23 m34 m42 xx - b4 m12 m31 m43 xx + b4 m11 m32 m43 xx - 
+	  b1 m14 m32 m43 xx - b2 m24 m32 m43 xx + b1 m12 m34 m43 xx + 
+	  b2 m22 m34 m43 xx + b2 m12 m21 m44 xx - b2 m11 m22 m44 xx + 
+	  b3 m12 m31 m44 xx - b3 m11 m32 m44 xx + b1 m13 m32 m44 xx + 
+	  b2 m23 m32 m44 xx - b1 m12 m33 m44 xx - b2 m22 m33 m44 xx - 
+	  b2 m12 m21 xx^2 + b2 m11 m22 xx^2 - b3 m12 m31 xx^2 + 
+	  b3 m11 m32 xx^2 - b1 m13 m32 xx^2 - b2 m23 m32 xx^2 + 
+	  b1 m12 m33 xx^2 + b2 m22 m33 xx^2 - b4 m12 m41 xx^2 + 
+	  b4 m11 m42 xx^2 - b1 m14 m42 xx^2 - b2 m24 m42 xx^2 + 
+	  b4 m33 m42 xx^2 - b3 m34 m42 xx^2 - b4 m32 m43 xx^2 + 
+	  b1 m12 m44 xx^2 + b2 m22 m44 xx^2 + b3 m32 m44 xx^2 - b1 m12 xx^3 - 
+	  b2 m22 xx^3 - b3 m32 xx^3 - b4 m42 xx^3, 
+   b3 m14 m23 m32 m41 - b3 m13 m24 m32 m41 - b3 m14 m22 m33 m41 + 
+	  b3 m12 m24 m33 m41 + b3 m13 m22 m34 m41 - b3 m12 m23 m34 m41 - 
+	  b3 m14 m23 m31 m42 + b3 m13 m24 m31 m42 + b3 m14 m21 m33 m42 - 
+	  b3 m11 m24 m33 m42 - b3 m13 m21 m34 m42 + b3 m11 m23 m34 m42 + 
+	  b3 m14 m22 m31 m43 - b3 m12 m24 m31 m43 - b3 m14 m21 m32 m43 + 
+	  b3 m11 m24 m32 m43 + b3 m12 m21 m34 m43 - b3 m11 m22 m34 m43 - 
+	  b3 m13 m22 m31 m44 + b3 m12 m23 m31 m44 + b3 m13 m21 m32 m44 - 
+	  b3 m11 m23 m32 m44 - b3 m12 m21 m33 m44 + b3 m11 m22 m33 m44 + 
+	  b3 m13 m22 m31 xx - b3 m12 m23 m31 xx - b3 m13 m21 m32 xx + 
+	  b3 m11 m23 m32 xx + b3 m12 m21 m33 xx - b3 m11 m22 m33 xx + 
+	  b4 m13 m22 m41 xx - b4 m12 m23 m41 xx + b2 m14 m23 m41 xx - 
+	  b2 m13 m24 m41 xx + b3 m14 m33 m41 xx - b3 m13 m34 m41 xx - 
+	  b4 m13 m21 m42 xx + b4 m11 m23 m42 xx - b1 m14 m23 m42 xx + 
+	  b1 m13 m24 m42 xx + b3 m24 m33 m42 xx - b3 m23 m34 m42 xx + 
+	  b4 m12 m21 m43 xx - b2 m14 m21 m43 xx - b4 m11 m22 m43 xx + 
+	  b1 m14 m22 m43 xx + b2 m11 m24 m43 xx - b1 m12 m24 m43 xx - 
+	  b3 m14 m31 m43 xx - b3 m24 m32 m43 xx + b3 m11 m34 m43 xx + 
+	  b3 m22 m34 m43 xx + b2 m13 m21 m44 xx - b1 m13 m22 m44 xx - 
+	  b2 m11 m23 m44 xx + b1 m12 m23 m44 xx + b3 m13 m31 m44 xx + 
+	  b3 m23 m32 m44 xx - b3 m11 m33 m44 xx - b3 m22 m33 m44 xx - 
+	  b2 m13 m21 xx^2 + b1 m13 m22 xx^2 + b2 m11 m23 xx^2 - 
+	  b1 m12 m23 xx^2 - b3 m13 m31 xx^2 - b3 m23 m32 xx^2 + 
+	  b3 m11 m33 xx^2 + b3 m22 m33 xx^2 - b4 m13 m41 xx^2 - 
+	  b4 m23 m42 xx^2 + b4 m11 m43 xx^2 - b1 m14 m43 xx^2 + 
+	  b4 m22 m43 xx^2 - b2 m24 m43 xx^2 - b3 m34 m43 xx^2 + 
+	  b1 m13 m44 xx^2 + b2 m23 m44 xx^2 + b3 m33 m44 xx^2 - b1 m13 xx^3 - 
+	  b2 m23 xx^3 - b3 m33 xx^3 - b4 m43 xx^3, 
+   b4 m14 m23 m32 m41 - b4 m13 m24 m32 m41 - b4 m14 m22 m33 m41 + 
+	  b4 m12 m24 m33 m41 + b4 m13 m22 m34 m41 - b4 m12 m23 m34 m41 - 
+	  b4 m14 m23 m31 m42 + b4 m13 m24 m31 m42 + b4 m14 m21 m33 m42 - 
+	  b4 m11 m24 m33 m42 - b4 m13 m21 m34 m42 + b4 m11 m23 m34 m42 + 
+	  b4 m14 m22 m31 m43 - b4 m12 m24 m31 m43 - b4 m14 m21 m32 m43 + 
+	  b4 m11 m24 m32 m43 + b4 m12 m21 m34 m43 - b4 m11 m22 m34 m43 - 
+	  b4 m13 m22 m31 m44 + b4 m12 m23 m31 m44 + b4 m13 m21 m32 m44 - 
+	  b4 m11 m23 m32 m44 - b4 m12 m21 m33 m44 + b4 m11 m22 m33 m44 + 
+	  b3 m14 m22 m31 xx - b2 m14 m23 m31 xx - b3 m12 m24 m31 xx + 
+	  b2 m13 m24 m31 xx - b3 m14 m21 m32 xx + b1 m14 m23 m32 xx + 
+	  b3 m11 m24 m32 xx - b1 m13 m24 m32 xx + b2 m14 m21 m33 xx - 
+	  b1 m14 m22 m33 xx - b2 m11 m24 m33 xx + b1 m12 m24 m33 xx + 
+	  b3 m12 m21 m34 xx - b2 m13 m21 m34 xx - b3 m11 m22 m34 xx + 
+	  b1 m13 m22 m34 xx + b2 m11 m23 m34 xx - b1 m12 m23 m34 xx + 
+	  b4 m14 m22 m41 xx - b4 m12 m24 m41 xx + b4 m14 m33 m41 xx - 
+	  b4 m13 m34 m41 xx - b4 m14 m21 m42 xx + b4 m11 m24 m42 xx + 
+	  b4 m24 m33 m42 xx - b4 m23 m34 m42 xx - b4 m14 m31 m43 xx - 
+	  b4 m24 m32 m43 xx + b4 m11 m34 m43 xx + b4 m22 m34 m43 xx + 
+	  b4 m12 m21 m44 xx - b4 m11 m22 m44 xx + b4 m13 m31 m44 xx + 
+	  b4 m23 m32 m44 xx - b4 m11 m33 m44 xx - b4 m22 m33 m44 xx - 
+	  b2 m14 m21 xx^2 + b1 m14 m22 xx^2 + b2 m11 m24 xx^2 - 
+	  b1 m12 m24 xx^2 - b3 m14 m31 xx^2 - b3 m24 m32 xx^2 + 
+	  b1 m14 m33 xx^2 + b2 m24 m33 xx^2 + b3 m11 m34 xx^2 - 
+	  b1 m13 m34 xx^2 + b3 m22 m34 xx^2 - b2 m23 m34 xx^2 - 
+	  b4 m14 m41 xx^2 - b4 m24 m42 xx^2 - b4 m34 m43 xx^2 + 
+	  b4 m11 m44 xx^2 + b4 m22 m44 xx^2 + b4 m33 m44 xx^2 - b1 m14 xx^3 - 
+	  b2 m24 xx^3 - b3 m34 xx^3 - b4 m44 xx^3
+
+
+Computing A0^{-1} = det(A0)^{-1}Adj(A0)
+---------------------------------------
+From Wikpedia, The adjugate of A is the n×n matrix whose (i,j) entry is the (j,i)
+cofactor of A, (-1)^{i+j} * M_ij, where M_ij is the determinant of the principle
+minor of A that comes form deleting rows i and j. Moreover, using the Laplace
+formula, computing these minors also yields det(A):
+	https://en.wikipedia.org/wiki/Determinant#Laplace's_formula_and_the_adjugate_matrix
+I think we should make functions that take an MFEM dense matrix and compute determinants
+for a given set of rows and columns, e.g., write the following function for 2,3, and 4
+sets of rows/columns:
+
+getMinorDet(DenseMatrix A, int row1, int row2, int col1, int col2)
+{
+	if (row2 >= A.Height() || col2 >0 A.Width()) {
+		error
+	}
+	return A[row1,col1]*A[row2,col2] - A[row1,col2]*A[row2,col1];
+}
+
+Using Laplace formula and adjugate/determinant formula for inverse, these would provide
+algebraic inverses for RK tableauxs up to s = 5 with minimal code (could go higher, just
+need to add more determinants; 5 stages is probably plenty to start).
+
+Det of 3x3:
+-m13 m22 m31 + m12 m23 m31 + m13 m21 m32 - m11 m23 m32 - m12 m21 m33 +
+  m11 m22 m33
+
+Det of 4x4:
+m14 m23 m32 m41 - m13 m24 m32 m41 - m14 m22 m33 m41 + 
+ m12 m24 m33 m41 + m13 m22 m34 m41 - m12 m23 m34 m41 - 
+ m14 m23 m31 m42 + m13 m24 m31 m42 + m14 m21 m33 m42 - 
+ m11 m24 m33 m42 - m13 m21 m34 m42 + m11 m23 m34 m42 + 
+ m14 m22 m31 m43 - m12 m24 m31 m43 - m14 m21 m32 m43 + 
+ m11 m24 m32 m43 + m12 m21 m34 m43 - m11 m22 m34 m43 - 
+ m13 m22 m31 m44 + m12 m23 m31 m44 + m13 m21 m32 m44 - 
+ m11 m23 m32 m44 - m12 m21 m33 m44 + m11 m22 m33 m44
+
+

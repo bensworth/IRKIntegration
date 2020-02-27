@@ -36,14 +36,10 @@
 \begin{document}
 \allowdisplaybreaks
 
-% ----------------------------------------------------------------------------------------------------------- %
-% ----------------------------------------------------------------------------------------------------------- %
-% ----------------------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
 \section{Introduction}
-
-% ----------------------------------------------------------------------------------------------------------- %
-% ----------------------------------------------------------------------------------------------------------- %
-\subsection{Fully implicit Runge-Kutta}
 
 Consider the method-of-lines approach to solving partial differential equations (PDEs),
 where we discretize in space and arrive at a system of ODEs in time,
@@ -92,243 +88,17 @@ as the update to $\mathbf{u}$ for a linear PDE, can then be expressed as a block
 \end{align}
 %
 
-The difficulty in fully implicit Runge-Kutta methods (which we will denote IRK) lies in
-solving the $Ns\times Ns$ block linear system in \eqref{eq:k0}. This paper focuses on the
-parallel simulation of numerical PDEs, where $N$ is typically very large, on the order of
-millions or billions, and $\mathcal{L}$ is highly ill-conditioned. In such cases, direct
-solution techniques to solve \eqref{eq:k0} are not a viable option, and fast, parallel 
-iterative methods must be used. However, IRK methods are rarely employed in practice due
-to the difficulties of solving \eqref{eq:k0}. Even for relatively simple
-parabolic PDEs where $\mathcal{L}$ is symmetric positive definite, \eqref{eq:k0}
-instead yields a large nonsymmetric system with significant block coupling. For
-nonsymmetric systems $\mathcal{L}$ that already have variable coupling, fast iterative
-methods are even less likely to yield acceptable performance in solving \eqref{eq:k0}.
-
-A standard approach for IRK methods is to assume $\mathcal{L}_i = \mathcal{L}_j$ for all $i,j$,
-that is, $\mathcal{L}$ has no dependence on time. For nonlinear problems, this correspond to
-a simplified Newton method, where the Jacobian is only evaluated at one time-point per time
-step (or also naturally arises for a linear problem with no time-dependence in spatial
-differential components). This yields a simplified form of \eqref{eq:k0} that can be
-expressed in Kronecker product form,
-%
-\begin{align}\label{eq:kron1}
-(I\otimes M - \delta t A_0\otimes \mathcal{L})\mathbf{k} & = \mathbf{f},
-\end{align}
-%
-where $\mathcal{L}$ is a real-valued spatial operator or Jacobian independent of time.
-Here, we build on some of the older Runge-Kutta work in the light of a changing
-computational landscape, developing a new iterative approach to solve \eqref{eq:kron1}.
-The new method effectively requires $s$ real-valued linear solves of matrices along the
-lines of $M - \delta t\eta\mathcal{L}$, for some $\eta > 0$. 
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+\section{Navier Stokes and DAEs}
 
 
 
-% ----------------------------------------------------------------------------------------------------------- %
-% ----------------------------------------------------------------------------------------------------------- %
-\subsection{The time-independent case}
-
-The Kronecker product form (resulting from the assumption that $\mathcal{L}$ is independent of
-time) allows for further simplifications. First proposed in \todo{Butcher77}, let $A_0$ have
-Jordan normal form $A_0 = U_0L_0U_0^{-1}$, where $L_0$ is lower triangular, with eigenvalues
-of $A_0$ on the diagonal and lower triangular entries corresponding to the (unit-valued)
-Jordan blocks. Then \eqref{eq:kron1} is equivalent to the problem
-%
-\begin{align}\label{eq:kron2}
-(U_0\otimes I)(I\otimes M - \delta t L_0\otimes \mathcal{L})(U_0^{-1}\otimes I)\mathbf{k} & = \mathbf{f},\\
-(I\otimes M - \delta t L_0\otimes \mathcal{L})\hat{\mathbf{k}} & = \hat{\mathbf{f}},
-\end{align}
-%
-where $\hat{\mathbf{f}} := (U_0^{-1}\otimes I)\mathbf{f}$ and
-$\hat{\mathbf{k}} := (U_0^{-1}\otimes I)\mathbf{k}$. Note that computing the Jordan
-decomposition of $A_0$ is typically of trivial computational expense compared to other
-operations. The transformed system in \eqref{eq:kron2} can now be inverted by applying
-a block diagonal or lower triangular solve, which only requires inverting the diagonal
-blocks, $M - \delta_t(L_0)_{ii}\mathcal{L}$.
-
-Transforming \eqref{eq:kron1} into \eqref{eq:kron2} reduces the solution of an $ns\times ns$
-system of equations to solving $s$ linear systems of size $n\times n$. The downside is that the
-IRK schemes with high accuracy and stability have primarily complex eigenvalues, in which case
-the original real-valued system was transformed into a set of smaller complex systems (if the
-original matrix $\mathcal{L}$ is complex, obviously complex eigenvalues are not a concern).
-Complex eigenvalues introduce several difficulties. First, complex operations require several
-times the floating-point operations to perform standard algebraic operations. Second, not
-all preconditioners are well-developed for complex-valued matrices. Last, an important
-practical concern is that not all software libraries support complex numbers. 
-
-Published shortly after (and independently from) Butcher's result regarding Jordan normal
-form \todo{cite}, Bickart developed a similar result \todo{cite}. If we define $Q_s(x)$ as the characteristic
-polynomial of $A_0$, then the inverse of \eqref{eq:kron1} can be computed via some matrix-vector
-multiplications and the action of $Q_s(\mathcal{L})^{-1}$ \todo{cite}. This is similar in principle to
-Butcher's result, as in practice one could invert $Q_s(\mathcal{L})$ by inverting 
-each term in the factored polynomial, $(\mu_1 I-\mathcal{L})^{-1}$,
-$(\mu_2 I-\mathcal{L})^{-1}$, ..., for eigenvalues $\{\mu_i\}_{i=1}^s$ of $A_0$.
-Although Bickart's paper received less attention than Butcher's over time (currently $2.5\times$
-less citations), the polynomial form provides a more natural way to handle complex eigenvalues,
-particularly in the modern high-performance computing landscape, where direct LU inverses
-are rare and most linear systems are solved via preconditioning and/or Krylov methods. 
-
-\todo{Fix discussion on Bickart's result, work out what he actually did carefully.}
-
-% ----------------------------------------------------------------------------------------------------------- %
-% ----------------------------------------------------------------------------------------------------------- %
-\subsection{Why IRK and previous work}
-
-
- compared with simpler options such as
-diagonally implicit Runge Kutta (DIRK) methods, where $A_0$ and \eqref{eq:k0} are 
-(block) lower triangular; then, the solution of \eqref{eq:k0} only requires $s$ linear
-solves of $M - \delta ta_{ii}\mathcal{L}_i$. 
-
-
-
-
-Fully implicit Runge-Kutta (IRK) methods offer a number af advantages in terms of stability and
-accuracy, particularly for difficult nonlinear PDEs. However, the solution of \eqref{eq:k0}
-remains difficult and limits the use of fully implicit RK methods in numerical PDEs.
-Diagonally implicit RK (DIRK) methods address this problem by constructing $A_0$ to be lower
-triangular, in which case \eqref{eq:k0} is easily inverted by inverting the diagonal
-blocks, $M - \delta ta_{ii}\mathcal{L}_i$ for $i=1,..,s$. However, DIRK methods attain
-lower global orders of accuracy than IRK methods, and have at most stage-order one (stage-order
-two with one explicit stage). This is particularly problematic in terms of order reduction,
-an interesting phenomenon of using RK methods with the method-of-lines approach to solve PDEs,
-where error in spatial boundary conditions for intermediate RK stages limits the achieved space-time
-accuracy. The concept is not fully understood, nor are there many practical fixes for PDEs
-in higher than one dimension. However, for nonlinear PDEs, it is typically the case that the global 
-order of accuracy is limited to $\approx \min\{ p, q+1\}$, for integration order $p$ and stage-order
-$q$. Obviously if we actually want high-order integration in time, SDIRK and ESDIRK methods
-are limiting, and fully implicit high-order RK methods are desirable. Unfortunately, solving the
-fully implicit stage matrix in \eqref{eq:k0} is often much more difficult when it is not lower triangular.
-Here we consider new block preconditioning techniques to facilitate this.
-
-% Simplified newton scheme uses fixed Jacobian for all stages
-% Single step Newton (Cooper (83/90), Gonzales-Pinto (95/97)
-% ---------------- ODEs and LU ---------------- %
-Butcher (76), Bickart (77)
-\begin{itemize}
-	\item Uses tensor product structure, gets Jordan normal form of Butcher matrix A. Reformulates
-	problem as block subdiagonal, with diagonal blocks $I - h\lambda J$, for Jacobian $J$, time step $h$,
-	and eigenvalue $\lambda$ of $A$ (are we sure not $A^{-1}$??).
-	\item Must solve for complex eigenvalues. This is not desirable. 
-	\item Bickart uses polynomial form, closer to what I look at. Originally based on Tensor product
-	result from Jameson (68)
-\end{itemize}
-
-Varah (79):
-\begin{itemize}
-	\item Much better description of Butcher's method. Transforms coordinate system of Jacobian tensor.
-	Still relies on this tensor structure to do said transformation. 
-	\item Transforms Jacobian to Hessenberg form to avoid repeated action computing LU of a shifted 
-	Jacobian.
-\end{itemize}
-
-Burrage (82):
-\begin{itemize}
-	\item Look at stability of DIRK and SIRK methods, which have one eigenvalue and are more amenable
-	to development by Butcher. 
-\end{itemize}
-
-Orel (91):
-\begin{itemize}
-	\item Looks at RK methods w/ real eigenvalues. Turns out best approximation to exponential is
-	obtained by having all eigenvalues equal (SIRK/SDIRK methods). SIRK methods offer some advantages over SDIRK methods, but lack the favorable stabillity an accuracy of IRK methods. 
-\end{itemize}
-
-Cooper:
-\begin{itemize}
-	\item (83,90,93): develops single Newton scheme using SOR or various matrix splittings,
-	applied to ODEs. This is a single-step
-	Newton method, where the actual Jacobian solve is replaced with an SOR iteration. Here, Butcher
-	matrix A is replaced with an approximate matrix with one positive real eigenvalue. 
-\end{itemize}
-
-Pinto:
-\begin{itemize}
-	\item (95) Mostly ODEs, do consider 1d-space-1d-time burgers on a very small grid. 
-	\item (96) additional iteration of single Newton, makes it quasi-Newton like. 
-	\item (01) Analysis of single Newton (SOR) w/ simplified Newton for higer order. 
-\end{itemize}
-
-
-Butcher (2000):
-\begin{itemize}
-	\item Develops ESDIRK schemes w/ higher stage order and stiff accuracy than traditional
-	SIRK/DIRK schemes. Based on using iniital explicit stage, moves RK abscissae.
-\end{itemize}
-
-
-Brugano (2014) and Antonana (2018)
-\begin{itemize}
-	\item New splitting and IRK techniques for Hamiltonian problems where conservation is
-	important. Used for ODEs. 
-\end{itemize}
-
-
-% ---------------- PDEs ---------------- %
-
-\begin{itemize}
-	\item One obvious drawback -- even if spatial operator/Jacobian is SPD, IRK system is
-	nonsymmetric.
-\end{itemize}
-
-Lay (2000)
-\begin{itemize}
-	\item 
-\end{itemize}
-
-Van Lent (2004)
-\begin{itemize}
-	\item Multigrid for IRK?
-\end{itemize}
-
-Staff \& Mardal (2006)
-\begin{itemize}
-	\item One of first paper to consider preconditioning the fully implicit RK system.
-	Use block Jacobi and block lower triangular preconditioners for the diffusion equation.
-	Use multigrid V-cycles and full Newton time-dependent Jacobian. Upper triangular is
-	bad compared to block Jacobi and lower triangular (this has appeared elsewhere in
-	literature -- $A_0$ is dominant in lower triangular part -- Crout factorization
-	in I think Messina or Van der Houwen; comes up again in Brugano (2015)).
-\end{itemize}
-Mardal (2007)
-\begin{itemize}
-	\item Analyze block-diagonal preconditioners in a Sobolev setting, demonstrate
-	conditioning of the preconditioned operator to be optimal in the independent of
-	$h$ sense. Use multigrid w/ diffusion as example. 
-\end{itemize}
-Nilssen (2011)
-\begin{itemize}
-	\item Analogous to above, Sobolev analysis for block-diagonal preconditioning
-	applied to the bidomain equations.
-\end{itemize}
-
-Xie (2011)
-\begin{itemize}
-	\item Proposes a modified simplified Newton for the time-dependent cast, where the Jacobian is
-	formed based on a least squares approximation to the true RK coefficients, evaluating all entries
-	at a single time point. In example problems, modified Jacobian typically converged faster
-	than simplified (evaluated at previous time step), up to 2x less iterations/time. 
-\end{itemize}
-
-Hao Chen:
-\begin{itemize}
-	\item (2014) Develops a splitting iterative method to precondition IRK matrices, similar to ADI schemes.
-	Proves that for definite spatial operators and Butcher matrices (that is, eignvalues have positive
-	or negative real parts), $\rho(T) < 1$, where $T$ is the fixed-point iteration matrix. Look at 
-	diffusion equation with IRK and BVMs.
-	\item (2016) Analogous to above, extended to wave equation.
-\end{itemize}
-
-Pazner
-\begin{itemize}
-	\item
-\end{itemize}
-
-
-
-% ----------------------------------------------------------------------------------------------------------- %
-% ----------------------------------------------------------------------------------------------------------- %
-% ----------------------------------------------------------------------------------------------------------- %
-\section{Inverting the IRK system}
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+\section{Inverting the fully implicit IRK system}
 
 The RK stage system in \eqref{eq:k0} can be reformulated as \todo{cite Will}
 %
@@ -359,364 +129,199 @@ not invertible, but the explicit stage can be eliminated from the system. The re
 can then be reformulated as above, and the inverse that must be applied takes the form of
 \eqref{eq:k1} but based on a principle submatrix of $A_0$.
 
-
-% ----------------------------------------------------------------------------------------------------------- %
-% ----------------------------------------------------------------------------------------------------------- %
-\subsection{The case of commuting operators}
-
-This section introduces a result similar to Bickart's but generalized to hold for commuting
-operators. If $\mathcal{L}_i=\mathcal{L}_j$ for all $i,j$, we show that the inverse of
-\eqref{eq:k1} can be expressed in terms of $P_s(\mathcal{L})^{-1}$, where $P_s(\mathcal{L})$
-is the characteristic polynomial of $A_0^{-1}$.
-
-%
-\begin{lemma}
-Let $\alpha_{ij}$ denote the $(i,j)$th entry of $A_0^{-1}$ and assume $\{\mathcal{L}_i\}_{i=1}^s$
-are commuting operators. Define 
-\begin{align}\label{eq:k1}
-\mathcal{M}_s := \begin{bmatrix} \alpha_{11}I - \mathcal{L}_1 & \alpha_{12}I & ... & \alpha_{1s}I \\
-	\alpha_{21}I & \alpha_{22}I - \mathcal{L}_2 & & \alpha_{2s}I \\
-	\ddots & & \ddots & \vdots \\ \alpha_{s1}I & ... & \alpha_{s(s-1)}I & \alpha_{ss}I - \mathcal{L}_s \end{bmatrix},
-\end{align}
-as in \eqref{eq:kron1}.
-Let det$(\mathcal{M}_s)$ be the determinant of $\mathcal{M}_s$ (in this case a block-diagonal
-matrix) and let adj$(\mathcal{M}_s)$ be the adjugate of $\mathcal{M}_s$. Then, $\mathcal{M}_s$
-is invertible if and only if $\mathcal{D}_s$ is invertible, and
-\begin{align*}
-\mathcal{M}_s^{-1} = \textnormal{det}({M}_s)^{-1}\textnormal{adj}(\mathcal{M}_s).
-\end{align*}
-
-Now, suppose $\mathcal{L}_i = \mathcal{L}_j$ for all $i,j$, and let $P_s(x)$ be the
-characteristic polynomial of $A_0^{-1}$. Then,
-\begin{align*}
-\mathcal{M}_s^{-1} = \textnormal{diag}(P_s(\mathcal{L})^{-1})\textnormal{adj}(\mathcal{M}_s),
-\end{align*}
-where ``diag'' indicates a block diagonal matrix, with diagonal blocks given by $P_s(\mathcal{L})^{-1}$.
-\end{lemma}
-%
-\begin{proof}
-Notice in \eqref{eq:k1} that if $\mathcal{L}_i$ and $\mathcal{L}_j$ commute for all $i,j$,
-then $\mathcal{M}_s$ is a matrix over the commutative ring of linear combinations
-of $I$ and $\{\mathcal{L}_i\}$. Let adj$(\mathcal{M}_s)$ denote the matrix adjugate. A
-classical result in matrix analysis then tells us that
-%
-\begin{align*} 
-\textnormal{adj}(\mathcal{M}_s)\mathcal{M}_s = \mathcal{M}_s\textnormal{adj}(\mathcal{M}_s)
-	= \textnormal{det}(\mathcal{M}_s)I.
-\end{align*}
-%
-Moreover, $\mathcal{M}_s$ is invertible if and only if if the determinant of $\mathcal{M}_s$
-is invertible, in which case $\mathcal{M}_s^{-1} := $ det$(\mathcal{M}_s)^{-1}$adj$(\mathcal{M}_s)$.
-\todo{Need citations!}
-For the case of time-independent operators ($\mathcal{L}_i=\mathcal{L}_j$), notice that
-$\mathcal{M}_s$ takes the form $A_0^{-1} - \mathcal{L}I$ over the commutative ring defined
-above. Analogous to a scalar matrix, the determinant of $A_0^{-1} - \mathcal{L}I$ is the
-characteristic polynomial of $A_0^{-1}$ evaluated at $\mathcal{L}$.
-\end{proof}
-%
-
-The adjugate simply consists of linear combinations of $I$ and $\mathcal{L}$, and an analytical
-form can be derived (albeit tediously) for an arbitrary $s\times s$ matrix, where
-$s\sim\mathcal{O}(1)$. Computing its action will consist of some set of vector summations
-and matrix-vector multiplications.
-
-
-
-{\color{blue}
-\textbf{Algorithm:}
-\begin{itemize}
-	\item When we precondition each row of the block matrix with the same inverse
-	polynomial, we can suck it out of the summation over stages. Then each stage is
-	appropriately modified by $A_0^{-1}$ and the adjugate, the results are summed,
-	and the preconditioner/inverse applied to the sum. This is important to limit
-	the linear solves to $s$ solves. 
-\end{itemize}
-}
-
-
-
-% ----------------------------------------------------------------------------------------------------------- %
-% ----------------------------------------------------------------------------------------------------------- %
-% ----------------------------------------------------------------------------------------------------------- %
-\section{Inverting the characteristic polynomial}
-
-% ----------------------------------------------------------------------------------------------------------- %
-% ----------------------------------------------------------------------------------------------------------- %
-\subsection{Stability and the method of lines}
-
-{\color{blue}
-\begin{itemize}
-
-\item A necessary condition for stable time-propagation is that eigenvalues of $\mathcal{L}$
-lie in the region of stability for the given RK scheme. For virtually all implicit RK schemes,
-this means that eigenvalues of $\mathcal{L}$ must have negative real part, or real part
-$\gg 0$. It is rare for operators representing a differential discretization to be split
-with a set of negative definite eigenvalues and a set of eigenvalues with real part $\gg 0$,
-so for our purposes assume $\mathcal{L}$ has eigenvalues with negative real part.
-
-\item Just eigenvalues is not strong enough for our analysis or stability. Need to look
-into literature. Would be nice if it was related to numerical range/field of values, because
-that is what our analysis is based on. Ideally, something along the lines of $\mathcal{L}$ 
-has a non-positive field of values for stability? 
-\end{itemize}
-}
-
-
-% ----------------------------------------------------------------------------------------------------------- %
-% ----------------------------------------------------------------------------------------------------------- %
-\subsection{Grouping by conjugate pairs}
-
-By computing the eigenvalues $\{\lambda_i\}$ of $A_0^{-1}$, we can express
-$P_s(\mathcal{L})$ in a factored form, 
-%
-\begin{align}\label{eq:fac}
-P_s(\mathcal{L}) = \prod_{i=1}^s (\lambda_i I - \mathcal{L}),
-\end{align}
-%
-and its inverse can then be computed by successive applications of $(\lambda_iI - \mathcal{L})^{-1}$,
-for $i=1,...,s$. As discussed previously, eigenvalues of $A_0$ and $A_0^{-1}$ will often be
-complex, making the inverse of individual factors $(\lambda_iI - \mathcal{L})^{-1}$ more
-difficult and often not practical. Because eigenvalues come in conjugate pairs, one simplification
-can be achieved by noting that $(\overline{\lambda_i}I - \mathcal{L})^{-1}
-= \overline{(\lambda_iI - \mathcal{L})^{-1}}$, and thus the same solver/preconditioner
-could be used for conjugate pairs of eigenvalues \todo{cite}. However, this does not
-solve the underlying problem of constructing complex solvers/preconditioners in
-practice. 
-
-Here, we take a different approach, combining the factors of conjugate eigenvalues
-into a set of quadratic polynomials that we must precondition,
-%
-\begin{align}\label{eq:imag1}
-((\eta + i\beta)I - \mathcal{L})((\eta - i\beta)I - \mathcal{L}) =
-	(\eta^2+\beta^2)I - 2\eta \mathcal{L} + \mathcal{L}^2.
-\end{align}
-%
-In practice, we typically do not want to directly precondition a quadratic operator
-like \eqref{eq:imag1}. For example, a discretization of diffusion is typically 
-conditioned like $1/h^2$ for mesh spacing $h$ (worse for high-order discretizations),
-so considering $\mathcal{L}^2$ directly results in conditioning $\sim\mathcal{O}(1/h^4)$.
-Moreover, many fast parallel methods such as multigrid are not well-suited for solving
-a polynomial in $\mathcal{L}$. The point of \eqref{eq:imag1} is that by considering
-conjugate pairs of eigenvalues, the resulting operator is real-valued. Thus, what if
-we precondition \eqref{eq:imag1} with the inverse of the real-valued quadratic polynomial,
-$(\eta I - \mathcal{L})(\eta I - \mathcal{L})$? Expanding, the preconditioned operator
-takes the form
+Returning to the time propagation, the Runge-Kutta update can be written as
 %
 \begin{align}\nonumber
-\mathcal{P}_A & := (\eta I - \mathcal{L})^{-2}\left[(\eta^2+\beta^2)I - 2\eta \mathcal{L} + \mathcal{L}^2\right] \\
-&\hspace{5ex} = I + \beta^2(\eta I - \mathcal{L})^{-2}
-= I + \frac{\beta^2}{\eta^2}\left(I - \tfrac{1}{\eta}\mathcal{L}\right)^{-2}.\label{eq:prec1}
+\mathbf{u}_{n+1} & = \mathbf{u}_n + \delta t\sum_{i=1}^s b_i{\mathbf{k}}_i \\
+& = \mathbf{u}_n + \delta t(\mathbf{b}_0^TA_0^{-1}\otimes I)\mathcal{M}_s^{-1}\mathbf{f}.\label{eq:update}
 \end{align}
 %
-
-We will now analyze the field-of-values of $\mathcal{P}_A$, denoted $W(\mathcal{P}_A)$,
-as a measure of the preconditioning. For operator $M$, let $\sigma(M)$ denote the spectrum of $M$,
-$\sigma_{\textnormal{min}}(M)$ and $\sigma_{\textnormal{max}}(M)$ the minimum and maximum eigenvalues, and $\rho(M)$
-the spectral radius. Also, define the symmetric/skew-symmetric splitting
-$M = M_s + M_k$, where $M_s := (M+M^T)/2$ and $M_k := (M - M^T)/2$, and the numerical
-radius as $r(M) = \sup \{ |\lambda| : \lambda \in W(M) \}$. Recall
-the following properties of $W(M)$:\todo{citations}
+In the case of stiffly accurate RK schemes, $\mathbf{b}_0^TA_0 = [0,...,0,1]$,
+and \eqref{eq:update} takes the simplified form
 %
-\begin{enumerate}
-	\item $W(M)\subset [\sigma_{\textnormal{min}}(M_s), \sigma_{\textnormal{max}}(M_s)] \times
-	[-\rho(M_k)\mathrm{i}, \rho(M_k)\mathrm{i}]$.
-
-	\item $\sigma(M) \subset W(M)$.
-
-	% <Mv,v> + <v,Mv> > 0 ---> w = M^{-1}v ---> <w, M^{-1}w> + <M^{-1}w,w> > 0
-	\item If $M$ is invertible and $M_s \leq 0$ in the symmetric negative semi-definite
-	sense, then the symmetric part of $M^{-1}$ is also negative semi-definite.
-
-	\item $r(M) \leq \|M\|_2$.
-
-	\item $W(I + M) = 1 + W(M)$.
-\end{enumerate}
-%
-Note that an exact inverse yields $\mathcal{P}_A = I$, with spectrum
-and field-of-values given by $\sigma(\mathcal{P}_S) = W(\mathcal{P}_S) = \{1\}$.
-Appealing to \eqref{eq:prec1} and the final property stated above, $W(\mathcal{P}_A)
-= 1 + \tfrac{\beta^2}{\eta^2}W(E)$, for error term $E := (I - \tfrac{1}{\eta}\mathcal{L})^{-2}$
-and real-valued constant $\beta^2/\eta^2 > 0$. Next we will bound $W(E)$ in the complex plane.
-
-Assume that $\eta > 0$ and the symmetric part of $\mathcal{L}$ satisfies
-$(\mathcal{L}+\mathcal{L}^T)/2 \leq 0$.
-\tcb{This is somehow related/necessary to RK stability??}
-It follows that the real part of eigenvalues of $\mathcal{L}$ are non-positive and,
-thus, $(I - \tfrac{1}{\eta}\mathcal{L})$ cannot have a zero eigenvalue and must be
-invertible. Furthermore, by assumption on $\mathcal{L}$, the symmetric part of
-$(I - \tfrac{1}{\eta}\mathcal{L})$ is symmetric positive definite and it follows
-that the symmetric part of $(I - \tfrac{1}{\eta}\mathcal{L})^{-2}$ is as well.
-This yields a lower bound of zero on the real-axis for $W(E)$, that is,
-Re$(W(E)) > 0$. 
-
-Now, note that by the assumption $(\mathcal{L}+\mathcal{L}^T)/2 \leq 0$, and we have
-%
-\begin{align}\label{eq:norm1}
-\frac{\left\langle (I - \tfrac{1}{\eta}\mathcal{L})\mathbf{x},(I - \tfrac{1}{\eta}\mathcal{L})\mathbf{x}\right\rangle}
-	{\langle\mathbf{x},\mathbf{x}\rangle} 
-& = 1 - \frac{\langle (\mathcal{L} + \mathcal{L}^T )
-	\mathbf{x},\mathbf{x}\rangle}{\eta \langle\mathbf{x},\mathbf{x}\rangle} +
-	\frac{\langle \tfrac{1}{\eta^2}\mathcal{L}^T\mathcal{L}\mathbf{x},
-	\mathbf{x}\rangle}{\langle\mathbf{x},\mathbf{x}\rangle}
-\geq 1
-\end{align}
-%
-for all $\mathbf{x}\neq\mathbf{0}$. Then,
-%
-\begin{align}\label{eq:norm1}
-\|(I - \tfrac{1}{\eta}\mathcal{L})^{-2}\| \leq \|(I - \tfrac{1}{\eta}\mathcal{L})^{-1}\|^2
-& = \sup_{\mathbf{x}\neq\mathbf{0}} 
-	\frac{\left\langle (I - \tfrac{1}{\eta}\mathcal{L})^{-1}\mathbf{x},
-	(I - \tfrac{1}{\eta}\mathcal{L})^{-1}\mathbf{x}\right\rangle}
-	{\langle\mathbf{x},\mathbf{x}\rangle} \\
-&\hspace{-10ex}= \sup_{\mathbf{y}\neq\mathbf{0}} 
-	\frac{\langle\mathbf{y},\mathbf{y}\rangle}{\left\langle (I - \tfrac{1}{\eta}\mathcal{L})\mathbf{y},
-	(I - \tfrac{1}{\eta}\mathcal{L})\mathbf{y}\right\rangle}
-\leq 1.
-\end{align}
-%
-This yields a bound on the numerical radius $r(E) = r((I - \tfrac{1}{\eta}\mathcal{L})^{-2})
-\leq \|(I - \tfrac{1}{\eta}\mathcal{L})^{-2}\|\leq 1$. Combining with Re$(W(E)) > 0$,
-the field of values of the error term, $W(E)$, is contained in the positive half of the
-unit circle in the complex plane. This leads to the following final result. 
-
-%
-\begin{theorem}\label{th:fov}
-Assume that $\eta > 0$ and the symmetric part of $\mathcal{L}$ satisfies
-$(\mathcal{L}+\mathcal{L}^T)/2 \leq 0$. Let $\mathcal{P}_A$ denote the preconditioned
-operator, where $((\eta + i\beta)I - \mathcal{L})((\eta - i\beta)I - \mathcal{L})$ is
-preconditioned with $(\eta I - \mathcal{L})^{-2}$. Then $W(\mathcal{P}_A)$ is bounded
-by $\Omega$ as shown in \Cref{fig:bound}.
-\begin{figure}[h!]
-\centering
-\includegraphics[width = 0.3\textwidth]{fov.pdf}
-\caption{}
-\label{fig:bound}
-\end{figure}
-\end{theorem}
-%
-
-%
-\begin{corollary}\label{cor:gmres}
-Let $\pi_k$ denote the set of consistent polynomials of degree $k$. Then the ideal GMRES bound
-(an upper bound in operator norm on worst-case convergence) on convergence after $k$ iterations
-applied to the preconditioned operator $\mathcal{P}_A$ \eqref{eq:prec1} is bounded by
 \begin{align*}
-\min_{p\in\pi_k} \|p(\mathcal{P}_A)\| \leq 2\left(\frac{\beta^2/\eta^2}{2 + \beta^2/\eta^2}\right)^k.
+\mathbf{u}_{n+1} & = \mathbf{u}_n + \delta t\begin{bmatrix}0 & ... & I \end{bmatrix}
+	\mathcal{M}_s^{-1}\mathbf{f}.
 \end{align*}
-\end{corollary}
-\begin{proof}
-For operator $M$, let $\nu(M)$ denote the distance of $W(M)$ from the origin. In \todo{cite Liesen},
-they define $\cos(\beta) := \nu(M) / r(M)$, and prove that worst-case convergence of GMRES applied
-to operator $M$ is bounded by (see Lemma 3.2)
-%
-\begin{align}\label{eq:gmres}
-\min_{p\in\pi_k} \|p(M)\| \leq 2\left(\frac{1-\cos\beta}{1+\cos\beta}\right)^k.
-\end{align}
-%
-For $M = \mathcal{P}_A$, we have $\nu(\mathcal{P}_A)= 1$ and $r(\mathcal{P}_A) \leq 1+\beta^2/\eta^2$.
-Plugging into \eqref{eq:gmres} completes the proof. 
-\end{proof}
 %
 
-{\color{blue}
-\begin{itemize}
-	\item Comment on size of $\eta$ and $\beta$ and convergence bounds for GMRES. Largest (squared)
-	ratio I have seen is $\sim 4.29$ for RadauIIA(11), but another eigenvalue pair for the same
-	scheme had ratio $\sim 0.04$, so the seem to even out.
-
-	\item Is $\eta > 0$ always? Looks like it for everything I have tested, would be nice to
-	say something general.. If not, need to confirm it holds for lots of standard methods.
-	This is important assumption in above analysis.
-
-	\item Classical GMRES convergence results based on $\lambda_{\textnormal{min}}((\mathcal{P}_A+
-	\mathcal{P}_A^T)/2)$ and $\lambda_{\textnormal{max}}(\mathcal{P}_A^T\mathcal{P}_A)$ can also
-	be applied, yielding a less tight result of $\left(\frac{\beta^2/\eta^2}{1 + \beta^2/\eta^2}\right)^{k/2}$.
-	The field-of-values is $2-4\times$ tighter, and deriving the field-of-values also reflects the
-	nice conditioning of the operator. 
-
-\end{itemize}
-}
-
-% ----------------------------------------------------------------------------------------------------------- %
-% ----------------------------------------------------------------------------------------------------------- %
-\subsection{Preconditioning quadratic polynomials}
-
-In practice, we generally do not want to directly form preconditioners for a quadratic
-polynomial in $\mathcal{L}$, not the least because even forming such an operator is 
-expensive in parallel. Instead, the previous section suggests we can use two successive 
-applications of a preconditioner for $(\alpha I - \mathcal{L})$. If $(\alpha I - \mathcal{L})^{-1}$
-is applied twice to the \textit{action} of $(\alpha^2+\beta^2)I - 2\alpha\mathcal{L} + \mathcal{L}^2$,
-\Cref{th:fov} proves that the preconditioned operator is very well conditioned and GMRES
-will converge rapidly (see also \Cref{cor:gmres}). However, in practice, fully converging
-$(\alpha I - \mathcal{L})^{-1}$ is not desirable --  even if GMRES converges rapidly,
-if each iteration requires a full linear solve, the resulting method remains moderately
-expensive. 
-Here, we propose applying GMRES to $(\alpha^2+\beta^2)I - 2\alpha\mathcal{L} + \mathcal{L}^2$
-by computing the operator's action (that is, not fully constructing it), and preconditioning
-each GMRES iterations with \textit{two} applications of a sparse parallel preconditioner for
-$(\alpha I - \mathcal{L})$, representing the action of $(\alpha I - \mathcal{L})^{-2}$. 
-
-
-
-{\color{blue}
-\begin{itemize}
-	\item I am thinking each GMRES iteration we only do a few (or even one?) AMG iterations
-	for each application of $(\alpha I - \mathcal{L})$, hoping that at the end it doesn't
-	really take more iterations than if we were to directly apply AMG preconditioned GMRES
-	to $(\alpha I - \mathcal{L})^2$.
-
-	\item We are actually preconditioning a much worse-conditioned operator. The $+\beta^2$
-	term we get in the operator (rather than preconditioner) shifts the field-of-values 
-	positive and away from the origin by $\beta$. Hopefully this pans out by observing
-	rapid convergence..
-
-	\item One thing I am really puzzled by -- by formulating based on $A_0^{-1}$, the
-	eigenvalues in my tests appear to be fairly large in magnitude. E.g., eigenvalues of
-	$A_0$ are $\sim 0.1$ and eigenvalues of $A_0^{-1}$ are $\sim 5$. If this is true and we
-	can get away with solving $(\eta I -\mathcal{L})$ for $\eta \sim 10\times$ larger than
-	eigenvalues of $A_0$, that could be huge. In theory such systems would likely be way
-	better conditioned. It also seems too good to be true/not very intuitive to solve a
-	system with such a big shift when our actual time step is $\ll$..
-
-\end{itemize}
-}
-
-
-% ----------------------------------------------------------------------------------------------------------- %
-% ----------------------------------------------------------------------------------------------------------- %
-% ----------------------------------------------------------------------------------------------------------- %
-\newpage
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
 \section{The time-dependent case}
 
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+\subsection{LU/Gauss decomposition}
 
-{\color{blue}
+See Theorem 4.4 in ``A Theory of Noncommutative Determinants and Characteristic Functions of Graphs.''
+This proves the standard LU/Gauss decomposition for a matrix over a noncommutative division ring.
+It is based on quasideterminants. That paper gives a UL decomposition, but Theorem 4.9.7 in
+arxiv version of QUASIDETERMINANTS gives the LU decomposition. In practice I think we would want
+the LU, not UL, particularly for stiffly accurate because we don't need to compute the whole $U^{-1}$. 
 
-\begin{itemize}
-\item What happens when $\mathcal{L}$ is time-dependent? For the $2\times 2$ case, it is
-likely that $\alpha_{12}\alpha_{21}$ is positive, in which case we can use a similar
-motivation as above to to precondition $P_{\mathcal{L}}$ with $(\alpha_{11}I - \mathcal{L}_1)^{-1}
-(\alpha_{22}I - \mathcal{L}_2)^{-1}$. How would this extend to 3/4 stages though?
-For fixed-time, this is not as desirable because have to solve two different
-matrices, whereas to address conjugate case above we solve both with $\alpha$.
+Observe that the block matrix $\mathcal{M}_s$ in \eqref{eq:k1} is a matrix defined over a 
+noncommutative ring $R$. Let us further assume that $R$ is a division ring, that is, every 
+element in $R$ has a multiplicative inverse. Note that it is easy to construct an example
+where $R$ is not a division ring: simply let $\alpha_{12}$ be an eigenvalue of $(\alpha_{11}I - \mathcal{L})$,
+in which case $(\alpha_{11}I - \mathcal{L}) - \alpha_{12}I$ is singular and does not have
+a multiplicative inverse. However, this assumption is a technical tool and \tcb{I believe
+RK coefficients make it okay in practice?}
 
-\item We can do maybe handle time dependence formally -- there is theory on matrices over
-non-commutative rings. There is even a closed form for the inverse based on quasi-determinants,
-where we can express each element of $A^{-1}$ (https://en.wikipedia.org/wiki/Quasideterminant).
-
-\item The original form before we factor out $A_0\otimes I$ is almost a Manin matrix. A Manin
-matrix is a specific kind of matrix over a noncommutative ring where traditional linear
-algebra results hold. Could use Manin inverse as a preconditioner? Can we scale $A_0$
-in any way such that it is a Manin matrix? Looking at $2\times 2$, this doesn't look
-promising.
+Moving forward, in matrix form a constant $\alpha_{ij}$ is typically implied to be
+$\alpha_{ij}I$, but the $I$ is removed for ease of notation.
 
 
-\end{itemize}
+% ---------------------------------------------------------------------------------------------- %
+\subsubsection{2x2}
 
+\begin{align*}
+L & = \begin{bmatrix}
+	1 & 0 \\
+	\alpha_{21} (\alpha_{11} - \mathcal{L}_1)^{-1} & I
+\end{bmatrix}
+,\hspace{5ex}
+U = \begin{bmatrix}
+	\alpha_{11} - \mathcal{L}_1 & \alpha_{12} \\
+	0 & \alpha_{22} - \mathcal{L}_2 - \alpha_{12} \alpha_{21} (\alpha_{11} - \mathcal{L}_1)^{-1}
+\end{bmatrix}
+\end{align*}
+
+
+
+% ---------------------------------------------------------------------------------------------- %
+\subsubsection{3x3}
+
+
+
+\begin{align*}
+L & = 
+\begin{bmatrix}
+I & 0 & 0 \\
+\alpha_{31} (\alpha_{11} - \mathcal{L}_1)^{-1} & I & 0 \\
+\alpha_{21} (\alpha_{11} - \mathcal{L}_1)^{-1} & (\alpha_{22} - \mathcal{L}_2 - \alpha_{12} \alpha_{21} (\alpha_{11} - \mathcal{L}_1)^{-1}) (\alpha_{32} - 
+\alpha_{12} \alpha_{31} (\alpha_{11} - \mathcal{L}_1)^{-1})^{-1} & I
+\end{bmatrix} ,
+\\
+U & = \begin{bmatrix}
+\alpha_{11} - \mathcal{L}_1 & \alpha_{12} & \alpha_{13} \\
+0 & \alpha_{32} - \alpha_{12} \alpha_{31} (\alpha_{11} - \mathcal{L}_1)^{-1} & \alpha_{33} - \mathcal{L}_3 - \alpha_{13} \alpha_{31} (\alpha_{11} - \mathcal{L}_1)^{-1} \\
+0 & 0 & Q
+\end{bmatrix}
+\\
+Q & = \alpha_{23} - 
+\alpha_{13} \alpha_{21} (\alpha_{11} - \mathcal{L}_1)^{-1} -
+	(\alpha_{22} - \mathcal{L}_2 - \alpha_{12} \alpha_{21} (\alpha_{11} - \mathcal{L}_1)^{-1}) \\
+	&\hspace{5ex}
+	(\alpha_{33} - \mathcal{L}_3 - \alpha_{13} \alpha_{31} (\alpha_{11} - \mathcal{L}_1)^{-1})
+	(\alpha_{32} - \alpha_{12} \alpha_{31} (\alpha_{11} - \mathcal{L}_1)^{-1})^{-1}
+\\
+& = \alpha_{23} - 
+\alpha_{13} \alpha_{21} (\alpha_{11} - \mathcal{L}_1)^{-1} -
+	(\alpha_{11} - \mathcal{L}_1)^{-1}((\alpha_{11} - \mathcal{L}_1)(\alpha_{22} - \mathcal{L}_2) -
+		\alpha_{12} \alpha_{21}) \\
+	&\hspace{5ex}
+	((\alpha_{33} - \mathcal{L}_3)(\alpha_{11} - \mathcal{L}_1) - \alpha_{13} \alpha_{31})
+	(\alpha_{32}(\alpha_{11} - \mathcal{L}_1) - \alpha_{12} \alpha_{31})^{-1}
+\\
+& = (\alpha_{11} - \mathcal{L}_1)^{-1} \bigg( \Big[\alpha_{23}(\alpha_{11} - \mathcal{L}_1) -
+	\alpha_{13} \alpha_{21}\Big]\Big[\alpha_{32}(\alpha_{11} - \mathcal{L}_1) - \alpha_{12} \alpha_{31}\Big]
+	- \\\
+	&\hspace{5ex}
+	\Big[(\alpha_{11} - \mathcal{L}_1)(\alpha_{22} - \mathcal{L}_2) - \alpha_{12} \alpha_{21}\Big]
+	\Big[(\alpha_{33} - \mathcal{L}_3)(\alpha_{11} - \mathcal{L}_1) - \alpha_{13} \alpha_{31}\Big]
+	\bigg)\Big[\alpha_{32}(\alpha_{11} - \mathcal{L}_1) - \alpha_{12} \alpha_{31}\Big]^{-1}
+\end{align*}
+
+
+
+Quasideterminant:
+{\tiny
+\begin{align*}
+\begin{bmatrix}
+\alpha_{33} - \mathcal{L}_3 - 
+ \alpha_{32} \left(\alpha_{13} \left(\alpha_{12} - \left(\alpha_{11} - \mathcal{L}_1\right) \frac{\left(\alpha_{22} - \mathcal{L}_2\right)}{\alpha_{21}}\right)^{-1} - \frac{\left(
+    \alpha_{23} \left(\alpha_{12} - \left(\alpha_{11} - \mathcal{L}_1\right) \frac{\left(\alpha_{22} - \mathcal{L}_2\right)}{\alpha_{21}}\right)^{-1} \left(\alpha_{11} - \mathcal{L}_1\right)\right)}{\alpha_{21}}\right) - 
+ \alpha_{31} \left(-\left(\frac{\left(\alpha_{13} \left(\alpha_{22} - \mathcal{L}_2\right) \left(\alpha_{12} - \left(\alpha_{11} - \mathcal{L}_1\right) \left(\alpha_{22} - \mathcal{L}_2\right)/\alpha_{21}\right)^{-1}\right)}{\alpha_{21}}\right)
+ + \frac{\left(\alpha_{23} \left(1 + \left(\alpha_{22} - \mathcal{L}_2\right) \left(\alpha_{12} - \left(\alpha_{11} - \mathcal{L}_1\right) \frac{\left(\alpha_{22} - \mathcal{L}_2\right)}{
+          \alpha_{21}}\right)^{-1} \left(\alpha_{11} - \mathcal{L}_1\right)/\alpha_{21}\right)\right)}{\alpha_{21}}\right)
+\end{bmatrix}
+\end{align*}
 }
 
-% ----------------------------------------------------------------------------------------------------------- %
-% ----------------------------------------------------------------------------------------------------------- %
+
+
+
+
+% ---------------------------------------------------------------------------------------------- %
+\subsubsection{4x4}
+
+
+
+
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+\subsection{Direct inverse?}
+
+
+Consider 
+%
+\begin{align}\label{eq:Mnt}
+\mathcal{M}_3 &:= \begin{bmatrix} (\alpha_{11} I + \mathcal{L}) & \alpha_{12}I & \alpha_{13}I \\
+    \alpha_{21}I & (\alpha_{22}I + \mathcal{L}) & \alpha_{23} I \\
+    \alpha_{31}I & \alpha_{32}I & (\alpha_{33} I + \mathcal{L}) \end{bmatrix}.
+\end{align}
+%
+For stiffly accurate problems, we only need the last row of $\mathcal{M}_3^{-1}$. Using
+the Noncommutative algebra package in mathematica, we can work this out as
+%
+\begin{align*}
+P & := \frac{1}{\alpha_{21}} \bigg(\alpha_{13}\alpha_{21} - \alpha_{23} (\alpha_{11} - \mathcal{L}_1)
+ 	+ \Big[\alpha_{12}\alpha_{21} - (\alpha_{11} - \mathcal{L}_1)(\alpha_{22} - \mathcal{L}_2)\Big]
+ 	\\ &\hspace{20ex} 
+ 	\Big[\alpha_{32}\alpha_{21} - \alpha_{31} (\alpha_{22} - \mathcal{L}_2)\Big]^{-1}
+ 	\Big[\alpha_{23}\alpha_{31} - \alpha_{21}(\alpha_{33} - \mathcal{L}_3)\Big]\bigg),
+\\
+r_1 & = P^{-1} \\
+r_2 & = -\frac{1}{\alpha_{21}} P^{-1} \left( (\alpha_{11} - \mathcal{L}_1) -
+\alpha_{31} \Big[\alpha_{12}\alpha_{21} - (\alpha_{11} - \mathcal{L}_1)
+	(\alpha_{22} - \mathcal{L}_2)\Big]
+	\Big[\alpha_{32}\alpha_{21} - \alpha_{31} (\alpha_{22} - \mathcal{L}_2)\Big]^{-1}\right),
+\\
+r_3 & = - P^{-1} \Big[\alpha_{12}\alpha_{21} - (\alpha_{11} - \mathcal{L}_1) (\alpha_{22} - \mathcal{L}_2)\Big] \Big[\alpha_{32}\alpha_{21} -
+\alpha_{31}(\alpha_{22} - \mathcal{L}_2)\Big]^{-1}
+\end{align*}
+%
+For purposes of preconditioning, let us assume commutation of $\mathcal{L}_1$ and
+$\mathcal{L}_2$ or $\mathcal{L}_2$ and $\mathcal{L}_3$ and factor out the inverse
+term in $P$. This results in the modified operator
+%
+\begin{align*}
+\widehat{P} &:= \frac{1}{\alpha_{21}} \bigg(
+	\Big[\alpha_{13}\alpha_{21} - \alpha_{23} (\alpha_{11} - \mathcal{L}_1)\Big]
+	\Big[\alpha_{32}\alpha_{21} - \alpha_{31} (\alpha_{22} - \mathcal{L}_2)\Big] +
+\\ &\hspace{10ex} 
+ 	\Big[\alpha_{12}\alpha_{21} - (\alpha_{11} - \mathcal{L}_1)(\alpha_{22} - \mathcal{L}_2)\Big]
+ 	\Big[\alpha_{23}\alpha_{31} - \alpha_{21}(\alpha_{33} - \mathcal{L}_3)\Big]\bigg)
+\end{align*}
+%
+
+
+{\color{blue}
+Interestingly, I think $\widehat{P}$ is exactly the determinant in \eqref{eq:det}.. Upside
+of that is maybe using the determinant/adjugate form would avoid having to apply the action
+of $P$ (which includes an inverse) every iteration. Downside is it seems like that doesn't
+take advantage of the fact that we only need $[0,...,0,1]\mathcal{M}_s^{-1}$.
+}
+
+
+
+
+
+
+
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
 \subsection{Two stages}
 
 Consider the case of two fully implicit stages. Then we need to invert a block linear system
@@ -771,7 +376,7 @@ the $1/det$ with the right scaling by the polynomial inverses.. We can also rest
 polynomials out of the left }
 
 
-% ----------------------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
 \subsubsection{Two stages}
 
 Returning to the case of two stages, by assuming $\mathcal{L}_1 = \mathcal{L}_2$ we have
@@ -790,7 +395,7 @@ relatively simple algebraic structure,
 
 
 
-% ----------------------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
 \subsubsection{Three stages}
 
 For nonsingular scalar $3\times 3$ matrix $A$, the inverse is given by 
@@ -847,13 +452,15 @@ A_{31} &=  \alpha_{21}\alpha_{32}I - \alpha_{31}(\alpha_{22}I - \mathcal{L}), \\
 Working through the details, it is striaghtforward to confirm that $\mathcal{N}_3\mathcal{M}_3$
 is a block-diagonal matrix, with diagonal blocks given by the (block) determinant of $\mathcal{M}_3$,
 %
-\begin{align*}
+\begin{align} \label{eq:det}
+\begin{split}
 D & = (\alpha_{11}I - \mathcal{L}) (\alpha_{22}I - \mathcal{L})(\alpha_{33} I - \mathcal{L}) -
 	\alpha_{23}\alpha_{32}(\alpha_{11}I - \mathcal{L}) - \\
 & \hspace{5ex} 
 	\alpha_{13}\alpha_{31}(\alpha_{22}I - \mathcal{L}) -
 	\alpha_{12}\alpha_{21}(\alpha_{33}I - \mathcal{L}) + (\alpha_{13}\alpha_{32}\alpha_{21} + \alpha_{12}\alpha_{23}\alpha_{31})I.
-\end{align*}
+\end{split}
+\end{align}
 %
 Similar to the $2\times 2$ case (albeit algebraically more complicated), this is a cubic polynomial in
 $\mathcal{L}$. By computing the roots of this polynomial, we can construct error propagation of a
@@ -882,9 +489,9 @@ be exact.
 }
 %
 
-% ----------------------------------------------------------------------------------------------------------- %
-% ----------------------------------------------------------------------------------------------------------- %
-% ----------------------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
 \section{Parallel in time}
 
 \begin{itemize}
@@ -900,8 +507,8 @@ be exact.
 \end{itemize}
 
 
-% ----------------------------------------------------------------------------------------------------------- %
-% ----------------------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
 \subsection{Precondition HO with LO}
 
 
@@ -950,8 +557,8 @@ work with fully implicit fine grid discretization, preconditioned with BE.. Woul
 could be effective. 
 
 
-% ----------------------------------------------------------------------------------------------------------- %
-% ----------------------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
 \subsection{A multigrid or block preconditioning perspective}
 
 Let $A$ and $\mathbf{b}$ correspond to Butcher tableaux,
@@ -1036,3 +643,4 @@ I see two nice ways to think about this:
 
 
 \end{document}
+

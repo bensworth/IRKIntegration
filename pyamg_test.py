@@ -20,8 +20,8 @@ from scipy import sparse
 
 accel = 'cg'
 maxiter = 250
-c1 = 1.0
-c2 = 1.0
+c1 = 0.1
+c2 = 0.0
 
 A = pyamg.gallery.poisson((500,500), format='csr')  # 2D Poisson problem on 500x500 grid
 N = A.shape[0]
@@ -66,3 +66,4 @@ print("\tCycle complexity    = ",CC)
 print("\tWork per digit      = ",-CC / np.log10(CF))
 print("\tAverage CF          = ",CF)
 print("\tFinal CF            = ",last_CF)
+print("\tNum iters           = ",len(residuals))
