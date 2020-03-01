@@ -30,6 +30,7 @@
 % \newtheorem{corollary}{Corollary}
 
 \newcommand{\tcb}{\textcolor{blue}}
+\newcommand{\tcp}{\textcolor{purple}}
 \newcommand{\todo}[1]{\textcolor{red}{[TODO\@: #1]}}
 
 % ------------------------------------------------------------------------------------ %
@@ -370,7 +371,7 @@ The RK stage system in \eqref{eq:k0} can be reformulated as \todo{cite Will}
 %
 For ease of notation, let us scale both sides of the system by a block-diagonal mass matrix 
 and, excusing the slight abuse of notation, let $\mathcal{L}_i \mapsto \delta t M^{-1}\mathcal{L}_i$,
-$i=1,..,s$. Note the time step $\delta t$ for the given Runge-Kutta step is now included in $\mathcal{L}_i$. Now let $\alpha_{ij}$ denote the $ij$-element of $A_0^{-1}$ (assuming $A_0$ is
+$i=1,..,s$ \tcp{[Maybe we should write $\hat{\cal L}_i \coloneqq \delta t M^{-1}\mathcal{L}_i$? Since it's a bit confusing/misleading: Applying the action of ${\cal L}$ is simpler and less expensive than $\hat{\cal L}$, which involves a mass matrix solve. Also, I'm not sure that all properties of ${\cal L}_i$ extend to $\hat{\cal L}_i$, like commutativity?]}. Note the time step $\delta t$ for the given Runge-Kutta step is now included in $\mathcal{L}_i$. Now let $\alpha_{ij}$ denote the $ij$-element of $A_0^{-1}$ (assuming $A_0$ is
 invertible). Then, solving \eqref{eq:k0} can be effectively reduced to inverting the operator
 %
 \begin{align}\nonumber
@@ -400,16 +401,16 @@ is the characteristic polynomial of $A_0^{-1}$.
 %
 \begin{lemma}\label{lem:inv}
 Let $\alpha_{ij}$ denote the $(i,j)$th entry of $A_0^{-1}$ and assume $\{\mathcal{L}_i\}_{i=1}^s$
-are commuting operators. Define $\mathcal{M}_s$
+are commuting operators\footnote{\tcp{Does the mass matrix stop this from happening though? Because if the true spatial discretizations $\{\mathcal{L}_i\}_{i=1}^s$ commute, how likely is it that the mass-matrix scaled operators $\{ \hat{\cal L}_i \}_{i=1}^s = \{\delta t M^{-1} \mathcal{L}_i\}_{i=1}^s$ commute? Wouldn't this mean that $M^{-1}$ has to commute with all ${\cal L}_i$?}}. Define $\mathcal{M}_s$
 % \begin{align*}
 % \mathcal{M}_s := \begin{bmatrix} \alpha_{11}I - \mathcal{L}_1 & \alpha_{12}I & ... & \alpha_{1s}I \\
 % 	\alpha_{21}I & \alpha_{22}I - \mathcal{L}_2 & & \alpha_{2s}I \\
 % 	\ddots & & \ddots & \vdots \\ \alpha_{s1}I & ... & \alpha_{s(s-1)}I & \alpha_{ss}I - \mathcal{L}_s \end{bmatrix},
 % \end{align*}
-as in \eqref{eq:kron1}.
+as in \eqref{eq:kron1}  \tcp{[Do you mean  \eqref{eq:k1}?]}.
 Let det$(\mathcal{M}_s)$ be the determinant of $\mathcal{M}_s$ (in this case a block-diagonal
-matrix) and let adj$(\mathcal{M}_s)$ be the adjugate of $\mathcal{M}_s$. Then, $\mathcal{M}_s$
-is invertible if and only if $\mathcal{D}_s$ is invertible, and
+matrix\footnote{\tcp{What does it mean for a determinant to be a block matrix, though? Isn't a determinant always a scalar? This relates to my long comment below.}}) and let adj$(\mathcal{M}_s)$ be the adjugate of $\mathcal{M}_s$. Then, $\mathcal{M}_s$
+is invertible if and only if $\mathcal{D}_s$ is invertible\footnote{\tcp{What is $\mathcal{D}_s$?}}, and\footnote{\tcp{In this equation, should this be ``det$(\mathcal{M}_s)$'' rather than ``det$({M}_s)$'', and also in all the places following this equation where you have ``det$({M}_s)$''?}}
 \begin{align*}
 \mathcal{M}_s^{-1} = \textnormal{det}({M}_s)^{-1}\textnormal{adj}(\mathcal{M}_s).
 \end{align*}{}
@@ -442,6 +443,61 @@ above. Analogous to a scalar matrix, the determinant of $A_0^{-1} - \mathcal{L}I
 characteristic polynomial of $A_0^{-1}$ evaluated at $\mathcal{L}$.
 \end{proof}
 %
+
+\tcp{
+I'm confused... I suspect this stems from the fact I don't really know (lack the background) what it means  that ${\cal M}_s$ is defined over a  ``commutative ring'' and what this allows you to do/what makes sense in terms of computing its inverse.
+To clarify, do you mean that if we have the characteristic polynomial of $A_0^{-1}$, $P_s \colon \mathbb{C} \to \mathbb{C}$,
+\[
+P_s(z) = \det(A_0^{-1} - z I) = \prod_{k = 1}^s (\lambda_k - z), \quad \{\lambda\} {\rm \, the\, eigenvalues\, of\, }A_0^{-1},
+\] 
+and the matrix, ${\cal Q} \colon \mathbb{R} \to \mathbb{R}^{s \times s}$,
+\[
+\mathcal{Q}(z) = {\rm adj}(A_{0}^{-1} - zI) \in \mathbb{R}^{s \times s}, \quad {\rm with\, entries} \quad [\mathcal{Q}(z)]_{ij} = q_{ij}(z) \in \mathbb{R}.
+\] 
+Then, if we generalize these functions to take matrix-valued arguments (in the first by letting $\lambda_k \mapsto \lambda_k I$, and in the second by allowing each matrix element $q_{ij}(z)$ to be matrix valued) we can write the inverse of ${\cal M}_s$ as 
+\begin{align*}
+\mathcal{M}_s^{-1} 
+&= \underbrace{\left( I_s \otimes \prod_{k = 1}^s (\lambda_k I - {\cal L}) \right)^{-1}}_{\neq \det({\cal M}_s)^{-1}?}
+\underbrace{\begin{bmatrix}
+q_{11} ({\cal L}) & \cdots & q_{1s}({\cal L}) \\
+\vdots & \cdots & \vdots \\
+q_{s1} ({\cal L}) & \cdots & q_{ss}({\cal L}) 
+\end{bmatrix}}_{\neq {\rm adj}({\cal M}_s)?}.
+\end{align*}
+For example, when you say the ``determinant'' of $A_0^{-1} - {\cal L} I$, you mean the matrix $  I_s \otimes \prod_{k = 1}^s (\lambda_k I - {\cal L}) $ (or maybe even just $\prod_{k = 1}^s (\lambda_k I - {\cal L})$)? But this is not a determinant because it's a matrix and not a scalar? You cannot do $\det(A - z I)$ for $z$ a matrix, i.e., the characteristic polynomial of $A$ is not defined for matrix-valued inputs (e.g., what is $\lambda_k - {X}$ for some matrix $X$)? This is like the matrix $A_0^{-1} - {\cal L}I$ above, how does this matrix make sense?}\\
+
+\tcp{
+Does ${\cal M}_s$ being defined over a commutative ring just mean that it's a matrix whose elements are closed under addition/multiplication (i.e., they're from a commutative ring)? E.g., ${\cal M}_s$ being defined over a commutative ring of linear combinations of $I$ and ${\cal L}$ means that it's a matrix whose elements are given by linear combinations of $I$ and ${\cal L}$? And this fact somehow means we can generalize the definition of the determinant and adjugate from working with scalar matrix elements (which themselves come from a commutative ring) to matrix elements that are actually matrices from a commutative ring? So it's basically like what's described here for the determinant (\url{https://en.wikipedia.org/wiki/Determinant\#Square\_matrices\_over\_commutative\_rings\_and\_abstract\_properties}, but I  don't really understand the details...)?
+}
+
+\tcp{Anyways, if what I say above is kind of right, I don't understand the notation/how you distinguish between these operators and their generalizations (or don't you?). For example, I think the determinant of ${\cal M}_s$ is actually
+\begin{align*}
+\det {\cal M}_s \overset{?}{=} \det \prod_{k = 1}^s (\lambda_k I - {\cal L}),
+\end{align*}
+and 
+\begin{align*}
+{\rm det}_{\rm g} {\cal M}_s = \prod_{k = 1}^s (\lambda_k I - {\cal L})
+\end{align*}
+is like a generalized determinant of ${\cal M}_s$?
+Similarly, the adjugate of ${\cal M}_s$ is
+\begin{align*}
+{\rm adj\,} {\cal M}_s \overset{?}{=} {\rm adj\,} 
+\begin{bmatrix}
+q_{11} ({\cal L}) & \cdots & q_{1s}({\cal L}) \\
+\vdots & \cdots & \vdots \\
+q_{s1} ({\cal L}) & \cdots & q_{ss}({\cal L}) 
+\end{bmatrix},
+\end{align*}
+and 
+\begin{align*}
+{\rm adj}_{\rm g} = \begin{bmatrix}
+q_{11} ({\cal L}) & \cdots & q_{1s}({\cal L}) \\
+\vdots & \cdots & \vdots \\
+q_{s1} ({\cal L}) & \cdots & q_{ss}({\cal L}) 
+\end{bmatrix}
+\end{align*}
+is the generalized adjugate? Hmm, but adjugate relation doesn't quite hold in the MATLAB code I wrote... And from what you have above, I'm guessing that we can write the inverse of ${\cal M}$ using the generalized operators (except we need to do diag of the generalized determinant)?
+}
 
 Returning to \eqref{eq:keq}, we can express the direct solution for the set of all
 stage vectors ${\mathbf{k}} = [\mathbf{k}_1; ...; \mathbf{k}_s]$ as
