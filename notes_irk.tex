@@ -3,6 +3,7 @@
 \usepackage{url}
 \usepackage{amssymb}
 \usepackage{amsmath}
+\usepackage{bm}
 \usepackage{stmaryrd}
 \usepackage{array}
 \usepackage{empheq}
@@ -32,6 +33,9 @@
 \newcommand{\tcb}{\textcolor{blue}}
 \newcommand{\tcp}{\textcolor{purple}}
 \newcommand{\todo}[1]{\textcolor{red}{[TODO\@: #1]}}
+
+\newcommand{\mdet}{\operatorname{det}}
+\newcommand{\madj}{\operatorname{adj}}
 
 % ------------------------------------------------------------------------------------ %
 % ------------------------------------------------------------------------------------ %
@@ -799,6 +803,74 @@ $(\eta I - \mathcal{L})$, representing the action of $(\eta I - \mathcal{L})^{-2
 
 \end{itemize}
 }
+
+
+
+% ----------------------------------------------------------------------------------------------------------- %
+% ----------------------------------------------------------------------------------------------------------- %
+\section{Implementation details:  The time-independent case}
+The basic idea is that we need to do the update
+\begin{align} \label{eq:RK_update}
+\bm{u}_{n+1}  = \bm{u}_n + \delta t \mdet({\cal M}_s)^{-1} \big( \bm{b}_0^\top A^{-1}_0 \otimes I \big) \madj({\cal M}_s) \bm{f},
+\end{align}
+where we have
+\begin{itemize}
+\item $m \in \mathbb{N}$: The dimension of the spatial problem
+
+\item $\bm{f} = (\bm{f}_1, \ldots, \bm{f}_s)^\top$, with $\bm{f}_j \in \mathbb{R}^m$
+
+\item $\tilde{\bm{b}}^\top_0 \coloneqq \bm{b}^\top_0 A^{-1}_0 \in \mathbb{R}^{1 \times s}$ (this is a row vector, not that this distinction really matters) 
+\end{itemize}
+
+Now we break \eqref{eq:RK_update} into two steps:
+\begin{enumerate}
+\item{Step 1:}\label{it:update_step1}Compute 
+\begin{align} \label{eq:step1}
+\bm{z} = \big( \hat{\bm{b}}^\top_0 \otimes I \big) \madj ({\cal M}_s) \bm{f} \in \mathbb{R}^m
+\end{align}
+
+\item{Step 2:}\label{it:update_step2} Solve
+\begin{align} \label{eq:step2}
+\mdet( {\cal M}_s ) \bm{y} = \bm{z},
+\end{align}
+then update per \eqref{eq:RK_update}, $\bm{u}_{n+1} = \bm{u}_n + \delta t \bm{y}$
+\end{enumerate}
+
+
+\subsection{On Step \ref{it:update_step1}}
+
+The adjugate of ${\cal M}_s$ is a matrix defined over degree  $s-1$ polynomials in ${\cal L} \in \mathbb{R}^{m \times m}$. More specifically, we write it as
+\begin{align}
+\madj ({\cal M}_s) = 
+\begin{bmatrix}
+Q_{11}({\cal L}) & \cdots & Q_{1s}({\cal L}) \\
+\vdots & & \vdots \\
+Q_{s1}({\cal L}) & \cdots & Q_{ss}({\cal L})
+\end{bmatrix}
+\in \mathbb{R}^{ms \times ms},
+\quad
+Q_{ij}({\cal L}) = \sum \limits_{k = 0}^{s-1} \hat{q}_{ijk} {\cal L}^k \in \mathbb{R}^{m \times m}.
+\end{align}
+
+Now, the Kronecker product appearing in front of this matrix simply takes inner products over its columns to give a block rectangular matrix whose elements are therefore polynomials in ${\cal L}$ of degree $s-1$:
+\begin{align}
+\big( \bm{b}_0^\top A^{-1}_0 \otimes I \big) \madj({\cal M}_s) 
+=
+\begin{bmatrix}
+X_{1}({\cal L}), \, \cdots, \, X_{s}({\cal L})
+\end{bmatrix},
+\end{align}
+where
+\begin{align}
+X_{j}({\cal L}) = \sum \limits_{k = 0}^{s-1} \hat{x}_{j k} {\cal L}^k \in \mathbb{R}^{m \times m}, 
+\quad
+\hat{x}_{j k} = \sum \limits_{\ell = 1}^s \big( \tilde{\bm{b}}_0^\top \big)_{\ell} \hat{q}_{\ell j k}.
+\end{align}
+And, so, finally, the vector in \eqref{eq:step1} can be written as the sum
+\begin{align} \label{eq:z_sum}
+\bm{z} = \sum \limits_{i = 1}^s X_i({\cal L}) \bm{f}_i.
+\end{align}
+The main task here is going to be computing the action of the degree $s-1$ polynomials $X_i({\cal L})$ of the components of $\bm{f}$; note that we can  easily compute the sets of coefficients $\{ x_{jk} \}_{(j,k)=(1,0)}^{(s,s-1)}$. I think the most efficient way to compute the action of this polynomial is with a Horner-like scheme which is a well-known technique for evaluating scalar polynomials (see \url{https://en.wikipedia.org/wiki/Horner\%27s_method}). Basically, we can compute the action of the $n$th degree polynomial $P_n({\cal L})$ on a vector using: $n$ \texttt{MATVECs} with ${\cal L}$, $n+1$ \texttt{AXPYs} ($\bm{x} \gets \alpha \bm{y} + \beta \bm{z}$), $n$ \texttt{copies} ($n$ lots of copying values from one vector to another, $n \times [\bm{x} \gets \bm{y}]$), and one intermediate/temporary vector. So the main cost in computing \eqref{eq:z_sum} is $s(s-1)$ \texttt{MATVECs} with ${\cal L}$.
 
 
 
