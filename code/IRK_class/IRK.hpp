@@ -26,8 +26,6 @@ private:
     std::vector<double>              m_beta;    /* Imaginary components of eigenvalues of invA0 */
     std::vector<double>              m_eta;     /* Real components of eigenvalues of invA0 */
     
-    
-    std::vector<std::vector<std::vector<double>>> m_adjMCoeffs; /* Coefficients for polynomials in block adjugate of Ms  */
     std::vector<std::vector<double>> m_XCoeffs;                 /* Coefficients for polynomials in block rectangular matrix X  */
     
     /* --- Relating to HYPRE solution of linear systems --- */
@@ -36,7 +34,6 @@ private:
 protected:    
     
     void SetButcherCoeffs();
-    void SetAdjMCoeffs();
     void SetXCoeffs();
     void PolyAction(); /* Compute action of a polynomial on a vector */
     

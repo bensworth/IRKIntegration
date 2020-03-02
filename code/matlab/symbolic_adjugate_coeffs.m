@@ -7,9 +7,9 @@
 clc
 clear
 
-s = 4; % Number of stages. Choose this to be whatever you like!
+s = 2; % Number of stages. Choose this to be whatever you like!
 adjMCoeffs_label = 'm_adjMCoeffs'; % Actual variable name of output
-invA0_label      = 'm_invA0';       % Actual variable name of matrix A above
+invA_label       = 'm_invA0';       % Actual variable name of matrix A above
 
 % Symbolic matrix. If you do it this way, the matrix elements are indexed from 1, which is not what we want...
 %A = sym('A_%d__%d___', [s, s]);
@@ -48,7 +48,7 @@ for i = 1:s
         q = strrep(q, '___', ']'); % Replace the ___ on the RHS of each matrix element by ']'
         q = strrep(q, '__', ']['); % Replace the __ in the middle of each matrix element by ']['
         q = strrep(q, '_', '[');   % Replace the _ on the LHS of each matrix element by '['
-        q = strrep(q, 'A', invA0_label); % Replace A with proper label
+        q = strrep(q, 'A', invA_label); % Replace A with proper label
         q = strrep(q, ' ', '');          % Remove any spaces
         
         fprintf('/* s=%d:\tCoefficients for polynomial Q_{%d,%d}(z) */\n', s, i, j)

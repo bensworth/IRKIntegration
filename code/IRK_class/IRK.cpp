@@ -5,7 +5,6 @@ IRK::IRK(MPI_Comm globComm, int RK_ID) {
     m_RK_ID = RK_ID;
     
     SetButcherCoeffs();
-    SetAdjMCoeffs();
     SetXCoeffs();
     
     
@@ -125,201 +124,84 @@ void IRK::SetButcherCoeffs() {
     
 }
 
-/* Given the numerical form of A0^{-1}, saved in the array m_invA0, get the coefficients 
-    in the polynomials in z that make up the entries of adjugate(M), M == A0^{-1} - z*I */
-void IRK::SetAdjMCoeffs() {
+/* Given the precomputed vector m_b0_tilde, and the inverse of A0, compute and 
+    store coefficients of the polynomials X_j */
+void IRK::SetXCoeffs() {
     
-    // There are s^2 lots of s coefficients
-    m_adjMCoeffs.resize(m_s, std::vector<std::vector<double>>(m_s, std::vector<double>(m_s, 0.0)));
+    // There are m_s lots of m_s coefficients
+    m_XCoeffs.resize(m_s, std::vector<double>(m_s, 0.0));
     
-    if (m_s == 1) {        
-        /* s=1:	Coefficients for polynomial Q_{1,1}(z) */
-        m_adjMCoeffs[0][0][0]=+1.0;
+    if (m_s == 1) {
+        /* s=1: Coefficients for polynomial X_{1}(z) */
+        m_XCoeffs[0][0]=+m_b0tilde[0];
         
     } else if (m_s == 2) {
-        /* s=2:	Coefficients for polynomial Q_{1,1}(z) */
-        m_adjMCoeffs[0][0][0]=+m_invA0[1][1];
-        m_adjMCoeffs[0][0][1]=-1.0;
+        /* s=2: Coefficients for polynomial X_{1}(z) */
+        m_XCoeffs[0][0]=+m_invA0[1][1]*m_b0tilde[0]-m_invA0[1][0]*m_b0tilde[1];
+        m_XCoeffs[0][1]=-m_b0tilde[0];
 
-        /* s=2:	Coefficients for polynomial Q_{1,2}(z) */
-        m_adjMCoeffs[0][1][0]=-1.0*m_invA0[0][1];
-        m_adjMCoeffs[0][1][1]=+0.0;
+        /* s=2: Coefficients for polynomial X_{2}(z) */
+        m_XCoeffs[1][0]=+m_invA0[0][0]*m_b0tilde[1]-m_invA0[0][1]*m_b0tilde[0];
+        m_XCoeffs[1][1]=-m_b0tilde[1];
 
-        /* s=2:	Coefficients for polynomial Q_{2,1}(z) */
-        m_adjMCoeffs[1][0][0]=-1.0*m_invA0[1][0];
-        m_adjMCoeffs[1][0][1]=+0.0;
-
-        /* s=2:	Coefficients for polynomial Q_{2,2}(z) */
-        m_adjMCoeffs[1][1][0]=+m_invA0[0][0];
-        m_adjMCoeffs[1][1][1]=-1.0;
-        
     } else if (m_s == 3) {
-        /* s=3:	Coefficients for polynomial Q_{1,1}(z) */
-        m_adjMCoeffs[0][0][0]=+m_invA0[1][1]*m_invA0[2][2]-1.0*m_invA0[1][2]*m_invA0[2][1];
-        m_adjMCoeffs[0][0][1]=-1.0*m_invA0[1][1]-1.0*m_invA0[2][2];
-        m_adjMCoeffs[0][0][2]=+1.0;
+        /* s=3: Coefficients for polynomial X_{1}(z) */
+        m_XCoeffs[0][0]=+m_b0tilde[2]*(m_invA0[1][0]*m_invA0[2][1]-m_invA0[1][1]*m_invA0[2][0])-m_b0tilde[1]*(m_invA0[1][0]*m_invA0[2][2]-m_invA0[1][2]*m_invA0[2][0])+m_b0tilde[0]*(m_invA0[1][1]*m_invA0[2][2]-m_invA0[1][2]*m_invA0[2][1]);
+        m_XCoeffs[0][1]=+m_invA0[1][0]*m_b0tilde[1]+m_invA0[2][0]*m_b0tilde[2]-m_b0tilde[0]*(m_invA0[1][1]+m_invA0[2][2]);
+        m_XCoeffs[0][2]=+m_b0tilde[0];
 
-        /* s=3:	Coefficients for polynomial Q_{1,2}(z) */
-        m_adjMCoeffs[0][1][0]=+m_invA0[0][2]*m_invA0[2][1]-1.0*m_invA0[0][1]*m_invA0[2][2];
-        m_adjMCoeffs[0][1][1]=+m_invA0[0][1];
-        m_adjMCoeffs[0][1][2]=+0.0;
+        /* s=3: Coefficients for polynomial X_{2}(z) */
+        m_XCoeffs[1][0]=+m_b0tilde[1]*(m_invA0[0][0]*m_invA0[2][2]-m_invA0[0][2]*m_invA0[2][0])-m_b0tilde[2]*(m_invA0[0][0]*m_invA0[2][1]-m_invA0[0][1]*m_invA0[2][0])-m_b0tilde[0]*(m_invA0[0][1]*m_invA0[2][2]-m_invA0[0][2]*m_invA0[2][1]);
+        m_XCoeffs[1][1]=+m_invA0[0][1]*m_b0tilde[0]+m_invA0[2][1]*m_b0tilde[2]-m_b0tilde[1]*(m_invA0[0][0]+m_invA0[2][2]);
+        m_XCoeffs[1][2]=+m_b0tilde[1];
 
-        /* s=3:	Coefficients for polynomial Q_{1,3}(z) */
-        m_adjMCoeffs[0][2][0]=+m_invA0[0][1]*m_invA0[1][2]-1.0*m_invA0[0][2]*m_invA0[1][1];
-        m_adjMCoeffs[0][2][1]=+m_invA0[0][2];
-        m_adjMCoeffs[0][2][2]=+0.0;
-
-        /* s=3:	Coefficients for polynomial Q_{2,1}(z) */
-        m_adjMCoeffs[1][0][0]=+m_invA0[1][2]*m_invA0[2][0]-1.0*m_invA0[1][0]*m_invA0[2][2];
-        m_adjMCoeffs[1][0][1]=+m_invA0[1][0];
-        m_adjMCoeffs[1][0][2]=+0.0;
-
-        /* s=3:	Coefficients for polynomial Q_{2,2}(z) */
-        m_adjMCoeffs[1][1][0]=+m_invA0[0][0]*m_invA0[2][2]-1.0*m_invA0[0][2]*m_invA0[2][0];
-        m_adjMCoeffs[1][1][1]=-1.0*m_invA0[0][0]-1.0*m_invA0[2][2];
-        m_adjMCoeffs[1][1][2]=+1.0;
-
-        /* s=3:	Coefficients for polynomial Q_{2,3}(z) */
-        m_adjMCoeffs[1][2][0]=+m_invA0[0][2]*m_invA0[1][0]-1.0*m_invA0[0][0]*m_invA0[1][2];
-        m_adjMCoeffs[1][2][1]=+m_invA0[1][2];
-        m_adjMCoeffs[1][2][2]=+0.0;
-
-        /* s=3:	Coefficients for polynomial Q_{3,1}(z) */
-        m_adjMCoeffs[2][0][0]=+m_invA0[1][0]*m_invA0[2][1]-1.0*m_invA0[1][1]*m_invA0[2][0];
-        m_adjMCoeffs[2][0][1]=+m_invA0[2][0];
-        m_adjMCoeffs[2][0][2]=+0.0;
-
-        /* s=3:	Coefficients for polynomial Q_{3,2}(z) */
-        m_adjMCoeffs[2][1][0]=+m_invA0[0][1]*m_invA0[2][0]-1.0*m_invA0[0][0]*m_invA0[2][1];
-        m_adjMCoeffs[2][1][1]=+m_invA0[2][1];
-        m_adjMCoeffs[2][1][2]=+0.0;
-
-        /* s=3:	Coefficients for polynomial Q_{3,3}(z) */
-        m_adjMCoeffs[2][2][0]=+m_invA0[0][0]*m_invA0[1][1]-1.0*m_invA0[0][1]*m_invA0[1][0];
-        m_adjMCoeffs[2][2][1]=-1.0*m_invA0[0][0]-1.0*m_invA0[1][1];
-        m_adjMCoeffs[2][2][2]=+1.0;
+        /* s=3: Coefficients for polynomial X_{3}(z) */
+        m_XCoeffs[2][0]=+m_b0tilde[2]*(m_invA0[0][0]*m_invA0[1][1]-m_invA0[0][1]*m_invA0[1][0])-m_b0tilde[1]*(m_invA0[0][0]*m_invA0[1][2]-m_invA0[0][2]*m_invA0[1][0])+m_b0tilde[0]*(m_invA0[0][1]*m_invA0[1][2]-m_invA0[0][2]*m_invA0[1][1]);
+        m_XCoeffs[2][1]=+m_invA0[0][2]*m_b0tilde[0]+m_invA0[1][2]*m_b0tilde[1]-m_b0tilde[2]*(m_invA0[0][0]+m_invA0[1][1]);
+        m_XCoeffs[2][2]=+m_b0tilde[2];
         
     } else if (m_s == 4) {
-        /* s=4:	Coefficients for polynomial Q_{1,1}(z) */
-        m_adjMCoeffs[0][0][0]=+m_invA0[1][1]*m_invA0[2][2]*m_invA0[3][3]-1.0*m_invA0[1][1]*m_invA0[2][3]*m_invA0[3][2]-1.0*m_invA0[1][2]*m_invA0[2][1]*m_invA0[3][3]+m_invA0[1][2]*m_invA0[2][3]*m_invA0[3][1]+m_invA0[1][3]*m_invA0[2][1]*m_invA0[3][2]-1.0*m_invA0[1][3]*m_invA0[2][2]*m_invA0[3][1];
-        m_adjMCoeffs[0][0][1]=+m_invA0[1][2]*m_invA0[2][1]-1.0*m_invA0[1][1]*m_invA0[2][2]-1.0*m_invA0[1][1]*m_invA0[3][3]+m_invA0[1][3]*m_invA0[3][1]-1.0*m_invA0[2][2]*m_invA0[3][3]+m_invA0[2][3]*m_invA0[3][2];
-        m_adjMCoeffs[0][0][2]=+m_invA0[1][1]+m_invA0[2][2]+m_invA0[3][3];
-        m_adjMCoeffs[0][0][3]=-1.0;
+        /* s=4: Coefficients for polynomial X_{1}(z) */
+        m_XCoeffs[0][0]=+m_b0tilde[2]*(m_invA0[1][0]*m_invA0[2][1]*m_invA0[3][3]-m_invA0[1][0]*m_invA0[2][3]*m_invA0[3][1]-m_invA0[1][1]*m_invA0[2][0]*m_invA0[3][3]+m_invA0[1][1]*m_invA0[2][3]*m_invA0[3][0]+m_invA0[1][3]*m_invA0[2][0]*m_invA0[3][1]-m_invA0[1][3]*m_invA0[2][1]*m_invA0[3][0])-m_b0tilde[3]*(m_invA0[1][0]*m_invA0[2][1]*m_invA0[3][2]-m_invA0[1][0]*m_invA0[2][2]*m_invA0[3][1]-
+                            m_invA0[1][1]*m_invA0[2][0]*m_invA0[3][2]+m_invA0[1][1]*m_invA0[2][2]*m_invA0[3][0]+m_invA0[1][2]*m_invA0[2][0]*m_invA0[3][1]-m_invA0[1][2]*m_invA0[2][1]*m_invA0[3][0])-m_b0tilde[1]*(m_invA0[1][0]*m_invA0[2][2]*m_invA0[3][3]-m_invA0[1][0]*m_invA0[2][3]*m_invA0[3][2]-m_invA0[1][2]*m_invA0[2][0]*m_invA0[3][3]+m_invA0[1][2]*m_invA0[2][3]*m_invA0[3][0]+m_invA0[1][3]*m_invA0[2][0]*m_invA0[3][2]-m_invA0[1][3]*m_invA0[2][2]*m_invA0[3][0])+m_b0tilde[0]*(m_invA0[1][1]*m_invA0[2][2]*m_invA0[3][3]-m_invA0[1][1]*m_invA0[2][3]*m_invA0[3][2]-m_invA0[1][2]*m_invA0[2][1]*m_invA0[3][3]+m_invA0[1][2]*m_invA0[2][3]*m_invA0[3][1]+m_invA0[1][3]*m_invA0[2][1]*m_invA0[3][2]-m_invA0[1][3]*m_invA0[2][2]*m_invA0[3][1]);
+        m_XCoeffs[0][1]=+m_b0tilde[1]*(m_invA0[1][0]*m_invA0[2][2]-m_invA0[1][2]*m_invA0[2][0]+m_invA0[1][0]*m_invA0[3][3]-m_invA0[1][3]*m_invA0[3][0])-m_b0tilde[0]*(m_invA0[1][1]*m_invA0[2][2]-m_invA0[1][2]*m_invA0[2][1]+m_invA0[1][1]*m_invA0[3][3]-m_invA0[1][3]*m_invA0[3][1]+m_invA0[2][2]*m_invA0[3][3]-m_invA0[2][3]*m_invA0[3][2])-m_b0tilde[2]*(m_invA0[1][0]*m_invA0[2][1]-m_invA0[1][1]*m_invA0[2][0]-m_invA0[2][0]*m_invA0[3][3]+m_invA0[2][3]*m_invA0[3][0])-
+                            m_b0tilde[3]*(m_invA0[1][0]*m_invA0[3][1]-m_invA0[1][1]*m_invA0[3][0]+m_invA0[2][0]*m_invA0[3][2]-m_invA0[2][2]*m_invA0[3][0]);
+        m_XCoeffs[0][2]=+m_b0tilde[0]*(m_invA0[1][1]+m_invA0[2][2]+m_invA0[3][3])-m_invA0[2][0]*m_b0tilde[2]-m_invA0[3][0]*m_b0tilde[3]-m_invA0[1][0]*m_b0tilde[1];
+        m_XCoeffs[0][3]=-m_b0tilde[0];
 
-        /* s=4:	Coefficients for polynomial Q_{1,2}(z) */
-        m_adjMCoeffs[0][1][0]=+m_invA0[0][1]*m_invA0[2][3]*m_invA0[3][2]-1.0*m_invA0[0][1]*m_invA0[2][2]*m_invA0[3][3]+m_invA0[0][2]*m_invA0[2][1]*m_invA0[3][3]-1.0*m_invA0[0][2]*m_invA0[2][3]*m_invA0[3][1]-1.0*m_invA0[0][3]*m_invA0[2][1]*m_invA0[3][2]+m_invA0[0][3]*m_invA0[2][2]*m_invA0[3][1];
-        m_adjMCoeffs[0][1][1]=+m_invA0[0][1]*m_invA0[2][2]-1.0*m_invA0[0][2]*m_invA0[2][1]+m_invA0[0][1]*m_invA0[3][3]-1.0*m_invA0[0][3]*m_invA0[3][1];
-        m_adjMCoeffs[0][1][2]=-1.0*m_invA0[0][1];
-        m_adjMCoeffs[0][1][3]=+0.0;
+        /* s=4: Coefficients for polynomial X_{2}(z) */
+        m_XCoeffs[1][0]=+m_b0tilde[3]*(m_invA0[0][0]*m_invA0[2][1]*m_invA0[3][2]-m_invA0[0][0]*m_invA0[2][2]*m_invA0[3][1]-m_invA0[0][1]*m_invA0[2][0]*m_invA0[3][2]+m_invA0[0][1]*m_invA0[2][2]*m_invA0[3][0]+m_invA0[0][2]*m_invA0[2][0]*m_invA0[3][1]-m_invA0[0][2]*m_invA0[2][1]*m_invA0[3][0])-m_b0tilde[2]*(m_invA0[0][0]*m_invA0[2][1]*m_invA0[3][3]-m_invA0[0][0]*m_invA0[2][3]*m_invA0[3][1]-  
+                            m_invA0[0][1]*m_invA0[2][0]*m_invA0[3][3]+m_invA0[0][1]*m_invA0[2][3]*m_invA0[3][0]+m_invA0[0][3]*m_invA0[2][0]*m_invA0[3][1]-m_invA0[0][3]*m_invA0[2][1]*m_invA0[3][0])+m_b0tilde[1]*(m_invA0[0][0]*m_invA0[2][2]*m_invA0[3][3]-m_invA0[0][0]*m_invA0[2][3]*m_invA0[3][2]-m_invA0[0][2]*m_invA0[2][0]*m_invA0[3][3]+m_invA0[0][2]*m_invA0[2][3]*m_invA0[3][0]+m_invA0[0][3]*m_invA0[2][0]*m_invA0[3][2]-m_invA0[0][3]*m_invA0[2][2]*m_invA0[3][0])-m_b0tilde[0]*(m_invA0[0][1]*m_invA0[2][2]*m_invA0[3][3]-m_invA0[0][1]*m_invA0[2][3]*m_invA0[3][2]-m_invA0[0][2]*m_invA0[2][1]*m_invA0[3][3]+m_invA0[0][2]*m_invA0[2][3]*m_invA0[3][1]+m_invA0[0][3]*m_invA0[2][1]*m_invA0[3][2]-m_invA0[0][3]*m_invA0[2][2]*m_invA0[3][1]);
+        m_XCoeffs[1][1]=+m_b0tilde[0]*(m_invA0[0][1]*m_invA0[2][2]-m_invA0[0][2]*m_invA0[2][1]+m_invA0[0][1]*m_invA0[3][3]-m_invA0[0][3]*m_invA0[3][1])-m_b0tilde[1]*(m_invA0[0][0]*m_invA0[2][2]-m_invA0[0][2]*m_invA0[2][0]+m_invA0[0][0]*m_invA0[3][3]-m_invA0[0][3]*m_invA0[3][0]+m_invA0[2][2]*m_invA0[3][3]-m_invA0[2][3]*m_invA0[3][2])+m_b0tilde[2]*(m_invA0[0][0]*m_invA0[2][1]-m_invA0[0][1]*m_invA0[2][0]+m_invA0[2][1]*m_invA0[3][3]-       
+                            m_invA0[2][3]*m_invA0[3][1])+m_b0tilde[3]*(m_invA0[0][0]*m_invA0[3][1]-m_invA0[0][1]*m_invA0[3][0]-m_invA0[2][1]*m_invA0[3][2]+m_invA0[2][2]*m_invA0[3][1]);
+        m_XCoeffs[1][2]=+m_b0tilde[1]*(m_invA0[0][0]+m_invA0[2][2]+m_invA0[3][3])-m_invA0[2][1]*m_b0tilde[2]-m_invA0[3][1]*m_b0tilde[3]-m_invA0[0][1]*m_b0tilde[0];
+        m_XCoeffs[1][3]=-m_b0tilde[1];
 
-        /* s=4:	Coefficients for polynomial Q_{1,3}(z) */
-        m_adjMCoeffs[0][2][0]=+m_invA0[0][1]*m_invA0[1][2]*m_invA0[3][3]-1.0*m_invA0[0][1]*m_invA0[1][3]*m_invA0[3][2]-1.0*m_invA0[0][2]*m_invA0[1][1]*m_invA0[3][3]+m_invA0[0][2]*m_invA0[1][3]*m_invA0[3][1]+m_invA0[0][3]*m_invA0[1][1]*m_invA0[3][2]-1.0*m_invA0[0][3]*m_invA0[1][2]*m_invA0[3][1];
-        m_adjMCoeffs[0][2][1]=+m_invA0[0][2]*m_invA0[1][1]-1.0*m_invA0[0][1]*m_invA0[1][2]+m_invA0[0][2]*m_invA0[3][3]-1.0*m_invA0[0][3]*m_invA0[3][2];
-        m_adjMCoeffs[0][2][2]=-1.0*m_invA0[0][2];
-        m_adjMCoeffs[0][2][3]=+0.0;
+        /* s=4: Coefficients for polynomial X_{3}(z) */
+        m_XCoeffs[2][0]=+m_b0tilde[2]*(m_invA0[0][0]*m_invA0[1][1]*m_invA0[3][3]-m_invA0[0][0]*m_invA0[1][3]*m_invA0[3][1]-m_invA0[0][1]*m_invA0[1][0]*m_invA0[3][3]+m_invA0[0][1]*m_invA0[1][3]*m_invA0[3][0]+m_invA0[0][3]*m_invA0[1][0]*m_invA0[3][1]-m_invA0[0][3]*m_invA0[1][1]*m_invA0[3][0])-m_b0tilde[3]*(m_invA0[0][0]*m_invA0[1][1]*m_invA0[3][2]-m_invA0[0][0]*m_invA0[1][2]*m_invA0[3][1]-
+                            m_invA0[0][1]*m_invA0[1][0]*m_invA0[3][2]+m_invA0[0][1]*m_invA0[1][2]*m_invA0[3][0]+m_invA0[0][2]*m_invA0[1][0]*m_invA0[3][1]-m_invA0[0][2]*m_invA0[1][1]*m_invA0[3][0])-m_b0tilde[1]*(m_invA0[0][0]*m_invA0[1][2]*m_invA0[3][3]-m_invA0[0][0]*m_invA0[1][3]*m_invA0[3][2]-m_invA0[0][2]*m_invA0[1][0]*m_invA0[3][3]+m_invA0[0][2]*m_invA0[1][3]*m_invA0[3][0]+m_invA0[0][3]*m_invA0[1][0]*m_invA0[3][2]-m_invA0[0][3]*m_invA0[1][2]*m_invA0[3][0])+m_b0tilde[0]*(m_invA0[0][1]*m_invA0[1][2]*m_invA0[3][3]-m_invA0[0][1]*m_invA0[1][3]*m_invA0[3][2]-m_invA0[0][2]*m_invA0[1][1]*m_invA0[3][3]+m_invA0[0][2]*m_invA0[1][3]*m_invA0[3][1]+m_invA0[0][3]*m_invA0[1][1]*m_invA0[3][2]-m_invA0[0][3]*m_invA0[1][2]*m_invA0[3][1]);
+        m_XCoeffs[2][1]=+m_b0tilde[1]*(m_invA0[0][0]*m_invA0[1][2]-m_invA0[0][2]*m_invA0[1][0]+m_invA0[1][2]*m_invA0[3][3]-m_invA0[1][3]*m_invA0[3][2])-m_b0tilde[0]*(m_invA0[0][1]*m_invA0[1][2]-m_invA0[0][2]*m_invA0[1][1]-m_invA0[0][2]*m_invA0[3][3]+m_invA0[0][3]*m_invA0[3][2])-m_b0tilde[2]*(m_invA0[0][0]*m_invA0[1][1]-m_invA0[0][1]*m_invA0[1][0]+m_invA0[0][0]*m_invA0[3][3]-m_invA0[0][3]*m_invA0[3][0]+m_invA0[1][1]*m_invA0[3][3]-   
+                            m_invA0[1][3]*m_invA0[3][1])+m_b0tilde[3]*(m_invA0[0][0]*m_invA0[3][2]-m_invA0[0][2]*m_invA0[3][0]+m_invA0[1][1]*m_invA0[3][2]-m_invA0[1][2]*m_invA0[3][1]);
+        m_XCoeffs[2][2]=+m_b0tilde[2]*(m_invA0[0][0]+m_invA0[1][1]+m_invA0[3][3])-m_invA0[1][2]*m_b0tilde[1]-m_invA0[3][2]*m_b0tilde[3]-m_invA0[0][2]*m_b0tilde[0];
+        m_XCoeffs[2][3]=-m_b0tilde[2];
 
-        /* s=4:	Coefficients for polynomial Q_{1,4}(z) */
-        m_adjMCoeffs[0][3][0]=+m_invA0[0][1]*m_invA0[1][3]*m_invA0[2][2]-1.0*m_invA0[0][1]*m_invA0[1][2]*m_invA0[2][3]+m_invA0[0][2]*m_invA0[1][1]*m_invA0[2][3]-1.0*m_invA0[0][2]*m_invA0[1][3]*m_invA0[2][1]-1.0*m_invA0[0][3]*m_invA0[1][1]*m_invA0[2][2]+m_invA0[0][3]*m_invA0[1][2]*m_invA0[2][1];
-        m_adjMCoeffs[0][3][1]=+m_invA0[0][3]*m_invA0[1][1]-1.0*m_invA0[0][1]*m_invA0[1][3]-1.0*m_invA0[0][2]*m_invA0[2][3]+m_invA0[0][3]*m_invA0[2][2];
-        m_adjMCoeffs[0][3][2]=-1.0*m_invA0[0][3];
-        m_adjMCoeffs[0][3][3]=+0.0;
-
-        /* s=4:	Coefficients for polynomial Q_{2,1}(z) */
-        m_adjMCoeffs[1][0][0]=+m_invA0[1][0]*m_invA0[2][3]*m_invA0[3][2]-1.0*m_invA0[1][0]*m_invA0[2][2]*m_invA0[3][3]+m_invA0[1][2]*m_invA0[2][0]*m_invA0[3][3]-1.0*m_invA0[1][2]*m_invA0[2][3]*m_invA0[3][0]-1.0*m_invA0[1][3]*m_invA0[2][0]*m_invA0[3][2]+m_invA0[1][3]*m_invA0[2][2]*m_invA0[3][0];
-        m_adjMCoeffs[1][0][1]=+m_invA0[1][0]*m_invA0[2][2]-1.0*m_invA0[1][2]*m_invA0[2][0]+m_invA0[1][0]*m_invA0[3][3]-1.0*m_invA0[1][3]*m_invA0[3][0];
-        m_adjMCoeffs[1][0][2]=-1.0*m_invA0[1][0];
-        m_adjMCoeffs[1][0][3]=+0.0;
-
-        /* s=4:	Coefficients for polynomial Q_{2,2}(z) */
-        m_adjMCoeffs[1][1][0]=+m_invA0[0][0]*m_invA0[2][2]*m_invA0[3][3]-1.0*m_invA0[0][0]*m_invA0[2][3]*m_invA0[3][2]-1.0*m_invA0[0][2]*m_invA0[2][0]*m_invA0[3][3]+m_invA0[0][2]*m_invA0[2][3]*m_invA0[3][0]+m_invA0[0][3]*m_invA0[2][0]*m_invA0[3][2]-1.0*m_invA0[0][3]*m_invA0[2][2]*m_invA0[3][0];
-        m_adjMCoeffs[1][1][1]=+m_invA0[0][2]*m_invA0[2][0]-1.0*m_invA0[0][0]*m_invA0[2][2]-1.0*m_invA0[0][0]*m_invA0[3][3]+m_invA0[0][3]*m_invA0[3][0]-1.0*m_invA0[2][2]*m_invA0[3][3]+m_invA0[2][3]*m_invA0[3][2];
-        m_adjMCoeffs[1][1][2]=+m_invA0[0][0]+m_invA0[2][2]+m_invA0[3][3];
-        m_adjMCoeffs[1][1][3]=-1.0;
-
-        /* s=4:	Coefficients for polynomial Q_{2,3}(z) */
-        m_adjMCoeffs[1][2][0]=+m_invA0[0][0]*m_invA0[1][3]*m_invA0[3][2]-1.0*m_invA0[0][0]*m_invA0[1][2]*m_invA0[3][3]+m_invA0[0][2]*m_invA0[1][0]*m_invA0[3][3]-1.0*m_invA0[0][2]*m_invA0[1][3]*m_invA0[3][0]-1.0*m_invA0[0][3]*m_invA0[1][0]*m_invA0[3][2]+m_invA0[0][3]*m_invA0[1][2]*m_invA0[3][0];
-        m_adjMCoeffs[1][2][1]=+m_invA0[0][0]*m_invA0[1][2]-1.0*m_invA0[0][2]*m_invA0[1][0]+m_invA0[1][2]*m_invA0[3][3]-1.0*m_invA0[1][3]*m_invA0[3][2];
-        m_adjMCoeffs[1][2][2]=-1.0*m_invA0[1][2];
-        m_adjMCoeffs[1][2][3]=+0.0;
-
-        /* s=4:	Coefficients for polynomial Q_{2,4}(z) */
-        m_adjMCoeffs[1][3][0]=+m_invA0[0][0]*m_invA0[1][2]*m_invA0[2][3]-1.0*m_invA0[0][0]*m_invA0[1][3]*m_invA0[2][2]-1.0*m_invA0[0][2]*m_invA0[1][0]*m_invA0[2][3]+m_invA0[0][2]*m_invA0[1][3]*m_invA0[2][0]+m_invA0[0][3]*m_invA0[1][0]*m_invA0[2][2]-1.0*m_invA0[0][3]*m_invA0[1][2]*m_invA0[2][0];
-        m_adjMCoeffs[1][3][1]=+m_invA0[0][0]*m_invA0[1][3]-1.0*m_invA0[0][3]*m_invA0[1][0]-1.0*m_invA0[1][2]*m_invA0[2][3]+m_invA0[1][3]*m_invA0[2][2];
-        m_adjMCoeffs[1][3][2]=-1.0*m_invA0[1][3];
-        m_adjMCoeffs[1][3][3]=+0.0;
-
-        /* s=4:	Coefficients for polynomial Q_{3,1}(z) */
-        m_adjMCoeffs[2][0][0]=+m_invA0[1][0]*m_invA0[2][1]*m_invA0[3][3]-1.0*m_invA0[1][0]*m_invA0[2][3]*m_invA0[3][1]-1.0*m_invA0[1][1]*m_invA0[2][0]*m_invA0[3][3]+m_invA0[1][1]*m_invA0[2][3]*m_invA0[3][0]+m_invA0[1][3]*m_invA0[2][0]*m_invA0[3][1]-1.0*m_invA0[1][3]*m_invA0[2][1]*m_invA0[3][0];
-        m_adjMCoeffs[2][0][1]=+m_invA0[1][1]*m_invA0[2][0]-1.0*m_invA0[1][0]*m_invA0[2][1]+m_invA0[2][0]*m_invA0[3][3]-1.0*m_invA0[2][3]*m_invA0[3][0];
-        m_adjMCoeffs[2][0][2]=-1.0*m_invA0[2][0];
-        m_adjMCoeffs[2][0][3]=+0.0;
-
-        /* s=4:	Coefficients for polynomial Q_{3,2}(z) */
-        m_adjMCoeffs[2][1][0]=+m_invA0[0][0]*m_invA0[2][3]*m_invA0[3][1]-1.0*m_invA0[0][0]*m_invA0[2][1]*m_invA0[3][3]+m_invA0[0][1]*m_invA0[2][0]*m_invA0[3][3]-1.0*m_invA0[0][1]*m_invA0[2][3]*m_invA0[3][0]-1.0*m_invA0[0][3]*m_invA0[2][0]*m_invA0[3][1]+m_invA0[0][3]*m_invA0[2][1]*m_invA0[3][0];
-        m_adjMCoeffs[2][1][1]=+m_invA0[0][0]*m_invA0[2][1]-1.0*m_invA0[0][1]*m_invA0[2][0]+m_invA0[2][1]*m_invA0[3][3]-1.0*m_invA0[2][3]*m_invA0[3][1];
-        m_adjMCoeffs[2][1][2]=-1.0*m_invA0[2][1];
-        m_adjMCoeffs[2][1][3]=+0.0;
-
-        /* s=4:	Coefficients for polynomial Q_{3,3}(z) */
-        m_adjMCoeffs[2][2][0]=+m_invA0[0][0]*m_invA0[1][1]*m_invA0[3][3]-1.0*m_invA0[0][0]*m_invA0[1][3]*m_invA0[3][1]-1.0*m_invA0[0][1]*m_invA0[1][0]*m_invA0[3][3]+m_invA0[0][1]*m_invA0[1][3]*m_invA0[3][0]+m_invA0[0][3]*m_invA0[1][0]*m_invA0[3][1]-1.0*m_invA0[0][3]*m_invA0[1][1]*m_invA0[3][0];
-        m_adjMCoeffs[2][2][1]=+m_invA0[0][1]*m_invA0[1][0]-1.0*m_invA0[0][0]*m_invA0[1][1]-1.0*m_invA0[0][0]*m_invA0[3][3]+m_invA0[0][3]*m_invA0[3][0]-1.0*m_invA0[1][1]*m_invA0[3][3]+m_invA0[1][3]*m_invA0[3][1];
-        m_adjMCoeffs[2][2][2]=+m_invA0[0][0]+m_invA0[1][1]+m_invA0[3][3];
-        m_adjMCoeffs[2][2][3]=-1.0;
-
-        /* s=4:	Coefficients for polynomial Q_{3,4}(z) */
-        m_adjMCoeffs[2][3][0]=+m_invA0[0][0]*m_invA0[1][3]*m_invA0[2][1]-1.0*m_invA0[0][0]*m_invA0[1][1]*m_invA0[2][3]+m_invA0[0][1]*m_invA0[1][0]*m_invA0[2][3]-1.0*m_invA0[0][1]*m_invA0[1][3]*m_invA0[2][0]-1.0*m_invA0[0][3]*m_invA0[1][0]*m_invA0[2][1]+m_invA0[0][3]*m_invA0[1][1]*m_invA0[2][0];
-        m_adjMCoeffs[2][3][1]=+m_invA0[0][0]*m_invA0[2][3]-1.0*m_invA0[0][3]*m_invA0[2][0]+m_invA0[1][1]*m_invA0[2][3]-1.0*m_invA0[1][3]*m_invA0[2][1];
-        m_adjMCoeffs[2][3][2]=-1.0*m_invA0[2][3];
-        m_adjMCoeffs[2][3][3]=+0.0;
-
-        /* s=4:	Coefficients for polynomial Q_{4,1}(z) */
-        m_adjMCoeffs[3][0][0]=+m_invA0[1][0]*m_invA0[2][2]*m_invA0[3][1]-1.0*m_invA0[1][0]*m_invA0[2][1]*m_invA0[3][2]+m_invA0[1][1]*m_invA0[2][0]*m_invA0[3][2]-1.0*m_invA0[1][1]*m_invA0[2][2]*m_invA0[3][0]-1.0*m_invA0[1][2]*m_invA0[2][0]*m_invA0[3][1]+m_invA0[1][2]*m_invA0[2][1]*m_invA0[3][0];
-        m_adjMCoeffs[3][0][1]=+m_invA0[1][1]*m_invA0[3][0]-1.0*m_invA0[1][0]*m_invA0[3][1]-1.0*m_invA0[2][0]*m_invA0[3][2]+m_invA0[2][2]*m_invA0[3][0];
-        m_adjMCoeffs[3][0][2]=-1.0*m_invA0[3][0];
-        m_adjMCoeffs[3][0][3]=+0.0;
-
-        /* s=4:	Coefficients for polynomial Q_{4,2}(z) */
-        m_adjMCoeffs[3][1][0]=+m_invA0[0][0]*m_invA0[2][1]*m_invA0[3][2]-1.0*m_invA0[0][0]*m_invA0[2][2]*m_invA0[3][1]-1.0*m_invA0[0][1]*m_invA0[2][0]*m_invA0[3][2]+m_invA0[0][1]*m_invA0[2][2]*m_invA0[3][0]+m_invA0[0][2]*m_invA0[2][0]*m_invA0[3][1]-1.0*m_invA0[0][2]*m_invA0[2][1]*m_invA0[3][0];
-        m_adjMCoeffs[3][1][1]=+m_invA0[0][0]*m_invA0[3][1]-1.0*m_invA0[0][1]*m_invA0[3][0]-1.0*m_invA0[2][1]*m_invA0[3][2]+m_invA0[2][2]*m_invA0[3][1];
-        m_adjMCoeffs[3][1][2]=-1.0*m_invA0[3][1];
-        m_adjMCoeffs[3][1][3]=+0.0;
-
-        /* s=4:	Coefficients for polynomial Q_{4,3}(z) */
-        m_adjMCoeffs[3][2][0]=+m_invA0[0][0]*m_invA0[1][2]*m_invA0[3][1]-1.0*m_invA0[0][0]*m_invA0[1][1]*m_invA0[3][2]+m_invA0[0][1]*m_invA0[1][0]*m_invA0[3][2]-1.0*m_invA0[0][1]*m_invA0[1][2]*m_invA0[3][0]-1.0*m_invA0[0][2]*m_invA0[1][0]*m_invA0[3][1]+m_invA0[0][2]*m_invA0[1][1]*m_invA0[3][0];
-        m_adjMCoeffs[3][2][1]=+m_invA0[0][0]*m_invA0[3][2]-1.0*m_invA0[0][2]*m_invA0[3][0]+m_invA0[1][1]*m_invA0[3][2]-1.0*m_invA0[1][2]*m_invA0[3][1];
-        m_adjMCoeffs[3][2][2]=-1.0*m_invA0[3][2];
-        m_adjMCoeffs[3][2][3]=+0.0;
-
-        /* s=4:	Coefficients for polynomial Q_{4,4}(z) */
-        m_adjMCoeffs[3][3][0]=+m_invA0[0][0]*m_invA0[1][1]*m_invA0[2][2]-1.0*m_invA0[0][0]*m_invA0[1][2]*m_invA0[2][1]-1.0*m_invA0[0][1]*m_invA0[1][0]*m_invA0[2][2]+m_invA0[0][1]*m_invA0[1][2]*m_invA0[2][0]+m_invA0[0][2]*m_invA0[1][0]*m_invA0[2][1]-1.0*m_invA0[0][2]*m_invA0[1][1]*m_invA0[2][0];
-        m_adjMCoeffs[3][3][1]=+m_invA0[0][1]*m_invA0[1][0]-1.0*m_invA0[0][0]*m_invA0[1][1]-1.0*m_invA0[0][0]*m_invA0[2][2]+m_invA0[0][2]*m_invA0[2][0]-1.0*m_invA0[1][1]*m_invA0[2][2]+m_invA0[1][2]*m_invA0[2][1];
-        m_adjMCoeffs[3][3][2]=+m_invA0[0][0]+m_invA0[1][1]+m_invA0[2][2];
-        m_adjMCoeffs[3][3][3]=-1.0;
-        
+        /* s=4: Coefficients for polynomial X_{4}(z) */
+        m_XCoeffs[3][0]=+m_b0tilde[3]*(m_invA0[0][0]*m_invA0[1][1]*m_invA0[2][2]-m_invA0[0][0]*m_invA0[1][2]*m_invA0[2][1]-m_invA0[0][1]*m_invA0[1][0]*m_invA0[2][2]+m_invA0[0][1]*m_invA0[1][2]*m_invA0[2][0]+m_invA0[0][2]*m_invA0[1][0]*m_invA0[2][1]-m_invA0[0][2]*m_invA0[1][1]*m_invA0[2][0])-m_b0tilde[2]*(m_invA0[0][0]*m_invA0[1][1]*m_invA0[2][3]-m_invA0[0][0]*m_invA0[1][3]*m_invA0[2][1]-
+                            m_invA0[0][1]*m_invA0[1][0]*m_invA0[2][3]+m_invA0[0][1]*m_invA0[1][3]*m_invA0[2][0]+m_invA0[0][3]*m_invA0[1][0]*m_invA0[2][1]-m_invA0[0][3]*m_invA0[1][1]*m_invA0[2][0])+m_b0tilde[1]*(m_invA0[0][0]*m_invA0[1][2]*m_invA0[2][3]-m_invA0[0][0]*m_invA0[1][3]*m_invA0[2][2]-m_invA0[0][2]*m_invA0[1][0]*m_invA0[2][3]+m_invA0[0][2]*m_invA0[1][3]*m_invA0[2][0]+m_invA0[0][3]*m_invA0[1][0]*m_invA0[2][2]-m_invA0[0][3]*m_invA0[1][2]*m_invA0[2][0])-m_b0tilde[0]*(m_invA0[0][1]*m_invA0[1][2]*m_invA0[2][3]-m_invA0[0][1]*m_invA0[1][3]*m_invA0[2][2]-m_invA0[0][2]*m_invA0[1][1]*m_invA0[2][3]+m_invA0[0][2]*m_invA0[1][3]*m_invA0[2][1]+m_invA0[0][3]*m_invA0[1][1]*m_invA0[2][2]-m_invA0[0][3]*m_invA0[1][2]*m_invA0[2][1]);
+        m_XCoeffs[3][1]=+m_b0tilde[1]*(m_invA0[0][0]*m_invA0[1][3]-m_invA0[0][3]*m_invA0[1][0]-m_invA0[1][2]*m_invA0[2][3]+m_invA0[1][3]*m_invA0[2][2])-m_b0tilde[0]*(m_invA0[0][1]*m_invA0[1][3]-m_invA0[0][3]*m_invA0[1][1]+m_invA0[0][2]*m_invA0[2][3]-m_invA0[0][3]*m_invA0[2][2])-m_b0tilde[3]*(m_invA0[0][0]*m_invA0[1][1]-m_invA0[0][1]*m_invA0[1][0]+m_invA0[0][0]*m_invA0[2][2]-m_invA0[0][2]*m_invA0[2][0]+m_invA0[1][1]*m_invA0[2][2]-   
+                            m_invA0[1][2]*m_invA0[2][1])+m_b0tilde[2]*(m_invA0[0][0]*m_invA0[2][3]-m_invA0[0][3]*m_invA0[2][0]+m_invA0[1][1]*m_invA0[2][3]-m_invA0[1][3]*m_invA0[2][1]);
+        m_XCoeffs[3][2]=+m_b0tilde[3]*(m_invA0[0][0]+m_invA0[1][1]+m_invA0[2][2])-m_invA0[1][3]*m_b0tilde[1]-m_invA0[2][3]*m_b0tilde[2]-m_invA0[0][3]*m_b0tilde[0];
+        m_XCoeffs[3][3]=-m_b0tilde[3];
+    
     } else {
-        std::cout << "WARNING: adj(M) coefficients not implemented for s = " << m_s << ".\n";
+        std::cout << "WARNING: Coefficients of polynomials {X_j} not implemented for s = " << m_s << '\n';
         MPI_Finalize();
         exit(1);
     }
     
 }
 
-/* Set the coefficients that define the polynomials X(z) */
-void IRK::SetXCoeffs() {
-    
-    /* There are s lots of s coefficients */
-    m_XCoeffs.resize(m_s, std::vector<double>(m_s, 0.0));
-    
-    /* Set coefficients for X_j */
-    for (int j = 0; j < m_s; j++) {
-        /* Set kth coefficient, which is a sum of s terms  */
-        for (int k = 0; k < m_s; k++) {
-            for (int i = 0; i <  m_s; i++) {
-                m_XCoeffs[j][k] += m_b0tilde[i] * m_adjMCoeffs[i][j][k];
-            }
-        }
-    }
-}
+
 
 
 /* Horner's scheme for computing the action of a matrix polynomial on a vector */
