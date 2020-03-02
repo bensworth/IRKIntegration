@@ -12,3 +12,6 @@ irk_ideas.pdf
 *.thm
 *.fls
 *latexmk
+
+*.dSYM
+*.o
