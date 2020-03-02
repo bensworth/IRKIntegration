@@ -1,6 +1,8 @@
 *DS_Store
 notes_irk.pdf
 irk_ideas.pdf
+
+*.m~
 *.synctex*
 *.log
 *.aux
