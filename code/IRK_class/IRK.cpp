@@ -1,5 +1,6 @@
 #include "IRK.hpp"
 
+
 IRK::IRK(MPI_Comm globComm, int RK_ID) {
     
     m_RK_ID = RK_ID;
@@ -10,9 +11,9 @@ IRK::IRK(MPI_Comm globComm, int RK_ID) {
     
     for (int j = 0; j < m_s; j++) {
         for (int k = 0; k < m_s; k++) {
-            std::cout << "x[" << j << "][" << k << "]=" << m_XCoeffs[j][k] << '\n';
+            cout << "x[" << j << "][" << k << "]=" << m_XCoeffs[j][k] << '\n';
         }
-        std::cout << '\n';
+        cout << '\n';
     }
 }
 
@@ -24,11 +25,11 @@ void IRK::SetButcherCoeffs() {
     
     m_s = m_RK_ID; // Fix when properly implement Butcher tables...
     // Resize Butcher arrays
-    m_A0.resize(m_s, std::vector<double>(m_s, 0.0));
+    m_A0.resize(m_s, vector<double>(m_s, 0.0));
     m_b0.resize(m_s);
     m_c0.resize(m_s);
     
-    m_invA0.resize(m_s, std::vector<double>(m_s, 0.0));
+    m_invA0.resize(m_s, vector<double>(m_s, 0.0));
     m_b0tilde.resize(m_s);
     m_beta.resize(m_s);
     m_eta.resize(m_s);
@@ -129,7 +130,7 @@ void IRK::SetButcherCoeffs() {
 void IRK::SetXCoeffs() {
     
     // There are m_s lots of m_s coefficients
-    m_XCoeffs.resize(m_s, std::vector<double>(m_s, 0.0));
+    m_XCoeffs.resize(m_s, vector<double>(m_s, 0.0));
     
     if (m_s == 1) {
         /* s=1: Coefficients for polynomial X_{1}(z) */
@@ -194,7 +195,7 @@ void IRK::SetXCoeffs() {
         m_XCoeffs[3][3]=-m_b0tilde[3];
     
     } else {
-        std::cout << "WARNING: Coefficients of polynomials {X_j} not implemented for s = " << m_s << '\n';
+        cout << "WARNING: Coefficients of polynomials {X_j} not implemented for s = " << m_s << '\n';
         MPI_Finalize();
         exit(1);
     }
