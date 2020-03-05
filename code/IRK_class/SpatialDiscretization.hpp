@@ -1,6 +1,8 @@
 #ifndef SPATIALDISCRETIZATION_H
 #define SPATIALDISCRETIZATION_H
 
+//#include "IRK.hpp"
+
 #include <mpi.h>
 #include "HYPRE.h"
 #include "mfem.hpp"
@@ -14,71 +16,47 @@ using namespace std;
 
 
 
-// /* Compute actions of operators involving the spatial discretization */
-// class SpatialDisretizationOp : public TimeDependentOperator
-// {
-// private:
-// 
-// 
-// protected:
-//     HypreParMatrix &m_M, &m_L;
-//     Vector &m_g;
-//     CGSolver M_solver;   
-//     mutable Vector z; // A placeholder vector
-// 
-// public:
-//     double m_dt;
-//     SpatialDisretizationOp();
-// 
-//     // Get y <- M^{-1}*L*x
-//     virtual void Mult(const Vector &x, Vector &y) const;
-// 
-//     //// Get y <- M^-1*g
-//     //virtual void GetSolIndepComponent(Vector y, double t)  const;
-// 
-//     // Get y <- P(alpha*M^{-1}*L)*x for P a polynomial defined by coefficients (in ascending order of dregree)
-//     virtual void PolyMult(const Vector coefficients, const Vector &x, Vector &y) const;
-//     virtual ~SpatialDisretizationOp() { }
-// };
-
 
 /* 
-
-Class for arbitrary spatial discretization resulting in the time-dependent ODE M*du/dt = L(t)*u + g(t), u(0) = u0. 
-    
-That is, spatial discretizations should be a sub class of this class
-    
-The main thing is basically having to     
+Abstract class for linear spatial discretizations of a PDE resulting in the 
+time-dependent ODE M*du/dt = L(t)*u + g(t), u(0) = u0. 
 */
-class SpatialDisretization : public TimeDependentOperator
+class SpatialDiscretization : public TimeDependentOperator
 {
     
 private:    
     
+    // Hmm, IRK is a friend class which means it can access the private and protected members of an instance of this class!
+    friend class IRK;
+    
 protected:
     
-    double  m_t_L;
-    double  m_t_g;
+    /* Components of the spatial discretization */
+    HypreParMatrix * m_M;  /* Mass matrix */
+    HypreParMatrix * m_L;  /* Linear solution-dependent operator */
+    HypreParVector * m_g;  /* M^{-1} * solution-independent source term  */
+    HypreParVector * m_u;  /* Solution */
+    
+    //Solver M_solver;       /* Required for computing action of M^-1 */
+    
+    double  m_t_L; /* Time the current (linear) solution-dependent operator is evaluated at */
+    double  m_t_g; /* Time the current solution-independent source term is evaluated at */
+    double  m_t_u; /* Time the current solution is evaluated at */
     
     bool    m_M_exists;
     int     m_bsize; /* Do we need this??? Maybe not...?  Does it get stored in the hypre matrix??  I.e.,  if M is a block matrix, it should be stored as a block matrix */
     
+    
+    /* Space discretization is assumed fully time-dependent; must be over ridden in derived class if this is not the case */
     bool    m_L_isTimedependent;    /* Is L time dependent? */
     bool    m_G_isTimedependent;    /* Is g time dependent? */
     
-    bool     m_useSpatialParallel;  /*  */
+    bool     m_useSpatialParallel;  /* Hmm...  DO we need this?? */
     MPI_Comm m_spatialComm;         /* Spatial communicator; the spatial discretization code has access to this */
     int      m_spatialCommSize;     /* Num processes in spatial communicator */
     int      m_spatialRank;         /* Process rank in spatial communicator */    
     
     
-    HypreParMatrix * m_M;  /* Mass matrix */
-    HypreParMatrix * m_L;  /* Linear spatial discretization matrix */
-    HypreParVector * m_g;  /* Solution-independent source term */
-    HypreParVector * m_u0; /* Solution-independent source term  */    
-
-    mutable HypreParVector * m_z;
-
     /* Set member variables  */
     void SetM();
     void SetL(double t);
@@ -102,7 +80,6 @@ protected:
     /* -------------------------------------------------------------------------- */
     /* -------------------------------------------------------------------------- */
 
-
     /* Functions requiring implementation in derived class, with the possible exception of getting the mass matrix */
     virtual void GetSpatialDiscretizationM(HypreParMatrix * &M);
     virtual void GetSpatialDiscretizationL(double t, HypreParMatrix * &L) = 0;
@@ -111,17 +88,21 @@ protected:
     
 public:
     
-    void PrintL(){  if (m_L) m_L->Print("L.txt"); else std::cout << "WARNING: m_L == NULL, cannot be printed!\n"; };
-    void PrintM(){  if (m_M) m_M->Print("M.txt"); else std::cout << "WARNING: m_M == NULL, cannot be printed!\n"; };
-    void PrintG(){  if (m_g) m_g->Print("g.txt"); else std::cout << "WARNING: m_g == NULL, cannot be printed!\n"; };
-    void PrintU0(){ if (m_u0) m_u0->Print("u0.txt"); else std::cout << "WARNING: m_u0 == NULL, cannot be printed!\n"; };
+    void SaveL(){ if (m_L) m_L->Print("L.txt"); else std::cout << "WARNING: m_L == NULL, cannot be printed!\n"; };
+    void SaveM(){ if (m_M) m_M->Print("M.txt"); else std::cout << "WARNING: m_M == NULL, cannot be printed!\n"; };
+    void SaveG(){ if (m_g) m_g->Print("g.txt"); else std::cout << "WARNING: m_g == NULL, cannot be printed!\n"; };
+    void SaveU(){ if (m_u) m_u->Print("u.txt"); else std::cout << "WARNING: m_u == NULL, cannot be printed!\n"; };
     
-    SpatialDisretization(MPI_Comm spatialComm, bool M_exists);
-    ~SpatialDisretization();
+    SpatialDiscretization(MPI_Comm spatialComm, bool M_exists);
+    ~SpatialDiscretization();
     
+    /* Get y <- M^{-1}*L(t)*x */
+    void Mult(const Vector &x, Vector &y);
+    
+    /* Get y <- M^-1*g(t) */
+    //void GetSolIndepComponent(Vector y, double t);
+
     void Test(double t);
 };
-
-
                             
 #endif                            

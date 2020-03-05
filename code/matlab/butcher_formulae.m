@@ -4,15 +4,29 @@
 clc
 clear
 
-% Label these things as they're defined in the code so the output makes sense...
-A_label      = 'm_A0'; 
-b_label      = 'm_b0';
-c_label      = 'm_c0';
-invA_label   = 'm_invA0';
-btilde_label = 'm_b0tilde';
-beta_label   = 'm_beta';
-eta_label    = 'm_eta';
 
+%%% --- Set up the formatting of the way in which the data is printed to console --- %%%
+% Label these things as they're defined in the code so the output makes sense...
+s_label  =  'm_s';
+zetaSize_label  =  'm_zetaSize';
+etaSize_label  =  'm_etaSize';
+
+A_label    = 'A'; 
+invA_label    = 'invA'; 
+b_label    = 'b';
+c_label    = 'c';
+d_label    = 'd';
+zeta_label = 'zeta';
+eta_label  = 'eta';
+beta_label = 'beta';
+
+sizingRoutineStr = sprintf('SizeButcherArrays(%s, %s, %s, %s, %s, %s, %s, %s);', A_label, invA_label, b_label, c_label, d_label, zeta_label, eta_label, beta_label);
+
+% Data will be output to console as
+outformat1 = @(label, i, data) fprintf('Set(%s, %d, %+.15f);\n', label, i, data);
+outformat2 = @(label, i, j, data) fprintf('Set(%s, %d, %d, %+.15f);\n', label, i, j, data);
+
+%%% --- Tables --- %%%
 
 % Backward Euler
 A = 1.0;
@@ -22,69 +36,103 @@ c = 1.0;
 % % implicit 4th-order method, Hammer & Hollingsworth (A-stable)
 % % note: coincides with s=2-stage, p=2s-order Gauss method
 % %       see https://www.math.auckland.ac.nz/~butcher/ODE-book-2008/Tutorials/IRK.pdf
-% A = [0.25, 0.25-sqrt(3.0)/6.0; ...
-%      0.25+sqrt(3.0)/6.0, 0.25];
-% b = [0.5, 0.5]';
-% c = [0.5-sqrt(3.0)/6.0; ...
-%      0.5+sqrt(3.0)/6.0]';
+A = [0.25, 0.25-sqrt(3.0)/6.0; ...
+     0.25+sqrt(3.0)/6.0, 0.25];
+b = [0.5, 0.5]';
+c = [0.5-sqrt(3.0)/6.0; ...
+     0.5+sqrt(3.0)/6.0]';
 
 
-% A 6th-order Gauss--Legendre method
-A = [5/36, 2/9-sqrt(15)/15, 5/36-sqrt(15)/30; ...
-    5/36+sqrt(15)/24, 2/9, 5/36-sqrt(15)/24; ...
-    5/36+sqrt(15/30), 2/9+sqrt(15)/15, 5/36];
-b = [5/18; 4/9; 5/18];
-c = [1/2-sqrt(15)/10; 1/2; 1/2+sqrt(15)/10];
+% % A 6th-order Gauss--Legendre method
+% A = [5/36, 2/9-sqrt(15)/15, 5/36-sqrt(15)/30; ...
+%     5/36+sqrt(15)/24, 2/9, 5/36-sqrt(15)/24; ...
+%     5/36+sqrt(15/30), 2/9+sqrt(15)/15, 5/36];
+% b = [5/18; 4/9; 5/18];
+% c = [1/2-sqrt(15)/10; 1/2; 1/2+sqrt(15)/10];
+%  
  
  
- 
+
 s  = size(A,1);
-
 % Compute the quantities we don't already have
 invA =  inv(A);
 %btilde = b' * invA;
-btilde = (A'\b)'; % This is a better conditioned operation...
+d = (A'\b)'; % This is a better conditioned operation...
+
+
+% Get eigenvalues of A^-1 and split into real + conjugate pairs
 lambda = 1./eig(A);
-beta = imag(lambda);
-eta  = real(lambda);
+[zeta, eta, beta] = decompose_eigenvalues(lambda);
+zeta_size = numel(zeta);
+eta_size = numel(eta);
+% rlambda
+% clambda_eta
+% clambda_beta
+
+
 
 %%% --- Now print everything to console... --- %%%
+fprintf('/* --- Dimensions --- */\n')
+%fprintf('/* ------------------ */\n')
+fprintf('%s        = %d;\n', s_label, s);
+fprintf('%s = %d;\n', zetaSize_label, zeta_size);
+fprintf('%s  = %d;\n', etaSize_label, eta_size);
+fprintf('%s%s\n', sizingRoutineStr, ' /* Set data arrays to correct dimensions */')
+fprintf('/* ---------------- */\n\n')
 
+
+
+
+fprintf('/* --- Tableaux constants --- */\n')
+%fprintf('/* -------------------------- */\n')
 % A
+fprintf('/* --- A --- */\n');
 for i = 1:s
     for j = 1:s
-        fprintf('%s[%d][%d]=%+.16f;\n', A_label, i-1, j-1, A(i,j));
+        outformat2(A_label, i-1, j-1, A(i,j))
     end
 end
-fprintf('\n');
-% b
-for i = 1:s
-    fprintf('%s[%d]=%+.16f;\n', b_label, i-1, b(i));
-end
-fprintf('\n');
-% c
-for i = 1:s
-    fprintf('%s[%d]=%+.16f;\n', c_label, i-1, c(i));
-end
-fprintf('\n');
 % invA
+fprintf('/* --- inv(A) --- */\n');
 for i = 1:s
     for j = 1:s
-        fprintf('%s[%d][%d]=%+.16f;\n', invA_label, i-1, j-1, invA(i,j));
+        outformat2(invA_label, i-1, j-1, invA(i,j))
     end
 end
-fprintf('\n');
-% btilde
+%fprintf('\n');
+% b
+fprintf('/* --- b --- */\n');
 for i = 1:s
-    fprintf('%s[%d]=%+.16f;\n', btilde_label, i-1, btilde(i));
+    outformat1(b_label, i-1, b(i))
 end
-fprintf('\n');
-%  beta
+%fprintf('\n');
+% c
+fprintf('/* --- c --- */\n');
 for i = 1:s
-    fprintf('%s[%d]=%+.16f;\n', beta_label, i-1, beta(i));
+    outformat1(c_label, i-1, c(i))
 end
-fprintf('\n');
+%fprintf('\n');
+% d
+fprintf('/* --- d --- */\n');
+for i = 1:s
+    outformat1(d_label, i-1, d(i))
+end
+%fprintf('\n');
+% zeta
+fprintf('/* --- zeta --- */\n');
+for i = 1:zeta_size
+    outformat1(zeta_label, i-1, zeta(i))
+end
+%fprintf('\n');
 % eta
-for i = 1:s
-    fprintf('%s[%d]=%+.16f;\n', eta_label, i-1, eta(i));
+fprintf('/* --- eta --- */\n');
+for i = 1:eta_size
+    outformat1(eta_label, i-1, eta(i))
 end
+%fprintf('\n');
+%  beta
+fprintf('/* --- beta --- */\n');
+for i = 1:eta_size
+    outformat1(beta_label, i-1, beta(i))
+end
+fprintf('/* -------------------------- */\n\n')

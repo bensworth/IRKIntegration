@@ -1,10 +1,12 @@
-#ifndef IRK_H
-    #include "IRK.hpp"
-#endif
+// #ifndef IRK_H
+//     #include "IRK.hpp"
+// #endif
+// 
+// #ifndef SPATIALDISCRETIZATION_H
+// 
+// #endif
 
-#ifndef SPATIALDISCRETIZATION_H
-    #include "SpatialDiscretization.hpp"
-#endif
+#include "SpatialDiscretization.hpp"
 
 #include "mfem.hpp"
 #include <cstdio>
@@ -54,7 +56,7 @@ struct Num_dissipation {
 };
 
 
-class FDadvection : public SpatialDisretization
+class FDadvection : public SpatialDiscretization
 {
 private:
     

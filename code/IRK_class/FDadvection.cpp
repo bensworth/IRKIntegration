@@ -142,7 +142,7 @@ void FDadvection::SetNumDissipation(Num_dissipation dissipation_params)
     }
 }
 
-FDadvection::FDadvection(MPI_Comm globComm, bool M_exists) : SpatialDisretization(globComm, M_exists)
+FDadvection::FDadvection(MPI_Comm globComm, bool M_exists) : SpatialDiscretization(globComm, M_exists)
 {
     
 }
@@ -150,7 +150,7 @@ FDadvection::FDadvection(MPI_Comm globComm, bool M_exists) : SpatialDisretizatio
 
 FDadvection::FDadvection(MPI_Comm spatialComm, bool M_exists, int dim, int refLevels, int order, 
             int problemID, std::vector<int> px): 
-            SpatialDisretization(spatialComm, M_exists),
+            SpatialDiscretization(spatialComm, M_exists),
                         m_dim{dim}, m_refLevels{refLevels}, m_problemID{problemID}, m_px{px},
                         m_periodic(false), m_inflow(false), m_PDE_soln_implemented(false), m_dissipation(false)
 {    

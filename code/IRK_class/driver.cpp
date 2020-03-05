@@ -1,9 +1,11 @@
 #include <iostream>
 #include <fstream>
 #include "mfem.hpp"
+
 #include "IRK.hpp"
 #include "SpatialDiscretization.hpp"
 #include "FDadvection.hpp"
+
 using namespace mfem;
 using namespace std;
 
@@ -11,16 +13,7 @@ using namespace std;
 
 Solver is a subclass of Operator (see operator.hpp)
 GMRESSolver, CGSolver are subclasses of IterativeSolver is a subclass of Solver (see solvers.hpp)
-
-
-hypre.hpp:
-Given a HYPRE_ParVector, I can cast it to the MFEM vector of type `HypreParVector' (subclass of Vector) using:
-explicit HypreParVector(HYPRE_ParVector y); /// Creates vector wrapping y
-
-Given a Hypre_ParCSRMatrix, I can cast it to the MFEM matrix of type `HypreParMatrix' (subclass of Operator) using:
-explicit HypreParMatrix(hypre_ParCSRMatrix *a, bool owner = true)
 */
-
 
 // class FDadvection : SpatialDisretizationOp
 // {
@@ -110,18 +103,31 @@ int main(int argc, char *argv[])
 
     std::cout << "Hello. Test test test: Process " << rank << " of " << numProcess-1 << '\n';
 
-    //int RK_ID = 3;
-    //IRK * Test = new IRK(MPI_COMM_WORLD, RK_ID);
+    bool M_exists = false;
+    int FD_ID = 3;
+    FDadvection SpaceDisc(MPI_COMM_WORLD, M_exists, 1, 4, 1, FD_ID); 
+
+    // SpaceDisc.Test(0.134);
+    // SpaceDisc.SaveL();
+    // SpaceDisc.SaveM();
+    // //SpaceDisc.PrintG();
+    // SpaceDisc.SaveU();
+
+    double dt = 0.1;
+    int RK_ID = 3;    
+    int nt = 10;
+    IRK MyIRK(MPI_COMM_WORLD, RK_ID, &SpaceDisc, 0.1, 10);
+    
+    SpaceDisc.SaveU();
+    
+    MyIRK.TimeStep();
+    
+    SpaceDisc.SaveU();
+    
+    //Test->Test();
 
 
-    int FD_ID = 1;
-    FDadvection SpaceDisc(MPI_COMM_WORLD, true, 1, 4, 1, FD_ID); 
-
-    SpaceDisc.Test(0.134);
-    SpaceDisc.PrintL();
-    SpaceDisc.PrintM();
-    //SpaceDisc.PrintG();
-    SpaceDisc.PrintU0();
+    
     
     // SpaceDisc.Test(1.6765);
     // SpaceDisc.PrintL();
@@ -129,7 +135,7 @@ int main(int argc, char *argv[])
     // SpaceDisc.PrintG();
     // SpaceDisc.PrintU0();
     
-    std::cout << "\n" << '\n';
+    //std::cout << "\n" << '\n';
 
     MPI_Finalize();
     return 0;

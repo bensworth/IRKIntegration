@@ -7,7 +7,7 @@
 
 /** Get parallel (square) matrix A from its local CSR data
 NOTES: HypreParMatrix makes copies of the data, so it can be deleted */
-void SpatialDisretization::GetHypreParMatrixFromCSRData(MPI_Comm comm,  
+void SpatialDiscretization::GetHypreParMatrixFromCSRData(MPI_Comm comm,  
                                                         int localMinRow, int localMaxRow, int globalNumRows, 
                                                         int * A_rowptr, int * A_colinds, double * A_data,
                                                         HypreParMatrix * &A) 
@@ -22,7 +22,7 @@ void SpatialDisretization::GetHypreParMatrixFromCSRData(MPI_Comm comm,
 
 /** Get parallel vector x from its local data
 NOTES: HypreParVector doesn't make a copy of the data, so it cannot be deleted */
-void SpatialDisretization::GetHypreParVectorFromData(MPI_Comm comm, 
+void SpatialDiscretization::GetHypreParVectorFromData(MPI_Comm comm, 
                                                      int localMinRow, int localMaxRow, int globalNumRows, 
                                                      double * x_data, HypreParVector * &x)
 {
@@ -34,10 +34,10 @@ void SpatialDisretization::GetHypreParVectorFromData(MPI_Comm comm,
 /* -------------------------------------------------------------------------- */
 
 /* Constructor */
-SpatialDisretization::SpatialDisretization(MPI_Comm spatialComm, bool M_exists) 
+SpatialDiscretization::SpatialDiscretization(MPI_Comm spatialComm, bool M_exists) 
     : m_spatialComm{spatialComm}, m_M_exists{M_exists}, 
-    m_M(NULL), m_L(NULL), m_u0(NULL), m_g(NULL), m_z(NULL), 
-    m_t_L{0.0}, m_t_g{0.0}, 
+    m_M(NULL), m_L(NULL), m_u(NULL), m_g(NULL),
+    m_t_L{0.0}, m_t_g{0.0}, m_t_u{0.0}, 
     m_useSpatialParallel(false)
 {
     // Get number of processes
@@ -45,25 +45,52 @@ SpatialDisretization::SpatialDisretization(MPI_Comm spatialComm, bool M_exists)
     MPI_Comm_size(m_spatialComm, &m_spatialCommSize);
     
     if (m_spatialCommSize > 1) m_useSpatialParallel = true;
+    
+    // Set initial condition 
+    //SetU0();
 };
 
 
 /* Destructor: Clean up memory */
-SpatialDisretization::~SpatialDisretization() {
+SpatialDiscretization::~SpatialDiscretization() {
     if (m_M) delete m_M;
     if (m_L) delete m_L;
-    
-    // Do I need to first destroy the data in these vectors?
-    if (m_u0) delete m_u0;
+    if (m_u) delete m_u;
     if (m_g) delete m_g;
+    //if (m_z) delete m_z;
 }
 
 /* Functions setting HYPRE matrix/vector member variables  */
-void SpatialDisretization::SetM() {
+void SpatialDiscretization::SetM() {
     if (!m_M) GetSpatialDiscretizationM(m_M);
 }
 
-void SpatialDisretization::SetL(double t) {
+// void SpatialDiscretization::SetMSolver() {
+//     M_solver.SetPreconditioner(M_prec);
+//     M_solver.SetOperator(m_M);
+//     M_solver.iterative_mode = false;
+//     M_solver.SetRelTol(1e-9);
+//     M_solver.SetAbsTol(0.0);
+//     M_solver.SetMaxIter(100);
+//     M_solver.SetPrintLevel(0);
+// }
+
+
+// TODO: Properly organise mass matrix...
+void SpatialDiscretization::Mult(const Vector &x, Vector &y) {
+    // if (m_M_exists) {
+    //     m_L->Mult(x, m_z); // z <- L * x
+    //     //M_solver->Mult(z, y); // y <- M^-1 * z
+    // Vector z(y.Size()); // An auxillary vector
+    //     y = m_z; 
+    // } else {
+    //     m_L->Mult(x, y); // y <- L * x
+    // }
+    m_L->Mult(x, y); // y <- L * x
+}
+
+
+void SpatialDiscretization::SetL(double t) {
     /* Get L for the first time */
     if (!m_L) {
         m_t_L = t;
@@ -78,12 +105,16 @@ void SpatialDisretization::SetL(double t) {
     }
 }
 
-/* Set mass matrix variable if a mass matrix exists and hasn't previously been set */
-void SpatialDisretization::SetU0() {
-    if (!m_u0) GetSpatialDiscretizationU0(m_u0);
+/* Set initial condition in solution vector */
+void SpatialDiscretization::SetU0() {
+    if (!m_u) {
+        GetSpatialDiscretizationU0(m_u);
+    } else {
+        std::cout << "WARNING: Initial condition cannot overwrite existing value of m_u" << '\n';
+    }
 }
 
-void SpatialDisretization::SetG(double t) {
+void SpatialDiscretization::SetG(double t) {
     /* Get g for the first time */
     if (!m_g) {
         m_t_g = t;
@@ -96,9 +127,15 @@ void SpatialDisretization::SetG(double t) {
         m_g = NULL;
         GetSpatialDiscretizationG(t, m_g);
     }
+    
+    if (m_M_exists) {
+        std::cout << "WARNING: Need to implement inv(M) * RHS" << '\n';
+        MPI_Finalize();
+        exit(1);
+    }
 }
 
-void SpatialDisretization::GetSpatialDiscretizationM(HypreParMatrix * &M) {
+void SpatialDiscretization::GetSpatialDiscretizationM(HypreParMatrix * &M) {
     if (m_M_exists) {
         std::cout << "WARNING: If a mass matrix exists (as indicated), the derived class must implement it!" << '\n';
         MPI_Finalize();
@@ -106,26 +143,35 @@ void SpatialDisretization::GetSpatialDiscretizationM(HypreParMatrix * &M) {
     }
 }
 
-void SpatialDisretization::Test(double t) {
-    SetU0();
-    SetG(t);
-    SetL(t);
-    SetM();
-    
-    Vector z = Vector(m_u0->Size());
-    
-    m_M->Mult(*m_u0, z);
-    
-    z.Print(cout);
-}
+// void SpatialDiscretization::Test(double t) {
+//     SetU0();
+//     SetG(t);
+//     SetL(t);
+//     SetM();
+// 
+// 
+//     //m_z(m_u->Size());
+// 
+//     m_z = Vector(m_u->Size());
+// 
+//     std::cout << "broken1.5" << '\n';
+// 
+//     //Vector z = Vector(m_u->Size());
+//     //m_M->Mult(*m_u, z);
+//     //z.Print(cout);
+//     //m_z = new HypreParVector(m_u->Size());
+// 
+// 
+//     std::cout << "broken2" << '\n';
+// 
+//     Array<double> c(2); // = Array({1.0, 3.0});
+//     c[0] = 1.0;
+//     c[1] = -3.0;
+// 
+//     Vector d = Vector(m_z.Size()); 
+//     PolyMult(c, 1.0, *m_u, d);
+//     d.Print(cout);
+// }
 
-// 
-// 
-// void SetL();
-// void SetG();
-// void SetU0();
-// 
-// virtual void GetM() = 0;
-// virtual void GetL() = 0;
-// virtual void GetG() = 0;
-// virtual void GetU0() = 0;
+
+
