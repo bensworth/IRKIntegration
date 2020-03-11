@@ -15,13 +15,11 @@ using namespace mfem;
 using namespace std;
 
 
-
-
 /* 
-Abstract class for linear spatial discretizations of a PDE resulting in the 
+Abstract base class for linear spatial discretizations of a PDE resulting in the 
 time-dependent ODE M*du/dt = L(t)*u + g(t), u(0) = u0. 
 */
-class SpatialDiscretization : public TimeDependentOperator
+class SpatialDiscretization
 {
     
 private:    
@@ -37,6 +35,12 @@ protected:
     HypreParVector * m_g;  /* M^{-1} * solution-independent source term  */
     HypreParVector * m_u;  /* Solution */
     
+    
+    /* TODO : Need a mass matrix solver... Not sure of the most effective way for doing  this..
+    Its setup  will likely require some knowledge from  the derived class. E.g., there may be no 
+    mass matrix... Or if it's a DG  disc, maybe we actually store the inverse and just do multiplication
+    with it everytime, or if  it's Cont. Galerkin, maybe we use Conj. Gradient  to invert...
+    */
     //Solver M_solver;       /* Required for computing action of M^-1 */
     
     double  m_t_L; /* Time the current (linear) solution-dependent operator is evaluated at */
@@ -87,20 +91,26 @@ protected:
     virtual void GetSpatialDiscretizationU0(HypreParVector * &u0) = 0;
     
 public:
+    int m_spatialDOFs;
     
     void SaveL(){ if (m_L) m_L->Print("L.txt"); else std::cout << "WARNING: m_L == NULL, cannot be printed!\n"; };
     void SaveM(){ if (m_M) m_M->Print("M.txt"); else std::cout << "WARNING: m_M == NULL, cannot be printed!\n"; };
     void SaveG(){ if (m_g) m_g->Print("g.txt"); else std::cout << "WARNING: m_g == NULL, cannot be printed!\n"; };
-    void SaveU(){ if (m_u) m_u->Print("u.txt"); else std::cout << "WARNING: m_u == NULL, cannot be printed!\n"; };
+    void SaveU(const char * fname){ if (m_u) m_u->Print(fname); else std::cout << "WARNING: m_u == NULL, cannot be printed!\n"; };
     
     SpatialDiscretization(MPI_Comm spatialComm, bool M_exists);
     ~SpatialDiscretization();
     
     /* Get y <- M^{-1}*L(t)*x */
-    void Mult(const Vector &x, Vector &y);
+    void SolDepMult(const Vector &x, Vector &y);
     
-    /* Get y <- M^-1*g(t) */
-    //void GetSolIndepComponent(Vector y, double t);
+    /* Get y <- P(alpha*M^{-1}*L)*x for P a polynomial defined by coefficients.
+    Coefficients must be provided for all monomial terms (even if they're 0) and 
+    in increasing order (from 0th to nth) */
+    void SolDepPolyMult(Vector coefficients, double alpha, const Vector &x, Vector &y);
+    
+    /* Get y <- M^{-1}*g(t) ... Do  i need this... This  is like just setting G and then accessing... */
+    void SolIndepComp(Vector y, double t);
 
     void Test(double t);
 };

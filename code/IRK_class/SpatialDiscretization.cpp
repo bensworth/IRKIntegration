@@ -38,7 +38,7 @@ SpatialDiscretization::SpatialDiscretization(MPI_Comm spatialComm, bool M_exists
     : m_spatialComm{spatialComm}, m_M_exists{M_exists}, 
     m_M(NULL), m_L(NULL), m_u(NULL), m_g(NULL),
     m_t_L{0.0}, m_t_g{0.0}, m_t_u{0.0}, 
-    m_useSpatialParallel(false)
+    m_useSpatialParallel(false), m_spatialDOFs(-1)
 {
     // Get number of processes
     MPI_Comm_rank(m_spatialComm, &m_spatialRank);
@@ -76,8 +76,22 @@ void SpatialDiscretization::SetM() {
 // }
 
 
+/* Get y <- P(alpha*M^{-1}*L)*x for P a polynomial defined by coefficients.
+Coefficients must be provided for all monomial terms (even if they're 0) and 
+in increasing order (from 0th to nth) */
+void SpatialDiscretization::SolDepPolyMult(Vector coefficients, double alpha, const Vector &x, Vector &y) {
+    int n = coefficients.Size();
+    y.Set(coefficients[n-1], x); // y <- = coefficients[n-1]*x
+    Vector z(y.Size()); // An auxillary vector
+    for (int ell = n-2; ell >= 0; ell--) {
+        SolDepMult(y, z); // z <- M^{-1}*L*y        
+        add(coefficients[ell], x, alpha, z, y); // y <- coefficients[ell]*x + alpha*z
+    } 
+}
+
+
 // TODO: Properly organise mass matrix...
-void SpatialDiscretization::Mult(const Vector &x, Vector &y) {
+void SpatialDiscretization::SolDepMult(const Vector &x, Vector &y) {
     // if (m_M_exists) {
     //     m_L->Mult(x, m_z); // z <- L * x
     //     //M_solver->Mult(z, y); // y <- M^-1 * z
@@ -109,6 +123,7 @@ void SpatialDiscretization::SetL(double t) {
 void SpatialDiscretization::SetU0() {
     if (!m_u) {
         GetSpatialDiscretizationU0(m_u);
+        m_spatialDOFs = m_u->Size(); // TODO : Need a  better way  of setting this...
     } else {
         std::cout << "WARNING: Initial condition cannot overwrite existing value of m_u" << '\n';
     }

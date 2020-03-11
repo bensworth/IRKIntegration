@@ -1,10 +1,18 @@
 #include "IRK.hpp"
 
+#include <iostream>
+#include <fstream>
+#include <map>
+#include <iomanip> 
+#include <cmath> 
+
 
 IRK::IRK(MPI_Comm globComm, int RK_ID, SpatialDiscretization * S,
         double dt, int nt) 
         : m_RK_ID{RK_ID}, m_S(S), m_z(NULL), m_y(NULL), m_w(NULL),
-        m_dt{dt}, m_nt(nt) {
+        m_dt{dt}, m_nt(nt),
+        m_CharPolyFactorOperators()
+        {
     
     /* Set up basic information */
     SetButcherCoeffs();
@@ -13,35 +21,30 @@ IRK::IRK(MPI_Comm globComm, int RK_ID, SpatialDiscretization * S,
     // Set initial condition
     m_S->SetU0();
     
-    std::cout << "here 1" << '\n';
-    
     // Initialize other vectors based on size of u
     int dimU = m_S->m_u->Size();
     m_z = new Vector(dimU);
     m_y = new Vector(dimU);
     m_w = new Vector(dimU);
     
-    std::cout << "here 2" << '\n';
-    
     
     /* Set spatial discretization once at the start since it's assumed time-independent */
     m_S->SetL(0.0);
     
     
-    /* Set up classes for the eigenvalue operators we need to invert; can just do this once here since operators are time independent */
-    RealEigOps.reserve(m_zetaSize);
+    /* --- Construct object for every factor in the char. poly --- */
+    m_CharPolyFactorOperators.SetSize(m_zetaSize + m_etaSize);
+    /* Real-valued, linear factors */
+    int count = 0;
     for (int i = 0; i < m_zetaSize; i++) {
-        RealEigOps[i] = RealEigOp(dt, m_zeta(i));
-        // TODO build preconditioner for  each operator...
+        m_CharPolyFactorOperators[count] = new CharPolyFactorOperator(dt, m_zeta(i), 0.0, 0.0, *m_S);
+        count++;
     }
-    
-    
-    ConjEigOps.reserve(m_etaSize);
+    /* Complex conjugate pair, quadratic factors; pass zeta == 0.0! */
     for (int i = 0; i < m_etaSize; i++) {
-        ConjEigOps[i] = ConjEigOp(dt, m_eta(i), m_beta(i));
-        // TODO build preconditioner for  each operator...
-    }
-    
+        m_CharPolyFactorOperators[count] = new CharPolyFactorOperator(dt, 0.0, m_eta(i), m_beta(i), *m_S);
+        count++;
+    }   
 }
 
 
@@ -50,58 +53,78 @@ IRK::~IRK() {
     if (m_z) delete m_z;
     if (m_y) delete m_y;
     if (m_w) delete m_w;
-}
-
-
-ConjEigOp::ConjEigOp(double dt, double eta, double beta) : m_dt{dt}, m_eta0{eta}, m_beta0{beta} {
     
+    for (int i = 0; i < m_CharPolyFactorOperators.Size(); i++) {
+        delete m_CharPolyFactorOperators[i];
+    }
 }
 
-RealEigOp::RealEigOp(double dt, double zeta) : m_dt{dt}, m_zeta0{zeta} {
+
+/* Constructor for factors in char polynomial */
+CharPolyFactorOperator::CharPolyFactorOperator(double dt, double zeta, 
+                                                     double eta, double beta, 
+                                                     SpatialDiscretization &S) 
+    : Operator(S.m_spatialDOFs), m_dt{dt}, m_zeta{zeta}, m_eta{eta}, m_beta{beta}, m_S{S}
+{
+    // Set coefficients that define the operator as a polynomial in L; zeta is 
+    // assumed to be passed as zero for conjugate pair factors
+    if (zeta != 0.0) {
+        m_conjPair = false;
+        m_c = Vector(2);
+        m_c(0) = m_zeta;
+        m_c(1) = -1.0;
+    } else {
+        m_conjPair = true;
+        m_c = Vector(3);
+        m_c(0) = m_eta*m_eta + m_beta*m_beta;
+        m_c(1) = -2.0*m_eta;
+        m_c(2) = 1.0;        
+    }
+        
     
+    // Set up preconditioner TODO
+    m_precon = NULL; 
+    
+    // TODO : Add check if L is SPD, if it is, setup CG solver instead
+    
+    // Set up GMRES solver
+    GMRESSolver * m_gmres = new GMRESSolver();
+    m_gmres->iterative_mode = false;
+    m_gmres->SetRelTol(1e-12);
+    m_gmres->SetAbsTol(1e-12);
+    m_gmres->SetMaxIter(300);
+    m_gmres->SetPrintLevel(2);
+    //m_gmres->SetPreconditioner(TODO);
+    m_gmres->SetOperator(*this);
+    m_solver = m_gmres;
 }
 
+/* Destructor */
+CharPolyFactorOperator::~CharPolyFactorOperator() {
+    delete m_solver;
+}
 
 
 /* Primary function */
 void IRK::TimeStep() {
-    
-    
-    
-    // GMRESSolver gmres(MPI_COMM_WORLD);
-    // gmres.SetAbsTol(0.0);
-    // gmres.SetRelTol(1e-12);
-    // gmres.SetMaxIter(200);
-    // gmres.SetKDim(10);
-    // gmres.SetPrintLevel(1);
-    // gmres.SetOperator(*A);
-    // gmres.SetPreconditioner(*amg);
-    // gmres.Mult(*B, *X);
-    
     /* Time at the start of each time step */
     double t = 0.0;
     
-    *m_y = 0.0;
+    *m_y = 2.0;
+    *m_z = 1.0;
     
-    /* Main loop */
+    /* Main time-stepping loop */
     for (int step = 0; step < m_nt; step++) {
+        std::cout << "RK time-step " << step+1 << " of " << m_nt << '\n';
         
         SetRHSLinearSystem(t); /* Set z */
         
-        std::cout << "RHS at time t = "  << t << '\n';
-        m_z->Print();
-        
-        /* Solve the real-valued systems that are linear in L */
-        for (int i = 0; i < m_zetaSize; i++) {
-            //RealEig.m_zeta0 = m_zeta[i];
+        /* Sequentially invert factors in characteristic polynomial */
+        for (int i = 0; i < m_zetaSize + m_etaSize; i++) {
+            m_CharPolyFactorOperators[i]->m_solver->Mult(*m_z, *m_y); // y <- char_poly_factor(i)^-1 * z
         }
         
-        /* Solve the complex conjugate systems that are quadratic in L */
-        for (int i = 0; i < m_etaSize; i++) {
-            //ConjEig.m_eta0 = m_eta[i];
-            //ConjEig.m_beta0 = m_beta[i];
-        }
-        
+        // Update solution vector at previous time with weighted sum of stage vectors
         *(m_S->m_u) += *m_y;
         
         t += m_dt; // Time the current solution is evaluated at
@@ -112,92 +135,43 @@ void IRK::TimeStep() {
 
 /* Form the RHS of the linear system at time t, m_z */
 void IRK::SetRHSLinearSystem(double t) {
-    
     *m_z = 0.0; /* z <- 0 */
     *m_w = 0.0; /* w <- 0 */
     
     for (int i = 0; i < m_s; i++) {
         m_S->SetG(t + m_dt*m_c0(i)); /* Set g at time t + dt*c[i] */
-        PolyMult(m_XCoeffs[i], m_dt, *(m_S->m_g), *m_w); /* w <- P(dt*L) * g */
+        m_S->SolDepPolyMult(m_XCoeffs[i], m_dt, *(m_S->m_g), *m_w); /* w <- P(dt*L) * g */
         *m_z += *m_w;
     }
 }
 
-/* Get y <- P(alpha*M^{-1}*L)*x for P a polynomial defined by coefficients.
-Coefficients must be provided for all monomial terms (even if they're 0) and 
-in increasing order (from 0th to nth) */
-void IRK::PolyMult(Vector coefficients, double alpha, const Vector &x, Vector &y) {
-    int n = coefficients.Size();
-    y.Set(coefficients[n-1], x); // y <- = coefficients[n-1]*x
-    Vector z(y.Size()); // An auxillary vector
-    for (int ell = n-2; ell >= 0; ell--) {
-        m_S->Mult(y, z); // z <- M^{-1}*L*y        
-        add(coefficients[ell], x, alpha, z, y); // y <- coefficients[ell]*x + alpha*z
-    } 
-}
 
-/* Compute the action of the quadratic polynomial in L: y <- [(eta*eta + beta*beta)*I - 2*eta*dt*L + (dt*L)*2] *x */
-void ConjEigOp::Mult(const Vector &x, Vector &y) {
-    Vector c(3);
-    c(0) = m_eta0*m_eta0 + m_beta0*m_beta0;
-    c(1) = -2.0*m_eta0;
-    c(2) = 1.0;
-    PolyMult(c, m_dt, x, y);
-}
-
-/* Compute the action of the linear polynomial in L: y <- [(zeta*I - dt*L)]*x */
-void RealEigOp::Mult(const Vector &x, Vector &y) {
-    Vector c(2);
-    c(0) = m_zeta0;
-    c(1) = -1.0;
-    //PolyMult(c, m_dt, x, y);
+/* Print data to file that allows one to extract the 
+    relevant data for plotting, etc. from the saved solution. Pass
+    in dictionary with information also to be saved to file that isn't a member 
+    variable (e.g. space disc info)
+*/
+void IRK::SaveSolInfo(string filename, map<string, string> additionalInfo) 
+{
+    ofstream solinfo;
+    solinfo.open(filename);
+    solinfo << scientific; // This means parameters will be printed with enough significant digits
+    solinfo << "nt " << m_nt << "\n";
+    solinfo << "dt " << m_dt << "\n";
+    
+    // Time-discretization-specific information
+    solinfo << "timeDisc " << m_RK_ID << "\n";
+    
+    // Print out contents from additionalInfo to file too
+    map<string, string>::iterator it;
+    for (it=additionalInfo.begin(); it!=additionalInfo.end(); it++) {
+        solinfo << it->first << " " << it->second << "\n";
+    }
+    solinfo.close();
 }
 
 
 void IRK::Test() {
-    
-    // for (int j = 0; j < m_s; j++) {
-    //     for (int k = 0; k < m_s; k++) {
-    //         cout << "x[" << j << "][" << k << "]=" << m_XCoeffs[j][k] << '\n';
-    //     }
-    //     cout << '\n';
-    // }
-    
-    // for (int  i  = 0 ; i < m_s;  i++)  {
-    //     std::cout << "X[] =  " << '\n';
-    //     m_XCoeffs[i].Print(cout);
-    // }
-    // 
-    // int FD_ID = 3;
-    // FDadvection SpaceDisc(MPI_COMM_WORLD, true, 1, 4, 1, FD_ID); 
-    // 
-    // SpaceDisc.Test(0.134);
-    // SpaceDisc.SaveL();
-    // SpaceDisc.SaveM();
-    // //SpaceDisc.PrintG();
-    // SpaceDisc.SaveU();
-    
-    m_S->SetL(0.134);
-    
-    
-    // m_S->SaveL();
-    // m_S->SaveM();
-    // //SpaceDisc.PrintG();
-    // m_S->SaveU();
-
-    
-
-    //m_S->Mult();
-    
-    std::cout << "dis is  d!!!!" << '\n';
-    
-    m_z = new Vector(*(m_S->m_u));
-    
-    //Vector d = Vector(m_z.Size()); 
-    PolyMult(m_XCoeffs[0], 1.0, *(m_S->m_u), *m_z);
-    m_z->Print(cout);
-    
-    
     
 }
 
@@ -343,7 +317,8 @@ void IRK::SetButcherCoeffs() {
     m_eta   = Vector(beta, m_etaSize);
 }
 
-/* Initialize all Butcher arrays with correct sizes; all entries initialized to zero so that only non-zero entries need be inserted */
+/* Initialize all Butcher arrays with correct sizes; all entries initialized to 
+    zero so that only non-zero entries need be inserted */
 void IRK::SizeButcherArrays(double * &A, double * &invA, double * &b, double * &c, double * &d, 
                             double * &zeta, double * &eta, double * &beta) {
     A    = new double[m_s*m_s]();
