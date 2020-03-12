@@ -80,10 +80,10 @@ void SpatialDiscretization::SetM() {
 Coefficients must be provided for all monomial terms (even if they're 0) and 
 in increasing order (from 0th to nth) */
 void SpatialDiscretization::SolDepPolyMult(Vector coefficients, double alpha, const Vector &x, Vector &y) {
-    int n = coefficients.Size();
-    y.Set(coefficients[n-1], x); // y <- = coefficients[n-1]*x
+    int n = coefficients.Size() - 1;
+    y.Set(coefficients[n], x); // y <- coefficients[n]*x
     Vector z(y.Size()); // An auxillary vector
-    for (int ell = n-2; ell >= 0; ell--) {
+    for (int ell = n-1; ell >= 0; ell--) {
         SolDepMult(y, z); // z <- M^{-1}*L*y        
         add(coefficients[ell], x, alpha, z, y); // y <- coefficients[ell]*x + alpha*z
     } 
@@ -100,7 +100,7 @@ void SpatialDiscretization::SolDepMult(const Vector &x, Vector &y) {
     // } else {
     //     m_L->Mult(x, y); // y <- L * x
     // }
-    m_L->Mult(x, y); // y <- L * x
+    m_L->Mult(x, y);
 }
 
 

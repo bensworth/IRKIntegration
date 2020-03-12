@@ -85,7 +85,7 @@ int main(int argc, char *argv[])
     double CFL_fraction;
     double CFLlim;
     CFLlim = 1.0;
-    CFL_fraction = 1.0; // Use a CFL number of ...
+    CFL_fraction = 4.0; // Use a CFL number of ...
     
     double dx, dy = -1.0;
     

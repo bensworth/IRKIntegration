@@ -33,9 +33,35 @@ A = 1.0;
 b = 1.0;
 c = 1.0;
 
+% % 2nd-order SDIRK
+% gamma   = 1.0 - 1.0 / sqrt(2.0);
+% A       = [gamma, 0.0; ...
+%            2*(1-gamma)-1, gamma];
+% b       = [1/2; 1/2];
+% c       = [gamma; 1-gamma];
+
+
+% 2nd-order Lobatto IIIC. L-stable
+% A = 0.5*[1, -1; 1, 1];
+% b = 0.5*[1; 1];
+% c = [0; 1];
+
+% % SDIRK3 from Dobrev et al. (2017). Updated numbers from WIKI page.
+% % Actually, see Butcher (2008), p. 262
+% x = 0.43586652150845899942;
+% p = 0.5*(1+x);
+% q = 0.5*(1-x);
+% y = -3/2*x^2 + 4*x - 1/4;
+% z =  3/2*x^2 - 5*x + 5/4;
+% c = [x;  p;  1];
+% b = [y;  z;  x];
+% A = [x,  0,  0;
+%        q,  x,  0;
+%        y,  z,  x];
+
 % % implicit 4th-order method, Hammer & Hollingsworth (A-stable)
 % % note: coincides with s=2-stage, p=2s-order Gauss method
-% %       see https://www.math.auckland.ac.nz/~butcher/ODE-book-2008/Tutorials/IRK.pdf
+% % %       see https://www.math.auckland.ac.nz/~butcher/ODE-book-2008/Tutorials/IRK.pdf
 A = [0.25, 0.25-sqrt(3.0)/6.0; ...
      0.25+sqrt(3.0)/6.0, 0.25];
 b = [0.5, 0.5]';
@@ -43,13 +69,13 @@ c = [0.5-sqrt(3.0)/6.0; ...
      0.5+sqrt(3.0)/6.0]';
 
 
-% % A 6th-order Gauss--Legendre method
-% A = [5/36, 2/9-sqrt(15)/15, 5/36-sqrt(15)/30; ...
-%     5/36+sqrt(15)/24, 2/9, 5/36-sqrt(15)/24; ...
-%     5/36+sqrt(15/30), 2/9+sqrt(15)/15, 5/36];
-% b = [5/18; 4/9; 5/18];
-% c = [1/2-sqrt(15)/10; 1/2; 1/2+sqrt(15)/10];
-%  
+% A 6th-order Gauss--Legendre method
+A = [5/36, 2/9-sqrt(15)/15, 5/36-sqrt(15)/30; ...
+    5/36+sqrt(15)/24, 2/9, 5/36-sqrt(15)/24; ...
+    5/36+sqrt(15)/30, 2/9+sqrt(15)/15, 5/36];
+b = [5/18; 4/9; 5/18];
+c = [1/2-sqrt(15)/10; 1/2; 1/2+sqrt(15)/10];
+ 
  
  
 

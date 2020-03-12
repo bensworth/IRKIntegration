@@ -60,14 +60,6 @@ protected:
     int      m_spatialCommSize;     /* Num processes in spatial communicator */
     int      m_spatialRank;         /* Process rank in spatial communicator */    
     
-    
-    /* Set member variables  */
-    void SetM();
-    void SetL(double t);
-    void SetG(double t);
-    void SetU0();
-
-    
 
     /* -------------------------------------------------------------------------- */
     /* ----- Some utility functions that may be helpful for derived classes ----- */
@@ -91,6 +83,14 @@ protected:
     virtual void GetSpatialDiscretizationU0(HypreParVector * &u0) = 0;
     
 public:
+    /* Set member variables  */
+    void SetM();
+    void SetL(double t);
+    void SetG(double t);
+    void SetU0();
+    
+    
+    
     int m_spatialDOFs;
     
     void SaveL(){ if (m_L) m_L->Print("L.txt"); else std::cout << "WARNING: m_L == NULL, cannot be printed!\n"; };

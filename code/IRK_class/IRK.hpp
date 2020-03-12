@@ -40,6 +40,7 @@ private:
            
     
 public:
+    MPI_Comm m_comm;
     bool m_conjPair;
     double m_zeta;
     double m_eta;
@@ -51,9 +52,9 @@ public:
     Solver * m_solver; /* Solver */
     Solver * m_precon; /* Preconditioner */ 
     
-    CharPolyFactorOperator(double dt, double zeta, double eta, double beta, SpatialDiscretization &S);
+    CharPolyFactorOperator(MPI_Comm comm, double dt, double zeta, double eta, double beta, SpatialDiscretization &S);
     
-    /* y <- (zeta*I - dt*L) * x */
+    /* y <- char. poly factor(dt*L) * x */
     inline virtual void Mult(const Vector &x, Vector &y) const { m_S.SolDepPolyMult(m_c, m_dt, x, y); }
 
     virtual ~CharPolyFactorOperator();
@@ -98,7 +99,9 @@ private:
     Vector * m_XCoeffs; /* Coefficients of polynomials {X_j}_{j=1}^s */
     
     /* --- Relating to HYPRE solution of linear systems --- */
-    MPI_Comm m_globComm;            /* Global communicator */
+    int m_numProcess;
+    int m_rank;
+    MPI_Comm m_comm;            /* Global communicator */
     
     
     void SetButcherCoeffs();    /* Set Butcher tableaux coefficients */
@@ -106,8 +109,8 @@ private:
     void PolyAction();          /* Compute action of a polynomial on a vector */
     
     /* Setting elements in arrays */
-    void Set(double * A, int i, int j, double aij) { A[i*m_s + j] = aij; }; // 2D array embedded in 1D array of size s, using rowmjr ordering (rows ordered contiguously) 
-    void Set(double * A, int i, double ai) { A[i] = ai; }; // 1D array
+    inline void Set(double * A, int i, int j, double aij) { A[i + j*m_s] = aij; }; // 2D array embedded in 1D array of size s, using rowmjr ordering (columns ordered contiguously) 
+    inline void Set(double * A, int i, double ai) { A[i] = ai; }; // 1D array
     
     /* Initialize and set Butcher arrays to  correct dimensions */
     void SizeButcherArrays(double * &A, double * &invA, double * &b, double * &c, double * &d, 

@@ -14,8 +14,10 @@ clear
 
 s = 1; % Number of stages. Choose this to be whatever you like!
 X_coeffs     = 'X';    % Actual variable name of output
-invA_label   = 'm_invA0';      % Actual variable name of matrix A above
-d_label = 'm_d0';    % Actual variable name of vector d0 == b0^\top * inv(A0)
+% invA_label   = 'm_invA0';      % Actual variable name of matrix A above
+% d_label = 'm_d0';    % Actual variable name of vector d0 == b0^\top * inv(A0)
+invA_label   = 'B';      % Actual variable name of matrix A above
+d_label = 'd';    % Actual variable name of vector d0 == b0^\top * inv(A0)
 
 outformat2 = @(i, j, data) fprintf('Set(%s, %d, %d, %s);\n', X_coeffs, i, j, data);
 
@@ -70,7 +72,7 @@ for i = 1:s
                 q{k} = ['+', q{k}];
             end
         end
-        outformat2(i-1, k-1, q{k})
+        outformat2(k-1, i-1, q{k})
     end
     fprintf('\n')
 end
