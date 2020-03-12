@@ -202,7 +202,7 @@ private:
                                 std::map<int, double> &out);
                                 
     int div_ceil(int numerator, int denominator);    
-    
+    void NegateData(int start, int stop, double * &data);
     
     /* Pure virtual functions requiring implementation from the base class */
     void GetSpatialDiscretizationU0(HypreParVector * &u0); 
