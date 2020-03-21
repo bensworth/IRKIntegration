@@ -20,44 +20,117 @@ using namespace mfem;
 using namespace std;
 
 
+struct AMG_parameters {
+   // Options: LAIR: {1, 1.5, 2}, NAIR: {3, 4, 5} - default 1.5
+   //    LAIR is more robust on non-triangular matrices, NAIR should be
+   //    faster to setup at the cost of slightly degraded convergence. 
+   //    E.g., NAIR 4 corresponds to distance 4-2=2 restriction.
+   double distance;
+   // Options string consisting of F, C, or A; e.g., "FFC" or "FA"
+   //    Default: prerelax = "", postrelax = "FA" (FA specifically
+   //    for type 10 relax)
+   std::string prerelax;
+   std::string postrelax;
+   // Strength tolerance for coarsening. Default 0.1, can be problem
+   // dependent. Try between 0.01 and 0.5, typically in the middle.
+   double strength_tolC;
+   // Tolerance for building restriction. Smaller is better, typically 
+   // 0.01 (default) or so. 
+   double strength_tolR;
+   // Remove small entries from R. Default 0, strategy we are testing to
+   // reduce complexity. 
+   double filter_tolR;
+   // Default 100 (simple interpolation). Can also use 6 (classical interp).
+   int interp_type;
+   // Default 10 (processor block Jacobi, i.e., ordered on processor Gauss-
+   // Seidel). Can also use 0 (Jacobi) or 3 (on processor, unordered Gauss-
+   // Seidel)
+   int relax_type;
+   // Eliminate small entries from the matrix to reduce memory/complexity.
+   // Default 1e-4. Can degrade convergence, if so make smaller.
+   double filterA_tol;
+   // Default 6, coarsens not aggressively. Can also use 3 (slower in 
+   // parallel, also not aggressive coarsening) or 10 (more aggressive
+   // coarsening).
+   int coarsening;
+};
 
-// /* AMG preconditioner for real linear systems [alpha*I - beta*L] */
-// class EigPreconditioner : public Solver
-// {
-// public:
-//     EigPreconditioner(double alpha, double beta, HypreParMatrix &L, int numiters);
-// };
 
+/* Preconditioner for Krylov solution of char. poly factors, which are:
+    TYPE 1. [zeta*I - dt*M^{-1}*L]
+    TYPE 2. [(eta^2+beta^2)*I - 2*eta*dt*M^{-1}*L + (dt*M^{-1}*L)^2]
+    
+This classe's MULT function should be called once per Krylov iteration of the above system
 
-/* The real operators, 
-    (zeta*I - dt*L), 
-    or [(eta+i*beta)*I - dt*L]*[(eta-i*beta)*I - dt*L], which is equivalent to 
-        [(eta^2+beta^2)*I - 2*eta*dt*L + (dt*L)^2] 
+Define operator M^{-1}*J(gamma) == M^{-1}*[gamma*M - dt*L], then:
+    If TYPE 1:
+        Approximately solve M^{-1}*J(zeta), where J(zeta) is approximately inverted with AMG.
+        
+    If TYPE 2:
+        Approximately solve [M^{-1}*J(eta)]^2 by approximately inverting
+        M^{-1}*J(eta) TWICE, where J(eta) is approximately inverted with either AMG or Krylov preconditioned AMG.
 */
-class CharPolyFactorOperator : public Operator
+class CharPolyPrecon : public Solver
+{
+    
+private:
+    int m_type; /* 1 or 2; type of preconditioner to provide */
+    
+    Operator * m_op;
+    
+    SpatialDiscretization &m_S; /* Holds all information about spatial discretization */
+    HypreParMatrix  * m_J;      /* Matrix to be approximately inverted: J == gamma*M - dt*L */ 
+    
+    Solver  * m_solver; /* Solver for J */
+    Solver  * m_precon; /* Preconditioner for J */
+    
+    //AIROptions m_amg_options;
+public:
+    // Make virtual functions to set and setup solver and preconditioner. E.g., implement GMRES
+    // and amg preconditioner by default, but user can override w/ more appropriate solver  should they  wish
+    
+    CharPolyPrecon(MPI_Comm comm, double gamma, double dt, int type, SpatialDiscretization &S);
+    ~CharPolyPrecon();
+
+    virtual void Mult(const Vector &x, Vector &y) const;
+    
+    // This is a pure virtual function, not sure why. Don't think we really need it...
+    virtual void SetOperator(const Operator &op) {  };
+};
+
+/* Char. poly factors, F:
+    TYPE 1. F == [zeta*I - dt*L]
+    TYPE 2. F == [(eta^2+beta^2)*I - 2*eta*dt*L + (dt*L)^2] 
+*/
+class CharPolyOp : public Operator
 {
 private:
-           
     
 public:
-    MPI_Comm m_comm;
-    bool m_conjPair;
+    
+    int m_type; /* 1 or 2; type of factor */
     double m_zeta;
     double m_eta;
     double m_beta;
     double m_dt;
-    Vector m_c;     /* Coefficients describing operator as polynomial in L*/
+    Vector m_c;     /* Coefficients describing operator as polynomial in L */
     SpatialDiscretization &m_S;
     
-    Solver * m_solver; /* Solver */
-    Solver * m_precon; /* Preconditioner */ 
+    MPI_Comm m_comm;
     
-    CharPolyFactorOperator(MPI_Comm comm, double dt, double zeta, double eta, double beta, SpatialDiscretization &S);
+    Solver * m_solver; /* Solver for factor */
+    Solver * m_precon; /* Preconditioner for factor */ 
     
-    /* y <- char. poly factor(dt*L) * x */
+    /* Type 1 operator */
+    CharPolyOp(MPI_Comm comm, double dt, double zeta, SpatialDiscretization &S);
+    
+    /* Type 2 operator */
+    CharPolyOp(MPI_Comm comm, double dt, double eta, double beta, SpatialDiscretization &S);
+    
+    /* y <- char. poly factor(dt*M^{-1}*L) * x */
     inline virtual void Mult(const Vector &x, Vector &y) const { m_S.SolDepPolyMult(m_c, m_dt, x, y); }
 
-    virtual ~CharPolyFactorOperator();
+    ~CharPolyOp();
 };
 
 
@@ -69,13 +142,13 @@ class IRK
     
 private:    
     
-    SpatialDiscretization * m_S;    /* Pointer to an instance of a SpatialDiscretization */
+    SpatialDiscretization * m_S;    /* Holds all information about THE spatial discretization */
     Vector * m_z;                   /* RHS of linear system */
     Vector * m_y;                   /* Solution of linear system */
     Vector * m_w;                   /* Auxillary vector */
     
-    /* Factor in char poly that we need to invert */
-    Array<CharPolyFactorOperator *> m_CharPolyFactorOperators;
+    /* Char. poly factors needed to be inverted */
+    Array<CharPolyOp *> m_CharPolyOps;
     
     double m_dt; /* Time step size */
     int    m_nt; /* Number of time steps */
@@ -88,7 +161,7 @@ private:
     int m_etaSize;      /* Number of complex conjugate pairs of eigenvalues of inv(A0) */
     
     DenseMatrix m_A0;   /* Butcher tableaux matrix A0 */
-    DenseMatrix m_invA0;/* Inverse of Butcher tableaux matrix A0 */
+    DenseMatrix m_invA0;/* Inverse of A0 */
     Vector m_b0;        /* Butcher tableaux weights */
     Vector m_c0;        /* Butcher tableaux nodes */
     Vector m_d0;        /* The vector b0^\top * inv(A0) */
@@ -119,7 +192,6 @@ private:
     
     /* Form and set RHS of linear system, m_z */
     void SetRHSLinearSystem(double t);
-    
 protected:    
     
     

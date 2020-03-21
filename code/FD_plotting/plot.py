@@ -91,7 +91,6 @@ for count, Ufilename in enumerate(PuT):
         dims = f.readline()
     dims.split(" ")
     dims = [int(x) for x in dims.split()] 
-    print(dims)
     # Get data from lines > 0
     temp = np.loadtxt(Ufilename, skiprows = 1, usecols = 0, dtype = np.float64) # Ignore the 1st column since it's just indices..., top row has junk in it we don't need
     DOFsOnProc = temp.shape[0]

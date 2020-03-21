@@ -11,7 +11,7 @@ IRK::IRK(MPI_Comm m_comm, int RK_ID, SpatialDiscretization * S,
         double dt, int nt) 
         : m_RK_ID{RK_ID}, m_S(S), m_z(NULL), m_y(NULL), m_w(NULL),
         m_dt{dt}, m_nt(nt),
-        m_CharPolyFactorOperators()
+        m_CharPolyOps()
         {
     
     // Get proc IDs
@@ -34,19 +34,19 @@ IRK::IRK(MPI_Comm m_comm, int RK_ID, SpatialDiscretization * S,
     
     /* Set spatial discretization once at the start since it's assumed time-independent */
     m_S->SetL(0.0);
+    m_S->SetM();
     
-    
-    /* --- Construct object for every factor in the char. poly --- */
-    m_CharPolyFactorOperators.SetSize(m_zetaSize + m_etaSize);
-    /* Real-valued, linear factors */
+    /* --- Construct object for every factor in char. poly --- */
+    m_CharPolyOps.SetSize(m_zetaSize + m_etaSize);
+    /* Linear factors. I.e., those of type 1 */
     int count = 0;
     for (int i = 0; i < m_zetaSize; i++) {
-        m_CharPolyFactorOperators[count] = new CharPolyFactorOperator(m_comm, dt, m_zeta(i), 0.0, 0.0, *m_S);
+        m_CharPolyOps[count] = new CharPolyOp(m_comm, dt, m_zeta(i), *m_S);
         count++;
     }
-    /* Complex conjugate pair, quadratic factors; pass zeta == 0.0! */
+    /* Quadratic factors. I.e., those of type 2 */
     for (int i = 0; i < m_etaSize; i++) {
-        m_CharPolyFactorOperators[count] = new CharPolyFactorOperator(m_comm, dt, 0.0, m_eta(i), m_beta(i), *m_S);
+        m_CharPolyOps[count] = new CharPolyOp(m_comm, dt, m_eta(i), m_beta(i), *m_S);
         count++;
     }   
 }
@@ -58,55 +58,164 @@ IRK::~IRK() {
     if (m_y) delete m_y;
     if (m_w) delete m_w;
     
-    for (int i = 0; i < m_CharPolyFactorOperators.Size(); i++) {
-        delete m_CharPolyFactorOperators[i];
+    for (int i = 0; i < m_CharPolyOps.Size(); i++) {
+        delete m_CharPolyOps[i];
     }
 }
 
 
-/* Constructor for factors in char polynomial */
-CharPolyFactorOperator::CharPolyFactorOperator(MPI_Comm comm, double dt, double zeta, 
-                                                     double eta, double beta, 
-                                                     SpatialDiscretization &S) 
-    : Operator(S.m_spatialDOFs), m_comm{comm}, m_dt{dt}, m_zeta{zeta}, m_eta{eta}, m_beta{beta}, m_S{S}
+/* Constructor for TYPE 1 char. polynomial factor */
+CharPolyOp::CharPolyOp(MPI_Comm comm, double dt, double zeta, 
+                        SpatialDiscretization &S) 
+    : Operator(S.m_nDOFs), m_comm{comm}, m_dt{dt}, m_zeta{zeta}, m_S{S}, m_type(1)
 {
-    // Set coefficients that define the operator as a polynomial in L; zeta is 
-    // assumed to be passed as zero for conjugate pair factors
-    if (zeta != 0.0) {
-        m_conjPair = false;
-        m_c = Vector(2);
-        m_c(0) = m_zeta;
-        m_c(1) = -1.0;
-    } else {
-        m_conjPair = true;
-        m_c = Vector(3);
-        m_c(0) = m_eta*m_eta + m_beta*m_beta;
-        m_c(1) = -2.0*m_eta;
-        m_c(2) = 1.0;        
-    }
+    // Coefficients of operator as a polynomial in L
+    m_c = Vector(2);
+    m_c(0) = m_zeta;
+    m_c(1) = -1.0;
         
+    // Set up preconditioner for Krylov solver
+    double gamma = m_zeta; // Constant in preconditioner
+    CharPolyPrecon * precon = new CharPolyPrecon(comm, gamma, m_dt, m_type, S);
     
-    // Set up preconditioner TODO
-    m_precon = NULL; 
-    
-    // TODO : Add check if L is SPD, if it is, setup CG solver instead
-    
-    // Set up GMRES solver
-    GMRESSolver * m_gmres = new GMRESSolver(m_comm);
-    m_gmres->iterative_mode = false;
-    m_gmres->SetRelTol(1e-12);
-    m_gmres->SetAbsTol(1e-12);
-    m_gmres->SetMaxIter(300);
-    m_gmres->SetPrintLevel(2);
-    //m_gmres->SetPreconditioner(TODO);
-    m_gmres->SetOperator(*this);
-    m_solver = m_gmres;
+    // Set up Krylov solver
+    GMRESSolver * gmres = new GMRESSolver(m_comm);
+    gmres->iterative_mode = false;
+    gmres->SetRelTol(1e-6);
+    gmres->SetAbsTol(1e-6);
+    gmres->SetMaxIter(80);
+    gmres->SetPrintLevel(2);
+    gmres->SetPreconditioner(*precon);
+    gmres->SetOperator(*this);
+    m_precon = precon;
+    m_solver = gmres;
 }
+
+/* Constructor for TYPE 2 char. polynomial factor */
+CharPolyOp::CharPolyOp(MPI_Comm comm, double dt, double eta, double beta, SpatialDiscretization &S) 
+    : Operator(S.m_nDOFs), m_comm{comm}, m_dt{dt}, m_eta{eta}, m_beta{beta}, m_S{S}, m_type(2)
+{
+    // Coefficients of operator as a polynomial in L
+    m_c = Vector(3);
+    m_c(0) = m_eta*m_eta + m_beta*m_beta;
+    m_c(1) = -2.0*m_eta;
+    m_c(2) = 1.0;
+        
+    // Set up preconditioner for Krylov solver
+    double gamma = m_eta; // Constant in preconditioner
+    CharPolyPrecon * precon = new CharPolyPrecon(comm, gamma, m_dt, m_type, S);
+
+    // Set up Krylov solver
+    GMRESSolver * gmres = new GMRESSolver(m_comm);
+    gmres->iterative_mode = false;
+    gmres->SetRelTol(1e-6);
+    gmres->SetAbsTol(1e-6);
+    gmres->SetMaxIter(250);
+    gmres->SetPrintLevel(2);
+    gmres->SetPreconditioner(*precon);
+    gmres->SetOperator(*this);
+    m_precon = precon;
+    m_solver = gmres;
+}
+
+
+/* Constructor for preconditioner */
+CharPolyPrecon::CharPolyPrecon(MPI_Comm comm, double gamma, double dt, int type, SpatialDiscretization &S) 
+    : Solver(S.m_nDOFs, false), m_type(type), m_S(S), m_precon(NULL), m_solver(NULL) {
+    
+    /* Build J, the operator to be inverted */
+    m_J = new HypreParMatrix( *(S.m_L) ); // J <- deepcopy(L)
+    *m_J *= -dt; // J <- -dt*J
+    m_J->Add(gamma, *(S.m_M)); // J <- J + gamma*M
+
+    
+    //m_J->Print("J.txt");
+    
+    /* Build AMG preconditioner for J */
+    HypreBoomerAMG * amg = new HypreBoomerAMG(*m_J);
+
+    
+    //AIR_parameters AIR = {1.5, "", "FA", 100, 10, 10, 0.1, 0.05, 0.0, 1e-5};
+    AMG_parameters AIR = {1.5, "", "FF", 0.1, 0.01, 0.0, 100, 10, 0.e-4, 6};
+    // 
+    amg->SetLAIROptions(AIR.distance, AIR.prerelax, AIR.postrelax,
+                           AIR.strength_tolC, AIR.strength_tolR, 
+                           AIR.filter_tolR, AIR.interp_type, 
+                           AIR.relax_type, AIR.filterA_tol,
+                           AIR.coarsening);
+    
+    // amg->SetLAIROptions(AIR.distanceR, AIR.prerelax, AIR.postrelax,
+    //                            AIR.strength_tolC, AIR.strength_tolR, AIR.filter_tolR,
+    //                            AIR.interp_type, AIR.relax_type, AIR.filterA_tol,
+    //                            AIR.coarsen_type); 
+    // 
+    if (m_type == 1) {
+        amg->SetPrintLevel(0);
+        
+        // Krylov preconditioner is a single AMG iteration
+        amg->SetTol(0.0);
+        amg->SetMaxIter(1); 
+    
+    } else if (m_type == 2) {
+        // Krylov preconditioner is a single AMG iteration
+        amg->SetPrintLevel(0);
+        amg->SetTol(0.0);
+        amg->SetMaxIter(10); 
+        
+        GMRESSolver * gmres = new GMRESSolver(comm);
+        gmres->iterative_mode = false;
+        gmres->SetRelTol(1e-2);
+        // 
+        // gmres->SetMaxIter(2);   
+        // gmres->SetAbsTol(0.0); 
+        // gmres->SetRelTol(0.0);     
+        //gmres->SetPrintLevel(2);  
+        
+        gmres->SetPreconditioner(*amg);  
+        gmres->SetOperator(*m_J);
+        //m_solver = gmres;
+    }
+    
+    m_precon = amg;
+}
+
+CharPolyPrecon::~CharPolyPrecon() {
+    
+    // if (m_solver) {
+    //     delete m_solver;
+    // } else {
+    //     delete m_precon;
+    // }
+}
+
+
+/* Apply action of preconditioner */
+void CharPolyPrecon::Mult(const Vector &x, Vector &y) const {
+    if (m_type == 1) {
+        m_precon->Mult(x, y);
+        
+    /* Type 2 operators uses two applications of preconditioned operator */
+    } else if (m_type == 2) {
+        Vector z(x); /* Auxillary vector */
+        if (m_solver) { /* Using a linear solver w/ a preconditioner to invert J */
+            m_solver->Mult(x, z);
+            m_solver->Mult(z, y);
+        } else {
+            m_precon->Mult(x, z); /* Just using a preconditioner to invert J */
+            m_precon->Mult(z, y);
+        }
+    }
+}
+
+
 
 /* Destructor */
-CharPolyFactorOperator::~CharPolyFactorOperator() {
-    delete m_solver;
+CharPolyOp::~CharPolyOp() {
+    //delete m_precon;
+    //delete m_solver;
 }
+
+
 
 
 /* Primary function */
@@ -124,7 +233,8 @@ void IRK::TimeStep() {
         
         /* Sequentially invert factors in characteristic polynomial */
         for (int i = 0; i < m_zetaSize + m_etaSize; i++) {
-            m_CharPolyFactorOperators[i]->m_solver->Mult(*m_z, *m_y); // y <- char_poly_factor(i)^-1 * z
+            if (m_rank == 0) std::cout << "System " << i << " of " << m_zetaSize + m_etaSize-1 << ";\t type = " << m_CharPolyOps[i]->m_type << "\n \t";
+            m_CharPolyOps[i]->m_solver->Mult(*m_z, *m_y); // y <- char_poly_factor(i)^-1 * z
             *m_z = *m_y;
         }
     
@@ -146,7 +256,7 @@ void IRK::SetRHSLinearSystem(double t) {
     for (int i = 0; i < m_s; i++) {
         m_S->SetG(t + m_dt*m_c0(i)); /* Set g at time t + dt*c[i] */
         add(*(m_S->m_g), temp, f); // f <- L*u + g
-        m_S->SolDepPolyMult(m_XCoeffs[i], m_dt, f, *m_w); /* w <- X_i(dt*L) * f */
+        m_S->SolDepPolyMult(m_XCoeffs[i], m_dt, f, *m_w); /* w <- X_i(dt*M^{-1}*L) * f */
         *m_z += *m_w;
         *m_w = 0.0;
     }
