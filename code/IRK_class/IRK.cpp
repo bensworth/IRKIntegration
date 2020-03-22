@@ -81,10 +81,10 @@ CharPolyOp::CharPolyOp(MPI_Comm comm, double dt, double zeta,
     // Set up Krylov solver
     GMRESSolver * gmres = new GMRESSolver(m_comm);
     gmres->iterative_mode = false;
-    gmres->SetRelTol(1e-6);
+    gmres->SetRelTol(1e-8);
     gmres->SetAbsTol(1e-6);
     gmres->SetMaxIter(80);
-    gmres->SetPrintLevel(2);
+    gmres->SetPrintLevel(1);
     gmres->SetPreconditioner(*precon);
     gmres->SetOperator(*this);
     m_precon = precon;
@@ -108,10 +108,10 @@ CharPolyOp::CharPolyOp(MPI_Comm comm, double dt, double eta, double beta, Spatia
     // Set up Krylov solver
     GMRESSolver * gmres = new GMRESSolver(m_comm);
     gmres->iterative_mode = false;
-    gmres->SetRelTol(1e-6);
+    gmres->SetRelTol(1e-8);
     gmres->SetAbsTol(1e-6);
     gmres->SetMaxIter(250);
-    gmres->SetPrintLevel(2);
+    gmres->SetPrintLevel(1);
     gmres->SetPreconditioner(*precon);
     gmres->SetOperator(*this);
     m_precon = precon;
@@ -136,7 +136,8 @@ CharPolyPrecon::CharPolyPrecon(MPI_Comm comm, double gamma, double dt, int type,
 
     
     //AIR_parameters AIR = {1.5, "", "FA", 100, 10, 10, 0.1, 0.05, 0.0, 1e-5};
-    AMG_parameters AIR = {1.5, "", "FF", 0.1, 0.01, 0.0, 100, 10, 0.e-4, 6};
+    // AMG_parameters AIR = {1.5, "", "FA", 0.1, 0.01, 0.0, 100, 10, 0.e-4, 6}; // w/ on-proc relaxation
+    AMG_parameters AIR = {1.5, "", "FFC", 0.1, 0.01, 0.0, 100, 0, 0.e-4, 6};    // w/ Jacobi relaxation
     // 
     amg->SetLAIROptions(AIR.distance, AIR.prerelax, AIR.postrelax,
                            AIR.strength_tolC, AIR.strength_tolR, 
@@ -154,25 +155,27 @@ CharPolyPrecon::CharPolyPrecon(MPI_Comm comm, double gamma, double dt, int type,
         
         // Krylov preconditioner is a single AMG iteration
         amg->SetTol(0.0);
-        amg->SetMaxIter(1); 
+        amg->SetMaxIter(1);
     
     } else if (m_type == 2) {
         // Krylov preconditioner is a single AMG iteration
         amg->SetPrintLevel(0);
         amg->SetTol(0.0);
-        amg->SetMaxIter(10); 
-        
-        GMRESSolver * gmres = new GMRESSolver(comm);
-        gmres->iterative_mode = false;
-        gmres->SetRelTol(1e-2);
+        amg->SetMaxIter(1);     // BS - we probably only want this to be one in practice.
+
+
+        // BS - there is a good reason this doesn't work; remind me we can talk about it
+        // GMRESSolver * gmres = new GMRESSolver(comm);
+        // gmres->iterative_mode = false;
+        // gmres->SetRelTol(1e-2);
         // 
         // gmres->SetMaxIter(2);   
         // gmres->SetAbsTol(0.0); 
         // gmres->SetRelTol(0.0);     
-        //gmres->SetPrintLevel(2);  
+        //gmres->SetPrintLevel(1);  
         
-        gmres->SetPreconditioner(*amg);  
-        gmres->SetOperator(*m_J);
+        // gmres->SetPreconditioner(*amg);  
+        // gmres->SetOperator(*m_J);
         //m_solver = gmres;
     }
     
