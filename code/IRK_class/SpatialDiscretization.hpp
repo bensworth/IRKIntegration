@@ -27,11 +27,13 @@ private:
     // Hmm, IRK is a friend class which means it can access the private and protected members of an instance of this class!
     friend class IRK;
     
+    void GetHypreParIdentityMatrix(const HypreParMatrix &A, HypreParMatrix * &I);
+    
 protected:
     
     /* Components of the spatial discretization */
-    HypreParMatrix * m_M;  /* Mass matrix */
-    HypreParMatrix * m_L;  /* Linear solution-dependent operator */
+    //HypreParMatrix * m_M;  /* Mass matrix */
+    //HypreParMatrix * m_L;  /* Linear solution-dependent operator */
     HypreParVector * m_g;  /* M^{-1} * solution-independent source term  */
     HypreParVector * m_u;  /* Solution */
     
@@ -60,14 +62,6 @@ protected:
     int      m_spatialCommSize;     /* Num processes in spatial communicator */
     int      m_spatialRank;         /* Process rank in spatial communicator */    
     
-    
-    /* Set member variables  */
-    void SetM();
-    void SetL(double t);
-    void SetG(double t);
-    void SetU0();
-
-    
 
     /* -------------------------------------------------------------------------- */
     /* ----- Some utility functions that may be helpful for derived classes ----- */
@@ -91,7 +85,20 @@ protected:
     virtual void GetSpatialDiscretizationU0(HypreParVector * &u0) = 0;
     
 public:
-    int m_spatialDOFs;
+    
+    HypreParMatrix * m_M;  /* Mass matrix */
+    HypreParMatrix * m_L;  /* Linear solution-dependent operator */
+    
+    
+    
+    /* Set member variables  */
+    void SetM();
+    void SetL(double t);
+    void SetG(double t);
+    void SetU0();
+    
+    
+    int m_nDOFs; /* Size of system */
     
     void SaveL(){ if (m_L) m_L->Print("L.txt"); else std::cout << "WARNING: m_L == NULL, cannot be printed!\n"; };
     void SaveM(){ if (m_M) m_M->Print("M.txt"); else std::cout << "WARNING: m_M == NULL, cannot be printed!\n"; };

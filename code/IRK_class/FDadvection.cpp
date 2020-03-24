@@ -61,6 +61,9 @@ void FDadvection::GetSpatialDiscretizationL(double t, HypreParMatrix * &L) {
                                     t, m_size);
     }
 
+    // Flip the sign of L since the base class expects L from du/dt = L*u and not du/dt + L*u = 0
+    NegateData(L_rowptr[0], L_rowptr[iupper-ilower+1], L_data);
+
     GetHypreParMatrixFromCSRData(m_spatialComm,  
                                     ilower, iupper, spatialDOFs, 
                                     L_rowptr, L_colinds, L_data,
@@ -71,6 +74,13 @@ void FDadvection::GetSpatialDiscretizationL(double t, HypreParMatrix * &L) {
     delete L_colinds;
     delete L_data;
 } 
+
+
+void FDadvection::NegateData(int start, int stop, double * &data) {
+    for (int i = start; i < stop; i++) {
+        data[i] *= -1.0;
+    }
+}
 
 /* Get initial condition in an MFEM HypreParVector */
 void FDadvection::GetSpatialDiscretizationU0(HypreParVector * &u0) {
@@ -233,6 +243,11 @@ FDadvection::FDadvection(MPI_Comm spatialComm, bool M_exists, int dim, int refLe
     } else if (m_problemID == 3) { /* Variable-coefficient in non-convervative form */
         m_conservativeForm  = false; 
         m_L_isTimedependent = true;
+        m_G_isTimedependent = true;
+        m_PDE_soln_implemented = true;
+    } else if (m_problemID == 4) { /* Spatially variable-coefficient in convervative form */
+        m_conservativeForm  = true; 
+        m_L_isTimedependent = false;
         m_G_isTimedependent = true;
         m_PDE_soln_implemented = true;
         
@@ -436,7 +451,7 @@ So if any of these are updated the solutions given here will be wrong...  */
 double FDadvection::PDE_Solution(double x, double t) {
     if (m_problemID == 1 || m_problemID == 101) {
         return InitCond( std::fmod(x + 1 - t, 2)  - 1 );
-    } else if (m_problemID == 2 || m_problemID == 3 || m_problemID == 102 || m_problemID == 103) {
+    } else if (m_problemID == 2 || m_problemID == 3 || m_problemID == 4 || m_problemID == 102 || m_problemID == 103) {
         return cos( PI*(x-t) ) * exp( cos( 2*PI*t ) - 1 );     
     } else {
         return 0.0; // Just so we're not given a compilation warning
@@ -447,7 +462,7 @@ double FDadvection::PDE_Solution(double x, double t) {
 double FDadvection::PDE_Solution(double x, double y, double t) {
     if (m_problemID == 1) {
         return InitCond( std::fmod(x + 1 - t, 2) - 1, std::fmod(y + 1 - t, 2)  - 1 );
-    } else if (m_problemID == 2 || m_problemID == 3) {
+    } else if (m_problemID == 2 || m_problemID == 3 || m_problemID == 4) {
         return cos( PI*(x-t) ) * cos( PI*(y-t) ) * exp( cos( 4*PI*t ) - 1 );     
     } else {
         return 0.0; // Just so we're not given a compilation warning
@@ -459,7 +474,7 @@ double FDadvection::InitCond(double x)
 {        
     if (m_problemID == 1 || m_problemID == 101) {
         return pow(sin(PI * x), 4.0);
-    } else if (m_problemID == 2 || m_problemID == 3 || m_problemID == 102 || m_problemID == 103) {
+    } else if (m_problemID == 2 || m_problemID == 3 || m_problemID == 4 || m_problemID == 102 || m_problemID == 103) {
         return cos(PI * x);
     } else {
         return 0.0;
@@ -486,7 +501,7 @@ double FDadvection::InitCond(double x, double y)
         // if ((x < 0) && (y >= 0)) return 2.0;
         // if ((x < 0) && (y < 0)) return 3.0;
         // if ((x >= 0) && (y < 0)) return 4.0;
-    } else if ((m_problemID == 2) || (m_problemID == 3)) {
+    } else if (m_problemID == 2 || m_problemID == 3 || m_problemID == 4) {
         return cos(PI * x) * cos(PI * y);
     } else {
         return 0.0;
@@ -501,6 +516,8 @@ double FDadvection::WaveSpeed(double x, double t) {
         return 1.0;
     } else if (m_problemID == 2 || m_problemID == 3) {
         return cos( PI*(x-t) ) * exp( -pow(sin(2*PI*t), 2.0) );
+    } else if (m_problemID == 4) {
+        return 0.5*(1.0 + pow(cos(PI*x), 2.0));
     } else if (m_problemID == 102 || m_problemID == 103) {
         return 0.5*(1.0 + pow(cos(PI*(x-t)), 2.0)) * exp( -pow(sin(2*PI*t), 2.0) ); 
     }  else  {
@@ -513,11 +530,17 @@ double FDadvection::WaveSpeed(double x, double t) {
 double FDadvection::WaveSpeed(double x, double y, double t, int component) {
     if (m_problemID == 1) {
         return 1.0;
-    } else if ((m_problemID == 2) || (m_problemID == 3)) {
+    } else if (m_problemID == 2 || m_problemID == 3) {
         if (component == 0) {
             return cos( PI*(x-t) ) * cos(PI*y) * exp( -pow(sin(2*PI*t), 2.0) );
         } else {
             return sin(PI*x) * cos( PI*(y-t) ) * exp( -pow(sin(2*PI*t), 2.0) );
+        }
+    } else if (m_problemID == 4) {
+        if (component == 0) {
+            return 0.5*(1.0 + pow(cos(PI*x), 2.0)) * 0.5*(1.0 + pow(sin(PI*y), 2.0));
+        } else {
+            return 0.5*(1.0 + pow(sin(PI*x), 2.0)) * 0.5*(1.0 + pow(cos(PI*y), 2.0));
         }
     } else {
         return 0.0;
@@ -556,7 +579,8 @@ double FDadvection::PDE_Source(double x, double t)
     } else if (m_problemID == 3) {
         return 0.5 * PI * exp( -2*pow(sin(PI*t), 2.0)*(cos(2*PI*t) + 2) ) * ( sin(2*PI*(t-x)) 
                     - 2*exp( pow(sin(2*PI*t), 2.0) )*(  sin(PI*(t-x)) + 2*sin(2*PI*t)*cos(PI*(t-x)) ) );
-    
+    } else if (m_problemID == 4) {
+        return 0.5 * exp( -1.0 + cos(2*PI*t) ) * (-PI*cos(PI*(x-t))*(4*sin(2*PI*t) + sin(2*PI*x)) + PI*pow(sin(PI*x), 2.0)*sin(PI*(x-t)) );
     } else if (m_problemID == 102) {
         return 0.5 * exp(-2.0*(2.0 + cos(2.0*PI*t))*pow(sin(PI*t), 2.0))
                     * ( PI*(1.0 + 3.0*pow(cos(PI*(t-x)), 2.0))*sin(PI*(t-x))
@@ -589,6 +613,19 @@ double FDadvection::PDE_Source(double x, double y, double t)
             cos(PI*(t-y))*( -2*exp(pow(sin(2*PI*t), 2.0)) * sin(PI*(t-x)) + cos(PI*y)*sin(2*PI*(t-x)) ) +
             cos(PI*(t-x))*( -2*exp(pow(sin(2*PI*t), 2.0)) * (4*cos(PI*(t-y))*sin(4*PI*t) + sin(PI*(t-y))) + sin(PI*x)*sin(2*PI*(t-y)) )
             );
+    } else if (m_problemID == 4) {
+        return -0.25*PI*exp(-1.0 + cos(4*PI*t)) * 
+            (
+            cos(PI*(y-t))*sin(PI*(x-t))*(-3.0 + pow(sin(PI*y),2.0) + pow(cos(PI*x),2.0)*(1.0+pow(sin(PI*y),2.0)) )
+            +
+            cos(PI*(x-t)) * 
+            (
+                (-3.0 + pow(sin(PI*x),2.0) + pow(cos(PI*y),2.0)*(1.0+pow(sin(PI*x),2.0)))*sin(PI*(y-t)) 
+                +
+                0.5*cos(PI*(y-t))*(32.0*sin(4*PI*t) + 3.0*(sin(2*PI*x) + sin(2*PI*y)) - sin(2*PI*(x+y)) )
+            )
+            ); 
+            
     } else {
         return 0.0;
     }

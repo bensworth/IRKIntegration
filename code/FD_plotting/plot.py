@@ -91,7 +91,6 @@ for count, Ufilename in enumerate(PuT):
         dims = f.readline()
     dims.split(" ")
     dims = [int(x) for x in dims.split()] 
-    print(dims)
     # Get data from lines > 0
     temp = np.loadtxt(Ufilename, skiprows = 1, usecols = 0, dtype = np.float64) # Ignore the 1st column since it's just indices..., top row has junk in it we don't need
     DOFsOnProc = temp.shape[0]
@@ -123,7 +122,7 @@ if params["space_dim"] == 1:
             #return np.cos(np.pi*temp) ** 4
             return np.sin(np.pi*temp) ** 4
             
-        elif (params["problemID"] == 2) or (params["problemID"] == 3) or params["problemID"] == 102 or params["problemID"] == 103:    
+        elif (params["problemID"] == 2) or (params["problemID"] == 3) or (params["problemID"] == 4) or params["problemID"] == 102 or params["problemID"] == 103:    
             return np.cos(np.pi*(x - t)) * np.exp(np.cos(2*np.pi*t) - 1)
             #return np.cos(np.pi*(x - t)) * np.exp(np.cos(t))/np.exp(1)    
 
@@ -167,8 +166,7 @@ if params["space_dim"] == 2:
     # If used spatial parallelism, DOFs are not ordered in row-wise lexicographic, but instead
     # are blocked by proc, with procs in row-wise lexicographic order and DOFs on proc ordered
     # in row-wise lexicographic order
-    if (params["spatialParallel"]):
-        params["p_xTotal"] = int(params["p_xTotal"])
+    if (params["P"] > 1):
         perm = np.zeros(nx*ny, dtype = "int32")
         # Extract dimensions of processor grid if they were given
         if ("p_x0" in params):
@@ -176,7 +174,7 @@ if params["space_dim"] == 2:
             npInY = int(params["p_x1"])
         # Otherwise assume square processor grid
         else:
-            npInX = int(np.sqrt(params["p_xTotal"])) 
+            npInX = int(np.sqrt(params["P"])) 
             npInY = npInX 
         count = 0
         
@@ -226,7 +224,7 @@ if params["space_dim"] == 2:
             tempx = np.mod(x + 1  - t, 2) - 1
             tempy = np.mod(y + 1  - t, 2) - 1
             return u0(tempx, tempy)
-        elif  params["problemID"] == 2 or params["problemID"] == 3:
+        elif  params["problemID"] == 2 or params["problemID"] == 3 or params["problemID"] == 4:
             return np.cos(np.pi*(x-t)) * np.cos(np.pi*(y-t)) * np.exp( np.cos(4*np.pi*t) - 1 )
 
     uT_exact = np.zeros((ny, nx))

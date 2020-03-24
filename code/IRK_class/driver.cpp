@@ -28,13 +28,13 @@ int main(int argc, char *argv[])
     int save_sol     = 0;  // Save solution vector
     string out       = ""; // Filename of data to be saved...
     
-    int IRK_ID       = 1;
+    int IRK_ID       = 11;
     double dt        = -1;
 
     /* --- Spatial discretization parameters --- */
     int order        = 1;
     int dim          = 1;
-    int refLevels    = 3;
+    int refLevels    = 4;
     bool M_exists    = false;
 
     // Finite-difference specific parameters
@@ -85,7 +85,7 @@ int main(int argc, char *argv[])
     double CFL_fraction;
     double CFLlim;
     CFLlim = 1.0;
-    CFL_fraction = 1.0; // Use a CFL number of ...
+    CFL_fraction = 6.0; // Use a CFL number of ...
     
     double dx, dy = -1.0;
     
