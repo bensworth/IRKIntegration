@@ -1,7 +1,5 @@
 #include "FDadvection.hpp"
 
-/* TODO : 
-*/
 
 /* -------------------------------------------------------------------------- */
 /* --------- Implementation of pure virtual functions in base class --------- */
@@ -23,7 +21,7 @@ void FDadvection::GetSpatialDiscretizationM(HypreParMatrix * &M)
         M_data[i]      = 1.0;
         M_rowptr[i+1]  = i+1;
     }
-    GetHypreParMatrixFromCSRData(m_spatialComm,  
+    GetHypreParMatrixFromCSRData(m_globComm,  
                                     m_localMinRow, m_localMinRow + m_onProcSize-1, m_spatialDOFs, 
                                     M_rowptr, M_colinds, M_data,
                                     M); 
@@ -56,7 +54,7 @@ void FDadvection::GetSpatialDiscretizationL(double t, HypreParMatrix * &L) {
         iupper = spatialDOFs - 1; 
     // Spatial parallelism: Distribute initial condition across spatial communicator    
     } else {
-        getSpatialDiscretizationL(m_spatialComm, L_rowptr, L_colinds, L_data, 
+        getSpatialDiscretizationL(m_globComm, L_rowptr, L_colinds, L_data, 
                                     U,  getU, U_ID, ilower, iupper, spatialDOFs, 
                                     t, m_size);
     }
@@ -64,7 +62,7 @@ void FDadvection::GetSpatialDiscretizationL(double t, HypreParMatrix * &L) {
     // Flip the sign of L since the base class expects L from du/dt = L*u and not du/dt + L*u = 0
     NegateData(L_rowptr[0], L_rowptr[iupper-ilower+1], L_data);
 
-    GetHypreParMatrixFromCSRData(m_spatialComm,  
+    GetHypreParMatrixFromCSRData(m_globComm,  
                                     ilower, iupper, spatialDOFs, 
                                     L_rowptr, L_colinds, L_data,
                                     L); 
@@ -97,10 +95,10 @@ void FDadvection::GetSpatialDiscretizationU0(HypreParVector * &u0) {
         iupper = spatialDOFs - 1; 
     // Spatial parallelism: Distribute initial condition across spatial communicator
     } else {
-        getInitialCondition(m_spatialComm, U, ilower, iupper, spatialDOFs);    
+        getInitialCondition(m_globComm, U, ilower, iupper, spatialDOFs);    
     }    
     
-    GetHypreParVectorFromData(m_spatialComm, 
+    GetHypreParVectorFromData(m_globComm, 
                              ilower, iupper, spatialDOFs, 
                              U, u0);
 }
@@ -123,12 +121,63 @@ void FDadvection::GetSpatialDiscretizationG(double t, HypreParVector * &g) {
     // Spatial parallelism: Distribute initial condition across spatial communicator
     } else {
         // Call when using spatial parallelism                          
-        getSpatialDiscretizationG(m_spatialComm, G, ilower, iupper, spatialDOFs, t); 
+        getSpatialDiscretizationG(m_globComm, G, ilower, iupper, spatialDOFs, t); 
     }    
     
-    GetHypreParVectorFromData(m_spatialComm, 
+    GetHypreParVectorFromData(m_globComm, 
                              ilower, iupper, spatialDOFs, 
                              G, g);
+}
+
+void SpatialDiscretization::SetL(double t) {
+    /* Get L for the first time */
+    if (!m_L) {
+        m_t_L = t;
+        GetSpatialDiscretizationL(t, m_L);
+        
+    /* Get L at a different time than what it's currently stored at */
+    } else if (m_L_isTimedependent && t != m_t_L) {
+        m_t_L = t;
+        delete m_L;
+        m_L = NULL;
+        GetSpatialDiscretizationL(t, m_L);
+    }
+}
+
+/* Set initial condition in solution vector */
+void SpatialDiscretization::SetU0() {
+    if (!m_u) {
+        GetSpatialDiscretizationU0(m_u);
+        height = m_u->Size(); // TODO : Need a  better way  of setting this...
+    } else {
+        std::cout << "WARNING: Initial condition cannot overwrite existing value of m_u" << '\n';
+    }
+}
+
+void SpatialDiscretization::SetG(double t) {
+    /* Get g for the first time */
+    if (!m_g) {
+        m_t_g = t;
+        GetSpatialDiscretizationG(t, m_g);
+        
+    /* Get g at a different time than what it's currently stored at */
+    } else if (m_G_isTimedependent && t != m_t_g) {
+        m_t_g = t;
+        delete m_g;
+        m_g = NULL;
+        GetSpatialDiscretizationG(t, m_g);
+    }
+    
+    if (m_M_exists) {
+        std::cout << "WARNING: Need to implement inv(M) * RHS" << '\n';
+        MPI_Finalize();
+        exit(1);
+    }
+}
+
+/* Functions setting HYPRE matrix/vector member variables  */
+void SpatialDiscretization::SetM() {
+    if (!m_M) GetSpatialDiscretizationM(m_M);
 }
 
 
@@ -152,20 +201,34 @@ void FDadvection::SetNumDissipation(Num_dissipation dissipation_params)
     }
 }
 
-FDadvection::FDadvection(MPI_Comm globComm, bool M_exists) : SpatialDiscretization(globComm, M_exists)
+FDadvection::FDadvection(MPI_Comm globComm, bool M_exists) :
+    IRKOperator(globComm, M_exists), m_M_exists{M_exists},
 {
+    // Get number of processes
+    MPI_Comm_rank(m_globComm, &m_spatialRank);
+    MPI_Comm_size(m_globComm, &m_globCommSize);
     
+    if (m_globCommSize > 1) m_useSpatialParallel = true;
 }
 
 
-FDadvection::FDadvection(MPI_Comm spatialComm, bool M_exists, int dim, int refLevels, int order, 
-            int problemID, std::vector<int> px): 
-            SpatialDiscretization(spatialComm, M_exists),
-                        m_dim{dim}, m_refLevels{refLevels}, m_problemID{problemID}, m_px{px},
-                        m_periodic(false), m_inflow(false), m_PDE_soln_implemented(false), m_dissipation(false)
+FDadvection::FDadvection(MPI_Comm globComm, bool M_exists, int dim, int refLevels, int order, 
+                        int problemID, std::vector<int> px)
+    : IRKOperator(globComm), m_M_exists{M_exists},
+    m_dim{dim}, m_refLevels{refLevels}, m_problemID{problemID}, m_px{px},
+    m_periodic(false), m_inflow(false), m_PDE_soln_implemented(false), m_dissipation(false),
+    m_M(NULL), m_L(NULL), m_u(NULL), m_g(NULL),
+    m_t_L{0.0}, m_t_g{0.0}, m_t_u{0.0}, 
+    m_useSpatialParallel(false), height(-1)
 {    
     // Seed random number generator so results are consistent!
     srand(0);
+
+    // Get number of processes
+    MPI_Comm_rank(m_globComm, &m_spatialRank);
+    MPI_Comm_size(m_globComm, &m_globCommSize);
+    
+    if (m_globCommSize > 1) m_useSpatialParallel = true;
     
     /* ----------------------------------------------------------------------------------------------------- */
     /* --- Check specified proc distribution is consistent with the number of procs passed by base class --- */
@@ -179,12 +242,12 @@ FDadvection::FDadvection(MPI_Comm spatialComm, bool M_exists, int dim, int refLe
             int num_procs = 1;
             for (const int &element: m_px)
                 num_procs *= element;
-            if (num_procs != m_spatialCommSize) {
+            if (num_procs != m_globCommSize) {
                 std::string proc_grid_dims = "";
                 for (const int &element: m_px)
                     proc_grid_dims += std::to_string(element) + "x";
                 proc_grid_dims.pop_back();
-                if (m_spatialRank == 0) std::cout << "WARNING: Prescribed spatial processor grid (P=" << proc_grid_dims << ") having " << num_procs << " processors does not contain same number of procs as specified in base class (" << m_spatialCommSize << ")! \n";
+                if (m_spatialRank == 0) std::cout << "WARNING: Prescribed spatial processor grid (P=" << proc_grid_dims << ") having " << num_procs << " processors does not contain same number of procs as specified in base class (" << m_globCommSize << ")! \n";
                 MPI_Finalize();
                 exit(1);
             }
@@ -296,7 +359,7 @@ FDadvection::FDadvection(MPI_Comm spatialComm, bool M_exists, int dim, int refLe
     decide which variables current process and its neighbours own, etc */
     if (m_useSpatialParallel) {
         //  To be safe, just do a check to ensure there isn't more procs than DOFs
-        if (m_spatialCommSize > m_spatialDOFs) {
+        if (m_globCommSize > m_spatialDOFs) {
             if (m_spatialRank == 0) std::cout << "WARNING: Number of processors must exceed number of spatial DOFs!" << '\n';
             MPI_Finalize();
             exit(1);
@@ -306,7 +369,7 @@ FDadvection::FDadvection(MPI_Comm spatialComm, bool M_exists, int dim, int refLe
         if (m_dim == 1) 
         {
             m_pGridInd.push_back(m_spatialRank);
-            if (m_px.empty()) m_px.push_back(m_spatialCommSize);
+            if (m_px.empty()) m_px.push_back(m_globCommSize);
             m_nxOnProcInt.push_back(m_nx[0]/m_px[0]);
             
             // Compute number of DOFs on proc
@@ -325,9 +388,9 @@ FDadvection::FDadvection(MPI_Comm spatialComm, bool M_exists, int dim, int refLe
             /* If a square number of procs not set by base class, the user must 
             manually pass dimensions of proc grid */
             if (m_px.empty()) {
-                int temp = sqrt(m_spatialCommSize);
-                if (temp * temp != m_spatialCommSize) {
-                    std::cout << "WARNING: Spatial processor grid dimensions must be specified if non-square grid is to be used (using P=" << m_spatialCommSize << " procs in space)" << '\n';
+                int temp = sqrt(m_globCommSize);
+                if (temp * temp != m_globCommSize) {
+                    std::cout << "WARNING: Spatial processor grid dimensions must be specified if non-square grid is to be used (using P=" << m_globCommSize << " procs in space)" << '\n';
                     MPI_Finalize();
                     exit(1);
                 /* Setup default square process grid */
@@ -375,30 +438,30 @@ FDadvection::FDadvection(MPI_Comm spatialComm, bool M_exists, int dim, int refLe
             int pWInd = (m_pGridInd[0] - 1 + m_px[0]) % m_px[0] + m_pGridInd[1] * m_px[0];
             
             // Send out index of first DOF I own to my nearest neighbours
-            MPI_Send(&m_localMinRow, 1, MPI_INT, pNInd, 0, m_spatialComm);
-            MPI_Send(&m_localMinRow, 1, MPI_INT, pSInd, 0, m_spatialComm);
-            MPI_Send(&m_localMinRow, 1, MPI_INT, pEInd, 0, m_spatialComm);
-            MPI_Send(&m_localMinRow, 1, MPI_INT, pWInd, 0, m_spatialComm);
+            MPI_Send(&m_localMinRow, 1, MPI_INT, pNInd, 0, m_globComm);
+            MPI_Send(&m_localMinRow, 1, MPI_INT, pSInd, 0, m_globComm);
+            MPI_Send(&m_localMinRow, 1, MPI_INT, pEInd, 0, m_globComm);
+            MPI_Send(&m_localMinRow, 1, MPI_INT, pWInd, 0, m_globComm);
             
             // Recieve index of first DOF owned by my nearest neighbours
             m_neighboursLocalMinRow.reserve(4); // Neighbours are ordered as NORTH, SOUTH, EAST, WEST
-            MPI_Recv(&m_neighboursLocalMinRow[0], 1, MPI_INT, pNInd, 0, m_spatialComm, MPI_STATUS_IGNORE);
-            MPI_Recv(&m_neighboursLocalMinRow[1], 1, MPI_INT, pSInd, 0, m_spatialComm, MPI_STATUS_IGNORE);
-            MPI_Recv(&m_neighboursLocalMinRow[2], 1, MPI_INT, pEInd, 0, m_spatialComm, MPI_STATUS_IGNORE);
-            MPI_Recv(&m_neighboursLocalMinRow[3], 1, MPI_INT, pWInd, 0, m_spatialComm, MPI_STATUS_IGNORE);
+            MPI_Recv(&m_neighboursLocalMinRow[0], 1, MPI_INT, pNInd, 0, m_globComm, MPI_STATUS_IGNORE);
+            MPI_Recv(&m_neighboursLocalMinRow[1], 1, MPI_INT, pSInd, 0, m_globComm, MPI_STATUS_IGNORE);
+            MPI_Recv(&m_neighboursLocalMinRow[2], 1, MPI_INT, pEInd, 0, m_globComm, MPI_STATUS_IGNORE);
+            MPI_Recv(&m_neighboursLocalMinRow[3], 1, MPI_INT, pWInd, 0, m_globComm, MPI_STATUS_IGNORE);
             
             // Send out dimensions of DOFs I own to nearest neighbours
-            MPI_Send(&m_nxOnProc[0], 2, MPI_INT, pNInd, 0, m_spatialComm);
-            MPI_Send(&m_nxOnProc[0], 2, MPI_INT, pSInd, 0, m_spatialComm);
-            MPI_Send(&m_nxOnProc[0], 2, MPI_INT, pEInd, 0, m_spatialComm);
-            MPI_Send(&m_nxOnProc[0], 2, MPI_INT, pWInd, 0, m_spatialComm);
+            MPI_Send(&m_nxOnProc[0], 2, MPI_INT, pNInd, 0, m_globComm);
+            MPI_Send(&m_nxOnProc[0], 2, MPI_INT, pSInd, 0, m_globComm);
+            MPI_Send(&m_nxOnProc[0], 2, MPI_INT, pEInd, 0, m_globComm);
+            MPI_Send(&m_nxOnProc[0], 2, MPI_INT, pWInd, 0, m_globComm);
             
             // Receive dimensions of DOFs that my nearest neighbours own
             m_neighboursNxOnProc.reserve(8); // Just stack the nx and ny on top of one another in pairs in same vector
-            MPI_Recv(&m_neighboursNxOnProc[0], 2, MPI_INT, pNInd, 0, m_spatialComm, MPI_STATUS_IGNORE);
-            MPI_Recv(&m_neighboursNxOnProc[2], 2, MPI_INT, pSInd, 0, m_spatialComm, MPI_STATUS_IGNORE);
-            MPI_Recv(&m_neighboursNxOnProc[4], 2, MPI_INT, pEInd, 0, m_spatialComm, MPI_STATUS_IGNORE);
-            MPI_Recv(&m_neighboursNxOnProc[6], 2, MPI_INT, pWInd, 0, m_spatialComm, MPI_STATUS_IGNORE);
+            MPI_Recv(&m_neighboursNxOnProc[0], 2, MPI_INT, pNInd, 0, m_globComm, MPI_STATUS_IGNORE);
+            MPI_Recv(&m_neighboursNxOnProc[2], 2, MPI_INT, pSInd, 0, m_globComm, MPI_STATUS_IGNORE);
+            MPI_Recv(&m_neighboursNxOnProc[4], 2, MPI_INT, pEInd, 0, m_globComm, MPI_STATUS_IGNORE);
+            MPI_Recv(&m_neighboursNxOnProc[6], 2, MPI_INT, pWInd, 0, m_globComm, MPI_STATUS_IGNORE);
         }
     }
     //std::cout << "I made it through constructor..." << '\n';
@@ -407,11 +470,12 @@ FDadvection::FDadvection(MPI_Comm spatialComm, bool M_exists, int dim, int refLe
 
 FDadvection::~FDadvection()
 {
-    
+    if (m_M) delete m_M;
+    if (m_L) delete m_L;
+    if (m_u) delete m_u;
+    if (m_g) delete m_g;
+    //if (m_z) delete m_z;
 }
-
-
-
 
 
 // Integer ceiling division
@@ -655,18 +719,18 @@ void FDadvection::getSpatialDiscretizationL(int * &L_rowptr, int * &L_colinds,
 }
 
 // USING SPATIAL PARALLELISM: Get local CSR structure of FD spatial discretization matrix, L
-void FDadvection::getSpatialDiscretizationL(const MPI_Comm &spatialComm, int *&L_rowptr,
+void FDadvection::getSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_rowptr,
                                               int *&L_colinds, double *&L_data, double *&U0,
                                               bool getU0, int U0ID, int &localMinRow, int &localMaxRow,
                                               int &spatialDOFs, double t, int &bsize) 
 {
     if (m_dim == 1) {
-        get1DSpatialDiscretizationL(spatialComm, L_rowptr,
+        get1DSpatialDiscretizationL(globComm, L_rowptr,
                                       L_colinds, L_data, U0,
                                       getU0, U0ID, localMinRow, localMaxRow,
                                       spatialDOFs, t, bsize);
     } else if (m_dim == 2) {
-        get2DSpatialDiscretizationL(spatialComm, L_rowptr,
+        get2DSpatialDiscretizationL(globComm, L_rowptr,
                                       L_colinds, L_data, U0,
                                       getU0, U0ID, localMinRow, localMaxRow,
                                       spatialDOFs, t, bsize);
@@ -677,7 +741,7 @@ void FDadvection::getSpatialDiscretizationL(const MPI_Comm &spatialComm, int *&L
 
 
 // USING SPATIAL PARALLELISM: Get local CSR structure of FD spatial discretization matrix, L
-void FDadvection::get2DSpatialDiscretizationL(const MPI_Comm &spatialComm, int *&L_rowptr,
+void FDadvection::get2DSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_rowptr,
                                               int *&L_colinds, double *&L_data, double *&U0,
                                               bool getU0, int U0ID, int &localMinRow, int &localMaxRow,
                                               int &spatialDOFs, double t, int &bsize)
@@ -1022,7 +1086,7 @@ void FDadvection::get2DSpatialDiscretizationL(int *&L_rowptr,
 
 
 // // Get local CSR structure of FD spatial discretization matrix, L
-// void FDadvection::get1DSpatialDiscretizationL(const MPI_Comm &spatialComm, int *&L_rowptr,
+// void FDadvection::get1DSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_rowptr,
 //                                               int *&L_colinds, double *&L_data, double *&U0,
 //                                               bool getU0, int &localMinRow, int &localMaxRow,
 //                                               int &spatialDOFs, double t, int &bsize) 
@@ -1119,7 +1183,7 @@ void FDadvection::get2DSpatialDiscretizationL(int *&L_rowptr,
 
 
 // Get local CSR structure of FD spatial discretization matrix, L
-void FDadvection::get1DSpatialDiscretizationL(const MPI_Comm &spatialComm, int *&L_rowptr,
+void FDadvection::get1DSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_rowptr,
                                               int *&L_colinds, double *&L_data, double *&U0,
                                               bool getU0, int U0ID, int &localMinRow, int &localMaxRow,
                                               int &spatialDOFs, double t, int &bsize) 
@@ -1465,7 +1529,7 @@ void FDadvection::GetGridFunction(void * GridFunction,
 
 // Evaluate grid-function when grid is distributed across multiple processes
 void FDadvection::GetGridFunction(void * GridFunction, 
-                                    const MPI_Comm &spatialComm, 
+                                    const MPI_Comm &globComm, 
                                     double * &B, 
                                     int &localMinRow, 
                                     int &localMaxRow, 
@@ -1504,7 +1568,7 @@ void FDadvection::GetGridFunction(void * GridFunction,
 
 
 // Get PDE solution
-bool FDadvection::GetExactPDESolution(const MPI_Comm &spatialComm, 
+bool FDadvection::GetExactPDESolution(const MPI_Comm &globComm, 
                                             double * &U, 
                                             int &localMinRow, 
                                             int &localMaxRow, 
@@ -1515,10 +1579,10 @@ bool FDadvection::GetExactPDESolution(const MPI_Comm &spatialComm,
         // Just pass lambdas to GetGrid function; cannot figure out better way to do this...
         if (m_dim == 1) {
             std::function<double(double)> GridFunction = [this, t](double x) { return PDE_Solution(x, t); };
-            GetGridFunction((void *) &GridFunction, spatialComm, U, localMinRow, localMaxRow, spatialDOFs);
+            GetGridFunction((void *) &GridFunction, globComm, U, localMinRow, localMaxRow, spatialDOFs);
         } else if (m_dim == 2) {
             std::function<double(double, double)> GridFunction = [this, t](double x, double y) { return PDE_Solution(x, y, t); };
-            GetGridFunction((void *) &GridFunction, spatialComm, U, localMinRow, localMaxRow, spatialDOFs);
+            GetGridFunction((void *) &GridFunction, globComm, U, localMinRow, localMaxRow, spatialDOFs);
         }  
         return true;
     } else {
@@ -1543,9 +1607,8 @@ bool FDadvection::GetExactPDESolution(double * &U, int &spatialDOFs, double t)
     }
 }
 
-
 // Get solution-independent component of spatial discretization in vector  G
-void FDadvection::getSpatialDiscretizationG(const MPI_Comm &spatialComm, 
+void FDadvection::getSpatialDiscretizationG(const MPI_Comm &globComm, 
                                             double * &G, 
                                             int &localMinRow, 
                                             int &localMaxRow, 
@@ -1555,7 +1618,7 @@ void FDadvection::getSpatialDiscretizationG(const MPI_Comm &spatialComm,
     // Just pass lambdas to GetGrid function; cannot figure out better way to do this...
     if (m_dim == 1) {
         std::function<double(double)> GridFunction = [this, t](double x) { return PDE_Source(x, t); };
-        GetGridFunction((void *) &GridFunction, spatialComm, G, localMinRow, localMaxRow, spatialDOFs);
+        GetGridFunction((void *) &GridFunction, globComm, G, localMinRow, localMaxRow, spatialDOFs);
         
         // Update G with inflow boundary information if necessary
         // All DOFs with coupling to inflow boundary are assumed to be on process 0 (there are very few of them)
@@ -1563,7 +1626,7 @@ void FDadvection::getSpatialDiscretizationG(const MPI_Comm &spatialComm,
         
     } else if (m_dim == 2) {
         std::function<double(double, double)> GridFunction = [this, t](double x, double y) { return PDE_Source(x, y, t); };
-        GetGridFunction((void *) &GridFunction, spatialComm, G, localMinRow, localMaxRow, spatialDOFs);
+        GetGridFunction((void *) &GridFunction, globComm, G, localMinRow, localMaxRow, spatialDOFs);
     }  
 }
 
@@ -1784,7 +1847,7 @@ void FDadvection::AppendInflowStencil1D(double * &G, double t) {
 
 
 // Allocate vector U0 memory and populate it with initial condition.
-void FDadvection::getInitialCondition(const MPI_Comm &spatialComm, 
+void FDadvection::getInitialCondition(const MPI_Comm &globComm, 
                                         double * &U0, 
                                         int &localMinRow, 
                                         int &localMaxRow, 
@@ -1793,10 +1856,10 @@ void FDadvection::getInitialCondition(const MPI_Comm &spatialComm,
     // Just pass lambdas to GetGrid function; cannot figure out better way to do this...
     if (m_dim == 1) {
         std::function<double(double)> GridFunction = [this](double x) { return InitCond(x); };
-        GetGridFunction((void *) &GridFunction, spatialComm, U0, localMinRow, localMaxRow, spatialDOFs);
+        GetGridFunction((void *) &GridFunction, globComm, U0, localMinRow, localMaxRow, spatialDOFs);
     } else if (m_dim == 2) {
         std::function<double(double, double)> GridFunction = [this](double x, double y) { return InitCond(x, y); };
-        GetGridFunction((void *) &GridFunction, spatialComm, U0, localMinRow, localMaxRow, spatialDOFs);
+        GetGridFunction((void *) &GridFunction, globComm, U0, localMinRow, localMaxRow, spatialDOFs);
     }   
 }
 
@@ -1947,3 +2010,123 @@ void FDadvection::get1DUpwindStencil(int * &inds, double * &weights, int dim)
         weights[i] /= m_dx[dim];
     }
 }
+
+
+/* -------------------------------------------------------------------------- */
+/* ----- Some utility functions that may be helpful for derived classes ----- */
+/* -------------------------------------------------------------------------- */
+
+/** Get parallel (square) matrix A from its local CSR data
+NOTES: HypreParMatrix makes copies of the data, so it can be deleted */
+void FDadvection::GetHypreParMatrixFromCSRData(MPI_Comm comm,  
+                                               int localMinRow, int localMaxRow, HYPRE_Int globalNumRows, 
+                                               int * A_rowptr, int * A_colinds, double * A_data,
+                                               HypreParMatrix * &A) 
+{
+    int localNumRows = localMaxRow - localMinRow + 1;
+    HYPRE_Int rows[2] = {localMinRow, localMaxRow+1};
+    HYPRE_Int * cols = rows;
+    // TODO: Maybe lodge issue on MFEM github. It's insane that the next line of 
+    // code doesn't lead to MFEM reordering the matrix so that the first entry in
+    // every row is the diagonal... I.e., the MFEM constructor checks whether rows
+    // and cols point to the same location rather than checking if their values are 
+    // the same. Such a simple difference (i.e., the above line c.f. the line below) 
+    // shouldn't lead to massively different behaviour (most HYPRE functions
+    // assume matrices are ordered like this and so they don't work as expected, 
+    // but do not throw an error). I think the rest of the constructor musn't work
+    // as expected anyway, because even in cols != rows, it's still meant to re-order
+    // so that the 1st entry is the diagonal one. I suspect the issue is that the
+    // re-ordering only happens when rows == cols; surely this is not right?
+    //HYPRE_Int cols[2] = {localMinRow, localMaxRow+1};
+    A = new HypreParMatrix(comm, localNumRows, globalNumRows, globalNumRows, 
+                            A_rowptr, A_colinds, A_data, 
+                            rows, cols); 
+}
+
+/** Get parallel vector x from its local data
+NOTES: HypreParVector doesn't make a copy of the data, so it cannot be deleted */
+void FDadvection::GetHypreParVectorFromData(MPI_Comm comm, 
+                                            int localMinRow, int localMaxRow, HYPRE_Int globalNumRows, 
+                                            double * x_data, HypreParVector * &x)
+{
+    int rows[2] = {localMinRow, localMaxRow+1}; 
+    x = new HypreParVector(comm, globalNumRows, x_data, rows);
+}
+
+/* Get identity matrix that's compatible with A */
+void FDadvection::GetHypreParIdentityMatrix(const HypreParMatrix &A, HypreParMatrix * &I) 
+{
+    int globalNumRows = A.GetGlobalNumRows();
+    int * row_starts = A.GetRowStarts();
+    int localNumRows = row_starts[1] - row_starts[0];
+    
+    int    * I_rowptr  = new int[localNumRows+1];
+    int    * I_colinds = new int[localNumRows];
+    double * I_data    = new double[localNumRows];
+    I_rowptr[0] = 0;
+    for (int i = 0; i < localNumRows; i++) {
+        I_colinds[i]   = i + row_starts[0];
+        I_data[i]      = 1.0;
+        I_rowptr[i+1]  = i+1;
+    }
+    
+    I = new HypreParMatrix(A.GetComm(), 
+                            localNumRows, globalNumRows, globalNumRows, 
+                            I_rowptr, I_colinds, I_data, 
+                            row_starts, row_starts); 
+    
+    /* These are copied into I, so can delete */
+    delete[] I_rowptr;
+    delete[] I_colinds;
+    delete[] I_data;
+} 
+
+/* Get identity mass matrix operator */
+void FDadvection::GetIRKOperatorM(HypreParMatrix * &M) {
+    if (m_M_exists) {
+        std::cout << "WARNING: If a mass matrix exists (as indicated), the derived class must implement it!" << '\n';
+        MPI_Finalize();
+        exit(1);
+    }
+    
+    if (!m_L) {
+        std::cout << "WARNING: Cannot get mass matrix M w/ out first getting discretization L" << '\n';
+        MPI_Finalize();
+        exit(1);
+    }
+    GetHypreParIdentityMatrix(*m_L, M);
+}
+
+// void FDadvection::Test(double t) {
+//     SetU0();
+//     SetG(t);
+//     SetL(t);
+//     SetM();
+// 
+// 
+//     //m_z(m_u->Size());
+// 
+//     m_z = Vector(m_u->Size());
+// 
+//     std::cout << "broken1.5" << '\n';
+// 
+//     //Vector z = Vector(m_u->Size());
+//     //m_M->Mult(*m_u, z);
+//     //z.Print(cout);
+//     //m_z = new HypreParVector(m_u->Size());
+// 
+// 
+//     std::cout << "broken2" << '\n';
+// 
+//     Array<double> c(2); // = Array({1.0, 3.0});
+//     c[0] = 1.0;
+//     c[1] = -3.0;
+// 
+//     Vector d = Vector(m_z.Size()); 
+//     PolyMult(c, 1.0, *m_u, d);
+//     d.Print(cout);
+// }
+
+
+
+

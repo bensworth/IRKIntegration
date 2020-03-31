@@ -6,7 +6,7 @@
 // 
 // #endif
 
-#include "SpatialDiscretization.hpp"
+#include "IRKOperator.hpp"
 
 #include "mfem.hpp"
 #include <cstdio>
@@ -56,7 +56,7 @@ struct Num_dissipation {
 };
 
 
-class FDadvection : public SpatialDiscretization
+class FDadvection : public IRKOperator
 {
 private:
     
@@ -85,15 +85,51 @@ private:
     bool                m_dissipation;          /* Numerical dissipation added to advection terms */
     Num_dissipation     m_dissipation_params;   /* Parameters describing numerical dissipation */
 
+    /* Components of the spatial discretization */
+    //HypreParMatrix * m_M;  /* Mass matrix */
+    //HypreParMatrix * m_L;  /* Linear solution-dependent operator */
+    HypreParVector * m_g;  /* M^{-1} * solution-independent source term  */
+    HypreParVector * m_u;  /* Solution */
+
+    double  m_t_L; /* Time the current (linear) solution-dependent operator is evaluated at */
+    double  m_t_g; /* Time the current solution-independent source term is evaluated at */
+    double  m_t_u; /* Time the current solution is evaluated at */
+    
+    bool    m_M_exists;
+    
+    /* Space discretization is assumed fully time-dependent; must be over ridden in derived class if this is not the case */
+    bool    m_L_isTimedependent;    /* Is L time dependent? */
+    bool    m_G_isTimedependent;    /* Is g time dependent? */
+    
+    bool     m_useSpatialParallel;  /* Hmm...  DO we need this?? */
+    MPI_Comm m_globComm;         /* Spatial communicator; the spatial discretization code has access to this */
+    int      m_globCommSize;     /* Num processes in spatial communicator */
+    int      m_spatialRank;         /* Process rank in spatial communicator */    
+
+    /* -------------------------------------------------------------------------- */
+    /* ----- Some utility functions that may be helpful for derived classes ----- */
+    /* -------------------------------------------------------------------------- */
+    void GetHypreParMatrixFromCSRData(MPI_Comm comm,  
+                                        int localMinRow, int localMaxRow, int globalNumRows, 
+                                        int * A_rowptr, int * A_colinds, double * A_data,
+                                        HypreParMatrix * &A); 
+
+    void GetHypreParVectorFromData(MPI_Comm comm, 
+                                    int localMinRow, int localMaxRow, int globalNumRows, 
+                                    double * x_data, HypreParVector * &x);
+
+    void GetHypreParIdentityMatrix(const HypreParMatrix &A, HypreParMatrix * &I);
+
+
 
     // /* Some hacks so I can explicitly assemble identity mass matrix for testing... */
     // int m_Mass_localMinRow;
     // int m_Mass_localMaxRow;
 
     // Call when using spatial parallelism                          
-    void getSpatialDiscretizationG(const MPI_Comm &spatialComm, double* &G, 
+    void getSpatialDiscretizationG(const MPI_Comm &globComm, double* &G, 
                                     int &localMinRow, int &localMaxRow, int &spatialDOFs, double t);                               
-    void getSpatialDiscretizationL(const MPI_Comm &spatialComm, int* &L_rowptr, 
+    void getSpatialDiscretizationL(const MPI_Comm &globComm, int* &L_rowptr, 
                                     int* &L_colinds, double* &L_data,
                                     double* &U0, bool getU0, int U0ID,
                                     int &localMinRow, int &localMaxRow, int &spatialDOFs,
@@ -106,12 +142,12 @@ private:
                                     int &spatialDOFs, double t, int &bsize);                                            
                                          
     /* Uses spatial parallelism */                                
-    void get2DSpatialDiscretizationL(const MPI_Comm &spatialComm, 
+    void get2DSpatialDiscretizationL(const MPI_Comm &globComm, 
                                         int *&L_rowptr, int *&L_colinds, double *&L_data, 
                                         double * &U0, bool getU0, int U0ID,
                                         int &localMinRow, int &localMaxRow, int &spatialDOFs, 
                                         double t, int &bsize);
-    void get1DSpatialDiscretizationL(const MPI_Comm &spatialComm, 
+    void get1DSpatialDiscretizationL(const MPI_Comm &globComm, 
                                         int *&L_rowptr, int *&L_colinds, double *&L_data, 
                                         double * &U0, bool getU0, int U0ID,
                                         int &localMinRow, int &localMaxRow, int &spatialDOFs, 
@@ -123,7 +159,7 @@ private:
                                         int &spatialDOFs, double t, int &bsize);
                                 
     /* Uses spatial parallelism */  
-    void getInitialCondition(const MPI_Comm &spatialComm, 
+    void getInitialCondition(const MPI_Comm &globComm, 
                                    double * &U0, 
                                    int      &localMinRow, 
                                    int      &localMaxRow, 
@@ -132,7 +168,7 @@ private:
     void getInitialCondition(double * &U0, 
                              int      &spatialDOFs);
     
-    bool GetExactPDESolution(const MPI_Comm &spatialComm, 
+    bool GetExactPDESolution(const MPI_Comm &globComm, 
                                                 double * &U, 
                                                 int &localMinRow, 
                                                 int &localMaxRow, 
@@ -150,7 +186,7 @@ private:
                          int      &spatialDOFs);
 
     void GetGridFunction(      void     *  GridFunction, 
-                         const MPI_Comm   &spatialComm, 
+                         const MPI_Comm   &globComm, 
                                double   * &B, 
                                int        &localMinRow, 
                                int        &localMaxRow, 
@@ -204,13 +240,23 @@ private:
     int div_ceil(int numerator, int denominator);    
     void NegateData(int start, int stop, double * &data);
     
-    /* Pure virtual functions requiring implementation from the base class */
+    // Functions to get spatial discretization
     void GetSpatialDiscretizationU0(HypreParVector * &u0); 
     void GetSpatialDiscretizationG(double t, HypreParVector * &g); 
     void GetSpatialDiscretizationL(double t, HypreParMatrix * &L); 
     void GetSpatialDiscretizationM(HypreParMatrix * &M); 
-                           
+
+    // Set member variables
+    void SetM();
+    void SetL(double t);
+    void SetG(double t);
+    void SetU0();
+                    
 public:
+    
+    HypreParMatrix * m_M;  /* Mass matrix */
+    HypreParMatrix * m_L;  /* Linear solution-dependent operator */
+
     /* Constructors */
 	FDadvection(MPI_Comm globComm, bool M_exists);
 	FDadvection(MPI_Comm globComm, bool M_exists, int dim, int refLevels, int order, int problemID, std::vector<int> px = {});
@@ -218,4 +264,11 @@ public:
     
     /* Add numerical dissipation into pure advection discretization  */
     void SetNumDissipation(Num_dissipation dissipation_params);
+    
+    void SaveL(){ if (m_L) m_L->Print("L.txt"); else std::cout << "WARNING: m_L == NULL, cannot be printed!\n"; };
+    void SaveM(){ if (m_M) m_M->Print("M.txt"); else std::cout << "WARNING: m_M == NULL, cannot be printed!\n"; };
+    void SaveG(){ if (m_g) m_g->Print("g.txt"); else std::cout << "WARNING: m_g == NULL, cannot be printed!\n"; };
+    void SaveU(const char * fname){ if (m_u) m_u->Print(fname); else std::cout << "WARNING: m_u == NULL, cannot be printed!\n"; };
+
+    void Test(double t);
 };
