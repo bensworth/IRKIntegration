@@ -1,4 +1,4 @@
-#include "SpatialDiscretization.hpp"
+#include "IRKSpatialDisc.hpp"
 
 
 /* -------------------------------------------------------------------------- */
@@ -7,7 +7,7 @@
 
 /** Get parallel (square) matrix A from its local CSR data
 NOTES: HypreParMatrix makes copies of the data, so it can be deleted */
-void SpatialDiscretization::GetHypreParMatrixFromCSRData(MPI_Comm comm,  
+void IRKSpatialDisc::GetHypreParMatrixFromCSRData(MPI_Comm comm,  
                                                         int localMinRow, int localMaxRow, HYPRE_Int globalNumRows, 
                                                         int * A_rowptr, int * A_colinds, double * A_data,
                                                         HypreParMatrix * &A) 
@@ -34,7 +34,7 @@ void SpatialDiscretization::GetHypreParMatrixFromCSRData(MPI_Comm comm,
 
 /** Get parallel vector x from its local data
 NOTES: HypreParVector doesn't make a copy of the data, so it cannot be deleted */
-void SpatialDiscretization::GetHypreParVectorFromData(MPI_Comm comm, 
+void IRKSpatialDisc::GetHypreParVectorFromData(MPI_Comm comm, 
                                                      int localMinRow, int localMaxRow, HYPRE_Int globalNumRows, 
                                                      double * x_data, HypreParVector * &x)
 {
@@ -46,7 +46,7 @@ void SpatialDiscretization::GetHypreParVectorFromData(MPI_Comm comm,
 /* -------------------------------------------------------------------------- */
 
 /* Get identity mass matrix operator */
-void SpatialDiscretization::GetSpatialDiscretizationM(HypreParMatrix * &M) {
+void IRKSpatialDisc::GetIRKSpatialDiscM(HypreParMatrix * &M) {
     if (m_M_exists) {
         std::cout << "WARNING: If a mass matrix exists (as indicated), the derived class must implement it!" << '\n';
         MPI_Finalize();
@@ -62,7 +62,7 @@ void SpatialDiscretization::GetSpatialDiscretizationM(HypreParMatrix * &M) {
 }
 
 /* Get identity matrix that's compatible with A */
-void SpatialDiscretization::GetHypreParIdentityMatrix(const HypreParMatrix &A, HypreParMatrix * &I) 
+void IRKSpatialDisc::GetHypreParIdentityMatrix(const HypreParMatrix &A, HypreParMatrix * &I) 
 {
     int globalNumRows = A.GetGlobalNumRows();
     int * row_starts = A.GetRowStarts();
@@ -90,7 +90,7 @@ void SpatialDiscretization::GetHypreParIdentityMatrix(const HypreParMatrix &A, H
 } 
 
 /* Constructor */
-SpatialDiscretization::SpatialDiscretization(MPI_Comm spatialComm, bool M_exists) 
+IRKSpatialDisc::IRKSpatialDisc(MPI_Comm spatialComm, bool M_exists) 
     : m_spatialComm{spatialComm}, m_M_exists{M_exists}, 
     m_M(NULL), m_L(NULL), m_u(NULL), m_g(NULL),
     m_t_L{0.0}, m_t_g{0.0}, m_t_u{0.0}, 
@@ -108,7 +108,7 @@ SpatialDiscretization::SpatialDiscretization(MPI_Comm spatialComm, bool M_exists
 
 
 /* Destructor: Clean up memory */
-SpatialDiscretization::~SpatialDiscretization() {
+IRKSpatialDisc::~IRKSpatialDisc() {
     if (m_M) delete m_M;
     if (m_L) delete m_L;
     if (m_u) delete m_u;
@@ -117,11 +117,11 @@ SpatialDiscretization::~SpatialDiscretization() {
 }
 
 /* Functions setting HYPRE matrix/vector member variables  */
-void SpatialDiscretization::SetM() {
-    if (!m_M) GetSpatialDiscretizationM(m_M);
+void IRKSpatialDisc::SetM() {
+    if (!m_M) GetIRKSpatialDiscM(m_M);
 }
 
-// void SpatialDiscretization::SetMSolver() {
+// void IRKSpatialDisc::SetMSolver() {
 //     M_solver.SetPreconditioner(M_prec);
 //     M_solver.SetOperator(m_M);
 //     M_solver.iterative_mode = false;
@@ -132,22 +132,9 @@ void SpatialDiscretization::SetM() {
 // }
 
 
-/* Get y <- P(alpha*M^{-1}*L)*x for P a polynomial defined by coefficients.
-Coefficients must be provided for all monomial terms (even if they're 0) and 
-in increasing order (from 0th to nth) */
-void SpatialDiscretization::SolDepPolyMult(Vector coefficients, double alpha, const Vector &x, Vector &y) {
-    int n = coefficients.Size() - 1;
-    y.Set(coefficients[n], x); // y <- coefficients[n]*x
-    Vector z(y.Size()); // An auxillary vector
-    for (int ell = n-1; ell >= 0; ell--) {
-        SolDepMult(y, z); // z <- M^{-1}*L*y        
-        add(coefficients[ell], x, alpha, z, y); // y <- coefficients[ell]*x + alpha*z
-    } 
-}
-
 
 // TODO: Properly organise mass matrix...
-void SpatialDiscretization::SolDepMult(const Vector &x, Vector &y) {
+void IRKSpatialDisc::SolDepMult(const Vector &x, Vector &y) {
     // if (m_M_exists) {
     //     m_L->Mult(x, m_z); // z <- L * x
     //     //M_solver->Mult(z, y); // y <- M^-1 * z
@@ -160,43 +147,43 @@ void SpatialDiscretization::SolDepMult(const Vector &x, Vector &y) {
 }
 
 
-void SpatialDiscretization::SetL(double t) {
+void IRKSpatialDisc::SetL(double t) {
     /* Get L for the first time */
     if (!m_L) {
         m_t_L = t;
-        GetSpatialDiscretizationL(t, m_L);
+        GetIRKSpatialDiscL(t, m_L);
         
     /* Get L at a different time than what it's currently stored at */
     } else if (m_L_isTimedependent && t != m_t_L) {
         m_t_L = t;
         delete m_L;
         m_L = NULL;
-        GetSpatialDiscretizationL(t, m_L);
+        GetIRKSpatialDiscL(t, m_L);
     }
 }
 
 /* Set initial condition in solution vector */
-void SpatialDiscretization::SetU0() {
+void IRKSpatialDisc::SetU0() {
     if (!m_u) {
-        GetSpatialDiscretizationU0(m_u);
+        GetIRKSpatialDiscU0(m_u);
         m_nDOFs = m_u->Size(); // TODO : Need a  better way  of setting this...
     } else {
         std::cout << "WARNING: Initial condition cannot overwrite existing value of m_u" << '\n';
     }
 }
 
-void SpatialDiscretization::SetG(double t) {
+void IRKSpatialDisc::SetG(double t) {
     /* Get g for the first time */
     if (!m_g) {
         m_t_g = t;
-        GetSpatialDiscretizationG(t, m_g);
+        GetIRKSpatialDiscG(t, m_g);
         
     /* Get g at a different time than what it's currently stored at */
     } else if (m_G_isTimedependent && t != m_t_g) {
         m_t_g = t;
         delete m_g;
         m_g = NULL;
-        GetSpatialDiscretizationG(t, m_g);
+        GetIRKSpatialDiscG(t, m_g);
     }
     
     if (m_M_exists) {
@@ -208,7 +195,7 @@ void SpatialDiscretization::SetG(double t) {
 
 
 
-// void SpatialDiscretization::Test(double t) {
+// void IRKSpatialDisc::Test(double t) {
 //     SetU0();
 //     SetG(t);
 //     SetL(t);

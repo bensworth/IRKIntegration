@@ -1,11 +1,11 @@
 #ifndef IRK_H
 #define IRK_H
 
-//#ifndef SPATIALDISCRETIZATION_H
+//#ifndef IRKSpatialDisc_H
 
 //#endif
 
-#include "SpatialDiscretization.hpp"
+#include "IRKSpatialDisc.hpp"
 
 #include "HYPRE.h"
 #include "mfem.hpp"
@@ -78,7 +78,7 @@ private:
     
     Operator * m_op;
     
-    SpatialDiscretization &m_S; /* Holds all information about spatial discretization */
+    IRKSpatialDisc &m_S; /* Holds all information about spatial discretization */
     HypreParMatrix  * m_J;      /* Matrix to be approximately inverted: J == gamma*M - dt*L */ 
     
     Solver  * m_solver; /* Solver for J */
@@ -89,7 +89,7 @@ public:
     // Make virtual functions to set and setup solver and preconditioner. E.g., implement GMRES
     // and amg preconditioner by default, but user can override w/ more appropriate solver  should they  wish
     
-    CharPolyPrecon(MPI_Comm comm, double gamma, double dt, int type, SpatialDiscretization &S);
+    CharPolyPrecon(MPI_Comm comm, double gamma, double dt, int type, IRKSpatialDisc &S);
     ~CharPolyPrecon();
 
     virtual void Mult(const Vector &x, Vector &y) const;
@@ -114,7 +114,7 @@ public:
     double m_beta;
     double m_dt;
     Vector m_c;     /* Coefficients describing operator as polynomial in L */
-    SpatialDiscretization &m_S;
+    IRKSpatialDisc &m_S;
     
     MPI_Comm m_comm;
     
@@ -122,10 +122,10 @@ public:
     Solver * m_precon; /* Preconditioner for factor */ 
     
     /* Type 1 operator */
-    CharPolyOp(MPI_Comm comm, double dt, double zeta, SpatialDiscretization &S);
+    CharPolyOp(MPI_Comm comm, double dt, double zeta, IRKSpatialDisc &S);
     
     /* Type 2 operator */
-    CharPolyOp(MPI_Comm comm, double dt, double eta, double beta, SpatialDiscretization &S);
+    CharPolyOp(MPI_Comm comm, double dt, double eta, double beta, IRKSpatialDisc &S);
     
     /* y <- char. poly factor(dt*M^{-1}*L) * x */
     inline virtual void Mult(const Vector &x, Vector &y) const { m_S.SolDepPolyMult(m_c, m_dt, x, y); }
@@ -136,22 +136,23 @@ public:
 
 /* Class implementing conjugate pair preconditioned solution of fully implicit 
 RK schemes for the linear ODE system M*du/dt = L*u + g(t), as implemented in 
-SpatialDiscretization */
-class IRK
+IRKSpatialDisc */
+class IRK : public ODESolver
 {
-    
+// Must implement:
+//  void Step(Vector &x, double &t, double &dt)
+//  void Run(Vector &x, double &t, double &dt, double tf) 
+//
+
 private:    
     
-    SpatialDiscretization * m_S;    /* Holds all information about THE spatial discretization */
+    IRKSpatialDisc * m_S;    /* Holds all information about THE spatial discretization */
     Vector * m_z;                   /* RHS of linear system */
     Vector * m_y;                   /* Solution of linear system */
     Vector * m_w;                   /* Auxillary vector */
     
     /* Char. poly factors needed to be inverted */
     Array<CharPolyOp *> m_CharPolyOps;
-    
-    double m_dt; /* Time step size */
-    int    m_nt; /* Number of time steps */
     
     /* Runge-Kutta Butcher tableaux variables */
     int m_RK_ID;
@@ -188,24 +189,39 @@ private:
     /* Initialize and set Butcher arrays to  correct dimensions */
     void SizeButcherArrays(double * &A, double * &invA, double * &b, double * &c, double * &d, 
                             double * &zeta, double * &eta, double * &beta);
-    
-    
-    /* Form and set RHS of linear system, m_z */
-    void SetRHSLinearSystem(double t);
+
+    /* Construct right-hand side, m_z, for IRK integration, including applying
+    the block Adjugate and Butcher inverse */
+    void ConstructRHS(double t, double dt);
+
 protected:    
     
     
 public:
-    IRK(MPI_Comm globComm, int RK_ID, SpatialDiscretization * S, double dt, int nt);
+
+    // Implicit Runge Kutta type. Enumeration:
+    //  First digit: group of schemes
+    //  + 0 = L-stable SDIRK
+    //  + 1 = Gauss-Legendre
+    //  + 2 = RadauIIA
+    //  + 3 = Lobatto IIIC
+    //  Second digit: order of scheme
+    enum Type { 
+      SDIRK2 = 02, SDIRK3 = 03, SDIRK4 = 04,
+      Gauss4 = 14, Gauss6 = 16, Gauss8 = 18,
+      RadauIIA3 = 23, RadauIIA5 = 25, RadauIIA7 = 27,
+      LobIIIC2 = 32, LobIIIC4 = 34, LobIIIC6 = 36
+    };
+
+    IRK(IRKSpatialDisc *S, IRK::Type RK_ID, MPI_Comm globComm);
     ~IRK();
     
-    void TimeStep();
+    void IRK::Step(Vector &x, double &t, double &dt);
+    void IRK::Run(Vector &x, double &t, double &dt, double tf);
     
     void SaveSolInfo(string filename, map<string, string> additionalInfo);
     
     //inline void PrintU(string filename) {if (m_u)}
-    
-    void Test();
 };
 
 #endif

@@ -45,6 +45,12 @@ int main(int argc, char *argv[])
     double ndis_c0   = 0.0;
     int ndis_c1      = 0;
 
+    // CFL parameters
+    double CFL_fraction;
+    double CFLlim;
+    CFLlim = 1.0;
+    CFL_fraction = 6.0; // Use a CFL number of ...
+
     OptionsParser args(argc, argv);
     args.AddOption(&IRK_ID, "-t", "--RK-disc",
                   "Time discretization (see RK IDs).");
@@ -72,6 +78,10 @@ int main(int argc, char *argv[])
     args.AddOption(&ndis_c1, "-ndis_c1", "--num-dissipation-size1", 
                   "Size of numerical dissipation is c0*dx^c1");
 
+    /* CFL parameters */
+    args.AddOption(&CFL_fraction, "-cfl", "--cfl-fraction",
+                  "dt *= CFL.");
+
     /* --- Text output of solution etc --- */              
     //args.AddOption(&out, "-out", "--out",
     //              "Name of output file."); 
@@ -81,11 +91,6 @@ int main(int argc, char *argv[])
     if (rank == 0) {
         args.PrintOptions(std::cout); 
     }
-    
-    double CFL_fraction;
-    double CFLlim;
-    CFLlim = 1.0;
-    CFL_fraction = 6.0; // Use a CFL number of ...
     
     double dx, dy = -1.0;
     

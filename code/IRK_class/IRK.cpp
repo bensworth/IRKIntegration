@@ -7,63 +7,6 @@
 #include <cmath> 
 
 
-IRK::IRK(MPI_Comm m_comm, int RK_ID, SpatialDiscretization * S,
-        double dt, int nt) 
-        : m_RK_ID{RK_ID}, m_S(S), m_z(NULL), m_y(NULL), m_w(NULL),
-        m_dt{dt}, m_nt(nt),
-        m_CharPolyOps()
-        {
-    
-    // Get proc IDs
-    MPI_Comm_rank(m_comm, &m_rank);
-    MPI_Comm_size(m_comm, &m_numProcess);
-    
-    /* Set up basic information */
-    SetButcherCoeffs();
-    SetXCoeffs();
-    
-    // Set initial condition
-    m_S->SetU0();
-    
-    // Initialize other vectors based on size of u
-    int dimU = m_S->m_u->Size();
-    m_z = new Vector(dimU);
-    m_y = new Vector(dimU);
-    m_w = new Vector(dimU);
-    
-    
-    /* Set spatial discretization once at the start since it's assumed time-independent */
-    m_S->SetL(0.0);
-    m_S->SetM();
-    
-    /* --- Construct object for every factor in char. poly --- */
-    m_CharPolyOps.SetSize(m_zetaSize + m_etaSize);
-    /* Linear factors. I.e., those of type 1 */
-    int count = 0;
-    for (int i = 0; i < m_zetaSize; i++) {
-        m_CharPolyOps[count] = new CharPolyOp(m_comm, dt, m_zeta(i), *m_S);
-        count++;
-    }
-    /* Quadratic factors. I.e., those of type 2 */
-    for (int i = 0; i < m_etaSize; i++) {
-        m_CharPolyOps[count] = new CharPolyOp(m_comm, dt, m_eta(i), m_beta(i), *m_S);
-        count++;
-    }   
-}
-
-
-
-IRK::~IRK() {
-    if (m_z) delete m_z;
-    if (m_y) delete m_y;
-    if (m_w) delete m_w;
-    
-    for (int i = 0; i < m_CharPolyOps.Size(); i++) {
-        delete m_CharPolyOps[i];
-    }
-}
-
-
 /* Constructor for TYPE 1 char. polynomial factor */
 CharPolyOp::CharPolyOp(MPI_Comm comm, double dt, double zeta, 
                         SpatialDiscretization &S) 
@@ -157,7 +100,8 @@ CharPolyPrecon::CharPolyPrecon(MPI_Comm comm, double gamma, double dt, int type,
         amg->SetTol(0.0);
         amg->SetMaxIter(1);
     
-    } else if (m_type == 2) {
+    }
+    else if (m_type == 2) {
         // Krylov preconditioner is a single AMG iteration
         amg->SetPrintLevel(0);
         amg->SetTol(0.0);
@@ -186,7 +130,8 @@ CharPolyPrecon::~CharPolyPrecon() {
     
     // if (m_solver) {
     //     delete m_solver;
-    // } else {
+    // }
+    // else {
     //     delete m_precon;
     // }
 }
@@ -198,12 +143,14 @@ void CharPolyPrecon::Mult(const Vector &x, Vector &y) const {
         m_precon->Mult(x, y);
         
     /* Type 2 operators uses two applications of preconditioned operator */
-    } else if (m_type == 2) {
+    }
+    else if (m_type == 2) {
         Vector z(x); /* Auxillary vector */
         if (m_solver) { /* Using a linear solver w/ a preconditioner to invert J */
             m_solver->Mult(x, z);
             m_solver->Mult(z, y);
-        } else {
+        }
+        else {
             m_precon->Mult(x, z); /* Just using a preconditioner to invert J */
             m_precon->Mult(z, y);
         }
@@ -220,36 +167,125 @@ CharPolyOp::~CharPolyOp() {
 
 
 
+IRK::IRK(IRKSpatialDisc *S, int RK_ID, MPI_Comm globComm);
+        : m_S(S), m_z(NULL), m_y(NULL), m_w(NULL),
+        m_CharPolyOps()
+{
+    m_RK_ID = static_cast<int>(RK_ID);
 
-/* Primary function */
-void IRK::TimeStep() {
-    /* Time at the start of each time step */
-    double t = 0.0;
+    // Get proc IDs
+    MPI_Comm_rank(m_comm, &m_rank);
+    MPI_Comm_size(m_comm, &m_numProcess);
     
-    *m_y = 0.0;
+    /* Set up basic information */
+    SetButcherCoeffs();
+    SetXCoeffs();
     
+    // Set initial condition
+    m_S->SetU0();
+    
+    // Initialize other vectors based on size of u
+    int dimU = m_S->m_u->Size();
+    m_z = new Vector(dimU);
+    m_y = new Vector(dimU);
+    m_w = new Vector(dimU);
+    
+    
+    /* Set spatial discretization once at the start since it's assumed time-independent */
+    m_S->SetL(0.0);
+    m_S->SetM();
+    
+    /* --- Construct object for every factor in char. poly --- */
+    m_CharPolyOps.SetSize(m_zetaSize + m_etaSize);
+    /* Linear factors. I.e., those of type 1 */
+    int count = 0;
+    for (int i = 0; i < m_zetaSize; i++) {
+        m_CharPolyOps[count] = new CharPolyOp(m_comm, dt, m_zeta(i), *m_S);
+        count++;
+    }
+    /* Quadratic factors. I.e., those of type 2 */
+    for (int i = 0; i < m_etaSize; i++) {
+        m_CharPolyOps[count] = new CharPolyOp(m_comm, dt, m_eta(i), m_beta(i), *m_S);
+        count++;
+    }   
+}
+
+
+IRK::~IRK() {
+    if (m_z) delete m_z;
+    if (m_y) delete m_y;
+    if (m_w) delete m_w;
+    
+    for (int i = 0; i < m_CharPolyOps.Size(); i++) {
+        delete m_CharPolyOps[i];
+    }
+}
+
+/* Get y <- P(alpha*M^{-1}*L)*x for P a polynomial defined by coefficients.
+Coefficients must be provided for all monomial terms (even if they're 0) and 
+in increasing order (from 0th to nth) */
+void IRK::SolDepPolyMult(Vector coefficients, double alpha, const Vector &x, Vector &y) {
+    int n = coefficients.Size() - 1;
+    y.Set(coefficients[n], x); // y <- coefficients[n]*x
+    Vector z(y.Size()); // An auxillary vector
+    for (int ell = n-1; ell >= 0; ell--) {
+        m_S->ExplicitMult(y, z); // z <- M^{-1}*L*y       
+        add(coefficients[ell], x, alpha, z, y); // y <- coefficients[ell]*x + alpha*z
+    } 
+}
+
+void IRK::Step(Vector &x, double &t, double &dt)
+{
+    *m_y = 0.0;     // TODO : what does this do?
+
+    ConstructRHS(t, dt); /* Set m_z */
+    
+    /* Sequentially invert factors in characteristic polynomial */
+    for (int i = 0; i < m_zetaSize + m_etaSize; i++) {
+        if (m_rank == 0) {
+            std::cout << "System " << i << " of " << m_zetaSize + m_etaSize-1 <<
+            ";\t type = " << m_CharPolyOps[i]->m_type << "\n \t";
+        }
+        m_CharPolyOps[i]->m_solver->Mult(*m_z, *m_y); // y <- char_poly_factor(i)^-1 * z
+        *m_z = *m_y;
+    }
+
+    // Update solution vector at previous time with weighted sum of stage vectors        
+    (m_S->m_u)->Add(dt, *m_y);
+    t += dt; // Time the current solution is evaluated at
+}
+
+void IRK::Run(Vector &x, double &t, double &dt, double tf) 
+{
+    *m_y = 0.0;     // TODO : what does this do?
+
     /* Main time-stepping loop */
-    for (int step = 0; step < m_nt; step++) {
-        if (m_rank == 0) std::cout << "RK time-step " << step+1 << " of " << m_nt << '\n';
-        
-        SetRHSLinearSystem(t); /* Set m_z */
+    // for (int step = 0; step < m_nt; step++) {
+    int step = 0;
+    int numsteps = int((tf-t)/dt);
+    while (t < tf) {
+        if (m_rank == 0) std::cout << "RK time-step " << step+1 << " of " << numsteps << '\n';
+
+        ConstructRHS(t, dt);
         
         /* Sequentially invert factors in characteristic polynomial */
-        for (int i = 0; i < m_zetaSize + m_etaSize; i++) {
-            if (m_rank == 0) std::cout << "System " << i << " of " << m_zetaSize + m_etaSize-1 << ";\t type = " << m_CharPolyOps[i]->m_type << "\n \t";
+        for (int i = 0; i < (m_zetaSize + m_etaSize); i++) {
+            if (m_rank == 0) {
+                std::cout << "System " << i << " of " << m_zetaSize + m_etaSize - 1 <<
+                ";\t type = " << m_CharPolyOps[i]->m_type << "\n \t";
+            }
             m_CharPolyOps[i]->m_solver->Mult(*m_z, *m_y); // y <- char_poly_factor(i)^-1 * z
             *m_z = *m_y;
         }
     
         // Update solution vector at previous time with weighted sum of stage vectors        
-        (m_S->m_u)->Add(m_dt, *m_y);
-        t += m_dt; // Time the current solution is evaluated at
+        (m_S->m_u)->Add(dt, *m_y);
+        t += dt; // Time the current solution is evaluated at
     }
 }
 
-
-/* Form the RHS of the linear system at time t, m_z */
-void IRK::SetRHSLinearSystem(double t) {
+/* Form the RHS of the linear system for IRK integration at time t, m_z */
+void IRK::ConstructRHS(double t, double dt) {
     *m_z = 0.0; /* z <- 0 */
     *m_w = 0.0; /* w <- 0 */
     
@@ -257,14 +293,13 @@ void IRK::SetRHSLinearSystem(double t) {
     m_S->SolDepMult(*(m_S->m_u), temp); // temp <- L*u
     
     for (int i = 0; i < m_s; i++) {
-        m_S->SetG(t + m_dt*m_c0(i)); /* Set g at time t + dt*c[i] */
+        m_S->SetG(t + dt*m_c0(i)); /* Set g at time t + dt*c[i] */
         add(*(m_S->m_g), temp, f); // f <- L*u + g
-        m_S->SolDepPolyMult(m_XCoeffs[i], m_dt, f, *m_w); /* w <- X_i(dt*M^{-1}*L) * f */
+        SolDepPolyMult(m_XCoeffs[i], dt, f, *m_w); /* w <- X_i(dt*M^{-1}*L) * f */
         *m_z += *m_w;
         *m_w = 0.0;
     }
 }
-
 
 /* Print data to file that allows one to extract the 
     relevant data for plotting, etc. from the saved solution. Pass
@@ -291,14 +326,13 @@ void IRK::SaveSolInfo(string filename, map<string, string> additionalInfo)
 }
 
 
-void IRK::Test() {
-    
-}
-
-/* Set constants from Butcher tables and associated parameters 
-
-TODO: Will need to have a more systematic approach for organising these...
-*/
+/* Set constants from Butcher tables and associated parameters */
+// enum Type { 
+//   SDIRK2 = 02, SDIRK3 = 03, SDIRK4 = 04,
+//   Gauss4 = 14, Gauss6 = 16, Gauss8 = 18,
+//   RadauIIA3 = 23, RadauIIA5 = 25, RadauIIA7 = 27,
+//   LobIIIC2 = 32, LobIIIC4 = 34, LobIIIC6 = 36
+// };
 void IRK::SetButcherCoeffs() {
     
     /* Data arrays for filling Butcher arrays; NOTE: DenseMatrix is stored in column major ordering */
@@ -311,8 +345,8 @@ void IRK::SetButcherCoeffs() {
     double * beta;
     double * eta;
 
-    // Backward Euler
-    if (m_RK_ID == 11) {
+    // First-order L-stable SDIRK (backward Euler)
+    if (m_RK_ID == 1) {
         /* --- Dimensions --- */
         m_s        = 1;
         m_zetaSize = 1;
@@ -337,8 +371,9 @@ void IRK::SetButcherCoeffs() {
         /* --- beta --- */
         /* -------------------------- */
         
-    // Second-order SDIRK
-    } else if (m_RK_ID == 22) {
+    // Second-order L-stable SDIRK
+    }
+    else if (m_RK_ID == 2) {
         /* --- Dimensions --- */
         m_s        = 2;
         m_zetaSize = 2;
@@ -373,8 +408,9 @@ void IRK::SetButcherCoeffs() {
         /* --- beta --- */
         /* -------------------------- */ 
 
-    // Third-order SDIRK
-    } else if (m_RK_ID == 33) {
+    // Third-order L-stable SDIRK
+    }
+    else if (m_RK_ID == 3) {
         /* --- Dimensions --- */
         m_s        = 3;
         m_zetaSize = 3;
@@ -422,10 +458,15 @@ void IRK::SetButcherCoeffs() {
         /* --- eta --- */
         /* --- beta --- */
         /* -------------------------- */
+    }
+    // Fourth-order L-stable SDIRK
+    else if (m_RK_ID == 4) {
 
-    // implicit 4th-order method, Hammer & Hollingsworth (A-stable)
-    // note: coincides with s=2-stage, p=2s-order Gauss method
-    } else if (m_RK_ID == 42) {
+        // TODO
+
+    }
+    // 2-stage 4th-order Gauss--Legendre
+    else if (m_RK_ID == 14) {
         /* --- Dimensions --- */
         m_s        = 2;
         m_zetaSize = 0;
@@ -460,8 +501,9 @@ void IRK::SetButcherCoeffs() {
         Set(beta, 0, +1.732050807568877);
         /* -------------------------- */
     
-    /* A 6th-order Gauss--Legendre method */
-    } else if (m_RK_ID == 63) {
+    }
+    // 3-stage 6th-order Gauss--Legendre
+    else if (m_RK_ID == 16) {
         /* --- Dimensions --- */
         m_s        = 3;
         m_zetaSize = 1;
@@ -510,7 +552,51 @@ void IRK::SetButcherCoeffs() {
         Set(beta, 0, +3.508761919567443);
         /* -------------------------- */    
     }    
-    
+    // 4-stage 8th-order Gauss--Legendre
+    else if (m_RK_ID == 18) {
+
+        // TODO
+
+    }
+    // 2-stage 3rd-order Radau IIA
+    else if (m_RK_ID == 23) {
+
+        // TODO
+
+    }
+    // 3-stage 5th-order Radau IIA
+    else if (m_RK_ID == 25) {
+
+        // TODO
+
+    }
+    // 4-stage 7th-order Radau IIA
+    else if (m_RK_ID == 27) {
+
+        // TODO
+
+    }
+    // 2-stage 2nd-order Lobatto IIIC
+    else if (m_RK_ID == 23) {
+
+        // TODO
+
+    }
+    // 3-stage 4th-order Lobatto IIIC
+    else if (m_RK_ID == 25) {
+
+        // TODO
+
+    }
+    // 4-stage 6th-order Lobatto IIIC
+    else if (m_RK_ID == 27) {
+
+        // TODO
+
+    }
+    else {
+        MFEM_ERROR("Invalid Runge Kutta type.\n");
+    }
     
     /* Insert data into arrays TODO: WHat about  memory??? This is still ownded by the arrays... */
     m_A0    = DenseMatrix(A, m_s, m_s);
@@ -556,7 +642,8 @@ void IRK::SetXCoeffs() {
         /* s=1: Coefficients for polynomial X_{1}(z) */
         Set(X, 0, 0, +d(0));
         
-    } else if (m_s == 2) {
+    }
+    else if (m_s == 2) {
         /* s=2: Coefficients for polynomial X_{1}(z) */
         Set(X, 0, 0, +B(1,1)*d(0)-B(1,0)*d(1));
         Set(X, 1, 0, -d(0));
@@ -565,7 +652,8 @@ void IRK::SetXCoeffs() {
         Set(X, 0, 1, +B(0,0)*d(1)-B(0,1)*d(0));
         Set(X, 1, 1, -d(1));
 
-    } else if (m_s == 3) {    
+    }
+    else if (m_s == 3) {    
         /* s=3: Coefficients for polynomial X_{1}(z) */
         Set(X, 0, 0, +d(2)*(B(1,0)*B(2,1)-B(1,1)*B(2,0))-d(1)*(B(1,0)*B(2,2)-B(1,2)*B(2,0))+d(0)*(B(1,1)*B(2,2)-B(1,2)*B(2,1)));
         Set(X, 1, 0, +B(1,0)*d(1)+B(2,0)*d(2)-d(0)*(B(1,1)+B(2,2)));
@@ -581,7 +669,8 @@ void IRK::SetXCoeffs() {
         Set(X, 1, 2, +B(0,2)*d(0)+B(1,2)*d(1)-d(2)*(B(0,0)+B(1,1)));
         Set(X, 2, 2, +d(2));
     
-    } else {
+    }
+    else {
         cout << "WARNING: Coefficients of polynomials {X_j} not implemented for s = " << m_s << '\n';
         MPI_Finalize();
         exit(1);

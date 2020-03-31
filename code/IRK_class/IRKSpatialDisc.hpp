@@ -1,5 +1,5 @@
-#ifndef SPATIALDISCRETIZATION_H
-#define SPATIALDISCRETIZATION_H
+#ifndef IRKSpatialDisc_H
+#define IRKSpatialDisc_H
 
 //#include "IRK.hpp"
 
@@ -19,7 +19,11 @@ using namespace std;
 Abstract base class for linear spatial discretizations of a PDE resulting in the 
 time-dependent ODE M*du/dt = L(t)*u + g(t), u(0) = u0. 
 */
-class SpatialDiscretization
+class IRKSpatialDisc : public TimeDependentOperator
+// Must implement:
+//  void TimeDependentOperator::ExplicitMult(const Vector &x, Vector &y) const
+//  void TimeDependentOperator::ImplicitMult(const Vector &x, Vector &y) const
+
 {
     
 private:    
@@ -79,10 +83,10 @@ protected:
     /* -------------------------------------------------------------------------- */
 
     /* Functions requiring implementation in derived class, with the possible exception of getting the mass matrix */
-    virtual void GetSpatialDiscretizationM(HypreParMatrix * &M);
-    virtual void GetSpatialDiscretizationL(double t, HypreParMatrix * &L) = 0;
-    virtual void GetSpatialDiscretizationG(double t, HypreParVector * &g) = 0;
-    virtual void GetSpatialDiscretizationU0(HypreParVector * &u0) = 0;
+    virtual void GetIRKSpatialDiscM(HypreParMatrix * &M);
+    virtual void GetIRKSpatialDiscL(double t, HypreParMatrix * &L) = 0;
+    virtual void GetIRKSpatialDiscG(double t, HypreParVector * &g) = 0;
+    virtual void GetIRKSpatialDiscU0(HypreParVector * &u0) = 0;
     
 public:
     
@@ -105,8 +109,8 @@ public:
     void SaveG(){ if (m_g) m_g->Print("g.txt"); else std::cout << "WARNING: m_g == NULL, cannot be printed!\n"; };
     void SaveU(const char * fname){ if (m_u) m_u->Print(fname); else std::cout << "WARNING: m_u == NULL, cannot be printed!\n"; };
     
-    SpatialDiscretization(MPI_Comm spatialComm, bool M_exists);
-    ~SpatialDiscretization();
+    IRKSpatialDisc(MPI_Comm spatialComm, bool M_exists);
+    ~IRKSpatialDisc();
     
     /* Get y <- M^{-1}*L(t)*x */
     void SolDepMult(const Vector &x, Vector &y);
