@@ -110,26 +110,27 @@ IRKSpatialDisc : public TimeDependentOperator
 % ------------------------------------------------------------------------------------ %
 % ------------------------------------------------------------------------------------ %
 \section{Implementation details:  The time-independent case}
-\todo{Go through and explicitly write out mass matrix so it's clear for the implementation where there need to be solves and multiplies etc.}
 
 The basic idea is that at each time step, we need to update the previous solution with
 \begin{align} \label{eq:RK_update}
-\bm{u}_{n+1}  = \bm{u}_n + \delta t \mdet({\cal M}_s)^{-1} \big( \bm{d}^\top_0 \otimes I \big) \madj({\cal M}_s) \bm{f},
+\bm{u}_{n+1}  = \bm{u}_n + \delta t \mdet({\cal M}_s)^{-1} \big( \bm{d}^\top_0 \otimes I \big) \madj({\cal M}_s) \big( I \otimes M^{-1} \big) \bm{f},
 \end{align}
 where we have
 \begin{itemize}
 \item $m \in \mathbb{N}$: The dimension of the spatial problem
 
-\item $\bm{f} = (\bm{f}_1, \ldots, \bm{f}_s)^\top$, with $\bm{f}_j \in \mathbb{R}^m$
+\item $\bm{f} = (\bm{f}_1, \ldots, \bm{f}_s)^\top$, with $\bm{f}_j = {\cal L} \bm{u}_n + \bm{g}(t_n + c_j \delta t) \in \mathbb{R}^m$
 
 \item $\bm{d}_0 \coloneqq A^{-\top}_0 \bm{b}_0 \in \mathbb{R}^{s}$ 
+
+\item $M \in \mathbb{R}^{m \times m}$ is the mass matrix
 \end{itemize}
 
 Now we break \eqref{eq:RK_update} into two steps:
 \begin{enumerate}
 \item{Step 1:}\label{it:update_step1} Compute 
 \begin{align} \label{eq:step1}
-\bm{z} = \big( \bm{d}^\top_0 \otimes I \big) \madj ({\cal M}_s) \bm{f} \in \mathbb{R}^m
+\bm{z} = \big( \bm{d}^\top_0 \otimes I \big) \madj ({\cal M}_s) \big(I \otimes M^{-1} \big)\bm{f} \in \mathbb{R}^m
 \end{align}
 
 \item{Step 2:}\label{it:update_step2} Solve
@@ -139,6 +140,12 @@ Now we break \eqref{eq:RK_update} into two steps:
 then update per \eqref{eq:RK_update}, $\bm{u}_{n+1} = \bm{u}_n + \delta t \bm{y}$
 \end{enumerate}
 
+Note that problem arises from solving the linear system for $(A_0 \otimes I_m) \bm{k}$
+\begin{align}
+{\cal M}_s (A_0 \otimes I_m) \bm{k} = (I_s \otimes M^{-1}) \bm{f}, 
+\quad 
+{\cal M}_s \coloneqq A_0^{-1} \otimes I_m - I_s \otimes \delta t M^{-1} {\cal L}.
+\end{align}
 
 
 % ------------------------------------------------------------------------------------ %
@@ -146,13 +153,13 @@ then update per \eqref{eq:RK_update}, $\bm{u}_{n+1} = \bm{u}_n + \delta t \bm{y}
 % ------------------------------------------------------------------------------------ 
 \subsection{On Step \ref{it:update_step1}}
 
-$\madj ({\cal M}_s)$ is defined by evaluating the adjugate of $A_0^{-1} - zI$ at $z = {\cal L}$, which is a matrix over polynomials of degree $s-1$ in $z$. If we write such polynomials as $Q_{ij}(z) \coloneqq \madj(A_0^{-1} - zI)_{ij}$, then
+$\madj ({\cal M}_s)$ is defined by evaluating the adjugate of $A_0^{-1} - zI$ at $z = \delta t \widehat{\cal L}$, where $\tcb{\widehat{\cal L} \coloneqq M^{-1} {\cal L}}$, which is a matrix over polynomials of degree $s-1$ in $z$. If we write such polynomials as $Q_{ij}(z) \coloneqq \madj(A_0^{-1} - zI)_{ij}$, then
 \begin{align}
 \madj ({\cal M}_s) = 
 \begin{bmatrix}
-Q_{11}({\cal L}) & \cdots & Q_{1s}({\cal L}) \\
+Q_{11}(\delta t \widehat{\cal L}) & \cdots & Q_{1s}(\delta t \widehat{\cal L}) \\
 \vdots & & \vdots \\
-Q_{s1}({\cal L}) & \cdots & Q_{ss}({\cal L})
+Q_{s1}(\delta t \widehat{\cal L}) & \cdots & Q_{ss}(\delta t \widehat{\cal L})
 \end{bmatrix}
 \in \mathbb{R}^{ms \times ms},
 \quad
@@ -160,12 +167,12 @@ Q_{ij}({\cal L}) = \sum \limits_{k = 0}^{s-1} \hat{q}_{ijk} {\cal L}^k \in \math
 \end{align}
 For sensible $s \in \mathbb{N}$, we can symbolically compute $\madj(A_0^{-1} - zI)$ in terms of an arbitrary matrix $A_0^{-1}$, and, thus, we can compute the sets of coefficients $\{ \hat{q}_{ijk} \}_{(i,j,k)=(1,1,0)}^{(s,s,s-1)}$.
 
-Now, the rectangular Kronecker product matrix appearing in front of this matrix simply takes inner products over its columns to give a block rectangular matrix whose elements are therefore polynomials in ${\cal L}$ of degree $s-1$:
+Now, the rectangular Kronecker product matrix appearing in front of this matrix simply takes inner products over its columns to give a block rectangular matrix whose elements are therefore polynomials in $\widehat{\cal L}$ of degree $s-1$:
 \begin{align}
 \big( \bm{d}_0^\top \otimes I \big) \madj({\cal M}_s) 
 =
 \begin{bmatrix}
-X_{1}({\cal L}), \, \cdots, \, X_{s}({\cal L})
+X_{1}(\delta t \widehat{\cal L}), \, \cdots, \, X_{s}(\delta t \widehat{\cal L})
 \end{bmatrix},
 \end{align}
 where
@@ -174,13 +181,13 @@ X_{j}({\cal L}) = \sum \limits_{k = 0}^{s-1} \hat{x}_{j k} {\cal L}^k \in \mathb
 \quad
 \hat{x}_{j k} = \sum \limits_{\ell = 1}^s d_{0,\ell} \, \hat{q}_{\ell j k}.
 \end{align}
-Using the coefficients $\{ \hat{q}_{ijk} \}_{(i,j,k)=(1,1,0)}^{(s,s,s-1)}$ we can compute the coefficients $\{ \hat{x}_{jk} \}_{(j,k)=(1,0)}^{(s,s-1)}$, which are the things we actually need (that is, we don't need the intermediate $\hat{q}_{ijk}$). Thus, in the implementation, we have coefficients $\{ \hat{x}_{jk} \}_{(j,k)=(1,0)}^{(s,s-1)}$ implemented symbolically in terms of general $\bm{d}_0$ and $A_0^{-1}$ for sensible values of $s$. When the user specifies a particular Butcher tableaux (and hence a specific $s$), the appropriate set of coefficients are evaluated numerically and stored in memory so that the polynomials $\{X_{j}({\cal L})\}$, can be evaluated as needed by the algorithm.
+Using the coefficients $\{ \hat{q}_{ijk} \}_{(i,j,k)=(1,1,0)}^{(s,s,s-1)}$ we can compute the coefficients $\{ \hat{x}_{jk} \}_{(j,k)=(1,0)}^{(s,s-1)}$, which are the things we actually need (that is, we don't need the intermediate $\hat{q}_{ijk}$). Thus, in the implementation, we have coefficients $\{ \hat{x}_{jk} \}_{(j,k)=(1,0)}^{(s,s-1)}$ implemented symbolically in terms of general $\bm{d}_0$ and $A_0^{-1}$ for sensible values of $s$. When the user specifies a particular Butcher tableaux (and hence a specific $s$), the appropriate set of coefficients are evaluated numerically and stored in memory so that the polynomials $\{X_{j}(\delta t \widehat{\cal L})\}$, can be evaluated as needed by the algorithm.
 
 Finally, the vector in \eqref{eq:step1} can be written as the sum
 \begin{align} \label{eq:z_sum}
-\bm{z} = \sum \limits_{i = 1}^s X_i({\cal L}) \bm{f}_i.
+\bm{z} = \sum \limits_{i = 1}^s [X_i(\delta t \widehat{\cal L})] (M^{-1} \bm{f}_i).
 \end{align}
-The main task here is computing the action of the degree $s-1$ polynomials $\{X_j({\cal L})\}$ on the components of $\bm{f}$. I think the most efficient way to compute the action of such polynomials is with a Horner-like scheme, which is a well-known technique for evaluating scalar polynomials (see \url{https://en.wikipedia.org/wiki/Horner\%27s_method}). Basically, we can compute the action of the $n$th degree polynomial $P_n({\cal L})$ on a vector using: $n$ \texttt{MATVECs} with ${\cal L}$, $n+1$ \texttt{AXPYs} ($\bm{x} \gets \alpha \bm{y} + \beta \bm{z}$), $n$ \texttt{copies} ($n$ lots of copying values from one vector to another, $n \times [\bm{x} \gets \bm{y}]$), and one intermediate/temporary vector. Thus, the main cost in computing \eqref{eq:z_sum} is $s(s-1)$ \texttt{MATVECs} with ${\cal L}$.
+The main task here is computing the action of the degree $s-1$ polynomials $\{X_j(\delta t \widehat{\cal L})\}$ on the components $M^{-1} \bm{f}_i$.  \tcp{Ben: It's not true in general that $M^{-1}$ will commute with a monomial in $M^{-1} {\cal L}$, is it? So we have to do this mass matrix solve in the eqn. above on every component of $\bm{f}$ rather than pulling this $M^{-1}$ out the front of the entire sum?} I think the most efficient way to compute the action of such polynomials is with a Horner-like scheme, which is a well-known technique for evaluating scalar polynomials (see \url{https://en.wikipedia.org/wiki/Horner\%27s_method}). Basically, we can compute the action of the $n$th degree polynomial $P_n({\cal L})$ on a vector using: $n$ \texttt{MATVECs} with ${\cal L}$, $n+1$ \texttt{AXPYs} ($\bm{x} \gets \alpha \bm{y} + \beta \bm{z}$), $n$ \texttt{copies} ($n$ lots of copying values from one vector to another, $n \times [\bm{x} \gets \bm{y}]$), and one intermediate/temporary vector. Thus, the main cost in computing \eqref{eq:z_sum} is $s(s-1)$ \texttt{MATVECs} with $\widehat{\cal L} = M^{-1} {\cal L}$, and a secondary cost is the $s$ actions of $M^{-1}$ on the vectors $\{\bm{f}_j\}_{j = 1}^s$.
 
 
 
@@ -190,7 +197,7 @@ The main task here is computing the action of the degree $s-1$ polynomials $\{X_
 \subsection{On Step \ref{it:update_step2}}
 As shown previously, 
 \begin{align}
-\mdet ({\cal M}_s) = P_s({\cal L}) = \prod \limits_{j = 1}^s (\lambda_j I - {\cal L}),
+\mdet ({\cal M}_s) = P_s(\delta t \widehat{\cal L}) = \prod \limits_{j = 1}^s (\lambda_j I - \delta t \widehat{\cal L}),
 \end{align}
 where $\{ \lambda_j \}_{j = 1}^s$ are the eigenvalues of $A_0^{-1}$. Now we're going to split the eigenvalues into two disjoint subsets based on their being real and complex:
 \begin{align}
@@ -204,17 +211,55 @@ To invert characteristic polynomial $P_s$, we do so by inverting only real facto
 \begin{align}
 P_s ({\cal L}) 
 &= 
-\prod \limits_{j = 1}^{s_{\Re}} (\zeta_j I - {\cal L}) \prod \limits_{j = 1}^{s_{\Im}} \big( [\eta_j^2 + \beta_j^2] I - 2 \eta_j {\cal L} + {\cal L}^2 \big),
+\prod \limits_{j = 1}^{s_{\Re}} (\zeta_j I - \delta t \widehat{\cal L}) \prod \limits_{j = 1}^{s_{\Im}} \big( [\eta_j^2 + \beta_j^2] I - 2 \eta_j \delta t \widehat{\cal L} + (\delta t \widehat{\cal L})^2 \big),
 \\
 &\equiv
-\prod \limits_{j = 1}^{s_{\Re}} {\cal R}_j({\cal L}) \prod \limits_{j = 1}^{s_{\Im}} {\cal I}_j({\cal L}).
+\prod \limits_{j = 1}^{s_{\Re}} {\cal R}_j(\delta t \widehat{\cal L}) \prod \limits_{j = 1}^{s_{\Im}} {\cal I}_j(\delta t \widehat{\cal L}).
 \end{align}
 
 To invert $P_s$, we sequentially invert the real monomials ${\cal R}_j$ and quadratics ${\cal I}_j$ using preconditioned Krylov solvers (GMRES in general, but CG is also applicable if ${\cal L}$ is SPD).
-\begin{enumerate}
-\item To invert ${\cal R}_j({\cal L})$, we use a Krylov solver preconditioned with AMG applied to ${\cal R}_j({\cal L})$
 
-\item To invert ${\cal I}_j({\cal L})$, we use a Krylov solver preconditioned with the operator $(\eta_j I - {\cal L})^2$, which we only approximately invert by \textbf{twice} applying AMG to $(\eta_j I - {\cal L})$. \tcp{Ben: So why cant we approximately invert $(\eta_j I - {\cal L})^2$ by 2 $\times$ [GMRES on $(\eta_j I - {\cal L})$ preconditioned by AMG on $(\eta_j I - {\cal L})$]. You mentioned in the code I'd written that this doesn't work. My thinking was that we need to approximately invert $(\eta_j I - {\cal L})$ and GMRES preconditioned with AMG will do this more robustly than standalone AMG?}
+\begin{enumerate}
+\item To solve the system 
+\begin{align}
+{\cal R}_j(\delta t \widehat{\cal L}) \bm{y}_j = \bm{z}_j,
+\end{align}
+the Krylov solver is preconditioned by applying some number of AMG iterations to the scaled system
+\begin{align}
+M{\cal R}_j(\delta t \widehat{\cal L}) \bm{y}_{j,k} \equiv (\zeta_j M - \delta t {\cal L}) \bm{y}_j = M \bm{z}_{j,k},
+\end{align}
+where $k$ denotes the Krylov iteration. Note we scale this problem by $M$ so that we avoid the dense matrix $M^{-1}{\cal L}$ in the preconditioner. \tcp{Ben: Is this correct? So that on every application of the AMG preconditioner, we multiply the RHS by $M$? I guess we could also scale the original problem to be $(\zeta_j M - \delta t {\cal L}) \bm{y}_j = M \bm{z}_j$ too? Then we don't have to multiply the current RHS $\bm{z}_{j,k}$ by $M$ every time we apply the preconditioner. This also means that we only need to do a mass-matrix multiply instead of a solve when we apply the action of the operator. Is this the idea you mentioned over Slack? }
+
+\item To solve the system
+\begin{align}
+{\cal I}_j(\delta t \widehat{\cal L}) \bm{y}_j = \bm{z}_j,
+\end{align}
+the Krylov solver is preconditioned by the problem
+\begin{align}
+(\eta_j - \delta t \widehat{\cal L})^2 \bm{y}_{j,k} = \bm{z}_{j,k},
+\end{align}
+where $k$ is the index of the Krylov iteration.
+To solve this problem for $\bm{y}_{j,k}$, we solve the equivalent sparse problem
+\begin{align}
+(\eta_j M - \delta t {\cal L}) \hat{\bm{y}}_{j,k}  = M \bm{z}_{j,k},\
+(\eta_j M - \delta t {\cal L}) \bm{y}_{j,k}  = M \hat{\bm{y}}_{j,k},
+\end{align}
+where the systems $(\eta_j M - \delta t {\cal L})$ are approximately inverted with AMG.
+
+\tcp{Similarly to above, I guess we can scale the original system by $M^2$ to avoid having to multiply the RHS by $M$ twice in every application of the preconditioner. We'd also avoid having to do solves of $M$ when computing the action of the operator and could do multiplies instead. Is this the other idea you had, Ben? I'd wondered about this previously; but doesn't it mess up the GMRES convergence theory you did because we'd be preconditioning
+\[
+[ (\eta_j^2 + \beta_j^2)M^2 - 2 \eta_j \delta t M {\cal L} + (\delta t {\cal L})^2 ] \bm{y}_j
+= 
+M^2 \bm{z}_j
+\]
+with
+\[
+(\eta_jM - \delta t {\cal L})^2 \bm{y}_{j,k} = \bm{z}_{j,k},
+\]
+and, so, you don't get the simple cancellations you need to bound the FOV of the preconditioned operator $[ (\eta_j^2 + \beta_j^2)M^2 - 2 \eta_j \delta t M {\cal L} + (\delta t {\cal L})^2 ] (\eta_jM - \delta t {\cal L})^{-2}$?
+}
+\\
+\tcp{Ben: So why cant we approximately invert $(\eta_j M - \delta t {\cal L})$ with GMRES preconditioned by AMG? You mentioned in the code I'd written that this doesn't work. My thinking was that we need to approximately invert $(\eta_j M - \delta t {\cal L})$ and GMRES preconditioned with AMG will do this more robustly than standalone AMG?}
 
 \end{enumerate}
 
