@@ -187,7 +187,11 @@ Finally, the vector in \eqref{eq:step1} can be written as the sum
 \begin{align} \label{eq:z_sum}
 \bm{z} = \sum \limits_{i = 1}^s [X_i(\delta t \widehat{\cal L})] (M^{-1} \bm{f}_i).
 \end{align}
-The main task here is computing the action of the degree $s-1$ polynomials $\{X_j(\delta t \widehat{\cal L})\}$ on the components $M^{-1} \bm{f}_i$.  \tcp{Ben: It's not true in general that $M^{-1}$ will commute with a monomial in $M^{-1} {\cal L}$, is it? So we have to do this mass matrix solve in the eqn. above on every component of $\bm{f}$ rather than pulling this $M^{-1}$ out the front of the entire sum?} I think the most efficient way to compute the action of such polynomials is with a Horner-like scheme, which is a well-known technique for evaluating scalar polynomials (see \url{https://en.wikipedia.org/wiki/Horner\%27s_method}). Basically, we can compute the action of the $n$th degree polynomial $P_n({\cal L})$ on a vector using: $n$ \texttt{MATVECs} with ${\cal L}$, $n+1$ \texttt{AXPYs} ($\bm{x} \gets \alpha \bm{y} + \beta \bm{z}$), $n$ \texttt{copies} ($n$ lots of copying values from one vector to another, $n \times [\bm{x} \gets \bm{y}]$), and one intermediate/temporary vector. Thus, the main cost in computing \eqref{eq:z_sum} is $s(s-1)$ \texttt{MATVECs} with $\widehat{\cal L} = M^{-1} {\cal L}$, and a secondary cost is the $s$ actions of $M^{-1}$ on the vectors $\{\bm{f}_j\}_{j = 1}^s$.
+The main task here is computing the action of the degree $s-1$ polynomials $\{X_j(\delta t \widehat{\cal L})\}$ on the components $M^{-1} \bm{f}_i$.  \tcp{Ben: It's not true in general that $M^{-1}$ will commute with a monomial in $M^{-1} {\cal L}$, is it? So we have to do this mass matrix solve in the eqn. above on every component of $\bm{f}$ rather than pulling this $M^{-1}$ out the front of the entire sum?} \tcb{Yes. But if $\bm{f}_j = {\cal L} \bm{u}_n + \bm{g}(t_n + c_j \delta t)$,
+applying $M^{-1}$ to this equation is the same as the Mult() function in MFEM I believe, which the user has to
+implement in time dependent operator. If the forcing function $\mathbf{g}$ is indepenent of time, we could just
+compute once, although it's really not that much work to do it once for each stage.}
+I think the most efficient way to compute the action of such polynomials is with a Horner-like scheme, which is a well-known technique for evaluating scalar polynomials (see \url{https://en.wikipedia.org/wiki/Horner\%27s_method}). Basically, we can compute the action of the $n$th degree polynomial $P_n({\cal L})$ on a vector using: $n$ \texttt{MATVECs} with ${\cal L}$, $n+1$ \texttt{AXPYs} ($\bm{x} \gets \alpha \bm{y} + \beta \bm{z}$), $n$ \texttt{copies} ($n$ lots of copying values from one vector to another, $n \times [\bm{x} \gets \bm{y}]$), and one intermediate/temporary vector. Thus, the main cost in computing \eqref{eq:z_sum} is $s(s-1)$ \texttt{MATVECs} with $\widehat{\cal L} = M^{-1} {\cal L}$, and a secondary cost is the $s$ actions of $M^{-1}$ on the vectors $\{\bm{f}_j\}_{j = 1}^s$.
 
 
 
@@ -228,7 +232,10 @@ the Krylov solver is preconditioned by applying some number of AMG iterations to
 \begin{align}
 M{\cal R}_j(\delta t \widehat{\cal L}) \bm{y}_{j,k} \equiv (\zeta_j M - \delta t {\cal L}) \bm{y}_j = M \bm{z}_{j,k},
 \end{align}
-where $k$ denotes the Krylov iteration. Note we scale this problem by $M$ so that we avoid the dense matrix $M^{-1}{\cal L}$ in the preconditioner. \tcp{Ben: Is this correct? So that on every application of the AMG preconditioner, we multiply the RHS by $M$? I guess we could also scale the original problem to be $(\zeta_j M - \delta t {\cal L}) \bm{y}_j = M \bm{z}_j$ too? Then we don't have to multiply the current RHS $\bm{z}_{j,k}$ by $M$ every time we apply the preconditioner. This also means that we only need to do a mass-matrix multiply instead of a solve when we apply the action of the operator. Is this the idea you mentioned over Slack? }
+where $k$ denotes the Krylov iteration. Note we scale this problem by $M$ so that we avoid the dense matrix $M^{-1}{\cal L}$ in the preconditioner. \tcp{Ben: Is this correct? So that on every application of the AMG preconditioner, we multiply the RHS by $M$? I guess we could also scale the original problem to be $(\zeta_j M - \delta t {\cal L}) \bm{y}_j = M \bm{z}_j$ too? Then we don't have to multiply the current RHS $\bm{z}_{j,k}$ by $M$ every time we apply the preconditioner. This also means that we only need to do a mass-matrix multiply instead of a solve when we apply the action of the operator. Is this the idea you mentioned over Slack? }\tcb{Exactly -- also, if we want to use PCG or MINRES for an SPD system, we would
+need to scale by $M$ so that the system is SPD. Looking closer, I also realize that if we don't scale by $M$, 
+every GMRES iteration requires the action of $\mathcal{R}_j$ to compute a residual, which requires the action
+of $M^{-1}}$. Eliminating that cost is enough to be worthwhile.}
 
 \item To solve the system
 \begin{align}
@@ -258,10 +265,50 @@ with
 \]
 and, so, you don't get the simple cancellations you need to bound the FOV of the preconditioned operator $[ (\eta_j^2 + \beta_j^2)M^2 - 2 \eta_j \delta t M {\cal L} + (\delta t {\cal L})^2 ] (\eta_jM - \delta t {\cal L})^{-2}$?
 }
-\\
-\tcp{Ben: So why cant we approximately invert $(\eta_j M - \delta t {\cal L})$ with GMRES preconditioned by AMG? You mentioned in the code I'd written that this doesn't work. My thinking was that we need to approximately invert $(\eta_j M - \delta t {\cal L})$ and GMRES preconditioned with AMG will do this more robustly than standalone AMG?}
-
+\tcb{So we can't scale by $M^2$ and get an equivalent system because $M$ and $\mathcal{L}$ don't commute.
+I think the best we can do here is to scale by $M$ to arrive at the system
+\[
+[ (\eta_j^2 + \beta_j^2)M - 2 \eta_j \delta t {\cal L} + \delta t^2{\cal L}M^{-1}{\cal L}] \bm{y}_j
+= 
+M \bm{z}_j
+\]
+So now instead of two applications of $M$ and $M^{-1}$ in each application of the preconditioning
+and operator, we just have one. Similar to above, if ${\cal L}$ is symmetric, now the quadratic
+operator is symmetric as well, and we can apply CG/MINRES. I think this is probably the ``right''
+approach and what we should try to implement. The only catch is a simple algorithm to apply the
+scaled operator
+\[
+ (\eta_j^2 + \beta_j^2)M - 2 \eta_j \delta t {\cal L} + \delta t^2{\cal L}M^{-1}{\cal L}
+\]
+using calls to user-provided functions (presumably the application of $M$, $\mathcal{L}$, and
+$M^{-1}\mathcal{L}$).
+}
 \end{enumerate}
+
+
+\tcp{Ben: So why cant we approximately invert $(\eta_j M - \delta t {\cal L})$ with GMRES preconditioned by AMG? You mentioned in the code I'd written that this doesn't work. My thinking was that we need to approximately invert $(\eta_j M - \delta t {\cal L})$ and GMRES preconditioned with AMG will do this more robustly than standalone AMG?}
+{\color{blue}
+GMRES forms an optimal linear combination over a Krylov space. The $k$th Krylov space takes the form of powers
+of the preconditioned operator times an initial residual, $\mathcal{K} := \{\mathbf{r}_0, (M^{-1}A)\mathbf{r}_0, 
+..., (M^{-1}A)^k\mathbf{r}_0\}$. This results in an approximation to the linear system given by a polynomial
+in the preconditioned operator. For this to make sense, it is important that every time you take a further
+GMRES iteration, which computes a new power, $(M^{-1}A)^k\mathbf{r}_0$, that you use the same $M^{-1}$ as in
+previous iterations. Now suppose $M^{-1}$ actually corresponds to an inner GMRES approximation. Then every
+outer GMRES iteration has a different right-hand side, and the result is that the inner GMRES approximate 
+inverse is a different polynomial for every outer iteration. This means you are using a different preconditioner
+for every iteration, and GMRES will be very unhappy.
+
+Flexible GMRES is a GMRES-like algorithm that allows for different preconditioners each iteration. This would
+work with what you are talking about, but also doesn't make sense here. Because full memory GMRES is already
+optimal, it doesn't make sense to try to optimize the inner solve. You're always going to be taking a polynomial
+in the preconditioned operator. If you use only outer GMRES, then every application of the AMG preconditioner is 
+made to be optimal with respect to the larger quadratic linear system. If you use inner GMRES for, say, 10
+iterations,  those 10 AMG applications are made optimal to approximate the inverse of the inner linear system,
+but this is probably not optimal to solve the larger quadratic operator. Often in situations like this, you
+actually gain very little improvement in convergence by applying more iterations to an inner linear system.
+}
+
+
 
 % ------------------------------------------------------------------------------- %
 % \bibliographystyle{siamplain}
