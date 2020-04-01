@@ -262,6 +262,8 @@ public:
 	FDadvection(MPI_Comm globComm, bool M_exists, int dim, int refLevels, int order, int problemID, std::vector<int> px = {});
     ~FDadvection();
     
+    void ExplicitMult(const Vector &x, Vector &y);
+
     /* Add numerical dissipation into pure advection discretization  */
     void SetNumDissipation(Num_dissipation dissipation_params);
     

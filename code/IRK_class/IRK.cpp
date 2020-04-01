@@ -8,18 +8,17 @@
 
 // TODO:
 //  --> FIX ConstructRHS() TO USE CURRENT X AND TIME! IS THIS SAME AS EXPLICITMULT?
-//  - Apply mass matrix before preconditioning (see TODO1)
-// --> OR, CAN WE NOT APPLY MASS MATRIX FOR ONE TERM IN POLYNOMIAL?
-//         so it actually looks like MP(M^{-1}L)?
+//  - Update FDAdvection to work w/ new structure. Should be semi-close, needs to
+//    implement some of the purely virtual functions in IRKOperator. 
 //  - Add stiffly accurate option for Adjugate
 //  - Directly construct Butcher Matrix/Vector instead of allocate using new
 //  - Add other Butcher tableauxs
 
 
 
-IRK::IRK(IRKOperator *S, IRK::Type RK_ID, MPI_Comm globComm);
-        : m_S(S), m_CharPolyPrec(*S), m_CharPolyOps(), m_krylov(NULL),
-        m_z(NULL), m_y(NULL), m_w(NULL)
+IRK::IRK(IRKOperator *S, IRK::Type RK_ID, MPI_Comm comm);
+        : m_S(S), m_CharPolyPrec(*S), m_CharPolyOps(), m_comm{comm},
+        m_krylov(NULL), m_z(NULL), m_y(NULL), m_w(NULL)
 {
     m_RK_ID = static_cast<int>(RK_ID);
 
@@ -31,19 +30,11 @@ IRK::IRK(IRKOperator *S, IRK::Type RK_ID, MPI_Comm globComm);
     SetButcherCoeffs();
     SetXCoeffs();
     
-    // Set initial condition
-    m_S->SetU0();
-    
     // Initialize other vectors based on size of u
     int dimU = m_S->Height();
     m_z = new Vector(dimU);
     m_y = new Vector(dimU);
     m_w = new Vector(dimU);
-    
-    
-    /* Set spatial discretization once at the start since it's assumed time-independent */
-    m_S->SetL(0.0);
-    m_S->SetM();
     
     /* --- Construct object for every factor in char. poly --- */
     m_CharPolyOps.SetSize(m_zetaSize + m_etaSize);
@@ -132,8 +123,6 @@ void IRK::Step(Vector &x, double &t, double &dt)
     *m_y = 0.0;     // TODO : what does this do?
     ConstructRHS(x, t, dt); /* Set m_z */
     
-        // TODO1 : Apply mass matrix to right-hand side here!!
-
     /* Sequentially invert factors in characteristic polynomial */
     for (int i = 0; i < m_zetaSize + m_etaSize; i++) {
         if (m_rank == 0) {
@@ -150,7 +139,7 @@ void IRK::Step(Vector &x, double &t, double &dt)
                       m_CharPolyOps[i]->Type());
         m_krylov -> SetPreconditioner(m_CharPolyPrec);
         m_krylov -> SetOperator(m_CharPolyOps[i]);
-
+        
         // Use preconditioned Krylov to invert this term in polynomial 
         m_krylov -> Mult(*m_z, *m_y); // y <- char_poly_factor(i)^-1 * z
         *m_z = *m_y;
@@ -169,7 +158,6 @@ void IRK::Run(Vector &x, double &t, double &dt, double tf)
     *m_y = 0.0;     // TODO : what does this do?
 
     /* Main time-stepping loop */
-    // for (int step = 0; step < m_nt; step++) {
     int step = 0;
     int numsteps = int((tf-t)/dt);
     while (t < tf) {
@@ -178,8 +166,6 @@ void IRK::Run(Vector &x, double &t, double &dt, double tf)
 
         ConstructRHS(x, t, dt);
         
-        // TODO1 : Apply mass matrix to right-hand side here!!
-
         /* Sequentially invert factors in characteristic polynomial */
         for (int i = 0; i < (m_zetaSize + m_etaSize); i++) {
             if (m_rank == 0) {

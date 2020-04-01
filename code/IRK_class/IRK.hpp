@@ -107,12 +107,15 @@ public:
     void Mult(const Vector &x, Vector &y) const
     {
         if (m_type == 1) {
-            m_S.ImplicitPrec(x, y);   // Precondition [zeta*M - dt*L]
+            Vector z(x);
+            m_S.ApplyM(x, z);         // Apply M
+            m_S.ImplicitPrec(z, y);   // Precondition [zeta*M - dt*L]
         }
         else if (m_type == 2) {
             Vector z(x);
-            m_S.ImplicitPrec(x, y);     // Precondition [zeta*M - dt*L]
-            m_S.ApplyM(y, z);   // Apply M
+            m_S.ApplyM(x, z);           // Apply M
+            m_S.ImplicitPrec(z, y);     // Precondition [zeta*M - dt*L]
+            m_S.ApplyM(y, z);           // Apply M
             m_S.ImplicitPrec(z, y);     // Precondition [zeta*M - dt*L]
         }
         else {
@@ -248,7 +251,7 @@ public:
         CG = 0, MINRES = 1, GMRES = 2, BICGSTAB = 3, FGMRES = 4
     };
 
-    IRK(IRKOperator *S, IRK::Type RK_ID, MPI_Comm globComm);
+    IRK(IRKOperator *S, IRK::Type RK_ID, MPI_Comm comm);
     ~IRK();
     
     void SetSolve(IRK::Solve solveID=IRK::GMRES, double reltol=1e-6,
