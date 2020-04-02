@@ -1,7 +1,8 @@
 #include "FDadvection.hpp"
 
 
-#if 0 Template preconditioner for AIR
+#if 0 
+Template preconditioner for AIR
 /* Constructor for preconditioner */
 CharPolyPrecon::CharPolyPrecon(MPI_Comm comm, double gamma, double dt, int type, SpatialDiscretization &S) 
     : Solver(S.height, false), m_type(type), m_S(S), m_precon(NULL), m_solver(NULL) {
@@ -36,19 +37,54 @@ CharPolyPrecon::CharPolyPrecon(MPI_Comm comm, double gamma, double dt, int type,
 /* -------------------------------------------------------------------------- */
 /* --------- Implementation of pure virtual functions in base class --------- */
 /* -------------------------------------------------------------------------- */
+
+void FDadvection::ExplicitMult(const Vector &x, Vector &y) const
+{
+    m_L->Mult(x, y);
+}
+
+/* Precondition (\gamma*I - dt*L) OR (\gamma*I - dt*L) */
+void FDadvection::ImplicitPrec(const Vector &x, Vector &y) const
+{
+    
+}
+
+// /* Get RHS vector, g(t) */
+// void FDadvection::GetG(double t, Vector &g) {
+// 
+// }
+
+// Function to ensure that ImplicitPrec preconditions (\gamma*M - dt*L) OR (\gamma*I - dt*L)
+// with gamma and dt as passed to this function.
+//      + index -> index of eigenvalue (pair) in IRK storage
+//      + type -> eigenvalue type, 1 = real, 2 = complex pair
+//      + t -> time.
+// These additional parameters are to provide ways to track when
+// (\gamma*M - dt*L) or (\gamma*I - dt*L) must be reconstructed or not to minimize setup.
+void FDadvection::SetSystem(int index, double t, double dt, double gamma, int type) {
+    
+}
+
+/* -------------------------------------------------------------------------- */
 /* These functions essentially just wrap the CSR spatial discretization into  */
 /* MFEM-implemented HYPRE matrices and vectors                                */
 /* -------------------------------------------------------------------------- */
 
-void FDadvection::ExplicitMult(const Vector &x, Vector &y)
-{
-    m_L->Mult(x, y);
+// Set member variable m_I
+void FDadvection::SetI() {
+    if (!m_I) GetHypreParMatrixI(m_I);
+}
+
+// Set member variable m_L
+void FDadvection::SetL(double t) {
+    if (m_L) delete m_L; m_L = NULL;
+    GetHypreParMatrixL(t, m_L);
 }
 
 
 /* Get identity mass matrix; parallel distribution is based on what's saved in the
 associated member variables of this class */
-void FDadvection::GetSpatialDiscretizationM(HypreParMatrix * &M) 
+void FDadvection::GetHypreParMatrixI(HypreParMatrix * &M) 
 {
     int    * M_rowptr  = new int[m_onProcSize+1];
     int    * M_colinds = new int[m_onProcSize];
@@ -70,7 +106,7 @@ void FDadvection::GetSpatialDiscretizationM(HypreParMatrix * &M)
     delete[] M_data;
 } 
 
-void FDadvection::GetSpatialDiscretizationL(double t, HypreParMatrix * &L) {
+void FDadvection::GetHypreParMatrixL(double t, HypreParMatrix * &L) {
     
     double * U = NULL;
     bool getU = false;
@@ -119,7 +155,7 @@ void FDadvection::NegateData(int start, int stop, double * &data) {
 }
 
 /* Get initial condition in an MFEM HypreParVector */
-void FDadvection::GetSpatialDiscretizationU0(HypreParVector * &u0) {
+void FDadvection::GetU0(HypreParVector * &u0) {
     
     int      spatialDOFs;
     int      ilower;
@@ -142,81 +178,84 @@ void FDadvection::GetSpatialDiscretizationU0(HypreParVector * &u0) {
 }
 
 
+// TODO : set this properly... Maybe have a wrapper function that casts from HypreParVector to Vector!
 /* Get solution-independent source term in an MFEM HypreParVector */
-void FDadvection::GetSpatialDiscretizationG(double t, HypreParVector * &g) {
+void FDadvection::GetG(double t, Vector &g) {
     
-    int      spatialDOFs;
-    int      ilower;
-    int      iupper;
-    double * G;
-
-    // No parallelism: Spatial discretization on single processor
-    if (!m_useSpatialParallel) {
-        // Call when NOT using spatial parallelism                                        
-        getSpatialDiscretizationG(G, spatialDOFs, t); 
-        ilower = 0; 
-        iupper = spatialDOFs - 1; 
-    // Spatial parallelism: Distribute initial condition across spatial communicator
-    } else {
-        // Call when using spatial parallelism                          
-        getSpatialDiscretizationG(m_globComm, G, ilower, iupper, spatialDOFs, t); 
-    }    
+    g = 0.0;
     
-    GetHypreParVectorFromData(m_globComm, 
-                             ilower, iupper, spatialDOFs, 
-                             G, g);
+    // int      spatialDOFs;
+    // int      ilower;
+    // int      iupper;
+    // double * G;
+    // 
+    // // No parallelism: Spatial discretization on single processor
+    // if (!m_useSpatialParallel) {
+    //     // Call when NOT using spatial parallelism                                        
+    //     getSpatialDiscretizationG(G, spatialDOFs, t); 
+    //     ilower = 0; 
+    //     iupper = spatialDOFs - 1; 
+    // // Spatial parallelism: Distribute initial condition across spatial communicator
+    // } else {
+    //     // Call when using spatial parallelism                          
+    //     getSpatialDiscretizationG(m_globComm, G, ilower, iupper, spatialDOFs, t); 
+    // }    
+    // 
+    // GetHypreParVectorFromData(m_globComm, 
+    //                          ilower, iupper, spatialDOFs, 
+    //                          G, g);
 }
 
-void SpatialDiscretization::SetL(double t) {
-    /* Get L for the first time */
-    if (!m_L) {
-        m_t_L = t;
-        GetSpatialDiscretizationL(t, m_L);
-        
-    /* Get L at a different time than what it's currently stored at */
-    } else if (m_L_isTimedependent && t != m_t_L) {
-        m_t_L = t;
-        delete m_L;
-        m_L = NULL;
-        GetSpatialDiscretizationL(t, m_L);
-    }
-}
+// void SpatialDiscretization::SetL(double t) {
+//     /* Get L for the first time */
+//     if (!m_L) {
+//         m_t_L = t;
+//         GetSpatialDiscretizationL(t, m_L);
+// 
+//     /* Get L at a different time than what it's currently stored at */
+//     } else if (m_L_isTimedependent && t != m_t_L) {
+//         m_t_L = t;
+//         delete m_L;
+//         m_L = NULL;
+//         GetSpatialDiscretizationL(t, m_L);
+//     }
+// }
 
-/* Set initial condition in solution vector */
-void SpatialDiscretization::SetU0() {
-    if (!m_u) {
-        GetSpatialDiscretizationU0(m_u);
-        height = m_u->Size(); // TODO : Need a  better way  of setting this...
-    } else {
-        std::cout << "WARNING: Initial condition cannot overwrite existing value of m_u" << '\n';
-    }
-}
+// /* Set initial condition in solution vector */
+// void SpatialDiscretization::SetU0() {
+//     if (!m_u) {
+//         GetSpatialDiscretizationU0(m_u);
+//         height = m_u->Size(); // TODO : Need a  better way  of setting this...
+//     } else {
+//         std::cout << "WARNING: Initial condition cannot overwrite existing value of m_u" << '\n';
+//     }
+// }
 
-void SpatialDiscretization::SetG(double t) {
-    /* Get g for the first time */
-    if (!m_g) {
-        m_t_g = t;
-        GetSpatialDiscretizationG(t, m_g);
-        
-    /* Get g at a different time than what it's currently stored at */
-    } else if (m_G_isTimedependent && t != m_t_g) {
-        m_t_g = t;
-        delete m_g;
-        m_g = NULL;
-        GetSpatialDiscretizationG(t, m_g);
-    }
-    
-    if (m_M_exists) {
-        std::cout << "WARNING: Need to implement inv(M) * RHS" << '\n';
-        MPI_Finalize();
-        exit(1);
-    }
-}
+// void SpatialDiscretization::SetG(double t) {
+//     /* Get g for the first time */
+//     if (!m_g) {
+//         m_t_g = t;
+//         GetSpatialDiscretizationG(t, m_g);
+// 
+//     /* Get g at a different time than what it's currently stored at */
+//     } else if (m_G_isTimedependent && t != m_t_g) {
+//         m_t_g = t;
+//         delete m_g;
+//         m_g = NULL;
+//         GetSpatialDiscretizationG(t, m_g);
+//     }
+// 
+//     if (m_M_exists) {
+//         std::cout << "WARNING: Need to implement inv(M) * RHS" << '\n';
+//         MPI_Finalize();
+//         exit(1);
+//     }
+// }
 
-/* Functions setting HYPRE matrix/vector member variables  */
-void SpatialDiscretization::SetM() {
-    if (!m_M) GetSpatialDiscretizationM(m_M);
-}
+// /* Functions setting HYPRE matrix/vector member variables  */
+// void SpatialDiscretization::SetM() {
+//     if (!m_M) GetSpatialDiscretizationM(m_M);
+// }
 
 
 /* -------------------------------------------------------------------------- */
@@ -239,26 +278,18 @@ void FDadvection::SetNumDissipation(Num_dissipation dissipation_params)
     }
 }
 
-FDadvection::FDadvection(MPI_Comm globComm, bool M_exists) :
-    IRKOperator(globComm, M_exists), m_M_exists{M_exists},
-{
-    // Get number of processes
-    MPI_Comm_rank(m_globComm, &m_spatialRank);
-    MPI_Comm_size(m_globComm, &m_globCommSize);
-    
-    if (m_globCommSize > 1) m_useSpatialParallel = true;
-}
 
-
-FDadvection::FDadvection(MPI_Comm globComm, bool M_exists, int dim, int refLevels, int order, 
+FDadvection::FDadvection(MPI_Comm comm, int dim, int refLevels, int order, 
                         int problemID, std::vector<int> px)
-    : IRKOperator(globComm), m_M_exists{M_exists},
+    : IRKOperator(comm, false),
+    m_globComm{comm},
     m_dim{dim}, m_refLevels{refLevels}, m_problemID{problemID}, m_px{px},
     m_periodic(false), m_inflow(false), m_PDE_soln_implemented(false), m_dissipation(false),
-    m_M(NULL), m_L(NULL), m_u(NULL), m_g(NULL),
+    m_I(NULL), m_L(NULL),
     m_t_L{0.0}, m_t_g{0.0}, m_t_u{0.0}, 
-    m_useSpatialParallel(false), height(-1)
+    m_useSpatialParallel(false)
 {    
+    
     // Seed random number generator so results are consistent!
     srand(0);
 
@@ -329,6 +360,11 @@ FDadvection::FDadvection(MPI_Comm globComm, bool M_exists, int dim, int refLevel
         m_localMinRow = 0;
     }
     
+    // TODO: Ben, is this legal? height is a protected member of Operator, but I 
+    // cannot see how else to set it because when the constructor is called, I 
+    // don't yet know the size of the operator...
+    this->height = m_spatialDOFs;
+    
     /* Set variables based on form of PDE */
     /* Test problems with periodic boundaries */
     if (m_problemID == 1) { /* Constant-coefficient */
@@ -388,7 +424,6 @@ FDadvection::FDadvection(MPI_Comm globComm, bool M_exists, int dim, int refLevel
             exit(1);
         }
     }
-    
     
     /* -------------------------------------------------------- */
     /* -------------- Set up spatial parallelism -------------- */
@@ -508,11 +543,13 @@ FDadvection::FDadvection(MPI_Comm globComm, bool M_exists, int dim, int refLevel
 
 FDadvection::~FDadvection()
 {
-    if (m_M) delete m_M;
-    if (m_L) delete m_L;
-    if (m_u) delete m_u;
-    if (m_g) delete m_g;
+    // if (m_M) delete m_M;
+    // if (m_L) delete m_L;
+    // if (m_u) delete m_u;
+    // if (m_g) delete m_g;
     //if (m_z) delete m_z;
+    if (m_I) delete m_I;
+    if (m_L) delete m_L;
 }
 
 
@@ -2119,21 +2156,21 @@ void FDadvection::GetHypreParIdentityMatrix(const HypreParMatrix &A, HypreParMat
     delete[] I_data;
 } 
 
-/* Get identity mass matrix operator */
-void FDadvection::GetIRKOperatorM(HypreParMatrix * &M) {
-    if (m_M_exists) {
-        std::cout << "WARNING: If a mass matrix exists (as indicated), the derived class must implement it!" << '\n';
-        MPI_Finalize();
-        exit(1);
-    }
-    
-    if (!m_L) {
-        std::cout << "WARNING: Cannot get mass matrix M w/ out first getting discretization L" << '\n';
-        MPI_Finalize();
-        exit(1);
-    }
-    GetHypreParIdentityMatrix(*m_L, M);
-}
+// /* Get identity mass matrix operator */
+// void FDadvection::GetIRKOperatorM(HypreParMatrix * &M) {
+//     if (m_M_exists) {
+//         std::cout << "WARNING: If a mass matrix exists (as indicated), the derived class must implement it!" << '\n';
+//         MPI_Finalize();
+//         exit(1);
+//     }
+// 
+//     if (!m_L) {
+//         std::cout << "WARNING: Cannot get mass matrix M w/ out first getting discretization L" << '\n';
+//         MPI_Finalize();
+//         exit(1);
+//     }
+//     GetHypreParIdentityMatrix(*m_L, M);
+// }
 
 // void FDadvection::Test(double t) {
 //     SetU0();

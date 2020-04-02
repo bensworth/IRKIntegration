@@ -1,12 +1,12 @@
-// #ifndef IRK_H
-//     #include "IRK.hpp"
-// #endif
+#ifndef IRK_H
+    #include "IRK.hpp"
+#endif
 // 
 // #ifndef SPATIALDISCRETIZATION_H
 // 
 // #endif
 
-#include "IRKOperator.hpp"
+//#include "IRK.hpp"
 
 #include "mfem.hpp"
 #include <cstdio>
@@ -86,16 +86,12 @@ private:
     Num_dissipation     m_dissipation_params;   /* Parameters describing numerical dissipation */
 
     /* Components of the spatial discretization */
-    //HypreParMatrix * m_M;  /* Mass matrix */
-    //HypreParMatrix * m_L;  /* Linear solution-dependent operator */
-    HypreParVector * m_g;  /* M^{-1} * solution-independent source term  */
-    HypreParVector * m_u;  /* Solution */
-
+    HypreParMatrix * m_I;  /* Compatible identity matrix */
+    HypreParMatrix * m_L;  /* Linear solution-dependent operator */
+    
     double  m_t_L; /* Time the current (linear) solution-dependent operator is evaluated at */
     double  m_t_g; /* Time the current solution-independent source term is evaluated at */
     double  m_t_u; /* Time the current solution is evaluated at */
-    
-    bool    m_M_exists;
     
     /* Space discretization is assumed fully time-dependent; must be over ridden in derived class if this is not the case */
     bool    m_L_isTimedependent;    /* Is L time dependent? */
@@ -120,6 +116,11 @@ private:
 
     void GetHypreParIdentityMatrix(const HypreParMatrix &A, HypreParMatrix * &I);
 
+
+    void GetHypreParMatrixL(double t, HypreParMatrix * &L);
+    void GetHypreParMatrixI(HypreParMatrix * &I);
+    void SetI(); // Set identity, m_I 
+    /* -------------------------------------------------------------------------- */
 
 
     // /* Some hacks so I can explicitly assemble identity mass matrix for testing... */
@@ -240,37 +241,47 @@ private:
     int div_ceil(int numerator, int denominator);    
     void NegateData(int start, int stop, double * &data);
     
-    // Functions to get spatial discretization
-    void GetSpatialDiscretizationU0(HypreParVector * &u0); 
-    void GetSpatialDiscretizationG(double t, HypreParVector * &g); 
-    void GetSpatialDiscretizationL(double t, HypreParMatrix * &L); 
-    void GetSpatialDiscretizationM(HypreParMatrix * &M); 
-
-    // Set member variables
-    void SetM();
-    void SetL(double t);
-    void SetG(double t);
-    void SetU0();
+    // // Functions to get spatial discretization
+    // void GetSpatialDiscretizationU0(HypreParVector * &u0); 
+    // void GetSpatialDiscretizationG(double t, HypreParVector * &g); 
+    // void GetSpatialDiscretizationL(double t, HypreParMatrix * &L); 
+    // void GetSpatialDiscretizationM(HypreParMatrix * &M); 
+    
+    
+    
                     
 public:
     
-    HypreParMatrix * m_M;  /* Mass matrix */
-    HypreParMatrix * m_L;  /* Linear solution-dependent operator */
 
     /* Constructors */
-	FDadvection(MPI_Comm globComm, bool M_exists);
-	FDadvection(MPI_Comm globComm, bool M_exists, int dim, int refLevels, int order, int problemID, std::vector<int> px = {});
+	//FDadvection(MPI_Comm globComm, bool M_exists);
+	FDadvection(MPI_Comm globComm, int dim, int refLevels, int order, int problemID, std::vector<int> px = {});
     ~FDadvection();
     
-    void ExplicitMult(const Vector &x, Vector &y);
-
     /* Add numerical dissipation into pure advection discretization  */
     void SetNumDissipation(Num_dissipation dissipation_params);
     
-    void SaveL(){ if (m_L) m_L->Print("L.txt"); else std::cout << "WARNING: m_L == NULL, cannot be printed!\n"; };
-    void SaveM(){ if (m_M) m_M->Print("M.txt"); else std::cout << "WARNING: m_M == NULL, cannot be printed!\n"; };
-    void SaveG(){ if (m_g) m_g->Print("g.txt"); else std::cout << "WARNING: m_g == NULL, cannot be printed!\n"; };
-    void SaveU(const char * fname){ if (m_u) m_u->Print(fname); else std::cout << "WARNING: m_u == NULL, cannot be printed!\n"; };
+    // Set member variables
+    void SetL(double t); // Set spatial disc. matrix, m_L 
+    void GetU0(HypreParVector * &u0);
+    
+    /* --- Virtual functions from base class requiring implementation --- */
+    /* Compute y <- L*x */
+    void ExplicitMult(const Vector &x, Vector &y) const;
+    
+    /* Precondition (\gamma*I - dt*L) OR (\gamma*I - dt*L) */
+    void ImplicitPrec(const Vector &x, Vector &y) const;
+    
+    // Function to ensure that ImplicitPrec preconditions (\gamma*M - dt*L) OR (\gamma*I - dt*L)
+    // with gamma and dt as passed to this function.
+    //      + index -> index of eigenvalue (pair) in IRK storage
+    //      + type -> eigenvalue type, 1 = real, 2 = complex pair
+    //      + t -> time.
+    // These additional parameters are to provide ways to track when
+    // (\gamma*M - dt*L) or (\gamma*I - dt*L) must be reconstructed or not to minimize setup.
+    void SetSystem(int index, double t, double dt, double gamma, int type);
+    
+    /* Get RHS vector, g(t) */
+    void GetG(double t, Vector &g);
 
-    void Test(double t);
 };

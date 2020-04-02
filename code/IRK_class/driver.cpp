@@ -4,7 +4,6 @@
 #include "mfem.hpp"
 
 #include "IRK.hpp"
-#include "SpatialDiscretization.hpp"
 #include "FDadvection.hpp"
 
 using namespace mfem;
@@ -128,7 +127,7 @@ int main(int argc, char *argv[])
     }
     
     // Build Spatial discretization object
-    FDadvection SpaceDisc(MPI_COMM_WORLD, M_exists, dim, refLevels, order, FD_ProblemID, n_px); 
+    FDadvection SpaceDisc(MPI_COMM_WORLD, dim, refLevels, order, FD_ProblemID, n_px); 
     
     // Add numerical dissipation into FD-advection discretization if meaningful parameters passed */
     if (ndis > 0 && ndis_c0 > 0.0) {
@@ -136,55 +135,67 @@ int main(int argc, char *argv[])
         SpaceDisc.SetNumDissipation(dissipation);
     }
     
+    // Set spatial disc. matrix, m_L at t = 0 
+    SpaceDisc.SetL(0.0); 
+    
+    // Get initial condition
+    HypreParVector * u = NULL;
+    SpaceDisc.GetU0(u);
+    
+    //IRK::Type RK_ID = static_cast<IRK::Type>(IRK_ID);
     // Build IRK object using spatial discretization object
-    IRK MyIRK(MPI_COMM_WORLD, IRK_ID, &SpaceDisc, dt, nt);
+    IRK MyIRK(&SpaceDisc, static_cast<IRK::Type>(IRK_ID), MPI_COMM_WORLD);
+    
+    // Time step
+    double t0 = 0.0;
+    double tf = 1.0;
+    MyIRK.Run(*u, t0, dt, tf);
     
     
-    MyIRK.TimeStep();
-        
-            
-    if (save_sol) {
-        // char * filename;
-        // if (std::string(out) == "") {
-        //     char * filename = "data/U"; // Default file name
-        // } else {
-        //     filename = out;
-        // }
-        
-        const char * fname = "data/U";
-        
-        SpaceDisc.SaveU(fname); 
-        
-        // Save data to file enabling easier inspection of solution            
-        if (rank == 0) {
-            int nx = pow(2, refLevels);
-            std::map<std::string, std::string> space_info;
-
-            space_info["space_order"]     = std::to_string(order);
-            space_info["nx"]              = std::to_string(nx);
-            space_info["space_dim"]       = std::to_string(dim);
-            space_info["space_refine"]    = std::to_string(refLevels);
-            space_info["problemID"]       = std::to_string(FD_ProblemID);
-            for (int d = 0; d < n_px.size(); d++) {
-                space_info[std::string("p_x") + std::to_string(d)] = std::to_string(n_px[d]);
-            }
-            
-            // // Not sure how else to ensure disc error is cast to a string in scientific format...
-            // if (gotdiscerror) {
-            //     space_info["discerror"].resize(16);
-            //     space_info["discerror"].resize(std::snprintf(&space_info["discerror"][0], 16, "%.6e", discerror));
-            // } 
-            
-            space_info["P"]     = std::to_string(numProcess);
-            
-            if (dx != -1.0) {
-                space_info["dx"].resize(16);
-                space_info["dx"].resize(std::snprintf(&space_info["dx"][0], 16, "%.6e", dx));
-            }
-
-            MyIRK.SaveSolInfo(fname, space_info); // TODO write me
-        }
-    }
+    // 
+    // 
+    // if (save_sol) {
+    //     // char * filename;
+    //     // if (std::string(out) == "") {
+    //     //     char * filename = "data/U"; // Default file name
+    //     // } else {
+    //     //     filename = out;
+    //     // }
+    // 
+    //     const char * fname = "data/U";
+    // 
+    //     SpaceDisc.SaveU(fname); 
+    // 
+    //     // Save data to file enabling easier inspection of solution            
+    //     if (rank == 0) {
+    //         int nx = pow(2, refLevels);
+    //         std::map<std::string, std::string> space_info;
+    // 
+    //         space_info["space_order"]     = std::to_string(order);
+    //         space_info["nx"]              = std::to_string(nx);
+    //         space_info["space_dim"]       = std::to_string(dim);
+    //         space_info["space_refine"]    = std::to_string(refLevels);
+    //         space_info["problemID"]       = std::to_string(FD_ProblemID);
+    //         for (int d = 0; d < n_px.size(); d++) {
+    //             space_info[std::string("p_x") + std::to_string(d)] = std::to_string(n_px[d]);
+    //         }
+    // 
+    //         // // Not sure how else to ensure disc error is cast to a string in scientific format...
+    //         // if (gotdiscerror) {
+    //         //     space_info["discerror"].resize(16);
+    //         //     space_info["discerror"].resize(std::snprintf(&space_info["discerror"][0], 16, "%.6e", discerror));
+    //         // } 
+    // 
+    //         space_info["P"]     = std::to_string(numProcess);
+    // 
+    //         if (dx != -1.0) {
+    //             space_info["dx"].resize(16);
+    //             space_info["dx"].resize(std::snprintf(&space_info["dx"][0], 16, "%.6e", dx));
+    //         }
+    // 
+    //         MyIRK.SaveSolInfo(fname, space_info); // TODO write me
+    //     }
+    // }
     
 
     MPI_Finalize();

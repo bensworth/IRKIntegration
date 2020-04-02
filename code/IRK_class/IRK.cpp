@@ -16,11 +16,13 @@
 
 
 
-IRK::IRK(IRKOperator *S, IRK::Type RK_ID, MPI_Comm comm);
+IRK::IRK(IRKOperator *S, IRK::Type RK_ID, MPI_Comm comm)
         : m_S(S), m_CharPolyPrec(*S), m_CharPolyOps(), m_comm{comm},
         m_krylov(NULL), m_z(NULL), m_y(NULL), m_w(NULL)
 {
     m_RK_ID = static_cast<int>(RK_ID);
+
+    std::cout << "Here 0" << '\n';
 
     // Get proc IDs
     MPI_Comm_rank(m_comm, &m_rank);
@@ -39,16 +41,19 @@ IRK::IRK(IRKOperator *S, IRK::Type RK_ID, MPI_Comm comm);
     /* --- Construct object for every factor in char. poly --- */
     m_CharPolyOps.SetSize(m_zetaSize + m_etaSize);
     // Linear factors. I.e., those of type 1
+    double dt_dummy = -1.0; // Use dummy dt, will be set properly later.
     int count = 0;
     for (int i = 0; i < m_zetaSize; i++) {
-        m_CharPolyOps[count] = new CharPolyOp(dt, m_zeta(i), *m_S);
+        m_CharPolyOps[count] = new CharPolyOp(dt_dummy, m_zeta(i), *m_S);
         count++;
     }
     // Quadratic factors. I.e., those of type 2
     for (int i = 0; i < m_etaSize; i++) {
-        m_CharPolyOps[count] = new CharPolyOp(dt, m_eta(i), m_beta(i), *m_S);
+        m_CharPolyOps[count] = new CharPolyOp(dt_dummy, m_eta(i), m_beta(i), *m_S);
         count++;
-    }   
+    } 
+    
+    std::cout << "Here 5" << '\n';
 }
 
 IRK::~IRK() {
@@ -108,7 +113,7 @@ void IRK::SetSolve(IRK::Solve solveID, double reltol, int maxiter,
         static_cast<FGMRESSolver*>(m_krylov)->SetKDim(kdim);
     }
     else {
-        MFEM_ERROR("Invalid solve type.\n");   
+        mfem_error("Invalid solve type.\n");   
     }
 
     m_krylov->iterative_mode = false;
@@ -117,10 +122,8 @@ void IRK::SetSolve(IRK::Solve solveID, double reltol, int maxiter,
 
 void IRK::Step(Vector &x, double &t, double &dt)
 {
-    // Construct default Krylov solver if pointer NULL
-    if (!m_krylov) SetSolve();
 
-    *m_y = 0.0;     // TODO : what does this do?
+    Vector y(x); // Auxillary vector
     ConstructRHS(x, t, dt); /* Set m_z */
     
     /* Sequentially invert factors in characteristic polynomial */
@@ -134,28 +137,27 @@ void IRK::Step(Vector &x, double &t, double &dt)
         m_CharPolyOps[i]->Setdt(dt);
 
         // Set operator and preconditioner for ith polynomial term
-        m_CharPolyPrec.SetType(m_CharPolyOps[i]->Type())
-        m_S.SetSystem(i, t, dt, m_CharPolyOps[i]->Gamma(),
-                      m_CharPolyOps[i]->Type());
-        m_krylov -> SetPreconditioner(m_CharPolyPrec);
-        m_krylov -> SetOperator(m_CharPolyOps[i]);
+        m_CharPolyPrec.SetType(m_CharPolyOps[i]->Type());
+        m_S->SetSystem(i, t, dt, m_CharPolyOps[i]->Gamma(), m_CharPolyOps[i]->Type());
+        m_krylov->SetPreconditioner(m_CharPolyPrec);
+        m_krylov->SetOperator(*(m_CharPolyOps[i]));
         
         // Use preconditioned Krylov to invert this term in polynomial 
-        m_krylov -> Mult(*m_z, *m_y); // y <- char_poly_factor(i)^-1 * z
-        *m_z = *m_y;
+        m_krylov->Mult(*m_z, y); // y <- char_poly_factor(i)^-1 * z
+        *m_z = y; // Solution becomes the RHS in the next factor
     }
 
     // Update solution vector with weighted sum of stage vectors        
-    (m_S->m_u)->Add(dt, *m_y);
-    t += dt;
+    x.Add(dt, y);   // x <- x + dt*y
+    t += dt;        // Time that x is evaulated at
 }
 
 void IRK::Run(Vector &x, double &t, double &dt, double tf) 
 {
-    // Construct default Krylov solver if pointer NULL
+    std::cout << "RUN" << '\n';
+    
+    // Set Krylov settings if not already set
     if (!m_krylov) SetSolve();
-
-    *m_y = 0.0;     // TODO : what does this do?
 
     /* Main time-stepping loop */
     int step = 0;
@@ -164,47 +166,28 @@ void IRK::Run(Vector &x, double &t, double &dt, double tf)
         step++;
         if (m_rank == 0) std::cout << "RK time-step " << step << " of " << numsteps << '\n';
 
-        ConstructRHS(x, t, dt);
-        
-        /* Sequentially invert factors in characteristic polynomial */
-        for (int i = 0; i < (m_zetaSize + m_etaSize); i++) {
-            if (m_rank == 0) {
-                std::cout << "System " << i << " of " << m_zetaSize + m_etaSize - 1 <<
-                ";\t type = " << m_CharPolyOps[i]->Type() << "\n \t";
-            }
-
-            // Ensure that correct time step is used in factored polynomial
-            m_CharPolyOps[i]->Setdt(dt);
-
-            // Set operator and preconditioner for ith polynomial term
-            m_CharPolyPrec.SetType(m_CharPolyOps[i]->Type())
-            m_S.SetSystem(i, t, dt, m_CharPolyOps[i]->Gamma(),
-                          m_CharPolyOps[i]->Type());
-            m_krylov -> SetPreconditioner(m_CharPolyPrec);
-            m_krylov -> SetOperator(m_CharPolyOps[i]);
-
-            // Use preconditioned Krylov to invert this term in polynomial 
-            m_krylov -> Mult(*m_z, *m_y); // y <- char_poly_factor(i)^-1 * z
-            *m_z = *m_y;
-        }
-    
-        // Update solution vector with weighted sum of stage vectors        
-        (m_S->m_u)->Add(dt, *m_y);
-        t += dt;
+        // Step from t to t+dt
+        Step(x, t, dt);
     }
 }
 
-/* Form the RHS of the linear system for IRK integration at time t, m_z */
+
+
+
+/* Construct m_z, the RHS of the linear system for integration from t to t+dt */
 void IRK::ConstructRHS(const Vector &x, double t, double dt) {
     *m_z = 0.0; /* z <- 0 */
     *m_w = 0.0; /* w <- 0 */
     
-    Vector temp(x), f(x);
-    m_S -> ExplicitMult(x, temp); // temp <- L*u
+    Vector temp(x), g(x), f(x);
+    
+    m_S->ExplicitMult(x, temp); // temp <- M^{-1}*L*x OR temp <- L*x
     
     for (int i = 0; i < m_s; i++) {
-        m_S->SetG(t + dt*m_c0(i)); /* Set g at time t + dt*c[i] */
-        add(*(m_S -> m_g), temp, f); // f <- L*u + g
+        m_S->GetG(t + dt*m_c0(i), g); /* Get M^{-1}*g(t + dt*c[i]) OR g(t + dt*c[i]) */
+        
+        add(g, temp, f); // f <- temp + g
+        
         m_S -> PolynomialMult(m_XCoeffs[i], dt, f, *m_w); /* w <- X_i(dt*M^{-1}*L) * f */
         *m_z += *m_w;
         *m_w = 0.0;
@@ -443,90 +426,90 @@ void IRK::SetButcherCoeffs() {
         // TODO
 
     }
-    // 2-stage 3rd-order Radau IIA
-    else if (m_RK_ID == 23) {
-        /* --- A --- */
-        m_A0.SetSize(2);
-        m_A0(0,0) = 0.41666666666666663;
-        m_A0(0,1) = -0.08333333333333333;
-        m_A0(1,0) = 0.75;
-        m_A0(1,1) = 0.25;
-        /* --- inv(A) --- */
-        m_invA0.SetSize(2);
-        m_invA0(0,0) = 1.5;
-        m_invA0(0,1) = 0.5;
-        m_invA0(1,0) = -4.5;
-        m_invA0(1,1) = 2.5;
-        /* --- b --- */
-        m_b0.SetSize(2);
-        m_b0(0) = 0.75;
-        m_b0(1) = 0.25;
-        /* --- c --- */
-        m_c0.SetSize(2);
-        m_c0(0) = 0.3333333333333333;
-        m_c0(1) = 1.0;
-        /* --- d --- */
-        m_d0.SetSize(2);
-        m_d0(0) = 0;
-        m_d0(1) = 1;
-        /* --- zeta --- */
-        m_zeta.SetSize(0);
-        /* --- eta --- */
-        m_eta.SetSize(1);
-        m_eta(0) = 2.0;
-        /* --- beta --- */
-        m_beta.SetSize(1);
-        m_beta(0) = 1.4142135623730954;
-    }
-    // 3-stage 5th-order Radau IIA
-    else if (m_RK_ID == 25) {
-        /* --- A --- */
-        m_A0.SetSize(3);
-        m_A0(0,0) = 0.19681547722366044;
-        m_A0(0,1) = -0.06553542585019836;
-        m_A0(0,2) = 0.023770974348220147;
-        m_A0(1,0) = 0.3944243147390872;
-        m_A0(1,1) = 0.2920734116652285;
-        m_A0(1,2) = -0.04154875212599793;
-        m_A0(2,0) = 0.37640306270046725;
-        m_A0(2,1) = 0.5124858261884215;
-        m_A0(2,2) = 0.1111111111111111;
-        /* --- inv(A) --- */
-        m_invA0.SetSize(3);
-        m_invA0(0,0) = 3.224744871391589;
-        m_invA0(0,1) = 1.167840084690405;
-        m_invA0(0,2) = -0.253197264742181;
-        m_invA0(1,0) = -3.567840084690406;
-        m_invA0(1,1) = 0.7752551286084114;
-        m_invA0(1,2) = 1.053197264742181;
-        m_invA0(2,0) = 5.531972647421807;
-        m_invA0(2,1) = -7.531972647421809;
-        m_invA0(2,2) = 5.0;
-        /* --- b --- */
-        m_b0.SetSize(3);
-        m_b0(0) = 0.37640306270046725;
-        m_b0(1) = 0.5124858261884215;
-        m_b0(2) = 0.1111111111111111;
-        /* --- c --- */
-        m_c0.SetSize(3);
-        m_c0(0) = 0.1550510257216822;
-        m_c0(1) = 0.6449489742783178;
-        m_c0(2) = 1.0;
-        /* --- d --- */
-        m_d0.SetSize(3);
-        m_d0(0) = 0;
-        m_d0(1) = 0;
-        m_d0(2) = 1;
-        /* --- zeta --- */
-        m_zeta.SetSize(1);
-        m_zeta(0) = 3.6378342527445033`;
-        /* --- eta --- */
-        m_eta.SetSize(1);
-        m_eta(0) = 2.681082873627745;
-        /* --- beta --- */
-        m_beta.SetSize(1);
-        m_beta(0) = 3.0504301992474088`;
-    }
+    // // 2-stage 3rd-order Radau IIA
+    // else if (m_RK_ID == 23) {
+    //     /* --- A --- */
+    //     m_A0.SetSize(2);
+    //     m_A0(0,0) = 0.41666666666666663;
+    //     m_A0(0,1) = -0.08333333333333333;
+    //     m_A0(1,0) = 0.75;
+    //     m_A0(1,1) = 0.25;
+    //     /* --- inv(A) --- */
+    //     m_invA0.SetSize(2);
+    //     m_invA0(0,0) = 1.5;
+    //     m_invA0(0,1) = 0.5;
+    //     m_invA0(1,0) = -4.5;
+    //     m_invA0(1,1) = 2.5;
+    //     /* --- b --- */
+    //     m_b0.SetSize(2);
+    //     m_b0(0) = 0.75;
+    //     m_b0(1) = 0.25;
+    //     /* --- c --- */
+    //     m_c0.SetSize(2);
+    //     m_c0(0) = 0.3333333333333333;
+    //     m_c0(1) = 1.0;
+    //     /* --- d --- */
+    //     m_d0.SetSize(2);
+    //     m_d0(0) = 0;
+    //     m_d0(1) = 1;
+    //     /* --- zeta --- */
+    //     m_zeta.SetSize(0);
+    //     /* --- eta --- */
+    //     m_eta.SetSize(1);
+    //     m_eta(0) = 2.0;
+    //     /* --- beta --- */
+    //     m_beta.SetSize(1);
+    //     m_beta(0) = 1.4142135623730954;
+    // }
+    // // 3-stage 5th-order Radau IIA
+    // else if (m_RK_ID == 25) {
+    //     /* --- A --- */
+    //     m_A0.SetSize(3);
+    //     m_A0(0,0) = 0.19681547722366044;
+    //     m_A0(0,1) = -0.06553542585019836;
+    //     m_A0(0,2) = 0.023770974348220147;
+    //     m_A0(1,0) = 0.3944243147390872;
+    //     m_A0(1,1) = 0.2920734116652285;
+    //     m_A0(1,2) = -0.04154875212599793;
+    //     m_A0(2,0) = 0.37640306270046725;
+    //     m_A0(2,1) = 0.5124858261884215;
+    //     m_A0(2,2) = 0.1111111111111111;
+    //     /* --- inv(A) --- */
+    //     m_invA0.SetSize(3);
+    //     m_invA0(0,0) = 3.224744871391589;
+    //     m_invA0(0,1) = 1.167840084690405;
+    //     m_invA0(0,2) = -0.253197264742181;
+    //     m_invA0(1,0) = -3.567840084690406;
+    //     m_invA0(1,1) = 0.7752551286084114;
+    //     m_invA0(1,2) = 1.053197264742181;
+    //     m_invA0(2,0) = 5.531972647421807;
+    //     m_invA0(2,1) = -7.531972647421809;
+    //     m_invA0(2,2) = 5.0;
+    //     /* --- b --- */
+    //     m_b0.SetSize(3);
+    //     m_b0(0) = 0.37640306270046725;
+    //     m_b0(1) = 0.5124858261884215;
+    //     m_b0(2) = 0.1111111111111111;
+    //     /* --- c --- */
+    //     m_c0.SetSize(3);
+    //     m_c0(0) = 0.1550510257216822;
+    //     m_c0(1) = 0.6449489742783178;
+    //     m_c0(2) = 1.0;
+    //     /* --- d --- */
+    //     m_d0.SetSize(3);
+    //     m_d0(0) = 0;
+    //     m_d0(1) = 0;
+    //     m_d0(2) = 1;
+    //     /* --- zeta --- */
+    //     m_zeta.SetSize(1);
+    //     m_zeta(0) = 3.6378342527445033;
+    //     /* --- eta --- */
+    //     m_eta.SetSize(1);
+    //     m_eta(0) = 2.681082873627745;
+    //     /* --- beta --- */
+    //     m_beta.SetSize(1);
+    //     m_beta(0) = 3.0504301992474088;
+    // }
     // 4-stage 7th-order Radau IIA
     else if (m_RK_ID == 27) {
 
@@ -552,7 +535,7 @@ void IRK::SetButcherCoeffs() {
 
     }
     else {
-        MFEM_ERROR("Invalid Runge Kutta type.\n");
+        mfem_error("Invalid Runge Kutta type.\n");
     }
     
     /* Insert data into arrays TODO: WHat about  memory??? This is still ownded by the arrays... */
@@ -653,8 +636,8 @@ void IRK::SaveSolInfo(string filename, map<string, string> additionalInfo)
     ofstream solinfo;
     solinfo.open(filename);
     solinfo << scientific; // This means parameters will be printed with enough significant digits
-    solinfo << "nt " << m_nt << "\n";
-    solinfo << "dt " << m_dt << "\n";
+    // solinfo << "nt " << m_nt << "\n";
+    // solinfo << "dt " << m_dt << "\n";
     
     // Time-discretization-specific information
     solinfo << "timeDisc " << m_RK_ID << "\n";
