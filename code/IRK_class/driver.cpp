@@ -24,10 +24,10 @@ int main(int argc, char *argv[])
     /* --- Set default values for command-line parameters --- */
     /* ------------------------------------------------------ */
     int nt           = 10;
-    int save_sol     = 0;  // Save solution vector
+    int save         = 0;  // Save solution vector
     string out       = ""; // Filename of data to be saved...
     
-    int IRK_ID       = 11;
+    int IRK_ID       = 01;
     double dt        = -1;
 
     /* --- Spatial discretization parameters --- */
@@ -45,11 +45,8 @@ int main(int argc, char *argv[])
     int ndis_c1      = 0;
 
     // CFL parameters
-    double CFL_fraction;
-    double CFLlim;
-    CFLlim = 1.0;
-    CFL_fraction = 6.0; // Use a CFL number of ...
-
+    double CFL = 5.0;
+    
     OptionsParser args(argc, argv);
     args.AddOption(&IRK_ID, "-t", "--RK-disc",
                   "Time discretization (see RK IDs).");
@@ -78,13 +75,12 @@ int main(int argc, char *argv[])
                   "Size of numerical dissipation is c0*dx^c1");
 
     /* CFL parameters */
-    args.AddOption(&CFL_fraction, "-cfl", "--cfl-fraction",
-                  "dt *= CFL.");
+    args.AddOption(&CFL, "-cfl", "...", "CFL==dt*max|a|/dx");
 
     /* --- Text output of solution etc --- */              
     //args.AddOption(&out, "-out", "--out",
     //              "Name of output file."); 
-    args.AddOption(&save_sol, "-save", "--save-sol-data",
+    args.AddOption(&save, "-save", "--save-sol-data",
                   "Level of information to save.");              
     args.Parse();
     if (rank == 0) {
@@ -93,16 +89,15 @@ int main(int argc, char *argv[])
     
     double dx, dy = -1.0;
     
-    // Time step so that we run at CFL_fraction of the CFL limit 
+    // Time step so that we run with dt=CFL*dx/max|a|
     if (dim == 1) {
         dx = 2.0 / pow(2.0, refLevels); // Assumes nx = 2^refLevels, and x \in [-1,1] 
-        dt = dx * CFLlim;
+        dt = dx * CFL; // assume max|a| = 1
     } else if (dim == 2) {
         dx = 2.0 / pow(2.0, refLevels); // Assumes nx = 2^refLevels, and x \in [-1,1] 
         dy = dx;
-        dt = CFLlim/(1/dx + 1/dy);
+        dt = CFL/(1/dx + 1/dy);
     }
-    dt *= CFL_fraction;
     
     
     // // Manually set time to integrate to (just comment or uncomment this...)
@@ -135,67 +130,69 @@ int main(int argc, char *argv[])
         SpaceDisc.SetNumDissipation(dissipation);
     }
     
-    // Set spatial disc. matrix, m_L at t = 0 
-    SpaceDisc.SetL(0.0); 
-    
     // Get initial condition
     HypreParVector * u = NULL;
     SpaceDisc.GetU0(u);
     
-    //IRK::Type RK_ID = static_cast<IRK::Type>(IRK_ID);
     // Build IRK object using spatial discretization object
     IRK MyIRK(&SpaceDisc, static_cast<IRK::Type>(IRK_ID), MPI_COMM_WORLD);
     
     // Time step
     double t0 = 0.0;
-    double tf = 1.0;
+    double tf = dt*nt;
+    
+    MyIRK.Init(SpaceDisc);
     MyIRK.Run(*u, t0, dt, tf);
     
+    if (save > 0) {
+        // char * filename;
+        // if (std::string(out) == "") {
+        //     char * filename = "data/U"; // Default file name
+        // } else {
+        //     filename = out;
+        // }
     
-    // 
-    // 
-    // if (save_sol) {
-    //     // char * filename;
-    //     // if (std::string(out) == "") {
-    //     //     char * filename = "data/U"; // Default file name
-    //     // } else {
-    //     //     filename = out;
-    //     // }
-    // 
-    //     const char * fname = "data/U";
-    // 
-    //     SpaceDisc.SaveU(fname); 
-    // 
-    //     // Save data to file enabling easier inspection of solution            
-    //     if (rank == 0) {
-    //         int nx = pow(2, refLevels);
-    //         std::map<std::string, std::string> space_info;
-    // 
-    //         space_info["space_order"]     = std::to_string(order);
-    //         space_info["nx"]              = std::to_string(nx);
-    //         space_info["space_dim"]       = std::to_string(dim);
-    //         space_info["space_refine"]    = std::to_string(refLevels);
-    //         space_info["problemID"]       = std::to_string(FD_ProblemID);
-    //         for (int d = 0; d < n_px.size(); d++) {
-    //             space_info[std::string("p_x") + std::to_string(d)] = std::to_string(n_px[d]);
-    //         }
-    // 
-    //         // // Not sure how else to ensure disc error is cast to a string in scientific format...
-    //         // if (gotdiscerror) {
-    //         //     space_info["discerror"].resize(16);
-    //         //     space_info["discerror"].resize(std::snprintf(&space_info["discerror"][0], 16, "%.6e", discerror));
-    //         // } 
-    // 
-    //         space_info["P"]     = std::to_string(numProcess);
-    // 
-    //         if (dx != -1.0) {
-    //             space_info["dx"].resize(16);
-    //             space_info["dx"].resize(std::snprintf(&space_info["dx"][0], 16, "%.6e", dx));
-    //         }
-    // 
-    //         MyIRK.SaveSolInfo(fname, space_info); // TODO write me
-    //     }
-    // }
+        const char * fname = "data/U";
+    
+        //SpaceDisc.SaveU(fname); 
+    
+        u->Print(fname);
+    
+        // Save data to file enabling easier inspection of solution            
+        if (rank == 0) {
+            int nx = pow(2, refLevels);
+            std::map<std::string, std::string> space_info;
+    
+            space_info["nt"]              = std::to_string(nt);
+    
+            space_info["space_order"]     = std::to_string(order);
+            space_info["nx"]              = std::to_string(nx);
+            space_info["space_dim"]       = std::to_string(dim);
+            space_info["space_refine"]    = std::to_string(refLevels);
+            space_info["problemID"]       = std::to_string(FD_ProblemID);
+            for (int d = 0; d < n_px.size(); d++) {
+                space_info[std::string("p_x") + std::to_string(d)] = std::to_string(n_px[d]);
+            }
+    
+            // // Not sure how else to ensure disc error is cast to a string in scientific format...
+            // if (gotdiscerror) {
+            //     space_info["discerror"].resize(16);
+            //     space_info["discerror"].resize(std::snprintf(&space_info["discerror"][0], 16, "%.6e", discerror));
+            // } 
+    
+            space_info["P"]     = std::to_string(numProcess);
+    
+            if (dx != -1.0) {
+                space_info["dx"].resize(16);
+                space_info["dx"].resize(std::snprintf(&space_info["dx"][0], 16, "%.6e", dx));
+            }
+            
+            space_info["dt"].resize(16);
+            space_info["dt"].resize(std::snprintf(&space_info["dt"][0], 16, "%.6e", dt));
+    
+            MyIRK.SaveSolInfo(fname, space_info); // TODO write me
+        }
+    }
     
 
     MPI_Finalize();

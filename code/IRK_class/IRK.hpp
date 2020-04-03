@@ -35,7 +35,10 @@ struct AMG_parameters {
 
 /* 
 Abstract base class for linear spatial discretizations of a PDE resulting in the 
-time-dependent ODE M*du/dt = L*u + g(t), u(0) = u0. 
+time-dependent ODE 
+    M*du/dt = L*u + g(t)    _OR_    du/dt = L*u + g(t)
+
+TODO: rework comments below once we've finalized what we're doing
 
 If no mass matrix exists, M_exists=false must be passed to the constructor. 
 If a mass matrix exists (default), the virtual function ApplyM() must be implemented.
@@ -47,28 +50,44 @@ protected:
     
 public:
     // NOTE: By default, assume there's a mass matrix
-    IRKOperator(MPI_Comm comm, bool M_exists = true) : TimeDependentOperator(), m_globComm{comm}, m_M_exists{M_exists} {};
+    IRKOperator(MPI_Comm comm) 
+        : TimeDependentOperator(), m_globComm{comm}, m_M_exists{this->isImplicit()} {};
+    
     ~IRKOperator() { };
 
-    /* Get y <- M^{-1}*L*x OR y <- L*x */
-    virtual void ExplicitMult(const Vector &x, Vector &y) const = 0;
+    /** Apply action of du/dt, y <- M^{-1}*[L*x + g(t)] _OR_ y <- [L*x + g(t)] */
+    virtual void Mult(const Vector &x, Vector &y) const = 0;
     
-    /* Apply mass matrix, y = M*x. If not re-implemented, this method simply generates an error. */
-    virtual void ApplyM(const Vector &x, Vector &y) const
+    /** Apply action mass matrix, y = M*x. 
+    If not re-implemented, this method simply generates an error. */
+    virtual void ImplicitMult(const Vector &x, Vector &y) const
     {
-        mfem_error("IRKOperator::ApplyM() is not overridden!");
+        mfem_error("IRKOperator::ImplicitMult() is not overridden!");
     }
     
-    /* Precondition (\gamma*M - dt*L) OR (\gamma*I - dt*L) */
+    /* TODO: Ben, not quite sure what to do here... Given that M defines the 
+    implicit component of the system, and, so, "ImplicitMult()" computes its action, it
+    it seems natural to me that "ImplicitSolve()" should compute the action of its 
+    inverse... But we cannot use this name as it already means something different in 
+    TimeDependentOperator... Should we just call it "ApplyInvM()"? It's just a little 
+    awkard having such different names...
+    
+    Maybe we could call this ImplicitInvMult()?
+    */
+    /** Apply action of inverse of mass matrix, y = M^{-1}*x. 
+    If not re-implemented, this method simply generates an error. */
+    virtual void ApplyMInv(const Vector &x, Vector &y) const
+    {
+        mfem_error("IRKOperator::ApplyMInv() is not overridden!");
+    }
+    
+    /** Apply action of L, y = L*x. */
+    virtual void ApplyL(const Vector &x, Vector &y) const = 0;
+    
+    
+    /** Precondition (\gamma*M - dt*L) OR (\gamma*I - dt*L) */
     virtual void ImplicitPrec(const Vector &x, Vector &y) const = 0;
     
-    
-    // // BEN: I'm confused here. You say in the notes that M^{-1} is the same as the Mult() function the user has to provide?
-    // /* Apply mass matrix inverse, y = M^{-1}*x. If not re-implemented, this method simply generates an error. */
-    // virtual void ApplyMinv(const Vector &x, Vector &y) const
-    // {
-    //     mfem_error("IRKOperator::ApplyMinv() is not overridden!");
-    // }
     
     // Function to ensure that ImplicitPrec preconditions (\gamma*M - dt*L) OR (\gamma*I - dt*L)
     // with gamma and dt as passed to this function.
@@ -80,22 +99,33 @@ public:
     virtual void SetSystem(int index, double t, double dt,
                            double gamma, int type) = 0;
     
-    /* Get RHS vector scaled by inverse of mass matrix, M^{-1}*g(t) OR I*g(t).
-        Default behaviour assumes g doesn't exist by setting it to zero */
-    virtual void GetG(double t, Vector &g) { g = 0.0; };
     
-    /* Get y <- P(alpha*M^{-1}*L)*x for P a polynomial defined by coefficients:
+    /* Get y <- P(alpha*M^{-1}*L)*x _OR_ y <- P(alpha*L)*x for P a polynomial 
+        defined by coefficients:
             P(x) := c(0)*x^0 + c(1)*x^1 + ... + c(n)*x^n, where c == coefficients
-        Coefficients must be provided for all monomial terms (even if they're 0) */
+        Coefficients must be provided for all monomial terms, even if they're 0. */
     inline void PolynomialMult(Vector coefficients, double alpha, const Vector &x, Vector &y) const
     {
         int n = coefficients.Size() - 1;
         y.Set(coefficients[n], x); // y <- coefficients[n]*x
-        Vector z(y.Size()); // An auxillary vector
-        for (int ell = n-1; ell >= 0; ell--) {
-            this->ExplicitMult(y, z); // z <- M^{-1}*L*y OR z <- L*y       
-            add(coefficients[ell], x, alpha, z, y); // y <- coefficients[ell]*x + alpha*z
-        } 
+        Vector z(y); // Auxillary vector
+        
+        // With a mass matrix
+        if (m_M_exists) 
+        {
+            Vector w(y); // Extra auxillary vector
+            for (int ell = n-1; ell >= 0; ell--) {
+                this->ApplyL(y, w); // w <- L*y       
+                this->ApplyMInv(w, z); // z <- M^{-1}*w                
+                add(coefficients[ell], x, alpha, z, y); // y <- coefficients[ell]*x + alpha*z
+            } 
+        // Without a mass matrix
+        } else {
+            for (int ell = n-1; ell >= 0; ell--) {
+                this->ApplyL(y, z); // w <- L*z                       
+                add(coefficients[ell], x, alpha, z, y); // y <- coefficients[ell]*x + alpha*z
+            } 
+        }
     };
     
     // Does a mass matrix exist for this discretization; this needs to be public so IRK can access it
@@ -133,7 +163,7 @@ public:
             // With mass matrix
             if (m_S.m_M_exists) {
                 Vector z(x);
-                m_S.ApplyM(x, z);         // Apply M
+                m_S.ImplicitMult(x, z);   // Apply M
                 m_S.ImplicitPrec(z, y);   // Precondition [gamma*M - dt*L]
             // Without mass matrix
             } else {
@@ -144,9 +174,9 @@ public:
             Vector z(x);
             // With mass matrix 
             if (m_S.m_M_exists) {
-                m_S.ApplyM(x, z);           // Apply M
+                m_S.ImplicitMult(x, z);     // Apply M
                 m_S.ImplicitPrec(z, y);     // Precondition [gamma*M - dt*L]
-                m_S.ApplyM(y, z);           // Apply M
+                m_S.ImplicitMult(y, z);     // Apply M
                 m_S.ImplicitPrec(z, y);     // Precondition [gamma*M - dt*L]
             // Without mass matrix
             } else {
@@ -276,7 +306,7 @@ public:
     //  + 3 = Lobatto IIIC
     //  Second digit: order of scheme
     enum Type { 
-        SDIRK2 = 02, SDIRK3 = 03, SDIRK4 = 04,
+        SDIRK1 = 01, SDIRK2 = 02, SDIRK3 = 03, SDIRK4 = 04,
         Gauss4 = 14, Gauss6 = 16, Gauss8 = 18,
         RadauIIA3 = 23, RadauIIA5 = 25, RadauIIA7 = 27,
         LobIIIC2 = 32, LobIIIC4 = 34, LobIIIC6 = 36
@@ -292,17 +322,13 @@ public:
 
     void Run(Vector &x, double &t, double &dt, double tf);
     
-    void Init(double dt0) {};
+    //void Init(double dt0) {};
     
     void Step(Vector &x, double &t, double &dt);
 
     void SetSolve(IRK::Solve solveID=IRK::GMRES, double reltol=1e-6,
-                  int maxiter=250, double abstol=1, int kdim=15,
-                  int printlevel=-1);
-    
-    
-
-
+                  int maxiter=250, double abstol=1, int kdim=35,
+                  int printlevel=1);
 
     void SaveSolInfo(string filename, map<string, string> additionalInfo);
 

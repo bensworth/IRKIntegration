@@ -13,6 +13,7 @@
 //  - Add stiffly accurate option for Adjugate
 //  - Directly construct Butcher Matrix/Vector instead of allocate using new
 //  - Add other Butcher tableauxs
+//  - Scale linear systems by M before solving them and change the way the action of the operators is computed (can no longer use the poly mult function)
 
 
 
@@ -21,8 +22,6 @@ IRK::IRK(IRKOperator *S, IRK::Type RK_ID, MPI_Comm comm)
         m_krylov(NULL), m_z(NULL), m_y(NULL), m_w(NULL)
 {
     m_RK_ID = static_cast<int>(RK_ID);
-
-    std::cout << "Here 0" << '\n';
 
     // Get proc IDs
     MPI_Comm_rank(m_comm, &m_rank);
@@ -52,8 +51,6 @@ IRK::IRK(IRKOperator *S, IRK::Type RK_ID, MPI_Comm comm)
         m_CharPolyOps[count] = new CharPolyOp(dt_dummy, m_eta(i), m_beta(i), *m_S);
         count++;
     } 
-    
-    std::cout << "Here 5" << '\n';
 }
 
 IRK::~IRK() {
@@ -141,7 +138,7 @@ void IRK::Step(Vector &x, double &t, double &dt)
         m_S->SetSystem(i, t, dt, m_CharPolyOps[i]->Gamma(), m_CharPolyOps[i]->Type());
         m_krylov->SetPreconditioner(m_CharPolyPrec);
         m_krylov->SetOperator(*(m_CharPolyOps[i]));
-        
+                
         // Use preconditioned Krylov to invert this term in polynomial 
         m_krylov->Mult(*m_z, y); // y <- char_poly_factor(i)^-1 * z
         *m_z = y; // Solution becomes the RHS in the next factor
@@ -153,9 +150,7 @@ void IRK::Step(Vector &x, double &t, double &dt)
 }
 
 void IRK::Run(Vector &x, double &t, double &dt, double tf) 
-{
-    std::cout << "RUN" << '\n';
-    
+{    
     // Set Krylov settings if not already set
     if (!m_krylov) SetSolve();
 
@@ -177,20 +172,14 @@ void IRK::Run(Vector &x, double &t, double &dt, double tf)
 /* Construct m_z, the RHS of the linear system for integration from t to t+dt */
 void IRK::ConstructRHS(const Vector &x, double t, double dt) {
     *m_z = 0.0; /* z <- 0 */
-    *m_w = 0.0; /* w <- 0 */
     
-    Vector temp(x), g(x), f(x);
-    
-    m_S->ExplicitMult(x, temp); // temp <- M^{-1}*L*x OR temp <- L*x
+    Vector f(x), w(x); // Auxillary vectors
     
     for (int i = 0; i < m_s; i++) {
-        m_S->GetG(t + dt*m_c0(i), g); /* Get M^{-1}*g(t + dt*c[i]) OR g(t + dt*c[i]) */
-        
-        add(g, temp, f); // f <- temp + g
-        
-        m_S -> PolynomialMult(m_XCoeffs[i], dt, f, *m_w); /* w <- X_i(dt*M^{-1}*L) * f */
-        *m_z += *m_w;
-        *m_w = 0.0;
+        m_S->SetTime(t + dt*m_c0(i)); // Set time of S to t+dt*c(i)
+        m_S->Mult(x, f); // f <- M^{-1}*[L*x + g(t)] _OR_ f <- L*x + g(t)
+        m_S->PolynomialMult(m_XCoeffs[i], dt, f, w); /* w <- X_i(dt*M^{-1}*L)*f _OR_ w <- X_i(dt*L)*f */
+        *m_z += w;
     }
 }
 
