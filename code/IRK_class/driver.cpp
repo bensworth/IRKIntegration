@@ -10,6 +10,18 @@ using namespace mfem;
 using namespace std;
 
 
+/* SAMPLE RUNS:
+
+4th-order in space & time
+--- Constant coefficient advection ---
+mpirun -np 4 --oversubscribe ./driver -l 7 -d 2 -t 14 -o 4 -FD 1 -nt 50 -save 1
+
+--- Spatially variable coefficient advection ---
+mpirun -np 4 --oversubscribe ./driver -l 7 -d 2 -t 14 -o 4 -FD 4 -nt 50 -save 1
+
+*/
+
+
 int main(int argc, char *argv[])
 {
     // Initialize parallel

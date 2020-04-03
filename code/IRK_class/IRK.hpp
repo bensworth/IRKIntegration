@@ -19,20 +19,6 @@
 using namespace mfem;
 using namespace std;
 
-
-struct AMG_parameters {
-   double distance;
-   std::string prerelax;
-   std::string postrelax;
-   double strength_tolC;
-   double strength_tolR;
-   double filter_tolR;
-   int interp_type;
-   int relax_type;
-   double filterA_tol;
-   int coarsening;
-};
-
 /* 
 Abstract base class for linear spatial discretizations of a PDE resulting in the 
 time-dependent ODE 
@@ -91,7 +77,7 @@ public:
     
     // Function to ensure that ImplicitPrec preconditions (\gamma*M - dt*L) OR (\gamma*I - dt*L)
     // with gamma and dt as passed to this function.
-    //      + index -> index of eigenvalue (pair) in IRK storage
+    //      + index -> index of real char poly factor, [0,#number of real factors)
     //      + type -> eigenvalue type, 1 = real, 2 = complex pair
     //      + t -> time.
     // These additional parameters are to provide ways to track when
@@ -322,17 +308,13 @@ public:
 
     void Run(Vector &x, double &t, double &dt, double tf);
     
-    //void Init(double dt0) {};
-    
     void Step(Vector &x, double &t, double &dt);
 
     void SetSolve(IRK::Solve solveID=IRK::GMRES, double reltol=1e-6,
-                  int maxiter=250, double abstol=1, int kdim=35,
-                  int printlevel=1);
+                  int maxiter=250, double abstol=1e-6, int kdim=15,
+                  int printlevel=2);
 
     void SaveSolInfo(string filename, map<string, string> additionalInfo);
-
-    //inline void PrintU(string filename) {if (m_u)}
 };
 
 #endif

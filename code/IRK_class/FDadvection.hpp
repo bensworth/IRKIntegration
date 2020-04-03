@@ -56,9 +56,34 @@ struct Num_dissipation {
 };
 
 
+struct AMG_parameters {
+   double distance;
+   std::string prerelax;
+   std::string postrelax;
+   double strength_tolC;
+   double strength_tolR;
+   double filter_tolR;
+   int interp_type;
+   int relax_type;
+   double filterA_tol;
+   int coarsening;
+};
+
+/* information about the matrix that was used to assemble preconditioner */
+struct CharPolyInfo {
+    double dt;
+    double gamma;
+    int index;
+};
+
 class FDadvection : public IRKOperator
 {
 private:
+    
+    // Preconditioners for matrices of the form gamma*I - dt*L
+    mfem::Array<HypreBoomerAMG *> m_CharPolyPrecs;
+    mfem::Array<CharPolyInfo>     m_CharPolyInfos;
+    int m_prec_idx;
     
     bool m_conservativeForm;                    /* TRUE == PDE in conservative form; FALSE == PDE in non-conservative form */
     bool m_periodic;                            /* Periodic boundaries */

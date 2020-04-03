@@ -6,15 +6,17 @@
 #include <cmath> 
 
 
-// TODO:
-//  --> FIX ConstructRHS() TO USE CURRENT X AND TIME! IS THIS SAME AS EXPLICITMULT?
-//  - Update FDAdvection to work w/ new structure. Should be semi-close, needs to
-//    implement some of the purely virtual functions in IRKOperator. 
-//  - Add stiffly accurate option for Adjugate
-//  - Directly construct Butcher Matrix/Vector instead of allocate using new
-//  - Add other Butcher tableauxs
-//  - Scale linear systems by M before solving them and change the way the action of the operators is computed (can no longer use the poly mult function)
-
+/* TODO:
+ --> FIX ConstructRHS() TO USE CURRENT X AND TIME! IS THIS SAME AS EXPLICITMULT?
+ - Update FDAdvection to work w/ new structure. Should be semi-close, needs to
+   implement some of the purely virtual functions in IRKOperator. 
+ - Add stiffly accurate option for Adjugate
+ - Directly construct Butcher Matrix/Vector instead of allocate using new
+ - Add other Butcher tableauxs
+ - Scale linear systems by M before solving them and change the way the action 
+     of the operators is computed (can no longer use the poly mult function)
+ - Neaten up FD code...
+*/
 
 
 IRK::IRK(IRKOperator *S, IRK::Type RK_ID, MPI_Comm comm)
@@ -63,6 +65,13 @@ IRK::~IRK() {
     }
 }
 
+/* TODO: Do we need the:
+    m_krylov->SetRelTol(reltol);
+    m_krylov->SetAbsTol(abstol);
+    m_krylov->SetMaxIter(maxiter);
+    m_krylov->SetPrintLevel(printlevel);
+inside every conditional statement, can't we just put them once outside?
+*/
 void IRK::SetSolve(IRK::Solve solveID, double reltol, int maxiter,
                    double abstol, int kdim, int printlevel)
 {
@@ -127,7 +136,7 @@ void IRK::Step(Vector &x, double &t, double &dt)
     for (int i = 0; i < m_zetaSize + m_etaSize; i++) {
         if (m_rank == 0) {
             std::cout << "System " << i << " of " << m_zetaSize + m_etaSize-1 <<
-            ";\t type = " << m_CharPolyOps[i]->Type() << "\n \t";
+            ";\t type = " << m_CharPolyOps[i]->Type() << "\n";
         }
         
         // Ensure that correct time step is used in factored polynomial
@@ -139,8 +148,8 @@ void IRK::Step(Vector &x, double &t, double &dt)
         m_krylov->SetPreconditioner(m_CharPolyPrec);
         m_krylov->SetOperator(*(m_CharPolyOps[i]));
                 
-        // Use preconditioned Krylov to invert this term in polynomial 
-        m_krylov->Mult(*m_z, y); // y <- char_poly_factor(i)^-1 * z
+        // Use preconditioned Krylov to invert ith factor in polynomial 
+        m_krylov->Mult(*m_z, y); // y <- FACTOR(i)^{-1} * z
         *m_z = y; // Solution becomes the RHS in the next factor
     }
 
@@ -165,7 +174,6 @@ void IRK::Run(Vector &x, double &t, double &dt, double tf)
         Step(x, t, dt);
     }
 }
-
 
 
 

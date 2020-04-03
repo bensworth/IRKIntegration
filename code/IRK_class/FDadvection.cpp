@@ -38,13 +38,88 @@ CharPolyPrecon::CharPolyPrecon(MPI_Comm comm, double gamma, double dt, int type,
 /* --------- Implementation of pure virtual functions in base class --------- */
 /* -------------------------------------------------------------------------- */
 
+
+/* Precondition (\gamma*I - dt*L). Just invoke solve function of the already assembled preconditioner */
+void FDadvection::ImplicitPrec(const Vector &x, Vector &y) const
+{
+    m_CharPolyPrecs[m_prec_idx]->Mult(x, y);
+}
+
+
+// Function to ensure that ImplicitPrec preconditions (\gamma*M - dt*L) OR (\gamma*I - dt*L)
+// with gamma and dt as passed to this function.
+//      + index -> index of real char poly factor, [0,#number of real factors)
+//      + type -> eigenvalue type, 1 = real, 2 = complex pair
+//      + t -> time.
+// These additional parameters are to provide ways to track when
+// (\gamma*M - dt*L) or (\gamma*I - dt*L) must be reconstructed or not to minimize setup.
+
+
+// I'm assuming that t doesn't matter here since the implementation is ignoring it for the time being
+// TODO: Make option to pass AIR parameters to Class and use these instead
+void FDadvection::SetSystem(int index, double t, double dt, double gamma, int type) {
+    
+    // Set index of preconditioner to be called in ImplicitPrec()
+    m_prec_idx = index;
+    
+    // Build new preconditioner since one's not already been built
+    if (index >= m_CharPolyPrecs.Size()) {
+        
+        if (!m_I) SetI(); // Assemble identity matrix if it's not already been assembled
+        
+        /* Build J, the operator to be inverted */
+        HypreParMatrix * J = new HypreParMatrix(*m_L); // J <- deepcopy(L)
+        *J *= -dt; // J <- -dt*J
+        J->Add(gamma, *m_I); // J <- J + gamma*I
+        
+        /* Build AMG preconditioner for J */
+        HypreBoomerAMG * amg = new HypreBoomerAMG(*J);
+        
+        //AIR_parameters AIR = {1.5, "", "FA", 100, 10, 10, 0.1, 0.05, 0.0, 1e-5};
+        // AMG_parameters AIR = {1.5, "", "FA", 0.1, 0.01, 0.0, 100, 10, 0.e-4, 6}; // w/ on-proc relaxation
+        AMG_parameters AIR = {1.5, "", "FFC", 0.1, 0.01, 0.0, 100, 0, 0.e-4, 6};    // w/ Jacobi relaxation
+        // 
+        amg->SetLAIROptions(AIR.distance, AIR.prerelax, AIR.postrelax,
+                               AIR.strength_tolC, AIR.strength_tolR, 
+                               AIR.filter_tolR, AIR.interp_type, 
+                               AIR.relax_type, AIR.filterA_tol,
+                               AIR.coarsening);
+        
+        // Krylov preconditioner is a single AMG iteration
+        amg->SetPrintLevel(0);
+        amg->SetTol(0.0);
+        
+        if (type == 1) {
+            amg->SetMaxIter(1); // Do a single iteration for linear factors
+        } else {
+            amg->SetMaxIter(1); // Multiple iterations may be helpful for quadratic factors
+        }
+        
+        // Save parameter info used to generate preconditioner
+        CharPolyInfo params = {dt, gamma, index};
+        
+        // Update member variables
+        m_CharPolyPrecs.Append(amg);
+        m_CharPolyInfos.Append(params);
+        
+    // Preconditioner already exists for this factor, check dt hasn't changed!    
+    } else {
+        if (m_CharPolyInfos[index].dt != dt) {
+            if (m_spatialRank == 0) mfem_error("FDadvection::SetSystem assumes that dt cannot change with time");
+        }
+    }
+    
+    
+    
+}
+
+
 /* Compute y <- L*x + g(t) */
 void FDadvection::Mult(const Vector &x, Vector &y) const
 {
     if (m_L_isTimedependent) {
         if (m_spatialRank == 0) mfem_error("IRK implementation requires L to be time independent!");
     }
-    
     
     m_L->Mult(x, y);
     
@@ -67,26 +142,7 @@ void FDadvection::ApplyL(const Vector &x, Vector &y) const
     m_L->Mult(x, y);
 }
 
-// TODO: Setup properly. Just using identity ATM
-/* Precondition (\gamma*I - dt*L) OR (\gamma*I - dt*L) */
-void FDadvection::ImplicitPrec(const Vector &x, Vector &y) const
-{
-    y = x; 
-}
 
-
-
-// TODO: write me
-// Function to ensure that ImplicitPrec preconditions (\gamma*M - dt*L) OR (\gamma*I - dt*L)
-// with gamma and dt as passed to this function.
-//      + index -> index of eigenvalue (pair) in IRK storage
-//      + type -> eigenvalue type, 1 = real, 2 = complex pair
-//      + t -> time.
-// These additional parameters are to provide ways to track when
-// (\gamma*M - dt*L) or (\gamma*I - dt*L) must be reconstructed or not to minimize setup.
-void FDadvection::SetSystem(int index, double t, double dt, double gamma, int type) {
-    
-}
 
 /* -------------------------------------------------------------------------- */
 /* These functions essentially just wrap the CSR spatial discretization into  */
@@ -306,7 +362,7 @@ FDadvection::FDadvection(MPI_Comm comm, int dim, int refLevels, int order,
     m_periodic(false), m_inflow(false), m_PDE_soln_implemented(false), m_dissipation(false),
     m_I(NULL), m_L(NULL),
     m_L_isTimedependent(true), 
-    m_useSpatialParallel(false)
+    m_useSpatialParallel(false), m_CharPolyPrecs()
 {    
     
     // Seed random number generator so results are consistent!
@@ -578,6 +634,13 @@ FDadvection::~FDadvection()
     //if (m_z) delete m_z;
     if (m_I) delete m_I;
     if (m_L) delete m_L;
+    
+    // TODO: why doesn't this work??
+    // for (int i = 0; i < m_CharPolyPrecs.Size(); i++) {
+    //     if (m_CharPolyPrecs[i]) delete m_CharPolyPrecs[i];
+    // }
+    // TODO: does this free the data??
+    if (m_CharPolyPrecs.Size() > 0) m_CharPolyPrecs.DeleteAll();
 }
 
 
