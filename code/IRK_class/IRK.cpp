@@ -7,8 +7,6 @@
 
 
 /* TODO:
- -->
- - Add stiffly accurate option for Adjugate
  - Scale linear systems by M before solving them and change the way the action 
      of the operators is computed (can no longer use the poly mult function)
  - Neaten up FD code...
@@ -21,7 +19,7 @@ OK questions for BS (and general thoughts):
         Did you still want to move in this direction, or just do what we have at the
         moment? I'm just wondering because at the moment we've implemented A0
         for every method, but we don't actually need to use A0 since we precompute
-        inv(A0) and d0 == A0^{-T}*b0.
+        inv(A0) and d0 == A0^{-T}*b0. (Also, can we compute inv(A0) w/ MFEM?)
         
     - The coefficients of the polynomials defined by (d0 \otimes I) * adj(M_s)
         are very lengthy for moderate s (e.g., see how long they are for s = 5 in IRK::SetXCoeffs()).
@@ -36,7 +34,7 @@ OK questions for BS (and general thoughts):
         allow the user to provide their own, so maybe we can just have a Python script
         (or MATLAB, but maybe not since it's not open source), where the user can provide 
         their own tableau, then the script computes the relevant data from it 
-        (eigenvalues and coefficients of {X_j}), then we just read this in at run time.
+        (eigenvalues and coefficients of {X_j}), then we just read this into the C++ code at run time?
 */
 
 
@@ -51,8 +49,8 @@ IRK::IRK(IRKOperator *S, IRK::Type RK_ID, MPI_Comm comm)
     MPI_Comm_size(m_comm, &m_numProcess);
     
     /* Set up basic information */
-    SetButcherData();
-    SetXCoeffs();
+    SetButcherData();  // Set Butcher tableau and associated data
+    SetXCoeffs();      // Set coefficients of polynomials {X_j}
     
     // Initialize other vectors based on size of u
     int dimU = m_S->Height();
@@ -60,17 +58,17 @@ IRK::IRK(IRKOperator *S, IRK::Type RK_ID, MPI_Comm comm)
     m_y = new Vector(dimU);
     m_w = new Vector(dimU);
     
-    /* --- Construct object for every factor in char. poly --- */
-    m_CharPolyOps.SetSize(m_zetaSize + m_etaSize);
+    /* --- Construct object for every REAL factor in char. poly --- */
+    m_CharPolyOps.SetSize(m_zeta.Size() + m_eta.Size()); 
     // Linear factors. I.e., those of type 1
-    double dt_dummy = -1.0; // Use dummy dt, will be set properly later.
+    double dt_dummy = -1.0; // Use dummy dt, will be set properly before inverting factor.
     int count = 0;
-    for (int i = 0; i < m_zetaSize; i++) {
+    for (int i = 0; i < m_zeta.Size(); i++) {
         m_CharPolyOps[count] = new CharPolyOp(dt_dummy, m_zeta(i), *m_S);
         count++;
     }
     // Quadratic factors. I.e., those of type 2
-    for (int i = 0; i < m_etaSize; i++) {
+    for (int i = 0; i < m_eta.Size(); i++) {
         m_CharPolyOps[count] = new CharPolyOp(dt_dummy, m_eta(i), m_beta(i), *m_S);
         count++;
     } 
@@ -85,6 +83,8 @@ IRK::~IRK() {
         delete m_CharPolyOps[i];
     }
 }
+
+
 
 /* TODO: Do we need the:
     m_krylov->SetRelTol(reltol);
@@ -154,9 +154,9 @@ void IRK::Step(Vector &x, double &t, double &dt)
     ConstructRHS(x, t, dt); /* Set m_z */
     
     /* Sequentially invert factors in characteristic polynomial */
-    for (int i = 0; i < m_zetaSize + m_etaSize; i++) {
+    for (int i = 0; i < m_CharPolyOps.Size(); i++) {
         if (m_rank == 0) {
-            std::cout << "System " << i << " of " << m_zetaSize + m_etaSize-1 <<
+            std::cout << "System " << i << " of " << m_CharPolyOps.Size()-1 <<
             ";\t type = " << m_CharPolyOps[i]->Type() << "\n";
         }
         
@@ -214,17 +214,16 @@ void IRK::ConstructRHS(const Vector &x, double t, double dt) {
 
 
 
-/* Set dimensions of Butcher arrays after setting the member 
-    variables: m_s, m_zetaSize, m_etaSize */
-void IRK::SizeButcherData() {
+/* Set dimensions of Butcher arrays after setting m_s. */
+void IRK::SizeButcherData(int nRealEigs, int nCCEigs) {
     m_A0.SetSize(m_s);   
     m_invA0.SetSize(m_s);
     m_b0.SetSize(m_s);
     m_c0.SetSize(m_s);
     m_d0.SetSize(m_s);    
-    m_zeta.SetSize(m_zetaSize);
-    m_beta.SetSize(m_etaSize);
-    m_eta.SetSize(m_etaSize);
+    m_zeta.SetSize(nRealEigs);
+    m_beta.SetSize(nCCEigs);
+    m_eta.SetSize(nCCEigs);
 }
 
 
@@ -272,11 +271,8 @@ void IRK::SetButcherData() {
     // 1-stage 1st-order L-stable SDIRK 
     if (m_RK_ID == 1) {
         /* ID: SDIRK1 */
-        /* --- Dimensions --- */
-        m_s        = 1;
-        m_zetaSize = 1;
-        m_etaSize  = 0;
-        SizeButcherData();
+        m_s = 1;
+        SizeButcherData(1, 0);
 
         /* --- Tableau constants --- */
         /* --- A --- */
@@ -298,11 +294,8 @@ void IRK::SetButcherData() {
     // 2stage 2nd-order L-stable SDIRK
     else if (m_RK_ID == 2) {
         /* ID: SDIRK2 */
-        /* --- Dimensions --- */
-        m_s        = 2;
-        m_zetaSize = 2;
-        m_etaSize  = 0;
-        SizeButcherData();
+        m_s = 2;
+        SizeButcherData(2, 0);
 
         /* --- Tableau constants --- */
         /* --- A --- */
@@ -334,11 +327,8 @@ void IRK::SetButcherData() {
     // 3-stage 3rd-order L-stable SDIRK
     else if (m_RK_ID == 3) {
         /* ID: SDIRK3 */
-        /* --- Dimensions --- */
-        m_s        = 3;
-        m_zetaSize = 3;
-        m_etaSize  = 0;
-        SizeButcherData();
+        m_s = 3;
+        SizeButcherData(3, 0);
 
         /* --- Tableau constants --- */
         /* --- A --- */
@@ -384,11 +374,8 @@ void IRK::SetButcherData() {
     // 5-stage 4th-order L-stable SDIRK
     else if (m_RK_ID == 4) {
         /* ID: SDIRK4 */
-        /* --- Dimensions --- */
-        m_s        = 5;
-        m_zetaSize = 5;
-        m_etaSize  = 0;
-        SizeButcherData();
+        m_s = 5;
+        SizeButcherData(5, 0);
 
         /* --- Tableau constants --- */
         /* --- A --- */
@@ -474,11 +461,8 @@ void IRK::SetButcherData() {
     // 2-stage 4th-order Gauss--Legendre
     else if (m_RK_ID == 14) {
         /* ID: Gauss4 */
-        /* --- Dimensions --- */
-        m_s        = 2;
-        m_zetaSize = 0;
-        m_etaSize  = 1;
-        SizeButcherData();
+        m_s = 2;
+        SizeButcherData(0, 1);
 
         /* --- Tableau constants --- */
         /* --- A --- */
@@ -510,11 +494,8 @@ void IRK::SetButcherData() {
     // 3-stage 6th-order Gauss--Legendre
     else if (m_RK_ID == 16) {
         /* ID: Gauss6 */
-        /* --- Dimensions --- */
-        m_s        = 3;
-        m_zetaSize = 1;
-        m_etaSize  = 1;
-        SizeButcherData();
+        m_s = 3;
+        SizeButcherData(1, 1);
 
         /* --- Tableau constants --- */
         /* --- A --- */
@@ -560,11 +541,8 @@ void IRK::SetButcherData() {
     // 4-stage 8th-order Gauss--Legendre
     else if (m_RK_ID == 18) {
         /* ID: Gauss8 */
-        /* --- Dimensions --- */
-        m_s        = 4;
-        m_zetaSize = 0;
-        m_etaSize  = 2;
-        SizeButcherData();
+        m_s = 4;
+        SizeButcherData(0, 2);
 
         /* --- Tableau constants --- */
         /* --- A --- */
@@ -628,11 +606,8 @@ void IRK::SetButcherData() {
     // 5-stage 10th-order Gauss--Legendre
     else if (m_RK_ID == 110) {
         /* ID: Gauss10 */
-        /* --- Dimensions --- */
-        m_s        = 5;
-        m_zetaSize = 1;
-        m_etaSize  = 2;
-        SizeButcherData();
+        m_s = 5;
+        SizeButcherData(1, 2);
 
         /* --- Tableau constants --- */
         /* --- A --- */
@@ -718,11 +693,8 @@ void IRK::SetButcherData() {
     // 2-stage 3rd-order Radau IIA
     else if (m_RK_ID == 23) {
         /* ID: RadauIIA3 */
-        /* --- Dimensions --- */
-        m_s        = 2;
-        m_zetaSize = 0;
-        m_etaSize  = 1;
-        SizeButcherData();
+        m_s = 2;
+        SizeButcherData(0, 1);
 
         /* --- Tableau constants --- */
         /* --- A --- */
@@ -754,11 +726,8 @@ void IRK::SetButcherData() {
     // 3-stage 5th-order Radau IIA
     else if (m_RK_ID == 25) {
         /* ID: RadauIIA5 */
-        /* --- Dimensions --- */
-        m_s        = 3;
-        m_zetaSize = 1;
-        m_etaSize  = 1;
-        SizeButcherData();
+        m_s = 3;
+        SizeButcherData(1, 1);
 
         /* --- Tableau constants --- */
         /* --- A --- */
@@ -804,11 +773,8 @@ void IRK::SetButcherData() {
     // 4-stage 7th-order Radau IIA
     else if (m_RK_ID == 27) {
         /* ID: RadauIIA7 */
-        /* --- Dimensions --- */
-        m_s        = 4;
-        m_zetaSize = 0;
-        m_etaSize  = 2;
-        SizeButcherData();
+        m_s = 4;
+        SizeButcherData(0, 2);
 
         /* --- Tableau constants --- */
         /* --- A --- */
@@ -856,9 +822,9 @@ void IRK::SetButcherData() {
         m_c0(2) = +0.787659461760847;
         m_c0(3) = +1.000000000000000;
         /* --- d --- */
-        m_d0(0) = -0.000000000000000;
+        m_d0(0) = +0.000000000000000;
         m_d0(1) = +0.000000000000000;
-        m_d0(2) = -0.000000000000000;
+        m_d0(2) = +0.000000000000000;
         m_d0(3) = +1.000000000000000;
         /* --- zeta --- */
         /* --- eta --- */
@@ -872,11 +838,8 @@ void IRK::SetButcherData() {
     // 5-stage 9th-order Radau IIA
     else if (m_RK_ID == 29) {        
         /* ID: RadauIIA9 */
-        /* --- Dimensions --- */
-        m_s        = 5;
-        m_zetaSize = 1;
-        m_etaSize  = 2;
-        SizeButcherData();
+        m_s = 5;
+        SizeButcherData(1, 2);
 
         /* --- Tableau constants --- */
         /* --- A --- */
@@ -945,7 +908,7 @@ void IRK::SetButcherData() {
         m_c0(4) = +1.000000000000000;
         /* --- d --- */
         m_d0(0) = +0.000000000000000;
-        m_d0(1) = -0.000000000000000;
+        m_d0(1) = +0.000000000000000;
         m_d0(2) = +0.000000000000000;
         m_d0(3) = +0.000000000000000;
         m_d0(4) = +1.000000000000000;
@@ -962,11 +925,8 @@ void IRK::SetButcherData() {
     // 2-stage 2nd-order Lobatto IIIC
     else if (m_RK_ID == 32) {
         /* ID: LobIIIC2 */
-        /* --- Dimensions --- */
-        m_s        = 2;
-        m_zetaSize = 0;
-        m_etaSize  = 1;
-        SizeButcherData();
+        m_s = 2;
+        SizeButcherData(0, 1);
 
         /* --- Tableau constants --- */
         /* --- A --- */
@@ -998,11 +958,8 @@ void IRK::SetButcherData() {
     // 3-stage 4th-order Lobatto IIIC
     else if (m_RK_ID == 34) {
         /* ID: LobIIIC4 */
-        /* --- Dimensions --- */
-        m_s        = 3;
-        m_zetaSize = 1;
-        m_etaSize  = 1;
-        SizeButcherData();
+        m_s = 3;
+        SizeButcherData(1, 1);
 
         /* --- Tableau constants --- */
         /* --- A --- */
@@ -1035,7 +992,7 @@ void IRK::SetButcherData() {
         m_c0(2) = +1.000000000000000;
         /* --- d --- */
         m_d0(0) = +0.000000000000000;
-        m_d0(1) = -0.000000000000000;
+        m_d0(1) = +0.000000000000000;
         m_d0(2) = +1.000000000000000;
         /* --- zeta --- */
         m_zeta(0) = +2.625816818958464;
@@ -1048,11 +1005,8 @@ void IRK::SetButcherData() {
     // 4-stage 6th-order Lobatto IIIC
     else if (m_RK_ID == 36) {
         /* ID: LobIIIC6 */
-        /* --- Dimensions --- */
-        m_s        = 4;
-        m_zetaSize = 0;
-        m_etaSize  = 2;
-        SizeButcherData();
+        m_s = 4;
+        SizeButcherData(0, 2);
 
         /* --- Tableau constants --- */
         /* --- A --- */
@@ -1100,7 +1054,7 @@ void IRK::SetButcherData() {
         m_c0(2) = +0.723606797749979;
         m_c0(3) = +1.000000000000000;
         /* --- d --- */
-        m_d0(0) = -0.000000000000000;
+        m_d0(0) = +0.000000000000000;
         m_d0(1) = +0.000000000000000;
         m_d0(2) = +0.000000000000000;
         m_d0(3) = +1.000000000000000;
@@ -1582,7 +1536,27 @@ void IRK::SetXCoeffs() {
         
     }
     else {
-        string msg = "IRK::Coefficients of polynomials {X_j} not implemented for s = " + to_string(m_s) + "\n";
+        string msg = "IRK::SetButcherData() Coefficients of polynomials {X_j} not implemented for s = " + to_string(m_s) + "\n";
         mfem_error(msg.c_str());
     }
+    
+    // Remove zero coefficients that occur if using stiffly accurate IRK scheme
+    StiffAccSimplify();
+}
+
+
+/* Modify XCoeffs in instance of a stiffly accurate IRK scheme.
+
+This implementation relies on m_d0 == (0.0,0.0,...,1.0) for stiffly accurate 
+schemes, so there can be no rounding errors in m_d0!
+*/
+void IRK::StiffAccSimplify() {
+    // Leave if first s-1 entries are not 0.0
+    for (int i = 0; i < m_s-1; i++) if (m_d0(i) != 0.0) return; 
+        
+    // Leave if last entry is not 1.0
+    if (m_d0(m_s-1) != 1.0) return; 
+    
+    // Truncate last entry from coefficient Vectors of first s-1 polynomials
+    for (int i = 0; i < m_s-1; i++) m_XCoeffs[i].SetSize(m_s-1);
 }

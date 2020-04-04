@@ -12,8 +12,6 @@ mystr = '';
 %%% --- Set up the formatting of the way in which the data is printed to console --- %%%
 % Label these things as they're defined in the code so the output makes sense...
 s_label        =  'm_s';
-zetaSize_label =  'm_zetaSize';
-etaSize_label  =  'm_etaSize';
 
 A_label    = 'm_A0'; 
 invA_label = 'm_invA0'; 
@@ -24,58 +22,74 @@ zeta_label = 'm_zeta';
 eta_label  = 'm_eta';
 beta_label = 'm_beta';
 
-sizingRoutineStr = sprintf('SizeButcherArrays();');
 
-% Data will be output to console as
+
+% Data will be output to console as. Print 15 digits of data...
 outformat1 = @(label, i, data) myfprintf('%s(%d) = %+.15f;\n', label, i, data);
 outformat2 = @(label, i, j, data) myfprintf('%s(%d, %d) = %+.15f;\n', label, i, j, data);
 
 %%% --- Tables --- %%% 
-% UNCOMMENT ONE OF ME
-% ID = 'SDIRK1';
+% UNCOMMENT ONE OF ME AND HIT RUN!
+%ID = 'SDIRK1';
 % ID = 'SDIRK2';
-% ID = 'SDIRK3';
-% ID = 'SDIRK4';
+%ID = 'SDIRK3';
+%ID = 'SDIRK4';
 % 
-ID =  'Gauss4';
+%ID =  'Gauss4';
 % ID =  'Gauss6';
 % ID =  'Gauss8';
 % ID =  'Gauss10';
 % 
 % ID = 'RadauIIA3';
-% ID = 'RadauIIA5';
+%ID = 'RadauIIA5';
 % ID = 'RadauIIA7';
-% ID = 'RadauIIA9';
+%ID = 'RadauIIA9';
 %  
-% ID =  'LobIIIC2';
-% ID =  'LobIIIC4';
-% ID =  'LobIIIC6';
+%ID =  'LobIIIC2';
+%ID =  'LobIIIC4';
+ID =  'LobIIIC6';
 
 % Get table
 [A, b, c] = butcher_tableaux(ID);
+s = size(A,1);
 
-s  = size(A,1);
-% Compute the quantities we don't already have
-invA =  inv(A);
-d = (A'\b)'; 
+% Just check A is not singular!
+if cond(A) > 1e4
+    error('A is ill-conditioned? Computing A^{-T}*b may be ill-conditioned?')
+end
+
+% Compute quantities we don't already have
+invA = inv(A); 
+d = (A'\b); 
+
+% Check that if scheme looks like it's stiffly accurate then no rounding
+% errors have occured in d that will mess up C++ code recognising this
+thresh = 0.2;
+stiff_error = norm([zeros(s-1,1);1] - d, inf);
+if stiff_error < thresh 
+    
+    % If scheme is really close to being stiffly accurate, ensure no error in output of d
+    if stiff_error < 1e-15 
+        d = [zeros(s-1,1);1];
+        
+    % If some non-machine-zero-ish error in d, investigate some more! Maybe the tol above is too tight?    
+    else
+        stiff_error
+        error('Scheme looks like it may be stiffly accurate and rounding errors in d may have occurred?')
+    end
+end
 
 % Get eigenvalues of A^-1 and split into real + conjugate pairs
 lambda = 1./eig(A);
 [zeta, eta, beta] = decompose_eigenvalues(lambda);
 zeta_size = numel(zeta);
 eta_size  = numel(eta);
-% rlambda
-% clambda_eta
-% clambda_beta
 
 
 %%% --- Now print everything to console... --- %%%
 myfprintf('/* ID: %s */\n', ID)
-myfprintf('/* --- Dimensions --- */\n')
-myfprintf('%s        = %d;\n', s_label, s);
-myfprintf('%s = %d;\n', zetaSize_label, zeta_size);
-myfprintf('%s  = %d;\n', etaSize_label, eta_size);
-myfprintf('%s\n\n', sizingRoutineStr)
+myfprintf('%s = %d;\n', s_label, s);
+myfprintf('SizeButcherData(%d, %d);\n\n', zeta_size, eta_size);
 
 
 myfprintf('/* --- Tableau constants --- */\n')

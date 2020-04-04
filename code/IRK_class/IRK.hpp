@@ -1,12 +1,6 @@
 #ifndef IRK_H
 #define IRK_H
 
-//#ifndef IRKOperator_H
-
-//#endif
-
-//#include "IRKOperator.hpp"
-
 #include "HYPRE.h"
 #include "mfem.hpp"
 
@@ -35,7 +29,7 @@ protected:
     MPI_Comm m_globComm;
     
 public:
-    // NOTE: By default, assume there's a mass matrix
+    // NOTE: Knowledge of a mass matrix is decuded from the value of TimeDependentOperator::isImplicit() 
     IRKOperator(MPI_Comm comm) 
         : TimeDependentOperator(), m_globComm{comm}, m_M_exists{this->isImplicit()} {};
     
@@ -56,9 +50,9 @@ public:
     it seems natural to me that "ImplicitSolve()" should compute the action of its 
     inverse... But we cannot use this name as it already means something different in 
     TimeDependentOperator... Should we just call it "ApplyInvM()"? It's just a little 
-    awkard having such different names...
+    awkard having such different names for two functions that do the inverse of each other...
     
-    Maybe we could call this ImplicitInvMult()?
+    Maybe we should just call this ImplicitInvMult(), then it's consistsent with ImplicitMult()
     */
     /** Apply action of inverse of mass matrix, y = M^{-1}*x. 
     If not re-implemented, this method simply generates an error. */
@@ -87,29 +81,37 @@ public:
     
     
     /* Get y <- P(alpha*M^{-1}*L)*x _OR_ y <- P(alpha*L)*x for P a polynomial 
-        defined by coefficients:
-            P(x) := c(0)*x^0 + c(1)*x^1 + ... + c(n)*x^n, where c == coefficients
+        defined by coefficients, c:
+            P(x) := c(0)*x^0 + c(1)*x^1 + ... + c(n)*x^n.
         Coefficients must be provided for all monomial terms, even if they're 0. */
-    inline void PolynomialMult(Vector coefficients, double alpha, const Vector &x, Vector &y) const
+    inline void PolynomialMult(Vector c, double alpha, const Vector &x, Vector &y) const
     {
-        int n = coefficients.Size() - 1;
-        y.Set(coefficients[n], x); // y <- coefficients[n]*x
+        int n = c.Size() - 1;
+        y.Set(c[n], x); // y <- coefficients[n]*x
         Vector z(y); // Auxillary vector
         
         // With a mass matrix
-        if (m_M_exists) 
-        {
-            Vector w(y); // Extra auxillary vector
-            for (int ell = n-1; ell >= 0; ell--) {
+        if (m_M_exists) {
+            Vector w(y); // Mass matrix requires an extra auxillary vector
+            for (int i = n-1; i >= 0; i--) {
                 this->ApplyL(y, w); // w <- L*y       
                 this->ApplyMInv(w, z); // z <- M^{-1}*w                
-                add(coefficients[ell], x, alpha, z, y); // y <- coefficients[ell]*x + alpha*z
+                if (c[i] != 0.0) {
+                    add(c[i], x, alpha, z, y); // y <- c[i]*x + alpha*z
+                } else {
+                    y.Set(alpha, z); // y <- alpha*z
+                } 
             } 
+            
         // Without a mass matrix
         } else {
-            for (int ell = n-1; ell >= 0; ell--) {
-                this->ApplyL(y, z); // w <- L*z                       
-                add(coefficients[ell], x, alpha, z, y); // y <- coefficients[ell]*x + alpha*z
+            for (int i = n-1; i >= 0; i--) {
+                this->ApplyL(y, z); // z <- L*y
+                if (c[i] != 0.0) {
+                    add(c[i], x, alpha, z, y); // y <- c[i]*x + alpha*z
+                } else {
+                    y.Set(alpha, z); // y <- alpha*z
+                }                       
             } 
         }
     };
@@ -235,7 +237,7 @@ class IRK : public ODESolver
 {
 private:    
 
-    IRKOperator * m_S;          // Holds all information about THE spatial discretization
+    IRKOperator * m_S;          // Holds all information about THE spatial discretization. TODO: Maybe rename to avoid confusion with Butcher m_s...
     Vector * m_z;               // RHS of linear system
     Vector * m_y;               // Solution of linear system
     Vector * m_w;               // Auxillary vector
@@ -249,8 +251,7 @@ private:
     int m_RK_ID;        // Type of IRK scheme
     int m_solveID;      // Type of Krylov acceleration
     int m_s;            // Number of RK stages
-    int m_zetaSize;     // Number of real eigenvalues of inv(A0)
-    int m_etaSize;      // Number of complex conjugate pairs of eigenvalues of inv(A0)    
+    int m_nFactors;     // Number of REAL char poly factors to invert
     DenseMatrix m_A0;   // Butcher tableau matrix A0
     DenseMatrix m_invA0;// Inverse of A0
     Vector m_b0;        // Butcher tableau weights
@@ -266,11 +267,12 @@ private:
     // --- Relating to HYPRE solution of linear systems ---
     int m_numProcess;
     int m_rank;
-    MPI_Comm m_comm;            // Global communicator
+    MPI_Comm m_comm;          // Global communicator
 
     void SetButcherData();    // Set Butcher tableau coefficients
-    void SizeButcherData();   // Set dimensions of Butcher arrays
+    void SizeButcherData(int nRealEigs, int nCCEigs); // Set dimensions of Butcher arrays
     void SetXCoeffs();        // Set coefficients of polynomials X_j
+    void StiffAccSimplify();  // Modify XCoeffs in instance of stiffly accurate IRK scheme
     void PolyAction();        // Compute action of a polynomial on a vector
 
     // Construct right-hand side, m_z, for IRK integration, including applying
