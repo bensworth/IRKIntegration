@@ -81,7 +81,10 @@ class FDadvection : public IRKOperator
 private:
     
     // Preconditioners for matrices of the form gamma*I - dt*L
-    mfem::Array<HypreBoomerAMG *> m_CharPolyPrecs;
+    double m_dtgamma;                   /* For normal SDIRK integration */
+    HypreParMatrix *m_J;                /* For normal SDIRK integration */
+    HypreBoomerAMG *m_amg;              /* For normal SDIRK integration */
+    mfem::Array<HypreBoomerAMG *> m_CharPolyPrecs;  // TODO: maybe bad name choice since we have a class called CharPolyPrec
     mfem::Array<CharPolyInfo>     m_CharPolyInfos;
     int m_prec_idx;
     
@@ -296,6 +299,8 @@ public:
     /* Precondition (\gamma*I - dt*L) OR (\gamma*I - dt*L) */
     void ImplicitPrec(const Vector &x, Vector &y) const;
     
+    void ImplicitSolve(const double dt, const Vector &x, Vector &k);
+
     // Function to ensure that ImplicitPrec preconditions (\gamma*M - dt*L) OR (\gamma*I - dt*L)
     // with gamma and dt as passed to this function.
     //      + index -> index of eigenvalue (pair) in IRK storage

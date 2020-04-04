@@ -45,6 +45,53 @@ void FDadvection::ImplicitPrec(const Vector &x, Vector &y) const
     m_CharPolyPrecs[m_prec_idx]->Mult(x, y);
 }
 
+// Solve the linear system
+//    (M - dt*L) k = L*x + b
+void FDadvection::ImplicitSolve(const double dt, const Vector &x, Vector &k)
+{
+    // Preconditioner for (M - dt*L)
+    if (!m_amg || std::abs(dt-m_dtgamma) > 1e-14) {
+        
+        if (!m_I) SetI(); // Assemble identity matrix if it's not already been assembled
+        m_dtgamma = dt;
+
+        /* Build J, the operator to be inverted */
+        m_J = new HypreParMatrix(*m_L); // m_J <- deepcopy(L)
+        *m_J *= -dt; // m_J <- -dt*m_J
+        m_J->Add(1.0, *m_I); // m_J <- m_J + I
+        
+        /* Build AMG preconditioner for m_J */
+        HypreBoomerAMG * m_amg = new HypreBoomerAMG(*m_J);
+        
+        //AIR_parameters AIR = {1.5, "", "FA", 100, 10, 10, 0.1, 0.05, 0.0, 1e-5};
+        // AMG_parameters AIR = {1.5, "", "FA", 0.1, 0.01, 0.0, 100, 10, 0.e-4, 6}; // w/ on-proc relaxation
+        AMG_parameters AIR = {1.5, "", "FFC", 0.1, 0.01, 0.0, 100, 0, 0.e-4, 6};    // w/ Jacobi relaxation
+        m_amg->SetLAIROptions(AIR.distance, AIR.prerelax, AIR.postrelax,
+                               AIR.strength_tolC, AIR.strength_tolR, 
+                               AIR.filter_tolR, AIR.interp_type, 
+                               AIR.relax_type, AIR.filterA_tol,
+                               AIR.coarsening);
+        m_amg->SetPrintLevel(0);
+        m_amg->SetTol(0.0);
+        m_amg->SetMaxIter(1);
+    }
+
+    // Form rhs, L*x + b
+    Vector z(x);
+    Mult(x, z);
+
+    // GMRES Solver
+    if (k.Size() != x.Size()) k.SetSize(x.Size());
+    GMRESSolver krylov;
+    krylov.SetRelTol(1e-6);
+    krylov.SetAbsTol(1e-6);
+    krylov.SetMaxIter(250);
+    krylov.SetPrintLevel(2);
+    krylov.SetKDim(15);
+    krylov.SetPreconditioner(*m_amg);   // TODO[seg]: Seg fault here
+    krylov.SetOperator(*m_J);           // TODO[seg]: seg fault here (if comment out precon line)
+    krylov.Mult(z, k);
+}
 
 // Function to ensure that ImplicitPrec preconditions (\gamma*M - dt*L) OR (\gamma*I - dt*L)
 // with gamma and dt as passed to this function.
@@ -68,7 +115,7 @@ void FDadvection::SetSystem(int index, double t, double dt, double gamma, int ty
         if (!m_I) SetI(); // Assemble identity matrix if it's not already been assembled
         
         /* Build J, the operator to be inverted */
-        HypreParMatrix * J = new HypreParMatrix(*m_L); // J <- deepcopy(L)
+        HypreParMatrix * J = new HypreParMatrix(*m_L); // J <- deepcopy(L) - TODO[seg]: where is this deleted? 
         *J *= -dt; // J <- -dt*J
         J->Add(gamma, *m_I); // J <- J + gamma*I
         
@@ -103,14 +150,12 @@ void FDadvection::SetSystem(int index, double t, double dt, double gamma, int ty
         m_CharPolyInfos.Append(params);
         
     // Preconditioner already exists for this factor, check dt hasn't changed!    
-    } else {
+    }
+    else {
         if (m_CharPolyInfos[index].dt != dt) {
             if (m_spatialRank == 0) mfem_error("FDadvection::SetSystem() assumes that dt cannot change with time");
         }
     }
-    
-    
-    
 }
 
 
@@ -221,9 +266,10 @@ void FDadvection::GetHypreParMatrixL(double t, HypreParMatrix * &L) const {
                                     L); 
     
     /* These are copied into L, so can delete */
-    delete L_rowptr;
-    delete L_colinds;
-    delete L_data;
+    // TODO[seg]: L_data was causing seg fault for me w/ ImplicitSolve, check ownership.
+    // delete L_rowptr;
+    // delete L_colinds;
+    // delete L_data;
 } 
 
 
@@ -362,7 +408,8 @@ FDadvection::FDadvection(MPI_Comm comm, int dim, int refLevels, int order,
     m_periodic(false), m_inflow(false), m_PDE_soln_implemented(false), m_dissipation(false),
     m_I(NULL), m_L(NULL),
     m_L_isTimedependent(true), 
-    m_useSpatialParallel(false), m_CharPolyPrecs()
+    m_useSpatialParallel(false), m_CharPolyPrecs(),
+    m_dtgamma(-1), m_amg(NULL)
 {    
     
     // Seed random number generator so results are consistent!

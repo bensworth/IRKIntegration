@@ -10,31 +10,61 @@
  - Scale linear systems by M before solving them and change the way the action 
      of the operators is computed (can no longer use the poly mult function)
  - Neaten up FD code...
+ - Probable memory leak w/ J in FDadvection. Search TODO[seg] in FDadvection.cpp.
  
 OK questions for BS (and general thoughts):
-    - Do we want to add other Butcher tableaux than are already there? 
+    - Do we want to add other Butcher tableaux than are already there?
+        + I think we have plenty right now, Gauss and Radau were the important
+        ones, and L-stable SDIRK to compare.
 
     - You mentioned previously computing the eigenvalues of A using 
-        MFEM, but Will said this would require compiling MFEM with LAPACK enabled.
-        Did you still want to move in this direction, or just do what we have at the
-        moment? I'm just wondering because at the moment we've implemented A0
-        for every method, but we don't actually need to use A0 since we precompute
-        inv(A0) and d0 == A0^{-T}*b0. (Also, can we compute inv(A0) w/ MFEM?)
+    MFEM, but Will said this would require compiling MFEM with LAPACK enabled.
+    Did you still want to move in this direction, or just do what we have at the
+    moment? I'm just wondering because at the moment we've implemented A0
+    for every method, but we don't actually need to use A0 since we precompute
+    inv(A0) and d0 == A0^{-T}*b0. (Also, can we compute inv(A0) w/ MFEM?)
+        + inv(A0) can in principle be computed in MFEM w/o LAPACK I believe.
+        Eigenvalues require lapack. The reason I precomputed everything was
+        if we want to get 8th or 10th order accuracy, I think it is really
+        important those coefficients are really accurate. So in Mathematica,
+        I used like 40 digits of precision for the inverse, eigenvalues, etc.,
+        then truncated to 17 or 18 to put in here in decimal form.
+            I think for now, let's stick with this precomputation. If and when
+        we try to get it in MFEM master we will defer to how they want it
+        done. I'm finding right now with a PR for AIR to MFEM they are kind
+        of picky and also seem to prefer having stuff builtin rather than too
+        many options for the user, so probably easiest to wait on that. For
+        our paper purposes, we have everything we need. 
         
     - The coefficients of the polynomials defined by (d0 \otimes I) * adj(M_s)
-        are very lengthy for moderate s (e.g., see how long they are for s = 5 in IRK::SetXCoeffs()).
-        I don't really know if this is an issue or not, e.g., I doubt it actually
-        takes much time to execute these expressions (which is done once only once at the 
-        start of the run), but depending on what direction you want to move in, there's 
-        the option of precomputing and storing these for each method (then we don't have 
-        to store A, A^{-1} and d0)
+    are very lengthy for moderate s (e.g., see how long they are for s = 5 in IRK::SetXCoeffs()).
+    I don't really know if this is an issue or not, e.g., I doubt it actually
+    takes much time to execute these expressions (which is done once only once at the 
+    start of the run), but depending on what direction you want to move in, there's 
+    the option of precomputing and storing these for each method (then we don't have 
+    to store A, A^{-1} and d0)
+        + It's an interesting idea. The computation is of fairly trivial expense and
+        memory use, so it's not really a big deal. It might be more accurate if we
+        compute those in very high precision in mathematica a priori though. And I
+        guess right now we're in between - half the code computes at run time and
+        could be provided an arbitrary tableaux (here) and the other half uses
+        built in precomputed values (storing A0 and d). I am thinking we should keep
+        the analytic form somewhere (e.g., in a branch), but maybe supply the
+        coefficientes precomputed in our main development? 
         
     - Just a thought relating to the above in terms of the direction of/generalizing the code. 
-        It'd be nice if we have a bunch of Butcher tableaux implemented, but also  
-        allow the user to provide their own, so maybe we can just have a Python script
-        (or MATLAB, but maybe not since it's not open source), where the user can provide 
-        their own tableau, then the script computes the relevant data from it 
-        (eigenvalues and coefficients of {X_j}), then we just read this into the C++ code at run time?
+    It'd be nice if we have a bunch of Butcher tableaux implemented, but also  
+    allow the user to provide their own, so maybe we can just have a Python script
+    (or MATLAB, but maybe not since it's not open source), where the user can provide 
+    their own tableau, then the script computes the relevant data from it 
+    (eigenvalues and coefficients of {X_j}), then we just read this into the C++
+    code at run time?
+        + Yea, I think that's a good idea. Easy to add a funciton that just takes
+        those coefficients. Wonder if we can compute in very high precision in python?
+        As I mentioned before, I think for high order schemes, we want inverses and
+        eigenvalues as accurate as possible. I would say put this lower on the 
+        priority list though, more of something to provide w/ a paper when we
+        get to seriously writing.  
 */
 
 
@@ -85,14 +115,6 @@ IRK::~IRK() {
 }
 
 
-
-/* TODO: Do we need the:
-    m_krylov->SetRelTol(reltol);
-    m_krylov->SetAbsTol(abstol);
-    m_krylov->SetMaxIter(maxiter);
-    m_krylov->SetPrintLevel(printlevel);
-inside every conditional statement, can't we just put them once outside?
-*/
 void IRK::SetSolve(IRK::Solve solveID, double reltol, int maxiter,
                    double abstol, int kdim, int printlevel)
 {
@@ -100,49 +122,33 @@ void IRK::SetSolve(IRK::Solve solveID, double reltol, int maxiter,
     // CG
     if (m_solveID == 0) {
         m_krylov = new CGSolver(m_comm);
-        m_krylov->SetRelTol(reltol);
-        m_krylov->SetAbsTol(abstol);
-        m_krylov->SetMaxIter(maxiter);
-        m_krylov->SetPrintLevel(printlevel);
     }
     // MINRES
     else if (m_solveID == 1) {
         m_krylov = new MINRESSolver(m_comm);
-        m_krylov->SetRelTol(reltol);
-        m_krylov->SetAbsTol(abstol);
-        m_krylov->SetMaxIter(maxiter);
-        m_krylov->SetPrintLevel(printlevel);
     }
     // GMRES
     else if (m_solveID == 2) {
         m_krylov = new GMRESSolver(m_comm);
-        m_krylov->SetRelTol(reltol);
-        m_krylov->SetAbsTol(abstol);
-        m_krylov->SetMaxIter(maxiter);
-        m_krylov->SetPrintLevel(printlevel);
         static_cast<GMRESSolver*>(m_krylov)->SetKDim(kdim);
     }
     // BiCGStab
     else if (m_solveID == 3) { 
         m_krylov = new BiCGSTABSolver(m_comm);
-        m_krylov->SetRelTol(reltol);
-        m_krylov->SetAbsTol(abstol);
-        m_krylov->SetMaxIter(maxiter);
-        m_krylov->SetPrintLevel(printlevel);
     }
     // GGMRES
     else if (m_solveID == 4) {
         m_krylov = new FGMRESSolver(m_comm);
-        m_krylov->SetRelTol(reltol);
-        m_krylov->SetAbsTol(abstol);
-        m_krylov->SetMaxIter(maxiter);
-        m_krylov->SetPrintLevel(printlevel);
         static_cast<FGMRESSolver*>(m_krylov)->SetKDim(kdim);
     }
     else {
         mfem_error("IRK::Invalid solve type.\n");   
     }
 
+    m_krylov->SetRelTol(reltol);
+    m_krylov->SetAbsTol(abstol);
+    m_krylov->SetMaxIter(maxiter);
+    m_krylov->SetPrintLevel(printlevel);
     m_krylov->iterative_mode = false;
 }
 
