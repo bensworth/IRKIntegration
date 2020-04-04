@@ -251,14 +251,15 @@ private:
     int m_s;            // Number of RK stages
     int m_zetaSize;     // Number of real eigenvalues of inv(A0)
     int m_etaSize;      // Number of complex conjugate pairs of eigenvalues of inv(A0)    
-    DenseMatrix m_A0;   // Butcher tableaux matrix A0
+    DenseMatrix m_A0;   // Butcher tableau matrix A0
     DenseMatrix m_invA0;// Inverse of A0
-    Vector m_b0;        // Butcher tableaux weights
-    Vector m_c0;        // Butcher tableaux nodes
+    Vector m_b0;        // Butcher tableau weights
+    Vector m_c0;        // Butcher tableau nodes
     Vector m_d0;        // The vector b0^\top * inv(A0)
     Vector m_zeta;      // REAL eigenvalues of inv(A0)
     Vector m_beta;      // IMAGINARY parts of complex pairs of eigenvalues of inv(A0)
     Vector m_eta;       // REAL parts of complex pairs of eigenvalues of inv(A0)
+    
     Vector *m_XCoeffs;  // Coefficients of polynomials {X_j}_{j=1}^s
 
     // --- Relating to HYPRE solution of linear systems ---
@@ -266,7 +267,7 @@ private:
     int m_rank;
     MPI_Comm m_comm;            // Global communicator
 
-    void SetButcherCoeffs();    // Set Butcher tableaux coefficients
+    void SetButcherData();      // Set Butcher tableau coefficients
     void SetXCoeffs();          // Set coefficients of polynomials X_j
     void PolyAction();          // Compute action of a polynomial on a vector
 
@@ -274,9 +275,8 @@ private:
     inline void Set(double * A, int i, int j, double aij) { A[i + j*m_s] = aij; }; // 2D array embedded in 1D array of size s, using rowmjr ordering (columns ordered contiguously) 
     inline void Set(double * A, int i, double ai) { A[i] = ai; }; // 1D array
 
-    // Initialize and set Butcher arrays to  correct dimensions
-    void SizeButcherArrays(double * &A, double * &invA, double * &b, double * &c, double * &d, 
-                            double * &zeta, double * &eta, double * &beta);
+    // Set dimensions of Butcher arrays
+    void SizeButcherArrays();
 
     // Construct right-hand side, m_z, for IRK integration, including applying
     // the block Adjugate and Butcher inverse 
@@ -293,8 +293,8 @@ public:
     //  Second digit: order of scheme
     enum Type { 
         SDIRK1 = 01, SDIRK2 = 02, SDIRK3 = 03, SDIRK4 = 04,
-        Gauss4 = 14, Gauss6 = 16, Gauss8 = 18,
-        RadauIIA3 = 23, RadauIIA5 = 25, RadauIIA7 = 27,
+        Gauss4 = 14, Gauss6 = 16, Gauss8 = 18, Gauss10 = 110,
+        RadauIIA3 = 23, RadauIIA5 = 25, RadauIIA7 = 27, RadauIIA9 = 29,
         LobIIIC2 = 32, LobIIIC4 = 34, LobIIIC6 = 36
     };
 
