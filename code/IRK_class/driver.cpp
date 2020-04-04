@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
                   "Size of numerical dissipation is c0*dx^c1");
 
     /* CFL parameters */
-    args.AddOption(&CFL, "-cfl", "...", "CFL==dt*max|a|/dx");
+    args.AddOption(&CFL, "-cfl", "--Advection-CFL-number", "CFL==dt*max|a|/dx");
 
     /* --- Text output of solution etc --- */              
     //args.AddOption(&out, "-out", "--out",

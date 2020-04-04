@@ -171,7 +171,7 @@ public:
             }
         }
         else {
-            mfem_error("Must set polynomial type 1 or 2!\n");
+            mfem_error("CharPolyPrecon::Must set polynomial type 1 or 2!\n");
         }
     };
 
@@ -259,24 +259,19 @@ private:
     Vector m_zeta;      // REAL eigenvalues of inv(A0)
     Vector m_beta;      // IMAGINARY parts of complex pairs of eigenvalues of inv(A0)
     Vector m_eta;       // REAL parts of complex pairs of eigenvalues of inv(A0)
-    
-    Vector *m_XCoeffs;  // Coefficients of polynomials {X_j}_{j=1}^s
+    vector<Vector> m_XCoeffs;  // Vectors for the coefficients of polynomials {X_j}_{j=1}^s
+    // TODO: if I use MFEM::Array<Vector> rather than std::vector<Vector> I get compiler warnings whenever I size the MFEM::Array...
+    //Vector * m_XCoeffs;  // Vectors for the coefficients of polynomials {X_j}_{j=1}^s
 
     // --- Relating to HYPRE solution of linear systems ---
     int m_numProcess;
     int m_rank;
     MPI_Comm m_comm;            // Global communicator
 
-    void SetButcherData();      // Set Butcher tableau coefficients
-    void SetXCoeffs();          // Set coefficients of polynomials X_j
-    void PolyAction();          // Compute action of a polynomial on a vector
-
-    // Setting elements in arrays
-    inline void Set(double * A, int i, int j, double aij) { A[i + j*m_s] = aij; }; // 2D array embedded in 1D array of size s, using rowmjr ordering (columns ordered contiguously) 
-    inline void Set(double * A, int i, double ai) { A[i] = ai; }; // 1D array
-
-    // Set dimensions of Butcher arrays
-    void SizeButcherArrays();
+    void SetButcherData();    // Set Butcher tableau coefficients
+    void SizeButcherData();   // Set dimensions of Butcher arrays
+    void SetXCoeffs();        // Set coefficients of polynomials X_j
+    void PolyAction();        // Compute action of a polynomial on a vector
 
     // Construct right-hand side, m_z, for IRK integration, including applying
     // the block Adjugate and Butcher inverse 

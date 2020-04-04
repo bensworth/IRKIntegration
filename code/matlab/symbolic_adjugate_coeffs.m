@@ -1,3 +1,7 @@
+% This code isn't maintained now... It doesn't really compute anything we
+% actually use...
+
+
 % Compute the symbolic adjugate of M = A-z*I and output the formulae so they
 % can be copied and pasted straight into C/C++ code.
 %

@@ -105,7 +105,7 @@ void FDadvection::SetSystem(int index, double t, double dt, double gamma, int ty
     // Preconditioner already exists for this factor, check dt hasn't changed!    
     } else {
         if (m_CharPolyInfos[index].dt != dt) {
-            if (m_spatialRank == 0) mfem_error("FDadvection::SetSystem assumes that dt cannot change with time");
+            if (m_spatialRank == 0) mfem_error("FDadvection::SetSystem() assumes that dt cannot change with time");
         }
     }
     
@@ -118,7 +118,7 @@ void FDadvection::SetSystem(int index, double t, double dt, double gamma, int ty
 void FDadvection::Mult(const Vector &x, Vector &y) const
 {
     if (m_L_isTimedependent) {
-        if (m_spatialRank == 0) mfem_error("IRK implementation requires L to be time independent!");
+        if (m_spatialRank == 0) mfem_error("FDadvection::Mult() IRK implementation requires L to be time independent!");
     }
     
     m_L->Mult(x, y);
@@ -136,7 +136,7 @@ void FDadvection::Mult(const Vector &x, Vector &y) const
 void FDadvection::ApplyL(const Vector &x, Vector &y) const
 {
     if (m_L_isTimedependent) {
-        if (m_spatialRank == 0) mfem_error("IRK implementation requires L to be time independent!");
+        if (m_spatialRank == 0) mfem_error("FDadvection::ApplyL() IRK implementation requires L to be time independent!");
     }
     
     m_L->Mult(x, y);
