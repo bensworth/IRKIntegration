@@ -7,6 +7,9 @@
 clc
 clear
 
+% This sets the precision of all computations to 32 digits...
+digits(32)
+
 mystr = '';
 
 %%% --- Set up the formatting of the way in which the data is printed to console --- %%%
@@ -38,16 +41,17 @@ outformat2 = @(label, i, j, data) myfprintf('%s(%d, %d) = %+.15f;\n', label, i, 
 %ID =  'Gauss4';
 % ID =  'Gauss6';
 % ID =  'Gauss8';
-% ID =  'Gauss10';
+ID =  'Gauss10';
 % 
-% ID = 'RadauIIA3';
-%ID = 'RadauIIA5';
+%ID = 'RadauIIA3';
+ID = 'RadauIIA5';
 % ID = 'RadauIIA7';
 %ID = 'RadauIIA9';
 %  
 %ID =  'LobIIIC2';
-%ID =  'LobIIIC4';
-ID =  'LobIIIC6';
+ID =  'LobIIIC4';
+%ID =  'LobIIIC6';
+ID =  'LobIIIC8';
 
 % Get table
 [A, b, c] = butcher_tableaux(ID);

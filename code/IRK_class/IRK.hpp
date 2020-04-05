@@ -292,7 +292,7 @@ public:
         SDIRK1 = 01, SDIRK2 = 02, SDIRK3 = 03, SDIRK4 = 04,
         Gauss4 = 14, Gauss6 = 16, Gauss8 = 18, Gauss10 = 110,
         RadauIIA3 = 23, RadauIIA5 = 25, RadauIIA7 = 27, RadauIIA9 = 29,
-        LobIIIC2 = 32, LobIIIC4 = 34, LobIIIC6 = 36
+        LobIIIC2 = 32, LobIIIC4 = 34, LobIIIC6 = 36, LobIIIC8 = 38
     };
 
     // Krylov solve type for IRK system

@@ -151,39 +151,9 @@ int main(int argc, char *argv[])
     double tf = dt*nt;
 
     // Build IRK object using spatial discretization object
-    if (IRK_ID > 0) {
-        IRK MyIRK(&SpaceDisc, static_cast<IRK::Type>(IRK_ID), MPI_COMM_WORLD);        
-        MyIRK.Init(SpaceDisc);
-        MyIRK.Run(*u, t0, dt, tf);
-    }
-    // Implicit (L-stable) methods directly
-    else {
-        ODESolver *ode_solver = NULL;
-        switch (IRK_ID) {
-            case -1: ode_solver = new BackwardEulerSolver; break;
-            case -2: ode_solver = new SDIRK23Solver(2); break;
-            case -3: ode_solver = new SDIRK33Solver; break;
-            if (rank == 0) {
-                cout << "Unknown ODE solver type: " << IRK_ID << '\n';
-            }
-            MPI_Finalize();
-            return 3;
-        }
-        
-        SpaceDisc.SetTime(t0);
-        ode_solver->Init(SpaceDisc);
-        bool done = false;
-        for (int ti = 0; !done; ) {
-            double dt_real = min(dt, tf - t0);
-            ode_solver->Step(*u, t0, dt_real);
-            ti++;
-            done = (t0 >= tf - 1e-8*dt);
-            if (rank == 0) {
-                cout << "time step: " << ti << ", time: " << t0 << endl;
-            }
-        }
-        delete ode_solver;
-    }
+    IRK MyIRK(&SpaceDisc, static_cast<IRK::Type>(IRK_ID), MPI_COMM_WORLD);        
+    MyIRK.Init(SpaceDisc);
+    MyIRK.Run(*u, t0, dt, tf);
 
 
     if (save > 0) {
@@ -232,7 +202,7 @@ int main(int argc, char *argv[])
             space_info["dt"].resize(16);
             space_info["dt"].resize(std::snprintf(&space_info["dt"][0], 16, "%.6e", dt));
     
-            // MyIRK.SaveSolInfo(fname, space_info); // TODO write me
+            MyIRK.SaveSolInfo(fname, space_info); // TODO write me
         }
     }
     
