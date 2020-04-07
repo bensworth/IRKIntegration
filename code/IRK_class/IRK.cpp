@@ -7,8 +7,6 @@
 
 
 /* TODO:
- - Scale linear systems by M before solving them and change the way the action 
-     of the operators is computed (can no longer use the poly mult function)
  - Neaten up FD code...
  - Probable memory leak w/ J in FDadvection. Search TODO[seg] in FDadvection.cpp.
  
@@ -70,7 +68,7 @@ OK questions for BS (and general thoughts):
 
 IRK::IRK(IRKOperator *S, IRK::Type RK_ID, MPI_Comm comm)
         : m_S(S), m_CharPolyPrec(*S), m_CharPolyOps(), m_comm{comm},
-        m_krylov(NULL), m_z(NULL), m_y(NULL), m_w(NULL)
+        m_krylov(NULL)
 {
     m_RK_ID = static_cast<int>(RK_ID);
 
@@ -81,12 +79,6 @@ IRK::IRK(IRKOperator *S, IRK::Type RK_ID, MPI_Comm comm)
     /* Set up basic information */
     SetButcherData();  // Set Butcher tableau and associated data
     SetXCoeffs();      // Set coefficients of polynomials {X_j}
-    
-    // Initialize other vectors based on size of u
-    int dimU = m_S->Height();
-    m_z = new Vector(dimU);
-    m_y = new Vector(dimU);
-    m_w = new Vector(dimU);
     
     /* --- Construct object for every REAL factor in char. poly --- */
     m_CharPolyOps.SetSize(m_zeta.Size() + m_eta.Size()); 
@@ -105,13 +97,7 @@ IRK::IRK(IRKOperator *S, IRK::Type RK_ID, MPI_Comm comm)
 }
 
 IRK::~IRK() {
-    if (m_z) delete m_z;
-    if (m_y) delete m_y;
-    if (m_w) delete m_w;
-    
-    for (int i = 0; i < m_CharPolyOps.Size(); i++) {
-        delete m_CharPolyOps[i];
-    }
+    for (int i = 0; i < m_CharPolyOps.Size(); i++) delete m_CharPolyOps[i];    
 }
 
 
@@ -153,11 +139,24 @@ void IRK::SetSolve(IRK::Solve solveID, double reltol, int maxiter,
 }
 
 
+// Call base class' init and size member vectors
+void IRK::Init(TimeDependentOperator &F)
+{
+    ODESolver::Init(F);
+    m_y.SetSize(F.Height(), mem_type);
+    m_z.SetSize(F.Height(), mem_type);
+    m_w.SetSize(F.Height(), mem_type);
+    m_f.SetSize(F.Height(), mem_type);
+}
+
 void IRK::Step(Vector &x, double &t, double &dt)
 {
-
-    Vector y(x); // Auxillary vector
-    ConstructRHS(x, t, dt); /* Set m_z */
+    ConstructRHS(x, t, dt, m_z); /* Set m_z */
+    // Scale RHS of system by M
+    if (m_S->m_M_exists) {
+        m_S->ImplicitMult(m_w, m_z);
+        m_z = m_w;
+    }   
     
     /* Sequentially invert factors in characteristic polynomial */
     for (int i = 0; i < m_CharPolyOps.Size(); i++) {
@@ -173,16 +172,25 @@ void IRK::Step(Vector &x, double &t, double &dt)
         m_CharPolyPrec.SetType(m_CharPolyOps[i]->Type());
         m_S->SetSystem(i, t, dt, m_CharPolyOps[i]->Gamma(), m_CharPolyOps[i]->Type());
         m_krylov->SetPreconditioner(m_CharPolyPrec);
-        m_krylov->SetOperator(*(m_CharPolyOps[i]));
+        m_krylov->SetOperator(*(m_CharPolyOps[i]));    
                 
         // Use preconditioned Krylov to invert ith factor in polynomial 
-        m_krylov->Mult(*m_z, y); // y <- FACTOR(i)^{-1} * z
-        *m_z = y; // Solution becomes the RHS in the next factor
+        m_krylov->Mult(m_z, m_y); // y <- FACTOR(i)^{-1} * z
+        
+        // Solution becomes the RHS for the next factor
+        if (i < m_CharPolyOps.Size()-1) {
+            // Scale RHS of new system by M        
+            if (m_S->m_M_exists) {
+                m_S->ImplicitMult(m_y, m_z);
+            } else {
+                m_z = m_y; 
+            }
+        }
     }
 
     // Update solution vector with weighted sum of stage vectors        
-    x.Add(dt, y);   // x <- x + dt*y
-    t += dt;        // Time that x is evaulated at
+    x.Add(dt, m_y);  // x <- x + dt*y
+    t += dt;         // Time that x is evaulated at
 }
 
 void IRK::Run(Vector &x, double &t, double &dt, double tf) 
@@ -204,17 +212,15 @@ void IRK::Run(Vector &x, double &t, double &dt, double tf)
 
 
 
-/* Construct m_z, the RHS of the linear system for integration from t to t+dt */
-void IRK::ConstructRHS(const Vector &x, double t, double dt) {
-    *m_z = 0.0; /* z <- 0 */
-    
-    Vector f(x), w(x); // Auxillary vectors
+/* Construct z, the RHS of the linear system for integration from t to t+dt */
+void IRK::ConstructRHS(const Vector &x, double t, double dt, Vector &z) {
+    m_z = 0.0; /* z <- 0 */
     
     for (int i = 0; i < m_s; i++) {
         m_S->SetTime(t + dt*m_c0(i)); // Set time of S to t+dt*c(i)
-        m_S->Mult(x, f); // f <- M^{-1}*[L*x + g(t)] _OR_ f <- L*x + g(t)
-        m_S->PolynomialMult(m_XCoeffs[i], dt, f, w); /* w <- X_i(dt*M^{-1}*L)*f _OR_ w <- X_i(dt*L)*f */
-        *m_z += w;
+        m_S->Mult(x, m_f); // f <- M^{-1}*[L*x + g(t)] _OR_ f <- L*x + g(t)
+        m_S->PolynomialMult(m_XCoeffs[i], dt, m_f, m_w); /* w <- X_i(dt*M^{-1}*L)*f _OR_ w <- X_i(dt*L)*f */
+        z += m_w;
     }
 }
 

@@ -122,10 +122,10 @@ public:
 
 
 /* Wrapper to preconditioner factors in a polynomial by preconditioning either
-    TYPE 1. [zeta*M - dt*L]
-    TYPE 2. [zeta*M - dt*L]M^{-1}[zeta*M - dt*L]
-For Type 1, there should be an M^{-1}, but M is applied to both sides of
-the equation before solving. [zeta*M - dt*L] is then preconditioned using
+    TYPE 1. [gamma*M - dt*L] _OR_ [gamma*I - dt*L]
+    TYPE 2. [gamma*M - dt*L]M^{-1}[gamma*M - dt*L]  _OR_ [gamma*I - dt*L]^2
+
+[gamma*M - dt*L] _OR_ [gamma*I - dt*L] is preconditioned using
 IRKOperator.ImplicitPrec(). Type 2 involves two IRKOperator.ImplicitPrec()
 applications, with an application of M in between, IRKOperator.ApplyM().
 */
@@ -148,21 +148,12 @@ public:
     inline void Mult(const Vector &x, Vector &y) const
     {
         if (m_type == 1) {
-            // With mass matrix
-            if (m_S.m_M_exists) {
-                Vector z(x);
-                m_S.ImplicitMult(x, z);   // Apply M
-                m_S.ImplicitPrec(z, y);   // Precondition [gamma*M - dt*L]
-            // Without mass matrix
-            } else {
-                m_S.ImplicitPrec(x, y);   // Precondition [gamma*I - dt*L]
-            }
-        }
-        else if (m_type == 2) {
+            m_S.ImplicitPrec(x, y); // Precondition [gamma*M - dt*L] _OR_ [gamma*I - dt*L]
+        
+        } else if (m_type == 2) {
             Vector z(x);
             // With mass matrix 
             if (m_S.m_M_exists) {
-                m_S.ImplicitMult(x, z);     // Apply M
                 m_S.ImplicitPrec(z, y);     // Precondition [gamma*M - dt*L]
                 m_S.ImplicitMult(y, z);     // Apply M
                 m_S.ImplicitPrec(z, y);     // Precondition [gamma*M - dt*L]
@@ -182,8 +173,8 @@ public:
 };
 
 /* Char. poly factors, F:
-    TYPE 1. F == [zeta*I - dt*L]
-    TYPE 2. F == [(eta^2+beta^2)*I - 2*eta*dt*L + (dt*L)^2] 
+    TYPE 1. F == [zeta*M - dt*L], _OR_ F == [zeta*I - dt*L]
+    TYPE 2. F == [(eta^2+beta^2)*M - 2*eta*dt*L + dt^2*L*M^{-1}*L] _OR_ [(eta^2+beta^2)*I - 2*eta*dt*L + (dt*L)^2]
 */
 class CharPolyOp : public Operator
 {
@@ -223,9 +214,39 @@ public:
     inline double dt() {return m_dt; };
     inline void Setdt(double dt) { m_dt = dt; };
 
-    /* y <- char. poly factor(dt*M^{-1}*L) * x */
-    inline void Mult(const Vector &x, Vector &y) const { m_S.PolynomialMult(m_c, m_dt, x, y); }
-
+    /* y <- char. poly factor(dt*M^{-1}*L)*x _OR_ y <- char. poly factor(dt*L)*x */
+    inline void Mult(const Vector &x, Vector &y) const 
+    {
+        // If no mass matrix, factor is simply a polynomial in dt*L
+        if (!m_S.m_M_exists) {
+            m_S.PolynomialMult(m_c, m_dt, x, y); 
+        
+        // If mass matrix exists, factor is not quite a polynomial in dt*L
+        } else {
+            Vector z(x); // Auxillary vector
+            
+            // F == [zeta*M - dt*L]
+            if (m_type == 1) {
+                m_S.ImplicitMult(x, z);
+                z *= m_c(0);
+                m_S.ApplyL(x, y);
+                y *= -m_dt;
+                y += z;
+                
+            // F == [(eta^2 + beta^2)*M - 2*dt*L + dt^2*L*M^{-1}*L]
+            } else {
+                m_S.ApplyL(x, y);
+                m_S.ApplyMInv(y, z);
+                z *= m_c(2)*m_dt;
+                z.Add(m_c(1), x); // z = [c(1)*I + c(2)*dt*M^{-1}*L]*x
+                m_S.ApplyL(z, y);
+                y *= m_dt;   // y = dt*L*[c(1)*I + c(2)*dt*M^{-1}*L]*x
+                m_S.ImplicitMult(x, z);
+                z *= m_c(0); 
+                y += z;
+            }
+        }
+    }
     ~CharPolyOp() { };
 };
 
@@ -237,10 +258,10 @@ class IRK : public ODESolver
 {
 private:    
 
-    IRKOperator * m_S;          // Holds all information about THE spatial discretization. TODO: Maybe rename to avoid confusion with Butcher m_s...
-    Vector * m_z;               // RHS of linear system
-    Vector * m_y;               // Solution of linear system
-    Vector * m_w;               // Auxillary vector
+    IRKOperator * m_S; // Holds all information about THE spatial discretization. TODO: Maybe rename to avoid confusion with Butcher m_s...
+    
+    Vector m_y, m_z; // Solution and RHS of linear systems
+    Vector m_w, m_f; // Auxillary vectors
 
     // Char. poly factors and preconditioner wrapper
     Array<CharPolyOp  *> m_CharPolyOps;
@@ -274,9 +295,9 @@ private:
     void StiffAccSimplify();  // Modify XCoeffs in instance of stiffly accurate IRK scheme
     void PolyAction();        // Compute action of a polynomial on a vector
 
-    // Construct right-hand side, m_z, for IRK integration, including applying
+    // Construct right-hand side, z, for IRK integration, including applying
     // the block Adjugate and Butcher inverse 
-    void ConstructRHS(const Vector &x, double t, double dt);
+    void ConstructRHS(const Vector &x, double t, double dt, Vector &z);
 
 public:
 
@@ -301,6 +322,8 @@ public:
 
     IRK(IRKOperator *S, IRK::Type RK_ID, MPI_Comm comm);
     ~IRK();
+ 
+    void Init(TimeDependentOperator &F);
 
     void Run(Vector &x, double &t, double &dt, double tf);
     
