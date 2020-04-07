@@ -21,6 +21,12 @@ mpirun -np 4 --oversubscribe ./driver -l 7 -d 2 -t 14 -o 4 -FD 4 -nt 50 -save 1
 
 */
 
+/* NOTES:
+
+ - Adding more AIR iterations seems like it does accelerate the convergence of GMRES for type 2 systems,
+    but it does not pay off! E.g., maybe doing 10 AIR iterations instead of 1 halves the number of GMRES
+    iterations
+*/
 
 int main(int argc, char *argv[])
 {
@@ -59,6 +65,10 @@ int main(int argc, char *argv[])
     // CFL parameters
     double CFL = 5.0;
     
+    // AMG parameters
+    AMG_parameters AMG_params;
+    int AMG_maxit_type2 = AMG_params.maxiter;
+    
     OptionsParser args(argc, argv);
     args.AddOption(&IRK_ID, "-t", "--RK-disc",
                   "Time discretization (see RK IDs).");
@@ -88,6 +98,10 @@ int main(int argc, char *argv[])
 
     /* CFL parameters */
     args.AddOption(&CFL, "-cfl", "--Advection-CFL-number", "CFL==dt*max|a|/dx");
+
+    /* AMG parameters */
+    args.AddOption(&AMG_maxit_type2, "-maxit", "--max-AMG-iterations-type2", "Max AMG iterations for type 2 systems");
+    args.AddOption(&AMG_params.relax_type, "-r", "--AMG-relax-type", "Type of relaxation for AMG: Jacobi == 0");
 
     /* --- Text output of solution etc --- */              
     //args.AddOption(&out, "-out", "--out",
@@ -141,6 +155,11 @@ int main(int argc, char *argv[])
         Num_dissipation dissipation = {ndis, ndis_c0, ndis_c1};
         SpaceDisc.SetNumDissipation(dissipation);
     }
+    
+    // Set AMG options
+    SpaceDisc.SetAMG_parameters(AMG_params, 1);
+    AMG_params.maxiter = AMG_maxit_type2; // Update maxiter before passing
+    SpaceDisc.SetAMG_parameters(AMG_params, 2); 
     
     // Get initial condition
     HypreParVector * u = NULL;

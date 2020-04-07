@@ -1,158 +1,84 @@
 #include "FDadvection.hpp"
 
-
-#if 0 
-Template preconditioner for AIR
-/* Constructor for preconditioner */
-CharPolyPrecon::CharPolyPrecon(MPI_Comm comm, double gamma, double dt, int type, SpatialDiscretization &S) 
-    : Solver(S.height, false), m_type(type), m_S(S), m_precon(NULL), m_solver(NULL) {
-    
-    /* Build J, the operator to be inverted */
-    m_J = new HypreParMatrix( *(S.m_L) ); // J <- deepcopy(L)
-    *m_J *= -dt; // J <- -dt*J
-    m_J->Add(gamma, *(S.m_M)); // J <- J + gamma*M
-
-    /* Build AMG preconditioner for J */
-    HypreBoomerAMG * amg = new HypreBoomerAMG(*m_J);
-
-    //AIR_parameters AIR = {1.5, "", "FA", 100, 10, 10, 0.1, 0.05, 0.0, 1e-5};
-    // AMG_parameters AIR = {1.5, "", "FA", 0.1, 0.01, 0.0, 100, 10, 0.e-4, 6}; // w/ on-proc relaxation
-    AMG_parameters AIR = {1.5, "", "FFC", 0.1, 0.01, 0.0, 100, 0, 0.e-4, 6};    // w/ Jacobi relaxation
-    // 
-    amg->SetLAIROptions(AIR.distance, AIR.prerelax, AIR.postrelax,
-                           AIR.strength_tolC, AIR.strength_tolR, 
-                           AIR.filter_tolR, AIR.interp_type, 
-                           AIR.relax_type, AIR.filterA_tol,
-                           AIR.coarsening);
-
-    // Krylov preconditioner is a single AMG iteration
-    amg->SetPrintLevel(0);
-    amg->SetTol(0.0);
-    amg->SetMaxIter(1);
-    m_precon = amg;
+/* Set member variables holding parameters for AMG solve. 
+Pass type == 0 to set both type 1 and 2 with same parameters */
+void FDadvection::SetAMG_parameters(AMG_parameters parameters, int type) {
+    if (type == 0) { 
+        m_AMG_params_type1 = parameters;
+        m_AMG_params_type2 = parameters;
+    } else if (type == 1) {
+        m_AMG_params_type1 = parameters;
+    } else if (type == 2) {
+        m_AMG_params_type2 = parameters;
+    }
 }
-#endif
-
 
 /* -------------------------------------------------------------------------- */
 /* --------- Implementation of pure virtual functions in base class --------- */
 /* -------------------------------------------------------------------------- */
 
-
-/* Precondition (\gamma*I - dt*L). Just invoke solve function of the already assembled preconditioner */
+/* Precondition A == (\gamma*I - dt*L). Just invoke solve function of the already assembled preconditioner */
 void FDadvection::ImplicitPrec(const Vector &x, Vector &y) const
 {
-    m_CharPolyPrecs[m_prec_idx]->Mult(x, y);
+    m_A_precs[m_A_idx]->Mult(x, y);
 }
+    
+/* Ensure that ImplicitPrec preconditions A == (\gamma*I - dt*L)
+with gamma and dt as passed to this function.
+     + index -> index of real char poly factor, [0,#number of real factors)
+     + type -> eigenvalue type, 1 = real, 2 = complex pair
+     + t -> time.
+These additional parameters are to provide ways to track when
+A == (\gamma*I - dt*L) must be reconstructed or not to minimize setup.
 
-// Solve the linear system
-//    (M - dt*L) k = L*x + b
-void FDadvection::ImplicitSolve(const double dt, const Vector &x, Vector &k)
-{
-    // Preconditioner for (M - dt*L)
-    if (!m_amg || std::abs(dt-m_dtgamma) > 1e-14) {
-        
-        if (!m_I) SetI(); // Assemble identity matrix if it's not already been assembled
-        m_dtgamma = dt;
-
-        /* Build J, the operator to be inverted */
-        m_J = new HypreParMatrix(*m_L); // m_J <- deepcopy(L)
-        *m_J *= -dt; // m_J <- -dt*m_J
-        m_J->Add(1.0, *m_I); // m_J <- m_J + I
-        
-        /* Build AMG preconditioner for m_J */
-        HypreBoomerAMG * m_amg = new HypreBoomerAMG(*m_J);
-        
-        //AIR_parameters AIR = {1.5, "", "FA", 100, 10, 10, 0.1, 0.05, 0.0, 1e-5};
-        // AMG_parameters AIR = {1.5, "", "FA", 0.1, 0.01, 0.0, 100, 10, 0.e-4, 6}; // w/ on-proc relaxation
-        AMG_parameters AIR = {1.5, "", "FFC", 0.1, 0.01, 0.0, 100, 0, 0.e-4, 6};    // w/ Jacobi relaxation
-        m_amg->SetLAIROptions(AIR.distance, AIR.prerelax, AIR.postrelax,
-                               AIR.strength_tolC, AIR.strength_tolR, 
-                               AIR.filter_tolR, AIR.interp_type, 
-                               AIR.relax_type, AIR.filterA_tol,
-                               AIR.coarsening);
-        m_amg->SetPrintLevel(0);
-        m_amg->SetTol(0.0);
-        m_amg->SetMaxIter(1);
-    }
-
-    // Form rhs, L*x + b
-    Vector z(x);
-    Mult(x, z);
-
-    // GMRES Solver
-    if (k.Size() != x.Size()) k.SetSize(x.Size());
-    GMRESSolver krylov;
-    krylov.SetRelTol(1e-6);
-    krylov.SetAbsTol(1e-6);
-    krylov.SetMaxIter(250);
-    krylov.SetPrintLevel(2);
-    krylov.SetKDim(15);
-    krylov.SetPreconditioner(*m_amg);   // TODO[seg]: Seg fault here
-    krylov.SetOperator(*m_J);           // TODO[seg]: seg fault here (if comment out precon line)
-    krylov.Mult(z, k);
-}
-
-// Function to ensure that ImplicitPrec preconditions (\gamma*M - dt*L) OR (\gamma*I - dt*L)
-// with gamma and dt as passed to this function.
-//      + index -> index of real char poly factor, [0,#number of real factors)
-//      + type -> eigenvalue type, 1 = real, 2 = complex pair
-//      + t -> time.
-// These additional parameters are to provide ways to track when
-// (\gamma*M - dt*L) or (\gamma*I - dt*L) must be reconstructed or not to minimize setup.
-
-
-// I'm assuming that t doesn't matter here since the implementation is ignoring it for the time being
-// TODO: Make option to pass AIR parameters to Class and use these instead
+NOTES: I'm assuming that t doesn't matter here since the implementation is ignoring it for the time being
+*/
 void FDadvection::SetSystem(int index, double t, double dt, double gamma, int type) {
     
     // Set index of preconditioner to be called in ImplicitPrec()
-    m_prec_idx = index;
+    m_A_idx = index;
     
     // Build new preconditioner since one's not already been built
-    if (index >= m_CharPolyPrecs.Size()) {
+    if (index >= m_A_precs.Size()) {
         
         if (!m_I) SetI(); // Assemble identity matrix if it's not already been assembled
         
         /* Build J, the operator to be inverted */
-        HypreParMatrix * J = new HypreParMatrix(*m_L); // J <- deepcopy(L) - TODO[seg]: where is this deleted? 
-        *J *= -dt; // J <- -dt*J
-        J->Add(gamma, *m_I); // J <- J + gamma*I
+        HypreParMatrix * A = new HypreParMatrix(*m_L); // A <- deepcopy(L) - TODO[seg]: where is this deleted? 
+        *A *= -dt; // A <- -dt*A
+        A->Add(gamma, *m_I); // A <- A + gamma*I
         
         /* Build AMG preconditioner for J */
-        HypreBoomerAMG * amg = new HypreBoomerAMG(*J);
+        HypreBoomerAMG * amg = new HypreBoomerAMG(*A);
         
-        //AIR_parameters AIR = {1.5, "", "FA", 100, 10, 10, 0.1, 0.05, 0.0, 1e-5};
-        // AMG_parameters AIR = {1.5, "", "FA", 0.1, 0.01, 0.0, 100, 10, 0.e-4, 6}; // w/ on-proc relaxation
-        AMG_parameters AIR = {1.5, "", "FFC", 0.1, 0.01, 0.0, 100, 0, 0.e-4, 6};    // w/ Jacobi relaxation
-        // 
+        // Set AMG paramaters dependent on the type of preconditioner
+        AMG_parameters AIR; 
+        if (type == 1) {
+            AIR = m_AMG_params_type1;
+        } else if (type == 2) {
+            AIR = m_AMG_params_type2;
+        }
+        
+        amg->SetMaxIter(AIR.maxiter);
         amg->SetLAIROptions(AIR.distance, AIR.prerelax, AIR.postrelax,
                                AIR.strength_tolC, AIR.strength_tolR, 
                                AIR.filter_tolR, AIR.interp_type, 
                                AIR.relax_type, AIR.filterA_tol,
                                AIR.coarsening);
-        
-        // Krylov preconditioner is a single AMG iteration
         amg->SetPrintLevel(0);
         amg->SetTol(0.0);
         
-        if (type == 1) {
-            amg->SetMaxIter(1); // Do a single iteration for linear factors
-        } else {
-            amg->SetMaxIter(1); // Multiple iterations may be helpful for quadratic factors
-        }
-        
         // Save parameter info used to generate preconditioner
-        CharPolyInfo params = {dt, gamma, index};
+        A_parameters A_info = {gamma, dt, index};
         
-        // Update member variables
-        m_CharPolyPrecs.Append(amg);
-        m_CharPolyInfos.Append(params);
+        // Update member variables with newly formed preconditioner
+        m_A_precs.Append(amg);
+        m_A_info.Append(A_info);
         
-    // Preconditioner already exists for this factor, check dt hasn't changed!    
+    // Preconditioner already exists for this index, check dt hasn't changed!    
     }
     else {
-        if (m_CharPolyInfos[index].dt != dt) {
+        if (m_A_info[index].dt != dt) {
             if (m_spatialRank == 0) mfem_error("FDadvection::SetSystem() assumes that dt cannot change with time");
         }
     }
@@ -408,8 +334,8 @@ FDadvection::FDadvection(MPI_Comm comm, int dim, int refLevels, int order,
     m_periodic(false), m_inflow(false), m_PDE_soln_implemented(false), m_dissipation(false),
     m_I(NULL), m_L(NULL),
     m_L_isTimedependent(true), 
-    m_useSpatialParallel(false), m_CharPolyPrecs(),
-    m_dtgamma(-1), m_amg(NULL)
+    m_useSpatialParallel(false), m_A_precs(),
+    m_AMG_params_type1(), m_AMG_params_type2()
 {    
     
     // Seed random number generator so results are consistent!
@@ -687,7 +613,7 @@ FDadvection::~FDadvection()
     //     if (m_CharPolyPrecs[i]) delete m_CharPolyPrecs[i];
     // }
     // TODO: does this free the data??
-    if (m_CharPolyPrecs.Size() > 0) m_CharPolyPrecs.DeleteAll();
+    if (m_A_precs.Size() > 0) m_A_precs.DeleteAll();
 }
 
 

@@ -251,7 +251,6 @@ private:
     int m_RK_ID;        // Type of IRK scheme
     int m_solveID;      // Type of Krylov acceleration
     int m_s;            // Number of RK stages
-    int m_nFactors;     // Number of REAL char poly factors to invert
     DenseMatrix m_A0;   // Butcher tableau matrix A0
     DenseMatrix m_invA0;// Inverse of A0
     Vector m_b0;        // Butcher tableau weights

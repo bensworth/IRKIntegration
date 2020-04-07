@@ -56,37 +56,42 @@ struct Num_dissipation {
 };
 
 
+// {1.5, "", "FA", 0.1, 0.01, 0.0, 100, 10, 0.e-4, 6}; // w/ on-proc relaxation
+// {1.5, "", "FFC", 0.1, 0.01, 0.0, 100, 0, 0.e-4, 6};    // w/ Jacobi relaxation
 struct AMG_parameters {
-   double distance;
-   std::string prerelax;
-   std::string postrelax;
-   double strength_tolC;
-   double strength_tolR;
-   double filter_tolR;
-   int interp_type;
-   int relax_type;
-   double filterA_tol;
-   int coarsening;
+   double distance = 1.5;
+   std::string prerelax = "";
+   std::string postrelax = "FFC";
+   double strength_tolC = 0.1;
+   double strength_tolR = 0.01;
+   double filter_tolR = 0.0;
+   int interp_type = 100;
+   int relax_type = 0;
+   double filterA_tol = 0.e-4;
+   int coarsening = 6;
+   int maxiter = 1;
 };
 
-/* information about the matrix that was used to assemble preconditioner */
-struct CharPolyInfo {
-    double dt;
+/* information used to assemble a matrix A == gamma*I - dt*L */
+struct A_parameters {
     double gamma;
-    int index;
+    double dt;     
+    int index; // There is potentially a list of different A
 };
 
 class FDadvection : public IRKOperator
 {
 private:
+    // TODO: Do we want the ability to set AMG parameters for every linear system? 
+    // E.g., maybe it's more important they be robust for type 2 with small eta/beta?
     
-    // Preconditioners for matrices of the form gamma*I - dt*L
-    double m_dtgamma;                   /* For normal SDIRK integration */
-    HypreParMatrix *m_J;                /* For normal SDIRK integration */
-    HypreBoomerAMG *m_amg;              /* For normal SDIRK integration */
-    mfem::Array<HypreBoomerAMG *> m_CharPolyPrecs;  // TODO: maybe bad name choice since we have a class called CharPolyPrec
-    mfem::Array<CharPolyInfo>     m_CharPolyInfos;
-    int m_prec_idx;
+    // Preconditioners for matrices of the form A == gamma*I - dt*L
+    mfem::Array<HypreBoomerAMG *> m_A_precs; // Preconditioner for each A
+    mfem::Array<A_parameters>     m_A_info;  // Information about each A
+    int m_A_idx;                             // Index of current A
+    AMG_parameters m_AMG_params_type1;       // AMG parameters for type 1 preconditioners
+    AMG_parameters m_AMG_params_type2;       // AMG parameters for type 2 preconditioners
+    
     
     bool m_conservativeForm;                    /* TRUE == PDE in conservative form; FALSE == PDE in non-conservative form */
     bool m_periodic;                            /* Periodic boundaries */
@@ -296,18 +301,19 @@ public:
     /* Compute y <- L*x */
     void ApplyL(const Vector &x, Vector &y) const;
     
-    /* Precondition (\gamma*I - dt*L) OR (\gamma*I - dt*L) */
+    /* Precondition A == (\gamma*I - dt*L) */
     void ImplicitPrec(const Vector &x, Vector &y) const;
-    
-    void ImplicitSolve(const double dt, const Vector &x, Vector &k);
 
-    // Function to ensure that ImplicitPrec preconditions (\gamma*M - dt*L) OR (\gamma*I - dt*L)
+    // Function to ensure that ImplicitPrec preconditions A == (\gamma*I - dt*L)
     // with gamma and dt as passed to this function.
     //      + index -> index of eigenvalue (pair) in IRK storage
     //      + type -> eigenvalue type, 1 = real, 2 = complex pair
     //      + t -> time.
     // These additional parameters are to provide ways to track when
-    // (\gamma*M - dt*L) or (\gamma*I - dt*L) must be reconstructed or not to minimize setup.
+    // A == (\gamma*I - dt*L) must be reconstructed or not to minimize setup.
     void SetSystem(int index, double t, double dt, double gamma, int type);
     
+    /* Set member variables holding parameters for AMG solve. 
+    Pass type == 0 to set both type 1 and 2 with same parameters */
+    void SetAMG_parameters(AMG_parameters parameters, int type = 0);
 };
