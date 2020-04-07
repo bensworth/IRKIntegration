@@ -1,5 +1,5 @@
 % Compute symbolically the coefficients of polynomials X that are inner
-% products between b0tilde and columns of the adjugate of M = A-z*I.
+% products between d0 and columns of the adjugate of M = A-z*I.
 %
 % The output can be copied and pasted straight into C/C++ code.
 %
@@ -7,19 +7,18 @@
 % them by hand if it's just all automated...
 %
 %NOTES: This extends the code in 'symbolic_adjugate_coeffs.m' to directly
-% compute the things that we need.
+% compute the things that we need rather than just the coefficients of
+% adjugate(M)
 
 clc
 clear
 
-s = 1; % Number of stages. Choose this to be whatever you like!
-X_coeffs     = 'X';    % Actual variable name of output
-% invA_label   = 'm_invA0';      % Actual variable name of matrix A above
-% d_label = 'm_d0';    % Actual variable name of vector d0 == b0^\top * inv(A0)
-invA_label   = 'B';      % Actual variable name of matrix A above
-d_label = 'd';    % Actual variable name of vector d0 == b0^\top * inv(A0)
+s = 5; % Number of stages. Choose this to be whatever you like!
+X_coeffs   = 'm_XCoeffs'; % Actual variable name of output
+invA_label = 'Y';         % Actual variable name of matrix A above
+d_label    = 'z';         % Actual variable name of vector d0 == b0^\top * inv(A0)
 
-outformat2 = @(i, j, data) fprintf('Set(%s, %d, %d, %s);\n', X_coeffs, i, j, data);
+outformat2 = @(i, j, data) myfprintf('%s[%d][%d] = %s;\n', X_coeffs, i, j, data);
 
 % Symbolic matrix. If you do it this way, the matrix elements are indexed from 1, which is not what we want...
 %A = sym('A_%d__%d___', [s, s]);
@@ -31,7 +30,7 @@ for i = 1:s
     end
 end
 
-% btilde vector
+% d vector
 for i = 1:s
     d(i) = sym(sprintf('b_%d____',  i-1));
 end
@@ -63,7 +62,7 @@ for i = 1:s
     q = strrep(q, 'A', invA_label); % Replace A with proper label
     q = strrep(q, ' ', '');          % Remove any spaces
 
-    fprintf('/* s=%d: Coefficients for polynomial X_{%d}(z) */\n', s, i)
+    myfprintf('/* s=%d: Coefficients for polynomial X_{%d}(z) */\n', s, i)
     for k = 1:s
         if numel(q) < k
             q{k} = '+0.0';
@@ -72,7 +71,13 @@ for i = 1:s
                 q{k} = ['+', q{k}];
             end
         end
-        outformat2(k-1, i-1, q{k})
+        outformat2(i-1, k-1, q{k})
     end
-    fprintf('\n')
+    myfprintf('\n')
+end
+
+% Print function that indents before printing.
+function myfprintf(varargin)
+    fprintf('        ') % Indent 8 spaces
+    fprintf(varargin{:})
 end
