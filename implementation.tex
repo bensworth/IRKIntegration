@@ -211,78 +211,43 @@ where $\{ \lambda_j \}_{j = 1}^s$ are the eigenvalues of $A_0^{-1}$. Now we're g
 \end{align}
 That is, $\{\zeta_j \}_{j = 1}^{s_{\Re}}$ are the $0 \leq n_{\Re} \leq s$ real eigenvalues of $A_0^{-1}$, and $\{ \eta_{j} + \imath \beta_{j}, \eta_{j} - \imath \beta_{j} \}_{j = 1}^{s_{\Im}}$ are the $0 \leq {n_{\Im}} \leq \left \lfloor{s/2}\right \rfloor $ complex, conjugate-pair, eigenvalues of $A_0^{-1}$. 
 
-To invert characteristic polynomial $P_s$, we do so by inverting only real factors. This means that complex-conjugate pairs are combined to become quadratic polynomials in ${\cal L}$. That is, we write something like
-\begin{align}
-P_s ({\cal L}) 
+To invert characteristic polynomial $P_s$, we do so by inverting only real factors. This means that complex-conjugate pairs are combined to become quadratic polynomials in ${\cal L}$. That is, we have
+\begin{align} 
+P_s (\delta t \widehat{\cal L}) 
 &= 
-\prod \limits_{j = 1}^{s_{\Re}} (\zeta_j I - \delta t \widehat{\cal L}) \prod \limits_{j = 1}^{s_{\Im}} \big( [\eta_j^2 + \beta_j^2] I - 2 \eta_j \delta t \widehat{\cal L} + (\delta t \widehat{\cal L})^2 \big),
-\\
-&\equiv
-\prod \limits_{j = 1}^{s_{\Re}} {\cal R}_j(\delta t \widehat{\cal L}) \prod \limits_{j = 1}^{s_{\Im}} {\cal I}_j(\delta t \widehat{\cal L}).
+\prod \limits_{j = 1}^{s_{\Re}} {\cal R}_j(\delta t \widehat{\cal L}) \prod \limits_{j = 1}^{s_{\Im}} {\cal I}_j(\delta t \widehat{\cal L}),\\
+\quad 
+{\cal R}_j(\delta t \widehat{\cal L}) 
+&\coloneqq 
+\zeta_j I - \delta t \widehat{\cal L}, \\
+{\cal I}_j(\delta t \widehat{\cal L})
+&\coloneqq
+[\eta_j^2 + \beta_j^2] I - 2 \eta_j \delta t \widehat{\cal L} + (\delta t \widehat{\cal L})^2.
 \end{align}
-
-To invert $P_s$, we sequentially invert the real monomials ${\cal R}_j$ and quadratics ${\cal I}_j$ using preconditioned Krylov solvers (GMRES in general, but CG is also applicable if ${\cal L}$ is SPD).
-
 \begin{enumerate}
-\item To solve the system 
+\item \textbf{Linear factors:} To solve the system 
 \begin{align}
-{\cal R}_j(\delta t \widehat{\cal L}) \bm{y}_j = \bm{z}_j,
+{\cal R}_j(\delta t \widehat{\cal L}) \bm{y}_j = (\zeta_j I -  \delta t M^{-1} {\cal L}) \bm{y}_j = \bm{z}_j,
 \end{align}
-the Krylov solver is preconditioned by applying some number of AMG iterations to the scaled system
+we first scale both sides of the problem by ${M}$ to give
 \begin{align}
-M{\cal R}_j(\delta t \widehat{\cal L}) \bm{y}_{j,k} \equiv (\zeta_j M - \delta t {\cal L}) \bm{y}_j = M \bm{z}_{j,k},
+(\zeta_j M -  \delta t {\cal L}) \bm{y}_j = M \bm{z}_j.
 \end{align}
-where $k$ denotes the Krylov iteration. Note we scale this problem by $M$ so that we avoid the dense matrix $M^{-1}{\cal L}$ in the preconditioner. \tcp{Ben: Is this correct? So that on every application of the AMG preconditioner, we multiply the RHS by $M$? I guess we could also scale the original problem to be $(\zeta_j M - \delta t {\cal L}) \bm{y}_j = M \bm{z}_j$ too? Then we don't have to multiply the current RHS $\bm{z}_{j,k}$ by $M$ every time we apply the preconditioner. This also means that we only need to do a mass-matrix multiply instead of a solve when we apply the action of the operator. Is this the idea you mentioned over Slack? }\tcb{Exactly -- also, if we want to use PCG or MINRES for an SPD system, we would
-need to scale by $M$ so that the system is SPD. Looking closer, I also realize that if we don't scale by $M$, 
-every GMRES iteration requires the action of $\mathcal{R}_j$ to compute a residual, which requires the action
-of $M^{-1}}$. Eliminating that cost is enough to be worthwhile.}
+This system is then solved by GMRES (or CG/MINRES if ${\cal L}$ is symmetric) which is preconditioned by a single iteration of AMG applied to the matrix $(\zeta_j M -  \delta t {\cal L})$. So, per Krylov iteration, the action of $M$ is required once. Note that not scaling the system and applying an AMG preconditioner to the sparse matrix $(\zeta_j M -  \delta t {\cal L})$ requires the action of both $M$ and $M^{-1}$ every Krylov iteration.
 
-\item To solve the system
+\item \textbf{Quadratic factors:} To solve the system
 \begin{align}
-{\cal I}_j(\delta t \widehat{\cal L}) \bm{y}_j = \bm{z}_j,
+{\cal I}_j(\delta t \widehat{\cal L}) \bm{y}_j 
+=
+\big( [\eta_j^2 + \beta_j^2] I - 2 \eta_j \delta t M^{-1} {\cal L} + (\delta t M^{-1} {\cal L})^2 \big) \bm{y}_j
+= \bm{z}_j,
 \end{align}
-the Krylov solver is preconditioned by the problem
+we first scale both sides by $M$ to give
 \begin{align}
-(\eta_j - \delta t \widehat{\cal L})^2 \bm{y}_{j,k} = \bm{z}_{j,k},
+\big( [\eta_j^2 + \beta_j^2] M - 2 \eta_j \delta t {\cal L} + \delta t^2 {\cal L} M^{-1} {\cal L} \big) \bm{y}_j
+= M \bm{z}_j.
 \end{align}
-where $k$ is the index of the Krylov iteration.
-To solve this problem for $\bm{y}_{j,k}$, we solve the equivalent sparse problem
-\begin{align}
-(\eta_j M - \delta t {\cal L}) \hat{\bm{y}}_{j,k}  = M \bm{z}_{j,k},\
-(\eta_j M - \delta t {\cal L}) \bm{y}_{j,k}  = M \hat{\bm{y}}_{j,k},
-\end{align}
-where the systems $(\eta_j M - \delta t {\cal L})$ are approximately inverted with AMG.
-
-\tcp{Similarly to above, I guess we can scale the original system by $M^2$ to avoid having to multiply the RHS by $M$ twice in every application of the preconditioner. We'd also avoid having to do solves of $M$ when computing the action of the operator and could do multiplies instead. Is this the other idea you had, Ben? I'd wondered about this previously; but doesn't it mess up the GMRES convergence theory you did because we'd be preconditioning
-\[
-[ (\eta_j^2 + \beta_j^2)M^2 - 2 \eta_j \delta t M {\cal L} + (\delta t {\cal L})^2 ] \bm{y}_j
-= 
-M^2 \bm{z}_j
-\]
-with
-\[
-(\eta_jM - \delta t {\cal L})^2 \bm{y}_{j,k} = \bm{z}_{j,k},
-\]
-and, so, you don't get the simple cancellations you need to bound the FOV of the preconditioned operator $[ (\eta_j^2 + \beta_j^2)M^2 - 2 \eta_j \delta t M {\cal L} + (\delta t {\cal L})^2 ] (\eta_jM - \delta t {\cal L})^{-2}$?
-}
-\tcb{So we can't scale by $M^2$ and get an equivalent system because $M$ and $\mathcal{L}$ don't commute.
-I think the best we can do here is to scale by $M$ to arrive at the system
-\[
-[ (\eta_j^2 + \beta_j^2)M - 2 \eta_j \delta t {\cal L} + \delta t^2{\cal L}M^{-1}{\cal L}] \bm{y}_j
-= 
-M \bm{z}_j
-\]
-So now instead of two applications of $M$ and $M^{-1}$ in each application of the preconditioning
-and operator, we just have one. Similar to above, if ${\cal L}$ is symmetric, now the quadratic
-operator is symmetric as well, and we can apply CG/MINRES. I think this is probably the ``right''
-approach and what we should try to implement. The only catch is a simple algorithm to apply the
-scaled operator
-\[
- (\eta_j^2 + \beta_j^2)M - 2 \eta_j \delta t {\cal L} + \delta t^2{\cal L}M^{-1}{\cal L}
-\]
-using calls to user-provided functions (presumably the application of $M$, $\mathcal{L}$, and
-$M^{-1}\mathcal{L}$).
-}
+This system is then solved by GMRES (or CG/MINRES if ${\cal L}$ is symmetric; note the operator is symmetric in this instance \tcb{(but is it SPD?)}) which is preconditioned by \underline{twice} applying a \textit{small}, fixed number of iterations (likely one) of AMG to the matrix $(\eta_j M -  \delta t {\cal L})$; however, before the second application of AMG, the RHS needs to be scaled by $M$.\footnote{To see why this is true, say $\beta_j = 0$, then the system we'd be solving is $(\eta_j M - \delta t {\cal L}) (\eta_j I - \delta t M^{-1} {\cal L}) \bm{y}_j = M \bm{z}_j$, and, so, when we come to precondition this system by twice inverting $\eta_j M - \delta t L$, we can invert it once to solve the system $(\eta_j M - \delta t L) \hat{\bm{y}}_j =  M \bm{z}_j$, where $\hat{\bm{y}}_j = (\eta_j I - \delta t M^{-1} {\cal L}) \bm{y}_j$. But before we can solve $(\eta_j I - \delta t M^{-1} L) \bm{y}_j = \hat{\bm{y}}_j$ by inverting $(\eta_j M - \delta t L)$, we must first scale the system by $M$.} So, per Krylov iteration, the action of $M^{-1}$ is required once, and the action of $M$ twice. Note that if the system were not scaled originally by $M$, then the action of $M$ and $M^{-1}$ would be required twice each per Krylov iteration ($M^{-1}$ in the action of the operator, and $M$ to scale the right hand sides in the preconditioner).
 \end{enumerate}
 
 
