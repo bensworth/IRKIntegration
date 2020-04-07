@@ -132,11 +132,10 @@ public:
         if (m_type == 1) {
             // With mass matrix
             if (m_S.m_M_exists) {
-                Vector z(x);
-                m_S.ApplyM(x, z);         // Apply M
-                m_S.ImplicitPrec(z, y);   // Precondition [gamma*M - dt*L]
+                m_S.ImplicitPrec(x, y);   // Precondition [gamma*M - dt*L]
             // Without mass matrix
-            } else {
+            }
+            else {
                 m_S.ImplicitPrec(x, y);   // Precondition [gamma*I - dt*L]
             }
         }
@@ -144,12 +143,12 @@ public:
             Vector z(x);
             // With mass matrix 
             if (m_S.m_M_exists) {
-                m_S.ApplyM(x, z);           // Apply M
-                m_S.ImplicitPrec(z, y);     // Precondition [gamma*M - dt*L]
+                m_S.ImplicitPrec(x, y);     // Precondition [gamma*M - dt*L]
                 m_S.ApplyM(y, z);           // Apply M
                 m_S.ImplicitPrec(z, y);     // Precondition [gamma*M - dt*L]
             // Without mass matrix
-            } else {
+            }
+            else {
                 m_S.ImplicitPrec(x, z);     // Precondition [gamma*I - dt*L]
                 m_S.ImplicitPrec(z, y);     // Precondition [gamma*I - dt*L]
             }
