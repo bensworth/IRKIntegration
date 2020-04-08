@@ -161,8 +161,8 @@ void IRK::Step(Vector &x, double &t, double &dt)
     /* Sequentially invert factors in characteristic polynomial */
     for (int i = 0; i < m_CharPolyOps.Size(); i++) {
         if (m_rank == 0) {
-            std::cout << "System " << i << " of " << m_CharPolyOps.Size()-1 <<
-            ";\t type = " << m_CharPolyOps[i]->Type() << "\n";
+            std::cout << "\tSystem " << i+1 << " of " << m_CharPolyOps.Size() <<
+            ":  type=" << m_CharPolyOps[i]->Type() << "\n";
         }
         
         // Ensure that correct time step is used in factored polynomial
@@ -200,10 +200,10 @@ void IRK::Run(Vector &x, double &t, double &dt, double tf)
 
     /* Main time-stepping loop */
     int step = 0;
-    int numsteps = int((tf-t)/dt);
+    int numsteps = ceil((tf-t)/dt);
     while (t < tf) {
         step++;
-        if (m_rank == 0) std::cout << "RK time-step " << step << " of " << numsteps << '\n';
+        if (m_rank == 0) std::cout << "IRK time-step " << step << " of " << numsteps << '\n';
 
         // Step from t to t+dt
         Step(x, t, dt);
@@ -237,33 +237,6 @@ void IRK::SizeButcherData(int nRealEigs, int nCCEigs) {
     m_beta.SetSize(nCCEigs);
     m_eta.SetSize(nCCEigs);
 }
-
-
-
-/* Print data to file that allows one to extract the 
-    relevant data for plotting, etc. from the saved solution. Pass
-    in dictionary with information also to be saved to file that isn't a member 
-    variable (e.g. space disc info)
-*/
-void IRK::SaveSolInfo(string filename, map<string, string> additionalInfo) 
-{
-    ofstream solinfo;
-    solinfo.open(filename);
-    solinfo << scientific; // This means parameters will be printed with enough significant digits
-    // solinfo << "nt " << m_nt << "\n";
-    // solinfo << "dt " << m_dt << "\n";
-    
-    // Time-discretization-specific information
-    solinfo << "timeDisc " << m_RK_ID << "\n";
-    
-    // Print out contents from additionalInfo to file too
-    map<string, string>::iterator it;
-    for (it=additionalInfo.begin(); it!=additionalInfo.end(); it++) {
-        solinfo << it->first << " " << it->second << "\n";
-    }
-    solinfo.close();
-}
-
 
 /* Set Butcher tableau and associated parameters */
     // // Implicit Runge Kutta type. Enumeration:
