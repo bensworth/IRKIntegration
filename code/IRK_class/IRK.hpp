@@ -333,7 +333,6 @@ public:
                   int maxiter=250, double abstol=1e-6, int kdim=15,
                   int printlevel=2);
 
-    void SaveSolInfo(string filename, map<string, string> additionalInfo);
 };
 
 #endif
