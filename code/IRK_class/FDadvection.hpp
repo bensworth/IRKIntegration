@@ -281,9 +281,8 @@ private:
                     
 public:
     
-
     /* Constructors */
-	FDadvection(MPI_Comm globComm, int dim, int refLevels, int order, int problemID, std::vector<int> px = {});
+    FDadvection(MPI_Comm globComm, int dim, int refLevels, int order, int problemID, std::vector<int> px = {});
     ~FDadvection();
     
     /* Add numerical dissipation into pure advection discretization  */
@@ -292,7 +291,16 @@ public:
     // Set member variables
     void SetL(double t); // Set spatial disc. matrix, m_L 
     
+    /* Get initial conditon */
     void GetU0(HypreParVector * &u0) const;
+    
+    /* Get exact solution (if available) */
+    bool GetUExact(double t, HypreParVector * &u) const;
+    
+    /* Get mesh info */
+    double Get_dx(int dim = 0) const { return m_dx[dim]; };
+    int    Get_nx(int dim = 0) const { return m_nx[dim]; };
+    int    Get_dim() const { return m_dim; };
     
     /* --- Virtual functions from base class requiring implementation --- */
     /* Compute y <- L*x + g(t) */

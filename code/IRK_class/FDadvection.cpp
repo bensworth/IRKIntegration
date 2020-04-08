@@ -205,6 +205,34 @@ void FDadvection::NegateData(int start, int stop, double * &data) const {
     }
 }
 
+
+/* Get exact solution (if available) as a HYPRE vector */
+bool FDadvection::GetUExact(double t, HypreParVector * &u) const {
+    
+    // Just retun if not implemented
+    if (!m_PDE_soln_implemented) return false;
+    
+    int      spatialDOFs;
+    int      ilower;
+    int      iupper;
+    double * U;
+
+    // No parallelism: Spatial discretization on single processor
+    if (!m_useSpatialParallel) {
+        GetExactPDESolution(U, spatialDOFs, t);
+        ilower = 0; 
+        iupper = spatialDOFs - 1; 
+    // Spatial parallelism: Distribute solution across spatial communicator
+    } else {
+        GetExactPDESolution(m_globComm, U, ilower, iupper, spatialDOFs, t);    
+    }    
+    GetHypreParVectorFromData(m_globComm, 
+                             ilower, iupper, spatialDOFs, 
+                             U, u);
+                             
+    return true;
+}
+
 /* Get initial condition in an MFEM HypreParVector */
 void FDadvection::GetU0(HypreParVector * &u0) const {
     
@@ -2138,9 +2166,177 @@ void FDadvection::get1DUpwindStencil(int * &inds, double * &weights, int dim) co
         weights[4] =  30.0/60.0;
         weights[5] = -3.0/60.0;
     } 
+    else if (m_order[dim] == 6) 
+    {    
+        /* --- Order 6 discretization --- */
+        inds[0] = -4;
+        inds[1] = -3;
+        inds[2] = -2;
+        inds[3] = -1;
+        inds[4] = +0;
+        inds[5] = +1;
+        inds[6] = +2;
+        weights[0] = +1.0/60.0;
+        weights[1] = -2.0/15.0;
+        weights[2] = +1.0/2.0;
+        weights[3] = -4.0/3.0;
+        weights[4] = +7.0/12.0;
+        weights[5] = +2.0/5.0;
+        weights[6] = -1.0/30.0;
+    } 
+    else if (m_order[dim] == 7) 
+    {    
+        /* --- Order 7 discretization --- */
+        inds[0] = -4;
+        inds[1] = -3;
+        inds[2] = -2;
+        inds[3] = -1;
+        inds[4] = +0;
+        inds[5] = +1;
+        inds[6] = +2;
+        inds[7] = +3;
+        weights[0] = +1.0/140.0;
+        weights[1] = -1.0/15.0;
+        weights[2] = +3.0/10.0;
+        weights[3] = -1.0/1.0;
+        weights[4] = +1.0/4.0;
+        weights[5] = +3.0/5.0;
+        weights[6] = -1.0/10.0;
+        weights[7] = +1.0/105.0;
+    } 
+    else if (m_order[dim] == 8) 
+    {    
+        /* --- Order 8 discretization --- */
+        inds[0] = -5;
+        inds[1] = -4;
+        inds[2] = -3;
+        inds[3] = -2;
+        inds[4] = -1;
+        inds[5] = +0;
+        inds[6] = +1;
+        inds[7] = +2;
+        inds[8] = +3;
+        weights[0] = -1.0/280.0;
+        weights[1] = +1.0/28.0;
+        weights[2] = -1.0/6.0;
+        weights[3] = +1.0/2.0;
+        weights[4] = -5.0/4.0;
+        weights[5] = +9.0/20.0;
+        weights[6] = +1.0/2.0;
+        weights[7] = -1.0/14.0;
+        weights[8] = +1.0/168.0;
+    } 
+    else if (m_order[dim] == 9) 
+    {    
+        /* --- Order 9 discretization --- */
+        inds[0] = -5;
+        inds[1] = -4;
+        inds[2] = -3;
+        inds[3] = -2;
+        inds[4] = -1;
+        inds[5] = +0;
+        inds[6] = +1;
+        inds[7] = +2;
+        inds[8] = +3;
+        inds[9] = +4;
+        weights[0] = -1.0/630.0;
+        weights[1] = +1.0/56.0;
+        weights[2] = -2.0/21.0;
+        weights[3] = +1.0/3.0;
+        weights[4] = -1.0/1.0;
+        weights[5] = +1.0/5.0;
+        weights[6] = +2.0/3.0;
+        weights[7] = -1.0/7.0;
+        weights[8] = +1.0/42.0;
+        weights[9] = -1.0/504.0;
+    } 
+    else if (m_order[dim] == 10) 
+    {    
+        /* --- Order 10 discretization --- */
+        inds[0] = -6;
+        inds[1] = -5;
+        inds[2] = -4;
+        inds[3] = -3;
+        inds[4] = -2;
+        inds[5] = -1;
+        inds[6] = +0;
+        inds[7] = +1;
+        inds[8] = +2;
+        inds[9] = +3;
+        inds[10] = +4;
+        weights[0] = +1.0/1260.0;
+        weights[1] = -1.0/105.0;
+        weights[2] = +3.0/56.0;
+        weights[3] = -4.0/21.0;
+        weights[4] = +1.0/2.0;
+        weights[5] = -6.0/5.0;
+        weights[6] = +11.0/30.0;
+        weights[7] = +4.0/7.0;
+        weights[8] = -3.0/28.0;
+        weights[9] = +1.0/63.0;
+        weights[10] = -1.0/840.0;
+    } 
+    else if (m_order[dim] == 11) 
+    {    
+        /* --- Order 11 discretization --- */
+        inds[0] = -6;
+        inds[1] = -5;
+        inds[2] = -4;
+        inds[3] = -3;
+        inds[4] = -2;
+        inds[5] = -1;
+        inds[6] = +0;
+        inds[7] = +1;
+        inds[8] = +2;
+        inds[9] = +3;
+        inds[10] = +4;
+        inds[11] = +5;
+        weights[0] = +1.0/2772.0;
+        weights[1] = -1.0/210.0;
+        weights[2] = +5.0/168.0;
+        weights[3] = -5.0/42.0;
+        weights[4] = +5.0/14.0;
+        weights[5] = -1.0/1.0;
+        weights[6] = +1.0/6.0;
+        weights[7] = +5.0/7.0;
+        weights[8] = -5.0/28.0;
+        weights[9] = +5.0/126.0;
+        weights[10] = -1.0/168.0;
+        weights[11] = +1.0/2310.0;
+    } 
+    else if (m_order[dim] == 12) 
+    {    
+        /* --- Order 12 discretization --- */
+        inds[0] = -7;
+        inds[1] = -6;
+        inds[2] = -5;
+        inds[3] = -4;
+        inds[4] = -3;
+        inds[5] = -2;
+        inds[6] = -1;
+        inds[7] = +0;
+        inds[8] = +1;
+        inds[9] = +2;
+        inds[10] = +3;
+        inds[11] = +4;
+        inds[12] = +5;
+        weights[0] = -1.0/5544.0;
+        weights[1] = +1.0/396.0;
+        weights[2] = -1.0/60.0;
+        weights[3] = +5.0/72.0;
+        weights[4] = -5.0/24.0;
+        weights[5] = +1.0/2.0;
+        weights[6] = -7.0/6.0;
+        weights[7] = +13.0/42.0;
+        weights[8] = +5.0/8.0;
+        weights[9] = -5.0/36.0;
+        weights[10] = +1.0/36.0;
+        weights[11] = -1.0/264.0;
+        weights[12] = +1.0/3960.0;
+    } 
     else 
     {
-        std::cout << "WARNING: invalid choice of spatial discretization. Upwind discretizations of orders 1--5 only implemented.\n";
+        std::cout << "WARNING: invalid choice of spatial discretization. Upwind discretizations of orders 1--12 implemented.\n";
         MPI_Finalize();
         exit(1);
     }
