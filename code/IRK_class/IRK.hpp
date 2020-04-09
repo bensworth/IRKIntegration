@@ -257,7 +257,10 @@ IRKOperator */
 class IRK : public ODESolver
 {
 private:    
-
+    MPI_Comm m_comm;          
+    int m_numProcess;
+    int m_rank;
+    
     IRKOperator * m_S; // Holds all information about THE spatial discretization. TODO: Maybe rename to avoid confusion with Butcher m_s...
     
     Vector m_y, m_z; // Solution and RHS of linear systems
@@ -282,13 +285,14 @@ private:
     Vector m_eta;       // REAL parts of complex pairs of eigenvalues of inv(A0)
     vector<Vector> m_XCoeffs;  // Vectors for the coefficients of polynomials {X_j}_{j=1}^s
     // TODO: if I use MFEM::Array<Vector> rather than std::vector<Vector> I get compiler warnings whenever I size the MFEM::Array...
-    //Vector * m_XCoeffs;  // Vectors for the coefficients of polynomials {X_j}_{j=1}^s
-
-    // --- Relating to HYPRE solution of linear systems ---
-    int m_numProcess;
-    int m_rank;
-    MPI_Comm m_comm;          // Global communicator
-
+    
+    /* --- Relating to solution of linear systems --- */
+    int m_krylov_print;
+    vector<int> m_avg_iter;  // Across whole integration, avg number of Krylov iters for each system
+    vector<int> m_type;      // Type 1 or 2?
+    vector<double> m_eig_ratio; // The ratio beta/eta
+    
+    
     void SetButcherData();    // Set Butcher tableau coefficients
     void SizeButcherData(int nRealEigs, int nCCEigs); // Set dimensions of Butcher arrays
     void SetXCoeffs();        // Set coefficients of polynomials X_j
@@ -333,6 +337,13 @@ public:
                   int maxiter=250, double abstol=1e-6, int kdim=15,
                   int printlevel=2);
 
+    // Get statistics about solution of linear systems
+    inline void GetSolveStats(vector<int> &avg_iter, vector<int> &type, 
+                                vector<double> &eig_ratio) const {
+                                    avg_iter  =  m_avg_iter;
+                                    type      =  m_type;
+                                    eig_ratio =  m_eig_ratio;
+                                }
 };
 
 #endif

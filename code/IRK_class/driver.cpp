@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
     args.AddOption(&abstol, "-atol", "--abs-tol", "Krlov: Absolute stopping tolerance");
     args.AddOption(&maxiter, "-maxit", "--max-iterations", "Krlov: Maximum iterations");
     args.AddOption(&kdim, "-kdim", "--Krylov-dimension", "Krlov: Maximum subspace dimension");
-    args.AddOption(&printlevel, "-p", "--abs-tol-", "Krlov: Print level");
+    args.AddOption(&printlevel, "-kp", "--Krylov-print", "Krlov: Print level");
     
     /* --- Text output of solution etc --- */              
     args.AddOption(&out, "-out", "--out-directory", "Name of output file."); 
@@ -203,7 +203,7 @@ int main(int argc, char *argv[])
     double t = 0.0;
     MyIRK.Run(*u, t, dt, tf);
 
-    if (set_tf) {
+    if (set_tf && (fabs(t-tf)>1e-15)) {
         if (rank == 0) std::cout << "WARNING: Requested tf of " << tf << " adjusted to " << t << '\n';
     }
     tf = t; // Update final time
@@ -254,6 +254,18 @@ int main(int argc, char *argv[])
                 info["eL2"].resize(snprintf(&info["eL2"][0], 16, "%.6e", eL2));
                 info["eLinf"].resize(snprintf(&info["eLinf"][0], 16, "%.6e", eLinf));
             } 
+            
+            
+            /* Linear system/solve statistics */
+            std::vector<int> avg_iter;
+            std::vector<int> type;
+            std::vector<double> eig_ratio;
+            MyIRK.GetSolveStats(avg_iter, type, eig_ratio);
+            for (int system = 0; system < avg_iter.size(); system++) {
+                info[string("sys") + to_string(system+1) + "_iters"] = to_string(avg_iter[system]);
+                info[string("sys") + to_string(system+1) + "_type"] = to_string(type[system]);
+                info[string("sys") + to_string(system+1) + "_eig_ratio"] = to_string(eig_ratio[system]);
+            }
             SaveDict(out, info);
         }
     }
