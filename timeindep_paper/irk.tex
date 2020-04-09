@@ -11,7 +11,7 @@
 \usepackage{enumitem}
 	\setlist{nosep} % or \setlist{noitemsep} to leave space around whole list
 \usepackage{color}
-% \usepackage{showlabels}
+\usepackage{showlabels}
 \usepackage{adjustbox}
 \usepackage{hyperref}
 \definecolor{darkgreen}{rgb}{0.0, 0.5, 0}
@@ -1002,6 +1002,7 @@ The main task here is going to be computing the action of the degree $s-1$ polyn
 % ------------------------------------------------------------------------------------- %
 \section{The linear time-dependent setting}
 
+{\color{blue}
 Are there any problems with time-dependent components in the differential
 operator that are linear? Since we are integrating in time, I am thinking
 this will become nonlinear inherently. If not, it is possible something like
@@ -1010,6 +1011,7 @@ over stages $\mathbf{k}$ using the block multiplication
 $(A_0^{-1}\mathbf{b}_0\otimes I)\mathbf{k} = 
 (A_0^{-1}\mathbf{b}_0\otimes I)A^{-1}\mathbf{f}$. 
 
+}
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -1057,20 +1059,20 @@ defined as the solution of the linear system
 %
 
 Now, let $A_0^{-1} = Q_0R_0Q_0^T$ be the real Schur decomposition of $A_0^{-1}$, where
-$Q_0$ is real-valued, orthogonal, and block upper triangular, and $R_0$ is a block
+$Q_0$ is real-valued and orthogonal, and $R_0$ is a block
 upper triangular matrix, where each block corresponds to an eigenvalue (pair) of
 $A_0^{-1}$. Real-valued eigenvalues have block size one, and complex eigenvalues
 $\eta\pm i\beta$ are in $2\times 2$ blocks,
 $\begin{bmatrix} \eta & \beta\\-\beta & \eta\end{bmatrix}.$
-Pulling out a $Q_0\otimes I$ and $Q_0^T\otimes I$ from the left and right or
+Pulling out a $Q_0\otimes I$ and $Q_0^T\otimes I$ from the left and right of
 \eqref{eq:keq2} yields the equivalent linear system
 %
 \begin{align}\label{eq:keq3}
 \left( R_0\otimes I - I \otimes \widehat{\mathcal{L}}\right)
-	(R_0^{-1}Q_0^T\otimes I) \mathbf{k} & = (Q_0\otimes I)\mathbf{f}.
+	(R_0^{-1}Q_0^T\otimes I) \mathbf{k} & = (Q_0^T\otimes I)\mathbf{f}.
 \end{align}
 %
-The left-most matrix is now a block upper triangular matrix, which can be easily solved
+The left-most matrix is now a block upper triangular matrix, which can be solved
 using a block backward solve, and requires inverting each diagonal block. Diagonal
 blocks corresponding to real-valued eigenvalues $\eta$ take the form
 $(\eta I - \widehat{\mathcal{L}})$, and are amenable to standard preconditioning
@@ -1109,11 +1111,12 @@ Similar to \Cref{sec:solve:prec}, suppose we precondition $S$ by dropping
 terms corresponding to the complex part of the eigenvalue, $\beta^2$, yielding the
 preconditioned operator
 %
-\begin{align*}
+\begin{align}\nonumber
 (\eta I - \widehat{\mathcal{L}})^{-1}S &
 	:= I + \beta^2 (\eta I - \widehat{\mathcal{L}})^{-2}\\
- & = I + \frac{\beta^2}{\eta^2} (I - \tfrac{1}{\eta}\widehat{\mathcal{L}})^{-2}.
-\end{align*}
+& = I + \frac{\beta^2}{\eta^2} (I - \tfrac{1}{\eta}\widehat{\mathcal{L}})^{-2}.
+\label{eq:prec2}
+\end{align}
 %
 This is exactly the form we arrived at when analyzing preconditioning using the
 adjugate and determinant in \Cref{sec:solve} and \Cref{th:fov}. Indeed, because
@@ -1123,16 +1126,17 @@ in \Cref{tab:beta} apply here as well. Similar to \Cref{sec:solve}, we do not
 want to solve $(\eta I - \widehat{\mathcal{L}})^{-1}$ exactly each iteration. It
 is well-known in the block-preconditioning community that a few iterations of
 an effective preconditioner typically yields convergence on the $2\times 2$
-operator just as fast as if performing direct solves on the diagonal blocks. 
+operator just as fast as if performing direct solves in the preconditioning. 
 
 Thus, we have an algorithm that is similar in essence to that of \Cref{sec:solve},
 but is able to store all stage vectors and is compatible with a simplified Newton
 iteration. Note, for linear problems the algorithm from \Cref{sec:solve} is still
 preferable because the nonlinear method presented here requires more memory to
 store stage vectors, is not amenable to the use of CG/MINRES, and the Krylov
-method of choice must store two stages instead of one. However, it does give
-insight into a preconditioning for the fully nonlinear and time-dependent
-setting, which is discussed in the next section. 
+method of choice must store two stages instead of one for each vector in the
+Krylov space. On the bright side, the method based on a real Schur decomposition
+does give insight into a preconditioning for the fully nonlinear and
+time-dependent setting, which is discussed in the next section. 
 
 %
 \begin{remark}[Closed form Inverse]
@@ -1155,69 +1159,147 @@ which doubles the number of linear solves.
 %% case, should say so. Motivate A0^{-1} to tie in with linear algorithm and
 %% to motivate the general case, which would be less apparent w/o A0^{-1}.
 %% ---> Try to show proof of Theorem can be applied for this version as well...
-% %
-% \begin{remark}[Importance of $A_0^{-1}$]
-% This is not the first work to consider a real Schur decomposition of $A_0$
-% \todo{cite?}, but the transformation in \eqref{eq:keq} is critical to an
-% efficient and practical method. Above we show how there is a natural preconditioning
-% of the $2\times 2$ operators corresponding to complex eigenvalues of $A_0^{-1}$,
-% which only requires preconditioning real-valued linear systems
-% $(\eta I - \widehat{\mathcal{L}})$. Consider a similar approach applied to
-% the traditional Kronkecker product form \eqref{eq:kron1}, now transforming
-% $A_0$ using the real Schur decomposition. Solving for all stage vectors can
-% then be achieved solving a similar block upper triangular matrix as in
-% \eqref{eq:keq3}, but now the $2\times 2$ block linear systems corresponding
-% to complex eigenvalues of $A_0$, say $\mu + i\zeta$, take the form 
-% %
-% \begin{align*}
-% \begin{bmatrix} I - \mu\widehat{\mathcal{L}} & \zeta\widehat{\mathcal{L}} \\
-% 	-\zeta\widehat{\mathcal{L}} & I - \mu\widehat{\mathcal{L}} \end{bmatrix}.
-% \end{align*}
-% %
+%
+\begin{remark}[A similar approach for $A_0$]
+This is not the first work to consider a real Schur decomposition of $A_0$
+\todo{cite?}. A similar approach can be applied to the traditional Kronkecker
+product form \eqref{eq:kron1}, now transforming $A_0$ (instead of $A_0^{-1}$)
+using the real Schur decomposition. Solving for all stage vectors can then 
+be achieved by solving a similar block upper triangular matrix as in
+\eqref{eq:keq3}, but now the $2\times 2$ block linear systems corresponding
+to complex eigenvalues of
+$A_0$, say $\mu + i\zeta$, take the form 
+\begin{align*}
+\begin{bmatrix} I - \mu\widehat{\mathcal{L}} & \zeta\widehat{\mathcal{L}} \\
+	-\zeta\widehat{\mathcal{L}} & I - \mu\widehat{\mathcal{L}} \end{bmatrix}.
+\end{align*}
 
-% The inversion of a $2\times 2$ block matrix, via direct methods or preconditioning,
-% is essentially defined by inverting the Schur complement, in this case given by 
-% %
-% \begin{align*}
-% S & = (I - \mu \widehat{\mathcal{L}})^{-1}
-% 	\Big[ (I - \mu \widehat{\mathcal{L}})^2 + \zeta\widehat{\mathcal{L}}^2\Big].
-% \end{align*}
-% %
-% Note that now the imaginary term (here denoted $\zeta$ as opposed to $\beta$
-% for $A_0^{-1}$) is multiplied by $\widehat{\mathcal{L}}^2$ rather than the
-% identity we saw previously. Although a somewhat simple change, a natural
-% preconditioning is now less obvious. For example, suppose we take the same
-% approach as before and precondition $(I - \mu \widehat{\mathcal{L}})^2 +
-% \zeta\widehat{\mathcal{L}}^2$ with the term associated with the real-valued
-% eigenvalue, $(I - \mu \widehat{\mathcal{L}})^2$. 
-% \end{remark}
-% %
+The inversion of a $2\times 2$ block matrix, via direct methods or preconditioning,
+is essentially defined by inverting the Schur complement, in this case given by 
+\begin{align*}
+S_0 & = (I - \mu \widehat{\mathcal{L}}) +
+	\zeta^2(I - \mu \widehat{\mathcal{L}})^{-1}\widehat{\mathcal{L}}^2.
+\end{align*}
+Interestingly, an analogous approach as used with the $A_0^{-1}$ transformation
+can be applied here. Suppose we precondition $S_0 = (I - \mu \widehat{\mathcal{L}}) +
+\zeta^2(I - \mu \widehat{\mathcal{L}})^{-1}\widehat{\mathcal{L}}^2$ with the term
+associated with the real-valued eigenvalue, $(I - \mu \widehat{\mathcal{L}})$.
+The preconditioned operator takes the form
+\begin{align*}
+(I - \mu \widehat{\mathcal{L}})^{-1}S_0 & = I + 
+	\zeta^2(I - \mu \widehat{\mathcal{L}})^{-2}\widehat{\mathcal{L}}^2 \\
+& = I + \frac{\zeta^2}{\mu^2}(\mu I - \widehat{\mathcal{L}}^{-1})^{-2}.
+\end{align*}
 
+Note that this closely resembles the preconditioned operator from \eqref{eq:prec1}
+and \eqref{eq:prec2}, but here with a $\widehat{\mathcal{L}}^{-1}$ inside of the
+inverse term, as opposed to a $\widehat{\mathcal{L}}$ in \eqref{eq:prec1}
+and \eqref{eq:prec2}. In \Cref{th:fov}, we assumed that $\widehat{\mathcal{L}}$
+is negative in a field of values sense, equivalent to saying that
+$(\widehat{\mathcal{L}} + \widehat{\mathcal{L}}^T)$ is negative semi-definite.
+Noting that if $(\widehat{\mathcal{L}} + \widehat{\mathcal{L}}^T)$ is
+negative semi-definite, then $(\widehat{\mathcal{L}}^{-1} +
+\widehat{\mathcal{L}}^{-T})$ is also negative semi-definite, we have the
+following corollary.
+\end{remark}
+%
 
+%
+\begin{corollary}[Preconditioned field of values]\label{cor:fov}
+Assume that $\mu > 0$ and the symmetric part of $\widehat{\mathcal{L}}^{-1}$
+satisfies $(\widehat{\mathcal{L}}^{-1}+\widehat{\mathcal{L}}^{-T}) \leq 0$. Let
+$\mathcal{P}_\mu$ denote the preconditioned operator, where
+$(I - \mu \widehat{\mathcal{L}}) +
+	\zeta^2(I - \mu \widehat{\mathcal{L}})^{-1}\widehat{\mathcal{L}}^2$ is
+preconditioned with $(\mu I - \widehat{\mathcal{L}})^{-1}$. Then 
+$W(\mathcal{P}_\mu)$ is bounded by $\Omega$ as shown in \Cref{fig:bound}.
+\end{corollary}
+\begin{proof}
+The proof follows analogous to that of \Cref{th:fov}.
+\end{proof}
+%
+
+\Cref{cor:fov} suggests the $A_0^{-1}$ transformation is not necessary -- one
+can apply the real Schur decomposition to the traditional Kronecker product form 
+\eqref{eq:kron1} and use a similar block preconditioning as introduced in 
+\eqref{eq:Lprec} and \eqref{eq:prec2} to solve the $2\times 2$ blocks associated
+with complex eigenvalues, with similarly nice theoretical bounds on the
+conditioning of the preconditioned operator. Here, we use the $A_0^{-1}$
+approach as it \textit{is} necessary for the linear algorithm developed in
+\Cref{sec:solve}, and also more naturally suggests an extension to the
+general nonlinear setting (for example, full Newton as opposed to simplified
+Newton) in the following section.
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
 \subsection{The general setting}\label{sec:nonlinear:gen}
 
 Now let us return to \eqref{eq:keq} for $\mathcal{L}_i\neq\mathcal{L}_j$, but
-extract the real Schur decomposition as in \Cref{sec:nonlinear:gen}. This yields
-the linear system
+extract the real Schur decomposition as in \Cref{sec:nonlinear:gen}. Continuing
+with the simplified representation $\widehat{\mathcal{L}}_i := \delta t M^{-1}\mathcal{L}_i$,
+this yields the linear system
 %
 \begin{align}\label{eq:keq4}
-Q_0\otimes I\left( R_0^{-1}\otimes M - \delta t (Q_0^T\otimes I)
-	\begin{bmatrix} \mathcal{L}_1  & \\ & \ddots \\ && \mathcal{L}_s\end{bmatrix}
-	(Q_0\otimes I)\right)Q_0^T\otimes I.
+\left( R_0\otimes I - (Q_0^T\otimes I) \begin{bmatrix}
+	\widehat{\mathcal{L}}_1  & \\ & \ddots \\ && \widehat{\mathcal{L}}_s\end{bmatrix}
+	(Q_0\otimes I)\right) (R_0^{-1}Q_0^T\otimes I) \mathbf{k}\
+= (Q_0^T\otimes I)\mathbf{f}.
 \end{align}
-%{}
-Recall $Q_0$ is orthogonal, so for $\mathcal{L}_i = \mathcal{L}_j$, the coefficients
-of $Q_0$ work out so that the off-diagonals of the triple product with $\delta t$
-are zero and the diagonals are $\mathcal{L}$. Here instead we have elements with a
-form $\sum_{k=1}^s \zeta_k\mathcal{L}_k$, where $\sum_{k=1}^s \zeta_k$ equals one
-or zero for diagonal and off-diagonal, respectively. We could either ignore the error
-that this induces and use a quasinewton approach inverting \eqref{eq:keq2}, or use
-\eqref{eq:keq2} as a linear preconditioner to solve the true Jacobian each step.
+%
+Here, we are particularly interested in the operator
+%
+\begin{align}\label{eq:Q0approx}
+(Q_0^T\otimes I) \begin{bmatrix}
+	\widehat{\mathcal{L}}_1  & \\ & \ddots \\ && \widehat{\mathcal{L}}_s\end{bmatrix}
+	(Q_0\otimes I).
+\end{align}
+%
+Of course for $\widehat{\mathcal{L}}_i = \widehat{\mathcal{L}}_j$, this is block
+diagonal, given by $I\otimes\widehat{\mathcal{L}}$. For
+$\widehat{\mathcal{L}}_i \neq \widehat{\mathcal{L}}_j$, diagonal blocks of
+\eqref{eq:Q0approx} take the form $\sum_{k=1}^s |c_k|\widehat{\mathcal{L}}_k$,
+where $\sum_{k=1}^s |c_k| = 1$, and off-diagonal blocks take the form
+$\sum_{k=1}^s d_k \widehat{\mathcal{L}}_k$, where $\sum_{k=1}^s d_k = 0$.
 
+{\color{blue}
+\textbf{Few thoughts:}
+\begin{itemize}
+	\item There are a number of ways we can think about this. We can pick some
+	specific block triangular representation of \eqref{eq:keq4} and invert it
+	exactly for each nonlinear iteration. In the context of Newton, this would
+	be a quasi-Newton type method. We could also use a block triangular
+	approximation to \eqref{eq:keq4} as a preconditioner and iterate on the
+	linear system to invert the actual Jacobian. I think the preconditioning
+	would be sufficiently good that this would converge very rapidly. The
+	downside is that we would either need (i) to store preconditioners for each
+	stage to be applied every outer linear iteration on the block system, or (ii)
+	rebuild solvers for each stage during each linear iteration if we cannot store
+	them all. Unclear what the ``best'' approach would be. 
 
+	\item An important piece of the puzzle is \eqref{eq:Q0approx}. A closed form
+	as a function of $\{\widehat{\mathcal{L}}_k\}$ is straightforward to compute
+	in Mathematica. In general, it seems for IRK schemes that diagonal blocks
+	are dominated by one term, and effectively defined by two. Many of the
+	off-diagonal elements have very small coefficients, and can probably be
+	ignored without significant issue. But there are still many options. For
+	example, we can include the upper triangular off-diagonal components of
+	\eqref{eq:Q0approx} at the expense of some extra mat-vecs. Is this additional
+	work worth the improvement in convergence? 
+
+	\item Inverting the $2\times 2$ diagonal blocks likely require the most careful
+	attention. The off-diagonal blocks for a principle $2\times 2$ submatrix in
+	\eqref{eq:Q0approx} are identical, but the diagonal blocks differ. Do we take
+	a linear combination $\sum_{k=1}^s |c_k|\widehat{\mathcal{L}}_k$ for some or
+	all of the terms, or just use the dominant term? If we drop any terms, we
+	should probably rescale to have coefficients sum to one. If we assume the
+	off-diagonal blocks are zero, \Cref{cor:fov} extends well to a $2\times 2$
+	matrix with different $\sum_{k=1}^s |c_k|\widehat{\mathcal{L}}_k$ on the
+	diagonal blocks. If we have off-diagonal blocks, these will not commute,
+	and the analysis may be more complicated. 
+
+\end{itemize}
+
+}
 
 
 
