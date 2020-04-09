@@ -248,7 +248,7 @@ void IRK::SizeButcherData(int nRealEigs, int nCCEigs) {
     // //  Second digit: order of scheme
     // enum Type { 
     //     SDIRK1 = 01, SDIRK2 = 02, SDIRK3 = 03, SDIRK4 = 04,
-    //     Gauss4 = 14, Gauss6 = 16, Gauss8 = 18, Gauss10 = 110,
+    //     Gauss2 = 12, Gauss4 = 14, Gauss6 = 16, Gauss8 = 18, Gauss10 = 110,
     //     RadauIIA3 = 23, RadauIIA5 = 25, RadauIIA7 = 27, RadauIIA9 = 29,
     //     LobIIIC2 = 32, LobIIIC4 = 34, LobIIIC6 = 36, LobIIIC8 = 38
     // };
@@ -442,6 +442,29 @@ void IRK::SetButcherData() {
         /* --- eta --- */
         /* --- beta --- */
         /* -------------------------- */        
+    }
+    // 1-stage 2nd-order Gauss--Legendre
+    else if (m_RK_ID == 12) {
+        /* ID: Gauss2 */
+        m_s = 1;
+        SizeButcherData(1, 0);
+
+        /* --- Tableau constants --- */
+        /* --- A --- */
+        m_A0(0, 0) = +0.500000000000000;
+        /* --- inv(A) --- */
+        m_invA0(0, 0) = +2.000000000000000;
+        /* --- b --- */
+        m_b0(0) = +1.000000000000000;
+        /* --- c --- */
+        m_c0(0) = +0.500000000000000;
+        /* --- d --- */
+        m_d0(0) = +2.000000000000000;
+        /* --- zeta --- */
+        m_zeta(0) = +2.000000000000000;
+        /* --- eta --- */
+        /* --- beta --- */
+        /* -------------------------- */
     }
     // 2-stage 4th-order Gauss--Legendre
     else if (m_RK_ID == 14) {

@@ -38,20 +38,22 @@ outformat2 = @(label, i, j, data) myfprintf('%s(%d, %d) = %+.15f;\n', label, i, 
 %ID = 'SDIRK3';
 %ID = 'SDIRK4';
 % 
+%
+ID = 'Gauss2';
 %ID =  'Gauss4';
 % ID =  'Gauss6';
 % ID =  'Gauss8';
-ID =  'Gauss10';
+%ID =  'Gauss10';
 % 
 %ID = 'RadauIIA3';
-ID = 'RadauIIA5';
+%ID = 'RadauIIA5';
 % ID = 'RadauIIA7';
 %ID = 'RadauIIA9';
 %  
 %ID =  'LobIIIC2';
-ID =  'LobIIIC4';
+%ID =  'LobIIIC4';
 %ID =  'LobIIIC6';
-ID =  'LobIIIC8';
+%ID =  'LobIIIC8';
 
 % Get table
 [A, b, c] = butcher_tableaux(ID);
