@@ -154,7 +154,7 @@ void IRK::SetSolve(IRK::Solve solveID, double reltol, int maxiter,
 
 // Call base class' init and size member vectors
 void IRK::Init(TimeDependentOperator &F)
-{
+{    
     ODESolver::Init(F);
     m_y.SetSize(F.Height(), mem_type);
     m_z.SetSize(F.Height(), mem_type);

@@ -10,7 +10,7 @@ using namespace mfem;
 using namespace std;
 
 
-bool GetError(const FDadvection &SpaceDisc, double tf, const HypreParVector &u, double &eL1, double &eL2, double &eLinf);
+bool GetError(const FDadvection &SpaceDisc, const FDMesh &Mesh, double tf, const HypreParVector &u, double &eL1, double &eL2, double &eLinf);
 void SaveDict(string filename, map<string, string> mySolInfo);
 
 /* SAMPLE RUNS:
@@ -62,8 +62,8 @@ int main(int argc, char *argv[])
     int ndis       = 2; // Degree of numerical dissipation (2 or 4)
     double ndis_c0 = 0.0; 
     int ndis_c1    = 0;  
-    int px         = -1; // # procs in x-direction
-    int py         = -1; // # procs in y-direction
+    int npx        = -1; // # procs in x-direction
+    int npy        = -1; // # procs in y-direction
     
     // AMG parameters
     AMG_parameters AMG_params;
@@ -93,9 +93,9 @@ int main(int argc, char *argv[])
                   "FD: Mesh refinement; 2^refLevels DOFs in each dimension.");
     args.AddOption(&dim, "-d", "--dim",
                   "Spatial problem dimension.");
-    args.AddOption(&px, "-px", "--procx",
+    args.AddOption(&npx, "-px", "--nprocs-in-x",
                   "FD: Number of procs in x-direction.");
-    args.AddOption(&py, "-py", "--procy",
+    args.AddOption(&npy, "-py", "--nprocs-in-y",
                   "FD: Number of procs in y-direction.");                          
     args.AddOption(&ndis, "-ndis", "--num-dissipation-degree", 
                   "FD: Degree of numerical dissipation");
@@ -136,19 +136,23 @@ int main(int argc, char *argv[])
     }
     
     
-    /* --- Get FDadvection object --- */
-    std::vector<int> n_px = {};
-    if (px != -1) {
+    /* --- Set up spatial discretization --- */
+    std::vector<int> np = {};
+    if (npx != -1) {
         if (dim >= 1) {
-            n_px.push_back(px);
+            np.push_back(npx);
         }
         if (dim >= 2) {
-            n_px.push_back(py);
+            np.push_back(npy);
         }
     }
     
+    
+    // Build mesh
+    FDMesh Mesh(MPI_COMM_WORLD, dim, refLevels, np);
+    
     // Build Spatial discretization 
-    FDadvection SpaceDisc(MPI_COMM_WORLD, dim, refLevels, order, FD_ProblemID, n_px); 
+    FDadvection SpaceDisc(MPI_COMM_WORLD, Mesh, order, FD_ProblemID); 
     
     // Add numerical dissipation into FD-advection discretization if meaningful parameters passed */
     if (ndis > 0 && ndis_c0 > 0.0) {
@@ -166,8 +170,8 @@ int main(int argc, char *argv[])
     SpaceDisc.GetU0(u);
     
     // Get mesh info
-    double dx = SpaceDisc.Get_dx();
-    int    nx = SpaceDisc.Get_nx();
+    double dx = Mesh.Get_dx();
+    int    nx = Mesh.Get_nx();
     
     // If user hasn't set dt, time step so that we run at prescribed CFL
     if (dt == -1.0) {
@@ -218,7 +222,7 @@ int main(int argc, char *argv[])
         double eL1, eL2, eLinf = 0.0; 
         
         /* Get error against exact PDE solution if available */
-        bool got_error = GetError(SpaceDisc, tf, *u, eL1, eL2, eLinf);
+        bool got_error = GetError(SpaceDisc, Mesh, tf, *u, eL1, eL2, eLinf);
         
         // Save data to file enabling easier inspection of solution            
         if (rank == 0) {
@@ -237,8 +241,8 @@ int main(int argc, char *argv[])
             info["problemID"]       = to_string(FD_ProblemID);
             info["P"]               = to_string(numProcess);
             
-            for (int d = 0; d < n_px.size(); d++) {
-                info[string("p_x") + to_string(d)] = to_string(n_px[d]);
+            for (int d = 0; d < np.size(); d++) {
+                info[string("np") + to_string(d)] = to_string(np[d]);
             }
     
             if (dx != -1.0) {
@@ -278,8 +282,8 @@ int main(int argc, char *argv[])
 
 
 /* Get error against exact PDE solution if available */
-bool GetError(const FDadvection &SpaceDisc, double tf, const HypreParVector &u, 
-                double &eL1, double &eL2, double &eLinf) {
+bool GetError(const FDadvection &SpaceDisc, const FDMesh &Mesh, 
+                double tf, const HypreParVector &u, double &eL1, double &eL2, double &eLinf) {
     HypreParVector * u_exact = NULL;
     
     if (SpaceDisc.GetUExact(tf, u_exact)) {
@@ -295,12 +299,12 @@ bool GetError(const FDadvection &SpaceDisc, double tf, const HypreParVector &u,
         eLinf = GlobalLpNorm(infinity(), eLinf, MPI_COMM_WORLD);
         
         // Scale norms by mesh size
-        double dx = SpaceDisc.Get_dx(0);
+        double dx = Mesh.Get_dx(0);
         eL1 *= dx;
         eL2 *= sqrt(dx);
-        int dim = SpaceDisc.Get_dim();
+        int dim = Mesh.Get_dim();
         if (dim > 1) {
-            double dy = SpaceDisc.Get_dx(1);
+            double dy = Mesh.Get_dx(1);
             eL1 *= dy;
             eL2 *= sqrt(dy);
         }

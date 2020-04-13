@@ -20,6 +20,58 @@
 
 #define PI 3.14159265358979323846
 
+
+/* Abstract class defining an equidistant cartesian mesh */
+class FDMesh
+{
+private:
+    
+    friend class FDadvection;
+    
+    /// --- Characteristic properties of mesh --- ///
+    int m_dim;                /* Number of dimensions */
+    std::vector<int>    m_nx; /* Number of points in each dimension */
+    std::vector<double> m_dx; /* Mesh spacing in each dimension */
+    int m_refLevels;          /* 2^refLevels points in each dimension */
+    int m_nxTotal;            /* Total number of points within mesh */
+    std::vector<double> m_boundary0; /* Lower boundary in each direction */
+    
+    /// --- MPI info --- ///
+    MPI_Comm m_comm; /* communicator grid is distributed on */ 
+    int m_rank;      /* Rank of each proc */
+    int m_commSize;  /* Number of procs */
+    bool m_parallel; /* Is grid distributed across multiple procs? */
+    
+    /// --- Parallel distribution of mesh --- ///
+    int m_globOffset;                  /* Global index of first point on process */
+    
+    std::vector<int>    m_np;                   /* Number of procs in each dimension */
+    std::vector<int>    m_pIdx;             /* Grid indices of proc in each dimension */
+    std::vector<int>    m_nxOnProc;             /* Number of points on proc in each dimension */
+    int                 m_nxOnProcTotal;        /* Total number of points on proc */
+    
+    std::vector<int>    m_nxOnProcInt;          /* Number of DOFs in each direction on procs in INTERIOR of proc domain */
+    std::vector<int>    m_nxOnProcBnd;          /* Number of DOFs in each direction on procs on BOUNDARY of proc domain */
+    
+
+    std::vector<int>    m_nborGlobOffset; /* Global index of first DOF owned by neighbouring procs */
+    std::vector<int>    m_nborNxOnProc;   /* Number of DOFs in each direction owned by neighbouring procs */
+
+
+public:
+    FDMesh(MPI_Comm comm, int dim = 1, int refLevels = 5, std::vector<int> np = {});
+    //~FDMesh();
+
+    double MeshIndToPoint(int meshInd, int dim) const;
+    
+
+    /* Get mesh info */
+    double Get_dx(int dim = 0) const { return m_dx[dim]; };
+    int    Get_nx(int dim = 0) const { return m_nx[dim]; };
+    int    Get_dim() const { return m_dim; };
+};
+
+
 /* I provide finite-difference discretizations to advection PDEs. Two forms of advection PDE are supported:
       u_t + \grad_x (wavespeed(x,t)*u)   = source(x,t)      (CONSERVATIVE form)
       u_t + wavespeed(x,t) \cdot \grad u = source(x,t)      (NON-CONSERVATIVE form)
@@ -93,27 +145,26 @@ private:
     AMG_parameters m_AMG_params_type2;       // AMG parameters for type 2 preconditioners
     
     
+    const FDMesh &m_mesh;
+    
+    
     bool m_conservativeForm;                    /* TRUE == PDE in conservative form; FALSE == PDE in non-conservative form */
     bool m_periodic;                            /* Periodic boundaries */
     bool m_inflow;                              /* Inflow/outflow boundaries */
+    
     int m_dim;                                  /* Number of spatial dimensions */
     int m_problemID;                            /* ID for test problems */
+    
     int m_refLevels;                            /* Have nx == 2^(refLevels + 2) spatial DOFs */
     int m_onProcSize;                           /* Number of DOFs on proc */
     int m_spatialDOFs;                          /* Total number of DOFs in spatial disc */
     int m_localMinRow;                          /* Global index of first DOF on proc */
+    
     bool m_PDE_soln_implemented;                /* Exact solution of PDE is implemented */
-    std::vector<int>    m_order;                /* Order of discretization in each direction */
-    std::vector<int>    m_nx;                   /* Number of DOFs in each direction */
-    std::vector<double> m_dx;                   /* Mesh spacing in each direction */
-    std::vector<double> m_boundary0;            /* Lower boundary of domain in each direction. I.e., WEST (1D, 2D, 3D), SOUTH (2D, 3D), DOWN (3D) */
-    std::vector<int>    m_px;                   /* Number of procs in each grid direction */
-    std::vector<int>    m_pGridInd;             /* Grid indices of proc in each direction */
-    std::vector<int>    m_nxOnProc;             /* Number of DOFs in each direction on proc */
-    std::vector<int>    m_nxOnProcInt;          /* Number of DOFs in each direction on procs in INTERIOR of proc domain */
-    std::vector<int>    m_nxOnProcBnd;          /* Number of DOFs in each direction on procs on BOUNDARY of proc domain */
-    std::vector<int>    m_neighboursLocalMinRow;/* Global index of first DOF owned by neighbouring procs */
-    std::vector<int>    m_neighboursNxOnProc;   /* Number of DOFs in each direction owned by neighbouring procs */
+    int m_order;                /* Order of discretization in each direction */
+    
+    
+    
     
     bool                m_dissipation;          /* Numerical dissipation added to advection terms */
     Num_dissipation     m_dissipation_params;   /* Parameters describing numerical dissipation */
@@ -130,10 +181,10 @@ private:
     bool    m_L_isTimedependent;    /* Is L time dependent? */
     bool    m_G_isTimedependent;    /* Is g time dependent? */
     
-    bool     m_useSpatialParallel;  /* Hmm...  DO we need this?? */
-    MPI_Comm m_globComm;         /* Spatial communicator; the spatial discretization code has access to this */
-    int      m_globCommSize;     /* Num processes in spatial communicator */
-    int      m_spatialRank;         /* Process rank in spatial communicator */    
+    bool     m_parallel;  /* Hmm...  DO we need this?? */
+    MPI_Comm m_comm;         /* Spatial communicator; the spatial discretization code has access to this */
+    int      m_commSize;     /* Num processes in spatial communicator */
+    int      m_rank;         /* Process rank in spatial communicator */    
 
     
 
@@ -211,7 +262,7 @@ private:
                                         double * const &plusWeights, int * const &plusInds, 
                                         double * const &minusWeights, int * const &minusInds,
                                         int nWeights) const;
-    double MeshIndToPoint(int meshInd, int dim) const;
+    
     void get1DUpwindStencil(int * &inds, double * &weight, int dim) const;
     void Get1DDissipationStencil(int * &inds, double *&weights, int &nnz) const; 
     
@@ -239,6 +290,7 @@ private:
                                     int * localInds, int dim, int DOFInd) const; 
 
     int factorial(int n) const { return (n == 1 || n == 0) ? 1 : factorial(n - 1) * n; };
+    
     
     int GlobalIndToMeshInd(int globInd) const;
     void GetInflowBoundaryDerivatives1D(double * &du, double t) const;
@@ -282,7 +334,7 @@ private:
 public:
     
     /* Constructors */
-    FDadvection(MPI_Comm globComm, int dim, int refLevels, int order, int problemID, std::vector<int> px = {});
+    FDadvection(MPI_Comm globComm, const FDMesh &mesh, int order, int problemID);
     ~FDadvection();
     
     /* Add numerical dissipation into pure advection discretization  */
@@ -296,11 +348,6 @@ public:
     
     /* Get exact solution (if available) */
     bool GetUExact(double t, HypreParVector * &u) const;
-    
-    /* Get mesh info */
-    double Get_dx(int dim = 0) const { return m_dx[dim]; };
-    int    Get_nx(int dim = 0) const { return m_nx[dim]; };
-    int    Get_dim() const { return m_dim; };
     
     /* --- Virtual functions from base class requiring implementation --- */
     /* Compute y <- L*x + g(t) */
