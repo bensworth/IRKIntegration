@@ -9,9 +9,15 @@
 using namespace mfem;
 using namespace std;
 
+/* Output dictionary entries via an ofstream */
+class OutDict : public std::ofstream {
+public:
+    template <class T>
+    inline void Print(string id, T entry) {*this << id << " " << entry << "\n";};
+};
 
 bool GetError(const FDadvection &SpaceDisc, const FDMesh &Mesh, double tf, const HypreParVector &u, double &eL1, double &eL2, double &eLinf);
-void SaveDict(string filename, map<string, string> mySolInfo);
+
 
 /* SAMPLE RUNS:
 
@@ -219,61 +225,59 @@ int main(int argc, char *argv[])
     if (save > 0) {
         if (save > 1) u->Print(out);
         
-        double eL1, eL2, eLinf = 0.0; 
-        
         /* Get error against exact PDE solution if available */
+        double eL1, eL2, eLinf = 0.0; 
         bool got_error = GetError(SpaceDisc, Mesh, tf, *u, eL1, eL2, eLinf);
         
         // Save data to file enabling easier inspection of solution            
         if (rank == 0) {
-            std::map<std::string, std::string> info;
-    
-            info["IRK"]             = to_string(IRK_ID);
-            info["tf"]              = to_string(tf);
-            info["dt"].resize(16);
-            info["dt"].resize(snprintf(&info["dt"][0], 16, "%.6e", dt));
-            info["nt"]              = to_string(nt);
-    
-            info["space_order"]     = to_string(order);
-            info["nx"]              = to_string(nx);
-            info["space_dim"]       = to_string(dim);
-            info["space_refine"]    = to_string(refLevels);
-            info["problemID"]       = to_string(FD_ProblemID);
-            info["P"]               = to_string(numProcess);
+            OutDict solinfo;
+            solinfo.open(out);
+            solinfo << scientific;
             
-            for (int d = 0; d < np.size(); d++) {
-                info[string("np") + to_string(d)] = to_string(np[d]);
-            }
-    
-            if (dx != -1.0) {
-                info["dx"].resize(16);
-                info["dx"].resize(snprintf(&info["dx"][0], 16, "%.6e", dx));
-            }
+            /* Temporal info */
+            solinfo.Print("IRK", IRK_ID);
+            solinfo.Print("dt", dt);
+            solinfo.Print("nt", nt);
+            solinfo.Print("tf", tf);
             
-            if (got_error) {
-                info["eL1"].resize(16);
-                info["eL2"].resize(16);
-                info["eLinf"].resize(16);
-                info["eL1"].resize(snprintf(&info["eL1"][0], 16, "%.6e", eL1));
-                info["eL2"].resize(snprintf(&info["eL2"][0], 16, "%.6e", eL2));
-                info["eLinf"].resize(snprintf(&info["eLinf"][0], 16, "%.6e", eLinf));
-            } 
-            
+            /* Spatial info */
+            solinfo.Print("dx", dx);
+            solinfo.Print("nx", nx);
+            solinfo.Print("space_dim", dim);
+            solinfo.Print("space_refine", refLevels);
+            solinfo.Print("problemID", FD_ProblemID); 
             
             /* Linear system/solve statistics */
+            solinfo.Print("krtol", reltol);
+            solinfo.Print("katol", abstol);
+            solinfo.Print("kdim", kdim);
             std::vector<int> avg_iter;
             std::vector<int> type;
             std::vector<double> eig_ratio;
             MyIRK.GetSolveStats(avg_iter, type, eig_ratio);
             for (int system = 0; system < avg_iter.size(); system++) {
-                info[string("sys") + to_string(system+1) + "_iters"] = to_string(avg_iter[system]);
-                info[string("sys") + to_string(system+1) + "_type"] = to_string(type[system]);
-                info[string("sys") + to_string(system+1) + "_eig_ratio"] = to_string(eig_ratio[system]);
+                solinfo.Print("sys" + to_string(system+1) + "_iters", avg_iter[system]);
+                solinfo.Print("sys" + to_string(system+1) + "_type", type[system]);
+                solinfo.Print("sys" + to_string(system+1) + "_eig_ratio", eig_ratio[system]);
             }
-            SaveDict(out, info);
+            
+            /* Parallel info */
+            solinfo.Print("P", numProcess);
+            for (int d = 0; d < np.size(); d++) {
+                solinfo.Print("np" + to_string(d), np[d]);
+            }
+            
+            /* Error statistics */
+            if (got_error) {
+                solinfo.Print("eL1", eL1);
+                solinfo.Print("eL2", eL2);
+                solinfo.Print("eLinf", eLinf);
+            }
+            
+            solinfo.close();
         }
     }
-    
     delete u;
 
     MPI_Finalize();
@@ -286,7 +290,8 @@ bool GetError(const FDadvection &SpaceDisc, const FDMesh &Mesh,
                 double tf, const HypreParVector &u, double &eL1, double &eL2, double &eLinf) {
     HypreParVector * u_exact = NULL;
     
-    if (SpaceDisc.GetUExact(tf, u_exact)) {
+    bool got_error = SpaceDisc.GetUExact(tf, u_exact);
+    if (got_error) {
         *u_exact -= u; // Error vector
         eL1   = u_exact->Normlp(1);
         eL2   = u_exact->Normlp(2);
@@ -307,25 +312,7 @@ bool GetError(const FDadvection &SpaceDisc, const FDMesh &Mesh,
             double dy = Mesh.Get_dx(1);
             eL1 *= dy;
             eL2 *= sqrt(dy);
-        }
-        
-        return true;
-    } else {
-        return false;
+        }    
     }
-}
-
-/* Print dictionary to file */
-void SaveDict(string filename, map<string, string> mySolInfo) 
-{
-    ofstream solinfo;
-    solinfo.open(filename);
-    solinfo << scientific; // This means parameters will be printed with enough significant digits
-
-    // Print out contents from additionalInfo to file too
-    map<string, string>::iterator it;
-    for (it = mySolInfo.begin(); it != mySolInfo.end(); it++) {
-        solinfo << it->first << " " << it->second << "\n";
-    }
-    solinfo.close();
+    return got_error;
 }
