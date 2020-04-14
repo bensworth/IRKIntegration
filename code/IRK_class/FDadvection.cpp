@@ -1,7 +1,512 @@
 #include "FDadvection.hpp"
 
 /* -------------------------------------------------------------------------- */
-/* ------------------------------- Mesh class ------------------------------- */
+/* ------------------------- FDApproximation class -------------------------- */
+/* -------------------------------------------------------------------------- */
+
+/* Stencils for upwind discretizations of D1 == d/dx for stencil biased to the left. */
+void FDStencil::GetD1UpwindPlus(int order, double dx, int * &nodes, double * &weights)
+{    
+    nodes   = new int[order+1];
+    weights = new double[order+1];
+    
+    switch (order) {
+        /* --- Order 1 discretization --- */
+        case 1: 
+            nodes[0] = -1;
+            nodes[1] =  0;
+            weights[0] = -1.0;
+            weights[1] =  1.0;
+            break;
+        /* --- Order 2 discretization --- */    
+        case 2:
+            nodes[0] = -2;
+            nodes[1] = -1;
+            nodes[2] =  0;
+            weights[0] =  1.0/2.0;
+            weights[1] = -4.0/2.0;
+            weights[2] =  3.0/2.0;
+            break;
+        /* --- Order 3 discretization --- */    
+        case 3:
+            nodes[0] = -2;
+            nodes[1] = -1;
+            nodes[2] =  0;
+            nodes[3] =  1;
+            weights[0] =  1.0/6.0;
+            weights[1] = -6.0/6.0;
+            weights[2] =  3.0/6.0;
+            weights[3] =  2.0/6.0;
+            break;
+        /* --- Order 4 discretization --- */    
+        case 4:
+            nodes[0] = -3;
+            nodes[1] = -2;
+            nodes[2] = -1;
+            nodes[3] =  0;
+            nodes[4] =  1;
+            weights[0] = -1.0/12.0;
+            weights[1] =  6.0/12.0;
+            weights[2] = -18.0/12.0;
+            weights[3] =  10.0/12.0;
+            weights[4] =  3.0/12.0;
+            break;
+        /* --- Order 5 discretization --- */    
+        case 5:   
+            nodes[0] = -3;
+            nodes[1] = -2;
+            nodes[2] = -1;
+            nodes[3] =  0;
+            nodes[4] =  1;
+            nodes[5] =  2;
+            weights[0] = -2.0/60.0;
+            weights[1] =  15.0/60.0;
+            weights[2] = -60.0/60.0;
+            weights[3] =  20.0/60.0;
+            weights[4] =  30.0/60.0;
+            weights[5] = -3.0/60.0;
+            break;
+        /* --- Order 6 discretization --- */    
+        case 6:   
+            nodes[0] = -4;
+            nodes[1] = -3;
+            nodes[2] = -2;
+            nodes[3] = -1;
+            nodes[4] = +0;
+            nodes[5] = +1;
+            nodes[6] = +2;
+            weights[0] = +1.0/60.0;
+            weights[1] = -2.0/15.0;
+            weights[2] = +1.0/2.0;
+            weights[3] = -4.0/3.0;
+            weights[4] = +7.0/12.0;
+            weights[5] = +2.0/5.0;
+            weights[6] = -1.0/30.0;
+            break;
+        /* --- Order 7 discretization --- */    
+        case 7:
+            nodes[0] = -4;
+            nodes[1] = -3;
+            nodes[2] = -2;
+            nodes[3] = -1;
+            nodes[4] = +0;
+            nodes[5] = +1;
+            nodes[6] = +2;
+            nodes[7] = +3;
+            weights[0] = +1.0/140.0;
+            weights[1] = -1.0/15.0;
+            weights[2] = +3.0/10.0;
+            weights[3] = -1.0/1.0;
+            weights[4] = +1.0/4.0;
+            weights[5] = +3.0/5.0;
+            weights[6] = -1.0/10.0;
+            weights[7] = +1.0/105.0;
+            break;
+        /* --- Order 8 discretization --- */    
+        case 8:   
+            nodes[0] = -5;
+            nodes[1] = -4;
+            nodes[2] = -3;
+            nodes[3] = -2;
+            nodes[4] = -1;
+            nodes[5] = +0;
+            nodes[6] = +1;
+            nodes[7] = +2;
+            nodes[8] = +3;
+            weights[0] = -1.0/280.0;
+            weights[1] = +1.0/28.0;
+            weights[2] = -1.0/6.0;
+            weights[3] = +1.0/2.0;
+            weights[4] = -5.0/4.0;
+            weights[5] = +9.0/20.0;
+            weights[6] = +1.0/2.0;
+            weights[7] = -1.0/14.0;
+            weights[8] = +1.0/168.0;
+            break;
+        /* --- Order 9 discretization --- */    
+        case 9:  
+            nodes[0] = -5;
+            nodes[1] = -4;
+            nodes[2] = -3;
+            nodes[3] = -2;
+            nodes[4] = -1;
+            nodes[5] = +0;
+            nodes[6] = +1;
+            nodes[7] = +2;
+            nodes[8] = +3;
+            nodes[9] = +4;
+            weights[0] = -1.0/630.0;
+            weights[1] = +1.0/56.0;
+            weights[2] = -2.0/21.0;
+            weights[3] = +1.0/3.0;
+            weights[4] = -1.0/1.0;
+            weights[5] = +1.0/5.0;
+            weights[6] = +2.0/3.0;
+            weights[7] = -1.0/7.0;
+            weights[8] = +1.0/42.0;
+            weights[9] = -1.0/504.0;
+            break;
+        /* --- Order 10 discretization --- */    
+        case 10:   
+            nodes[0] = -6;
+            nodes[1] = -5;
+            nodes[2] = -4;
+            nodes[3] = -3;
+            nodes[4] = -2;
+            nodes[5] = -1;
+            nodes[6] = +0;
+            nodes[7] = +1;
+            nodes[8] = +2;
+            nodes[9] = +3;
+            nodes[10] = +4;
+            weights[0] = +1.0/1260.0;
+            weights[1] = -1.0/105.0;
+            weights[2] = +3.0/56.0;
+            weights[3] = -4.0/21.0;
+            weights[4] = +1.0/2.0;
+            weights[5] = -6.0/5.0;
+            weights[6] = +11.0/30.0;
+            weights[7] = +4.0/7.0;
+            weights[8] = -3.0/28.0;
+            weights[9] = +1.0/63.0;
+            weights[10] = -1.0/840.0;
+            break;
+        default:
+            std::cout << "FDStencil::GetD1UpwindPlus() invalid discretization. Orders 1--10 implemented.\n";
+            MPI_Finalize();
+            exit(1);
+    }
+    
+    for (int i = 0; i < order+1; i++) {
+        weights[i] /= dx;
+    }
+}
+
+/* Stencils for upwind discretizations of D1 == d/dx for stencil biased to the right. */
+void FDStencil::GetD1UpwindMinus(int order, double dx, int * &nodes, double * &weights) 
+{
+    // Get left-bias stencils 
+    int    * plusNodes   = NULL;
+    double * plusWeights = NULL;
+    GetD1UpwindPlus(order, dx, plusNodes, plusWeights);
+    
+    // Reverse left-biased stencils and flip sign of weights
+    nodes   = new int[order + 1];
+    weights = new double[order + 1];
+    for (int i = 0; i < order + 1; i++) {
+        nodes[i]   = -plusNodes[order-i];
+        weights[i] = -plusWeights[order-i];
+    } 
+    delete plusNodes;
+    delete plusWeights;
+}
+
+
+/* Stencils for upwind discretizations of variable-coefficient D1 == D1(x)
+    D1 == d/dx(coefficient(x) * ) -- conservative == true
+    D1 == coefficient(x)*d/dx     -- conservative == false
+
+NOTES:
+ - localCoefficient(index) returns the value of coefficient(dx*index) where index == 0 denotes the point in question
+ - localNodes just returns a pointer to plusNodes/minusNodes depending on wind direction
+ - Memory must be already allocated for localWeights   
+ */ 
+void FDStencil::GetVariableD1Upwind(bool conservative,
+                                    std::function<double(int)> localCoefficient,
+                                    int order,
+                                    int * const &plusNodes, double * const &plusWeights, 
+                                    int * const &minusNodes, double * const &minusWeights, 
+                                    int * &localNodes, double * &localWeights)
+{   
+    // Number of nodes/weights for discretizing with given order
+    int size = order + 1; 
+     
+    // Coefficient at point in question; the sign of this determines the upwind direction
+    double coefficient0 = localCoefficient(0); 
+    
+    // Wind blows from minus to plus
+    if (coefficient0 >= 0.0) {
+        localNodes = plusNodes;
+    
+        // Conservative: Need to discretize d/dx(coefficient * )
+        if (conservative) {
+            for (int i = 0; i < size; i++) {
+                localWeights[i] = localCoefficient(plusNodes[i]) * plusWeights[i];
+            }
+    
+        // Non-conservative: Need to discretize coefficient*d/dx    
+        } else {
+            for (int i = 0; i < size; i++) {
+                localWeights[i] = coefficient0 * plusWeights[i];
+            }
+        }
+    
+    // Wind blows from plus to minus
+    } else {        
+        localNodes = minusNodes;
+        
+        // Conservative: Need to discretize d/dx(coefficient * )
+        if (conservative) {
+            for (int i = 0; i < size; i++) {
+                localWeights[i] = localCoefficient(minusNodes[i]) * minusWeights[i];
+            }
+    
+        // Non-conservative: Need to discretize coefficient*d/dx    
+        } else {
+            for (int i = 0; i < size; i++) {
+                localWeights[i] = coefficient0 * minusWeights[i];
+            }
+        }
+    }    
+}
+
+
+/* Stencils for central discretizations of variable-coefficient D1 == D1(x)
+    D1 == d/dx(coefficient(x) * ) -- conservative == true
+    D1 == coefficient(x)*d/dx     -- conservative == false
+
+NOTES:
+ - localCoefficient(index) returns the value of coefficient(dx*index) where index == 0 denotes the point in question
+ - Memory must be already allocated for localWeights   
+ */ 
+void FDStencil::GetVariableD1Central(bool conservative,
+                                     std::function<double(int)> localCoefficient,
+                                     int order,
+                                     int * const &nodes, double * const &weights,
+                                     double * &localWeights)
+{
+    // Number of nodes/weights for discretizing with given order
+    int size = order + 1; 
+    
+    // Conservative: Need to discretize d/dx(coefficient * )
+    if (conservative) {
+        for (int i = 0; i < size; i++) {
+            localWeights[i] = localCoefficient(nodes[i]) * weights[i];
+        }
+
+    // Non-conservative: Need to discretize coefficient*d/dx    
+    } else {
+        double coefficient0 = localCoefficient(0);
+        for (int i = 0; i < size; i++) {
+            localWeights[i] = coefficient0 * weights[i];
+        }
+    }
+}                                 
+
+
+/* Stencils for central discretizations of D1 == d/dx. 
+
+NOTES:
+ -A 0 coefficient for the 0th node is always included so the stencil is contiguous  
+*/
+void FDStencil::GetD1Central(int order, double dx, int * &nodes, double * &weights)
+{    
+    nodes   = new int[order+1];
+    weights = new double[order+1];
+
+    switch (order) {
+        /* --- Order 2 discretization --- */
+        case 2:
+            nodes[0] = -1;
+            nodes[1] = +0;
+            nodes[2] = +1;
+            weights[0] = -1.0/2.0;
+            weights[1] = +0.0/1.0;
+            weights[2] = +1.0/2.0;
+            break;
+        /* --- Order 4 discretization --- */
+        case 4:
+            nodes[0] = -2;
+            nodes[1] = -1;
+            nodes[2] = +0;
+            nodes[3] = +1;
+            nodes[4] = +2;
+            weights[0] = +1.0/12.0;
+            weights[1] = -2.0/3.0;
+            weights[2] = +0.0/1.0;
+            weights[3] = +2.0/3.0;
+            weights[4] = -1.0/12.0;
+            break;
+        /* --- Order 6 discretization --- */
+        case 6:
+            nodes[0] = -3;
+            nodes[1] = -2;
+            nodes[2] = -1;
+            nodes[3] = +0;
+            nodes[4] = +1;
+            nodes[5] = +2;
+            nodes[6] = +3;
+            weights[0] = -1.0/60.0;
+            weights[1] = +3.0/20.0;
+            weights[2] = -3.0/4.0;
+            weights[3] = +0.0/1.0;
+            weights[4] = +3.0/4.0;
+            weights[5] = -3.0/20.0;
+            weights[6] = +1.0/60.0;
+            break;                    
+        /* --- Order 8 discretization --- */
+        case 8:
+            nodes[0] = -4;
+            nodes[1] = -3;
+            nodes[2] = -2;
+            nodes[3] = -1;
+            nodes[4] = +0;
+            nodes[5] = +1;
+            nodes[6] = +2;
+            nodes[7] = +3;
+            nodes[8] = +4;
+            weights[0] = +1.0/280.0;
+            weights[1] = -4.0/105.0;
+            weights[2] = +1.0/5.0;
+            weights[3] = -4.0/5.0;
+            weights[4] = +0.0/1.0;
+            weights[5] = +4.0/5.0;
+            weights[6] = -1.0/5.0;
+            weights[7] = +4.0/105.0;
+            weights[8] = -1.0/280.0;
+            break;        
+        /* --- Order 10 discretization --- */
+        case 10:
+            nodes[0] = -5;
+            nodes[1] = -4;
+            nodes[2] = -3;
+            nodes[3] = -2;
+            nodes[4] = -1;
+            nodes[5] = +0;
+            nodes[6] = +1;
+            nodes[7] = +2;
+            nodes[8] = +3;
+            nodes[9] = +4;
+            nodes[10] = +5;
+            weights[0] = -1.0/1260.0;
+            weights[1] = +5.0/504.0;
+            weights[2] = -5.0/84.0;
+            weights[3] = +5.0/21.0;
+            weights[4] = -5.0/6.0;
+            weights[5] = +0.0/1.0;
+            weights[6] = +5.0/6.0;
+            weights[7] = -5.0/21.0;
+            weights[8] = +5.0/84.0;
+            weights[9] = -5.0/504.0;
+            weights[10] = +1.0/1260.0;
+            break;  
+        default:
+            std::cout << "FDStencil::GetD1Central() invalid discretization. Orders 2,4,6,8,10 implemented.\n";
+            MPI_Finalize();
+            exit(1);
+    }
+    
+    for (int i = 0; i < order+1; i++) {
+        weights[i] /= dx;
+    }
+}
+
+/* Stencils for central discretizations of D2 == d^2/dx^2. */
+void FDStencil::GetD2Central(int order, double dx, int * &nodes, double * &weights)
+{   
+    nodes    = new int[order+1];
+    weights = new double[order+1];
+
+    switch (order) {
+        /* --- Order 2 discretization --- */
+        case 2:
+            nodes[0] = -1;
+            nodes[1] = +0;
+            nodes[2] = +1;
+            weights[0] = +1.0/1.0;
+            weights[1] = -2.0/1.0;
+            weights[2] = +1.0/1.0;
+            break;          
+        /* --- Order 4 discretization --- */
+        case 4:
+            nodes[0] = -2;
+            nodes[1] = -1;
+            nodes[2] = +0;
+            nodes[3] = +1;
+            nodes[4] = +2;
+            weights[0] = -1.0/12.0;
+            weights[1] = +4.0/3.0;
+            weights[2] = -5.0/2.0;
+            weights[3] = +4.0/3.0;
+            weights[4] = -1.0/12.0;
+            break;          
+        /* --- Order 6 discretization --- */
+        case 6:
+            nodes[0] = -3;
+            nodes[1] = -2;
+            nodes[2] = -1;
+            nodes[3] = +0;
+            nodes[4] = +1;
+            nodes[5] = +2;
+            nodes[6] = +3;
+            weights[0] = +1.0/90.0;
+            weights[1] = -3.0/20.0;
+            weights[2] = +3.0/2.0;
+            weights[3] = -49.0/18.0;
+            weights[4] = +3.0/2.0;
+            weights[5] = -3.0/20.0;
+            weights[6] = +1.0/90.0;
+            break;
+        /* --- Order 8 discretization --- */
+        case 8:
+            nodes[0] = -4;
+            nodes[1] = -3;
+            nodes[2] = -2;
+            nodes[3] = -1;
+            nodes[4] = +0;
+            nodes[5] = +1;
+            nodes[6] = +2;
+            nodes[7] = +3;
+            nodes[8] = +4;
+            weights[0] = -1.0/560.0;
+            weights[1] = +8.0/315.0;
+            weights[2] = -1.0/5.0;
+            weights[3] = +8.0/5.0;
+            weights[4] = -205.0/72.0;
+            weights[5] = +8.0/5.0;
+            weights[6] = -1.0/5.0;
+            weights[7] = +8.0/315.0;
+            weights[8] = -1.0/560.0;
+            break;
+        /* --- Order 10 discretization --- */
+        case 10:
+            nodes[0] = -5;
+            nodes[1] = -4;
+            nodes[2] = -3;
+            nodes[3] = -2;
+            nodes[4] = -1;
+            nodes[5] = +0;
+            nodes[6] = +1;
+            nodes[7] = +2;
+            nodes[8] = +3;
+            nodes[9] = +4;
+            nodes[10] = +5;
+            weights[0] = +1.0/3150.0;
+            weights[1] = -5.0/1008.0;
+            weights[2] = +5.0/126.0;
+            weights[3] = -5.0/21.0;
+            weights[4] = +5.0/3.0;
+            weights[5] = -5269.0/1800.0;
+            weights[6] = +5.0/3.0;
+            weights[7] = -5.0/21.0;
+            weights[8] = +5.0/126.0;
+            weights[9] = -5.0/1008.0;
+            weights[10] = +1.0/3150.0;
+            break;                                  
+        default:
+            std::cout << "FDStencil::GetD2Central() invalid discretization. Orders 2,4,6,8,10 implemented.\n";
+            MPI_Finalize();
+            exit(1);
+    }
+    
+    for (int i = 0; i < order+1; i++) {
+        weights[i] /= dx * dx;
+    }
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* ----------------------------- FDMesh class ------------------------------- */
 /* -------------------------------------------------------------------------- */
 
 /* Constructor */
@@ -471,12 +976,12 @@ void FDadvection::GetHypreParMatrixL(double t, HypreParMatrix * &L) const {
     
     // No parallelism: Spatial discretization on single processor
     if (!m_parallel) {
-        getSpatialDiscretizationL(L_rowptr, L_colinds, L_data, U,  getU, U_ID, spatialDOFs, t, m_size);
+        GetSpatialDiscretizationL(L_rowptr, L_colinds, L_data, U,  getU, U_ID, spatialDOFs, t, m_size);
         ilower = 0; 
         iupper = spatialDOFs - 1; 
     // Spatial parallelism: Distribute initial condition across spatial communicator    
     } else {
-        getSpatialDiscretizationL(m_comm, L_rowptr, L_colinds, L_data, 
+        GetSpatialDiscretizationL(m_comm, L_rowptr, L_colinds, L_data, 
                                     U,  getU, U_ID, ilower, iupper, spatialDOFs, 
                                     t, m_size);
     }
@@ -515,7 +1020,8 @@ void FDadvection::NegateData(int start, int stop, double * &data) const {
 }
 
 
-/* Get exact solution (if available) as a HYPRE vector */
+/* Get exact solution (if available) as a HYPRE vector.
+Note u owns the data */
 bool FDadvection::GetUExact(double t, HypreParVector * &u) const {
     
     // Just retun if not implemented
@@ -538,11 +1044,14 @@ bool FDadvection::GetUExact(double t, HypreParVector * &u) const {
     GetHypreParVectorFromData(m_comm, 
                              ilower, iupper, spatialDOFs, 
                              U, u);
+    // Set owndership flag for data                         
+    u->MakeDataOwner();
                              
     return true;
 }
 
-/* Get initial condition in an MFEM HypreParVector */
+/* Get initial condition in an MFEM HypreParVector. 
+Note u0 owns the data */
 void FDadvection::GetU0(HypreParVector * &u0) const {
     
     int      spatialDOFs;
@@ -552,20 +1061,22 @@ void FDadvection::GetU0(HypreParVector * &u0) const {
 
     // No parallelism: Spatial discretization on single processor
     if (!m_parallel) {
-        getInitialCondition(U, spatialDOFs);
+        GetInitialCondition(U, spatialDOFs);
         ilower = 0; 
         iupper = spatialDOFs - 1; 
     // Spatial parallelism: Distribute initial condition across spatial communicator
     } else {
-        getInitialCondition(m_comm, U, ilower, iupper, spatialDOFs);    
+        GetInitialCondition(m_comm, U, ilower, iupper, spatialDOFs);    
     }    
     GetHypreParVectorFromData(m_comm, 
                              ilower, iupper, spatialDOFs, 
                              U, u0);
+    // Set owndership flag for data
+    u0->MakeDataOwner();
 }
 
-
-/* Get solution-independent source term in an MFEM HypreParVector */
+/* Get solution-independent source term in an MFEM HypreParVector. 
+Note g owns the data */
 void FDadvection::GetG(double t, HypreParVector * &g) const {
     
     int      spatialDOFs;
@@ -576,18 +1087,19 @@ void FDadvection::GetG(double t, HypreParVector * &g) const {
     // No parallelism: Spatial discretization on single processor
     if (!m_parallel) {
         // Call when NOT using spatial parallelism                                        
-        getSpatialDiscretizationG(G, spatialDOFs, t); 
+        GetSpatialDiscretizationG(G, spatialDOFs, t); 
         ilower = 0; 
         iupper = spatialDOFs - 1; 
     // Spatial parallelism: Distribute initial condition across spatial communicator
     } else {
         // Call when using spatial parallelism                          
-        getSpatialDiscretizationG(m_comm, G, ilower, iupper, spatialDOFs, t); 
+        GetSpatialDiscretizationG(m_comm, G, ilower, iupper, spatialDOFs, t); 
     }    
     
-    GetHypreParVectorFromData(m_comm, 
-                             ilower, iupper, spatialDOFs, 
-                             G, g);
+    GetHypreParVectorFromData(m_comm, ilower, iupper, spatialDOFs, G, g);
+                             
+    // Set owndership flag for data
+    g->MakeDataOwner();
 }
 
 // void SpatialDiscretization::SetL(double t) {
@@ -887,20 +1399,20 @@ double FDadvection::PDE_Source(double x, double y, double t) const
 
 
 // NO SPATIAL PARALLELISM: Get local CSR structure of FD spatial discretization matrix, L
-void FDadvection::getSpatialDiscretizationL(int * &L_rowptr, int * &L_colinds,
+void FDadvection::GetSpatialDiscretizationL(int * &L_rowptr, int * &L_colinds,
                                            double * &L_data, double * &U0, bool getU0, int U0ID,
                                            int &spatialDOFs, double t, int &bsize) const
 {
     if (m_dim == 1) {
         // Simply call the same routine as if using spatial parallelism
         int dummy1, dummy2;
-        get1DSpatialDiscretizationL(NULL, L_rowptr,
+        Get1DSpatialDiscretizationL(NULL, L_rowptr,
                                       L_colinds, L_data, U0,
                                       getU0, U0ID, dummy1, dummy2,
                                       spatialDOFs, t, bsize);
     } else if (m_dim == 2) {
         // Call a serial implementation of 2D code
-        get2DSpatialDiscretizationL(L_rowptr,
+        Get2DSpatialDiscretizationL(L_rowptr,
                                       L_colinds, L_data, U0,
                                       getU0, U0ID,
                                       spatialDOFs, t, bsize);
@@ -908,18 +1420,18 @@ void FDadvection::getSpatialDiscretizationL(int * &L_rowptr, int * &L_colinds,
 }
 
 // USING SPATIAL PARALLELISM: Get local CSR structure of FD spatial discretization matrix, L
-void FDadvection::getSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_rowptr,
+void FDadvection::GetSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_rowptr,
                                               int *&L_colinds, double *&L_data, double *&U0,
                                               bool getU0, int U0ID, int &localMinRow, int &localMaxRow,
                                               int &spatialDOFs, double t, int &bsize) const
 {
     if (m_dim == 1) {
-        get1DSpatialDiscretizationL(globComm, L_rowptr,
+        Get1DSpatialDiscretizationL(globComm, L_rowptr,
                                       L_colinds, L_data, U0,
                                       getU0, U0ID, localMinRow, localMaxRow,
                                       spatialDOFs, t, bsize);
     } else if (m_dim == 2) {
-        get2DSpatialDiscretizationL(globComm, L_rowptr,
+        Get2DSpatialDiscretizationL(globComm, L_rowptr,
                                       L_colinds, L_data, U0,
                                       getU0, U0ID, localMinRow, localMaxRow,
                                       spatialDOFs, t, bsize);
@@ -930,7 +1442,7 @@ void FDadvection::getSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_ro
 
 
 // USING SPATIAL PARALLELISM: Get local CSR structure of FD spatial discretization matrix, L
-void FDadvection::get2DSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_rowptr,
+void FDadvection::Get2DSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_rowptr,
                                               int *&L_colinds, double *&L_data, double *&U0,
                                               bool getU0, int U0ID, int &localMinRow, int &localMaxRow,
                                               int &spatialDOFs, double t, int &bsize) const
@@ -968,27 +1480,13 @@ void FDadvection::get2DSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_
     /* ---------------------------------------------------------------- */
     /* ------ Get components required to approximate derivatives ------ */
     /* ---------------------------------------------------------------- */
-    // Get stencils for upwind discretizations, wind blowing left to right
-    int * xPlusInds;
-    int * yPlusInds;
-    double * xPlusWeights;
-    double * yPlusWeights;
-    get1DUpwindStencil(xPlusInds, xPlusWeights, xDim);
-    get1DUpwindStencil(yPlusInds, yPlusWeights, yDim);
-    
-    // Generate stencils for wind blowing right to left by reversing stencils
-    int * xMinusInds       = new int[xStencilNnz];
-    int * yMinusInds       = new int[yStencilNnz];
-    double * xMinusWeights = new double[xStencilNnz];
-    double * yMinusWeights = new double[yStencilNnz];
-    for (int i = 0; i < xStencilNnz; i++) {
-        xMinusInds[i]    = -xPlusInds[xFD_Order-i];
-        xMinusWeights[i] = -xPlusWeights[xFD_Order-i];
-    } 
-    for (int i = 0; i < yStencilNnz; i++) {
-        yMinusInds[i]    = -yPlusInds[yFD_Order-i];
-        yMinusWeights[i] = -yPlusWeights[yFD_Order-i];
-    } 
+    // Get stencils for upwind discretizations
+    int * xPlusInds, * xMinusInds, * yPlusInds, * yMinusInds = NULL;
+    double * xPlusWeights, * xMinusWeights, * yPlusWeights, * yMinusWeights = NULL;
+    FDStencil::GetD1UpwindPlus(xFD_Order, dx, xPlusInds, xPlusWeights);
+    FDStencil::GetD1UpwindMinus(xFD_Order, dx, xMinusInds, xMinusWeights);
+    FDStencil::GetD1UpwindPlus(yFD_Order, dy, yPlusInds, yPlusWeights);
+    FDStencil::GetD1UpwindMinus(yFD_Order, dy, yMinusInds, yMinusWeights);
     
     // Placeholder for weights to discretize derivatives at each point 
     double * xLocalWeights = new double[xStencilNnz];
@@ -1032,17 +1530,19 @@ void FDadvection::get2DSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_
         yLocalWaveSpeed = [this, x, y, dy, t, yDim](int yOffset) { return WaveSpeed(x, y + dy * yOffset, t, yDim); };
     
         // Get stencil for discretizing x-derivative at current point 
-        getLocalUpwindDiscretization(xLocalWeights, xLocalInds,
-                                        xLocalWaveSpeed, 
-                                        xPlusWeights, xPlusInds, 
-                                        xMinusWeights, xMinusInds, 
-                                        xStencilNnz);
+        FDStencil::GetVariableD1Upwind(m_conservativeForm,
+                                        xLocalWaveSpeed,
+                                        xFD_Order, 
+                                        xPlusInds, xPlusWeights, 
+                                        xMinusInds, xMinusWeights,
+                                        xLocalInds, xLocalWeights);
         // Get stencil for discretizing y-derivative at current point 
-        getLocalUpwindDiscretization(yLocalWeights, yLocalInds,
+        FDStencil::GetVariableD1Upwind(m_conservativeForm,
                                         yLocalWaveSpeed, 
-                                        yPlusWeights, yPlusInds, 
-                                        yMinusWeights, yMinusInds, 
-                                        yStencilNnz);
+                                        yFD_Order,
+                                        yPlusInds, yPlusWeights, 
+                                        yMinusInds, yMinusWeights, 
+                                        yLocalInds, yLocalWeights);
     
         // Build so that column indices are in ascending order, this means looping 
         // over y first until we hit the current point, then looping over x, then continuing to loop over y
@@ -1117,7 +1617,7 @@ void FDadvection::get2DSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_
 
 /* Serial implementation of 2D spatial discretization. Is essentially the same as the
 parallel version, but the indexing is made simpler */
-void FDadvection::get2DSpatialDiscretizationL(int *&L_rowptr,
+void FDadvection::Get2DSpatialDiscretizationL(int *&L_rowptr,
                                               int *&L_colinds, double *&L_data, double *&U0,
                                               bool getU0, int U0ID,
                                               int &spatialDOFs, double t, int &bsize) const
@@ -1156,27 +1656,13 @@ void FDadvection::get2DSpatialDiscretizationL(int *&L_rowptr,
     /* ---------------------------------------------------------------- */
     /* ------ Get components required to approximate derivatives ------ */
     /* ---------------------------------------------------------------- */
-    // Get stencils for upwind discretizations, wind blowing left to right
-    int * xPlusInds;
-    int * yPlusInds;
-    double * xPlusWeights;
-    double * yPlusWeights;
-    get1DUpwindStencil(xPlusInds, xPlusWeights, xDim);
-    get1DUpwindStencil(yPlusInds, yPlusWeights, yDim);
-
-    // Generate stencils for wind blowing right to left by reversing stencils
-    int * xMinusInds       = new int[xStencilNnz];
-    int * yMinusInds       = new int[yStencilNnz];
-    double * xMinusWeights = new double[xStencilNnz];
-    double * yMinusWeights = new double[yStencilNnz];
-    for (int i = 0; i < xStencilNnz; i++) {
-        xMinusInds[i]    = -xPlusInds[xFD_Order-i];
-        xMinusWeights[i] = -xPlusWeights[xFD_Order-i];
-    } 
-    for (int i = 0; i < yStencilNnz; i++) {
-        yMinusInds[i]    = -yPlusInds[yFD_Order-i];
-        yMinusWeights[i] = -yPlusWeights[yFD_Order-i];
-    } 
+    // Get stencils for upwind discretizations
+    int * xPlusInds, * xMinusInds, * yPlusInds, * yMinusInds = NULL;
+    double * xPlusWeights, * xMinusWeights, * yPlusWeights, * yMinusWeights = NULL;
+    FDStencil::GetD1UpwindPlus(xFD_Order, dx, xPlusInds, xPlusWeights);
+    FDStencil::GetD1UpwindMinus(xFD_Order, dx, xMinusInds, xMinusWeights);
+    FDStencil::GetD1UpwindPlus(yFD_Order, dy, yPlusInds, yPlusWeights);
+    FDStencil::GetD1UpwindMinus(yFD_Order, dy, yMinusInds, yMinusWeights); 
 
     // Placeholder for weights to discretize derivatives at point 
     double * xLocalWeights = new double[xStencilNnz];
@@ -1206,17 +1692,19 @@ void FDadvection::get2DSpatialDiscretizationL(int *&L_rowptr,
         yLocalWaveSpeed = [this, x, y, dy, t, yDim](int yOffset) { return WaveSpeed(x, y + dy * yOffset, t, yDim); };
 
         // Get stencil for discretizing x-derivative at current point 
-        getLocalUpwindDiscretization(xLocalWeights, xLocalInds,
-                                        xLocalWaveSpeed, 
-                                        xPlusWeights, xPlusInds, 
-                                        xMinusWeights, xMinusInds, 
-                                        xStencilNnz);
+        FDStencil::GetVariableD1Upwind(m_conservativeForm,
+                                        xLocalWaveSpeed,
+                                        xFD_Order, 
+                                        xPlusInds, xPlusWeights, 
+                                        xMinusInds, xMinusWeights,
+                                        xLocalInds, xLocalWeights);
         // Get stencil for discretizing y-derivative at current point 
-        getLocalUpwindDiscretization(yLocalWeights, yLocalInds,
+        FDStencil::GetVariableD1Upwind(m_conservativeForm,
                                         yLocalWaveSpeed, 
-                                        yPlusWeights, yPlusInds, 
-                                        yMinusWeights, yMinusInds, 
-                                        yStencilNnz);
+                                        yFD_Order,
+                                        yPlusInds, yPlusWeights, 
+                                        yMinusInds, yMinusWeights, 
+                                        yLocalInds, yLocalWeights);
 
         // Build so that column indices are in ascending order, this means looping 
         // over y first until we hit the current point, then looping over x, then continuing to loop over y
@@ -1275,7 +1763,7 @@ void FDadvection::get2DSpatialDiscretizationL(int *&L_rowptr,
 
 
 // // Get local CSR structure of FD spatial discretization matrix, L
-// void FDadvection::get1DSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_rowptr,
+// void FDadvection::Get1DSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_rowptr,
 //                                               int *&L_colinds, double *&L_data, double *&U0,
 //                                               bool getU0, int &localMinRow, int &localMaxRow,
 //                                               int &spatialDOFs, double t, int &bsize) 
@@ -1339,7 +1827,7 @@ void FDadvection::get2DSpatialDiscretizationL(int *&L_rowptr,
 //         localWaveSpeed = [this, x, dx, t](int offset) { return WaveSpeed(x + dx * offset, t); };
 // 
 //         // Get weights for discretizing spatial component at current point 
-//         getLocalUpwindDiscretization(localWeights, localInds,
+//         GetVariableD1Upwind(localWeights, localInds,
 //                                         localWaveSpeed, 
 //                                         plusWeights, plusInds, 
 //                                         minusWeights, minusInds, 
@@ -1372,12 +1860,11 @@ void FDadvection::get2DSpatialDiscretizationL(int *&L_rowptr,
 
 
 // Get local CSR structure of FD spatial discretization matrix, L
-void FDadvection::get1DSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_rowptr,
+void FDadvection::Get1DSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_rowptr,
                                               int *&L_colinds, double *&L_data, double *&U0,
                                               bool getU0, int U0ID, int &localMinRow, int &localMaxRow,
                                               int &spatialDOFs, double t, int &bsize) const
 {
-    std::cout << "L-1" << '\n';
     
     // Unpack variables frequently used
     int nx          = m_mesh.m_nx[0];
@@ -1401,8 +1888,6 @@ void FDadvection::get1DSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_
         NnzPerRow = 2 * std::max( (xFD_Order + 2)/2, m_dissipation_params.degree/2 ) + 1; // So this is a bound on nnz of total stencil
     } 
     
-    std::cout << "L0" << '\n';
-    
     /* ----------------------------------------------------------------------- */
     /* ------ Initialize variables needed to compute CSR structure of L ------ */
     /* ----------------------------------------------------------------------- */
@@ -1421,19 +1906,15 @@ void FDadvection::get1DSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_
     /* ---------------------------------------------------------------- */
     /* ------ Get components required to approximate derivatives ------ */
     /* ---------------------------------------------------------------- */
-    // Get stencils for upwind discretizations, wind blowing left to right
-    int * plusInds;
-    double * plusWeights;
-    get1DUpwindStencil(plusInds, plusWeights, xDim);
+    // Get stencils for upwind discretizations
+    int * plusInds, * minusInds = NULL;
+    double * plusWeights, * minusWeights = NULL;
+    FDStencil::GetD1UpwindPlus(xFD_Order, dx, plusInds, plusWeights);
+    FDStencil::GetD1UpwindMinus(xFD_Order, dx, minusInds, minusWeights);
     
-    
-    // Generate stencils for wind blowing right to left by reversing stencils
-    int * minusInds       = new int[xStencilNnz];
-    double * minusWeights = new double[xStencilNnz];
-    for (int i = 0; i < xStencilNnz; i++) {
-        minusInds[i]    = -plusInds[xFD_Order-i];
-        minusWeights[i] = -plusWeights[xFD_Order-i];
-    } 
+    // int * centralInds;
+    // double * centralWeights;
+    // FDStencil::GetD1Central(xFD_Order, dx, centralInds, centralWeights);
     
     // Placeholder for weights and indices to discretize derivative at each point
     double * localWeights = new double[xStencilNnz];
@@ -1461,11 +1942,19 @@ void FDadvection::get1DSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_
         localWaveSpeed = [this, x, dx, t](int offset) { return WaveSpeed(x + dx * offset, t); };
                 
         // Get weights for discretizing spatial component at current point 
-        getLocalUpwindDiscretization(localWeights, localInds,
+        FDStencil::GetVariableD1Upwind(m_conservativeForm, 
                                         localWaveSpeed, 
-                                        plusWeights, plusInds, 
-                                        minusWeights, minusInds, 
-                                        xStencilNnz);
+                                        xFD_Order,
+                                        plusInds, plusWeights, 
+                                        minusInds, minusWeights, 
+                                        localInds, localWeights);
+                
+        // FDStencil::GetVariableD1Central(m_conservativeForm,
+        //                                 localWaveSpeed,
+        //                                  xFD_Order,
+        //                                  centralInds, centralWeights,
+        //                                  localWeights);        
+        // localInds = centralInds;                                 
                                         
         // Periodic BCs simply wrap stencil at both boundaries
         if (m_periodic) {
@@ -1635,56 +2124,8 @@ double FDadvection::LagrangeOutflowCoefficient(int i, int k, int p) const
     return phi;
 }
 
+                    
 
-
-
-
-// Compute upwind weights to provide upwind discretization of linear flux function
-// Note that localInds is just directed to point at the right set of indices
-void FDadvection::getLocalUpwindDiscretization(double * &localWeights, int * &localInds,
-                                    std::function<double(int)> localWaveSpeed,
-                                    double * const &plusWeights, int * const &plusInds, 
-                                    double * const &minusWeights, int * const &minusInds,
-                                    int nWeights) const
-{    
-    // Wave speed at point in question; the sign of this determines the upwind direction
-    double waveSpeed0 = localWaveSpeed(0); 
-    
-    // Wind blows from minus to plus
-    if (waveSpeed0 >= 0.0) {
-        localInds = plusInds;
-    
-        // PDE is in conservation form: Need to discretize (wavespeed*u)_x
-        if (m_conservativeForm) {
-            for (int ind = 0; ind < nWeights; ind++) {
-                localWeights[ind] = localWaveSpeed(plusInds[ind]) * plusWeights[ind];
-            }
-    
-        // PDE is in non-conservation form: Need to discretize wavespeed*u_x    
-        } else {
-            for (int ind = 0; ind < nWeights; ind++) {
-                localWeights[ind] = waveSpeed0 * plusWeights[ind];
-            }
-        }
-    
-    // Wind blows from plus to minus
-    } else {        
-        localInds = minusInds;
-        
-        // PDE is in conservation form: Need to discretize (wavespeed*u)_x
-        if (m_conservativeForm) {
-            for (int ind = 0; ind < nWeights; ind++) {
-                localWeights[ind] = localWaveSpeed(minusInds[ind]) * minusWeights[ind];
-            }
-    
-        // PDE is in non-conservation form: Need to discretize wavespeed*u_x      
-        } else {
-            for (int ind = 0; ind < nWeights; ind++) {
-                localWeights[ind] = waveSpeed0 * minusWeights[ind];
-            }
-        }
-    }    
-}
 
 
 // Evaluate grid-function when grid is distributed on a single process
@@ -1801,7 +2242,7 @@ bool FDadvection::GetExactPDESolution(double * &U, int &spatialDOFs, double t) c
 }
 
 // Get solution-independent component of spatial discretization in vector  G
-void FDadvection::getSpatialDiscretizationG(const MPI_Comm &globComm, 
+void FDadvection::GetSpatialDiscretizationG(const MPI_Comm &globComm, 
                                             double * &G, 
                                             int &localMinRow, 
                                             int &localMaxRow, 
@@ -1825,7 +2266,7 @@ void FDadvection::getSpatialDiscretizationG(const MPI_Comm &globComm,
 
 
 // Get solution-independent component of spatial discretization in vector  G
-void FDadvection::getSpatialDiscretizationG(double * &G, int &spatialDOFs, double t) const
+void FDadvection::GetSpatialDiscretizationG(double * &G, int &spatialDOFs, double t) const
 {
     // Just pass lambdas to GetGrid function; cannot figure out better way to do this...
     if (m_dim == 1) {
@@ -1993,16 +2434,14 @@ void FDadvection::AppendInflowStencil1D(double * &G, double t) const {
     /* ---------------------------------------------------------------- */
     /* ------ Get components required to approximate derivatives ------ */
     /* ---------------------------------------------------------------- */
-    // Get stencils for upwind discretizations, wind blowing left to right
-    int * plusInds;
-    double * plusWeights;
-    get1DUpwindStencil(plusInds, plusWeights, xDim);
-
-    // Generate stencils for wind blowing right to left by reversing stencils
-    // NOTE: We shouldn't need these here since wind is assumed to blow left to right at all these points near
-    // the boundary, but we need these arrays for the implementation that gets the stencil 
-    int * minusInds       = NULL;
-    double * minusWeights = NULL;
+    // Get stencils for upwind discretizations
+    int * plusInds, * minusInds = NULL;
+    double * plusWeights, * minusWeights = NULL;
+    FDStencil::GetD1UpwindPlus(xFD_Order, dx, plusInds, plusWeights);
+    FDStencil::GetD1UpwindMinus(xFD_Order, dx, minusInds, minusWeights);
+    // NOTE: We shouldn't need stencils for wind blowing right to left since wind is 
+    // assumed to blow left to right at all these points near the boundary, 
+    // but we need these arrays for the implementation that gets the stencil 
     
     // Placeholder for weights and indices to discretize derivative at each point
     double * localWeights = new double[xStencilNnz];
@@ -2026,9 +2465,9 @@ void FDadvection::AppendInflowStencil1D(double * &G, double t) const {
         localWaveSpeed = [this, x, dx, t](int offset) { return WaveSpeed(x + dx * offset, t); };
                 
         // Get weights for discretizing spatial component at current point 
-        getLocalUpwindDiscretization(localWeights, localInds,
-                                        localWaveSpeed, plusWeights, plusInds, 
-                                        minusWeights, minusInds, xStencilNnz);
+        FDStencil::GetVariableD1Upwind(m_conservativeForm, localWaveSpeed, xFD_Order,
+                                        plusInds, plusWeights, minusInds, minusWeights,
+                                        localInds, localWeights);
             
         // Loop over entries in stencil, adding couplings to boundary point or ghost points                            
         // TODO: Why do I have to subtract and not add here??
@@ -2040,7 +2479,7 @@ void FDadvection::AppendInflowStencil1D(double * &G, double t) const {
 
 
 // Allocate vector U0 memory and populate it with initial condition.
-void FDadvection::getInitialCondition(const MPI_Comm &globComm, 
+void FDadvection::GetInitialCondition(const MPI_Comm &globComm, 
                                         double * &U0, 
                                         int &localMinRow, 
                                         int &localMaxRow, 
@@ -2058,7 +2497,7 @@ void FDadvection::getInitialCondition(const MPI_Comm &globComm,
 
 
 // Allocate vector U0 memory and populate it with initial condition.
-void FDadvection::getInitialCondition(double * &U0, int &spatialDOFs) const
+void FDadvection::GetInitialCondition(double * &U0, int &spatialDOFs) const
 {
     // Just pass lambdas to GetGrid function; cannot figure out better way to do this...
     if (m_dim == 1) {
@@ -2123,241 +2562,13 @@ void FDadvection::Get1DDissipationStencil(int * &inds, double * &weights, int &n
 }
 
 
-// Stencils for upwind discretizations of d/dx. Wind is assumed to blow left to right. 
-void FDadvection::get1DUpwindStencil(int * &inds, double * &weights, int dim) const
-{    
-    // Ensure there are sufficiently many DOFs to discretize derivative
-    if (m_mesh.m_nx[dim] < m_order + 1) {
-        std::cout << "WARNING: FD stencil requires more grid points than are on grid! Increase nx!" << '\n';
-        MPI_Finalize();
-        exit(1);
-    }
-    
-    inds    = new int[m_order+1];
-    weights = new double[m_order+1];
-    
-    switch (m_order) {
-        case 1: 
-            inds[0] = -1;
-            inds[1] =  0;
-            weights[0] = -1.0;
-            weights[1] =  1.0;
-            break;
-        case 2:
-            inds[0] = -2;
-            inds[1] = -1;
-            inds[2] =  0;
-            weights[0] =  1.0/2.0;
-            weights[1] = -4.0/2.0;
-            weights[2] =  3.0/2.0;
-            break;
-        case 3:
-            inds[0] = -2;
-            inds[1] = -1;
-            inds[2] =  0;
-            inds[3] =  1;
-            weights[0] =  1.0/6.0;
-            weights[1] = -6.0/6.0;
-            weights[2] =  3.0/6.0;
-            weights[3] =  2.0/6.0;
-            break;
-        case 4:
-            inds[0] = -3;
-            inds[1] = -2;
-            inds[2] = -1;
-            inds[3] =  0;
-            inds[4] =  1;
-            weights[0] = -1.0/12.0;
-            weights[1] =  6.0/12.0;
-            weights[2] = -18.0/12.0;
-            weights[3] =  10.0/12.0;
-            weights[4] =  3.0/12.0;
-            break;
-        case 5:   
-            inds[0] = -3;
-            inds[1] = -2;
-            inds[2] = -1;
-            inds[3] =  0;
-            inds[4] =  1;
-            inds[5] =  2;
-            weights[0] = -2.0/60.0;
-            weights[1] =  15.0/60.0;
-            weights[2] = -60.0/60.0;
-            weights[3] =  20.0/60.0;
-            weights[4] =  30.0/60.0;
-            weights[5] = -3.0/60.0;
-            break;
-        case 6:   
-            /* --- Order 6 discretization --- */
-            inds[0] = -4;
-            inds[1] = -3;
-            inds[2] = -2;
-            inds[3] = -1;
-            inds[4] = +0;
-            inds[5] = +1;
-            inds[6] = +2;
-            weights[0] = +1.0/60.0;
-            weights[1] = -2.0/15.0;
-            weights[2] = +1.0/2.0;
-            weights[3] = -4.0/3.0;
-            weights[4] = +7.0/12.0;
-            weights[5] = +2.0/5.0;
-            weights[6] = -1.0/30.0;
-            break;
-        case 7:
-            /* --- Order 7 discretization --- */
-            inds[0] = -4;
-            inds[1] = -3;
-            inds[2] = -2;
-            inds[3] = -1;
-            inds[4] = +0;
-            inds[5] = +1;
-            inds[6] = +2;
-            inds[7] = +3;
-            weights[0] = +1.0/140.0;
-            weights[1] = -1.0/15.0;
-            weights[2] = +3.0/10.0;
-            weights[3] = -1.0/1.0;
-            weights[4] = +1.0/4.0;
-            weights[5] = +3.0/5.0;
-            weights[6] = -1.0/10.0;
-            weights[7] = +1.0/105.0;
-            break;
-        case 8:   
-            /* --- Order 8 discretization --- */
-            inds[0] = -5;
-            inds[1] = -4;
-            inds[2] = -3;
-            inds[3] = -2;
-            inds[4] = -1;
-            inds[5] = +0;
-            inds[6] = +1;
-            inds[7] = +2;
-            inds[8] = +3;
-            weights[0] = -1.0/280.0;
-            weights[1] = +1.0/28.0;
-            weights[2] = -1.0/6.0;
-            weights[3] = +1.0/2.0;
-            weights[4] = -5.0/4.0;
-            weights[5] = +9.0/20.0;
-            weights[6] = +1.0/2.0;
-            weights[7] = -1.0/14.0;
-            weights[8] = +1.0/168.0;
-            break;
-        case 9:  
-            /* --- Order 9 discretization --- */
-            inds[0] = -5;
-            inds[1] = -4;
-            inds[2] = -3;
-            inds[3] = -2;
-            inds[4] = -1;
-            inds[5] = +0;
-            inds[6] = +1;
-            inds[7] = +2;
-            inds[8] = +3;
-            inds[9] = +4;
-            weights[0] = -1.0/630.0;
-            weights[1] = +1.0/56.0;
-            weights[2] = -2.0/21.0;
-            weights[3] = +1.0/3.0;
-            weights[4] = -1.0/1.0;
-            weights[5] = +1.0/5.0;
-            weights[6] = +2.0/3.0;
-            weights[7] = -1.0/7.0;
-            weights[8] = +1.0/42.0;
-            weights[9] = -1.0/504.0;
-            break;
-        case 10:   
-            /* --- Order 10 discretization --- */
-            inds[0] = -6;
-            inds[1] = -5;
-            inds[2] = -4;
-            inds[3] = -3;
-            inds[4] = -2;
-            inds[5] = -1;
-            inds[6] = +0;
-            inds[7] = +1;
-            inds[8] = +2;
-            inds[9] = +3;
-            inds[10] = +4;
-            weights[0] = +1.0/1260.0;
-            weights[1] = -1.0/105.0;
-            weights[2] = +3.0/56.0;
-            weights[3] = -4.0/21.0;
-            weights[4] = +1.0/2.0;
-            weights[5] = -6.0/5.0;
-            weights[6] = +11.0/30.0;
-            weights[7] = +4.0/7.0;
-            weights[8] = -3.0/28.0;
-            weights[9] = +1.0/63.0;
-            weights[10] = -1.0/840.0;
-            break;
-        case 11:   
-            /* --- Order 11 discretization --- */
-            inds[0] = -6;
-            inds[1] = -5;
-            inds[2] = -4;
-            inds[3] = -3;
-            inds[4] = -2;
-            inds[5] = -1;
-            inds[6] = +0;
-            inds[7] = +1;
-            inds[8] = +2;
-            inds[9] = +3;
-            inds[10] = +4;
-            inds[11] = +5;
-            weights[0] = +1.0/2772.0;
-            weights[1] = -1.0/210.0;
-            weights[2] = +5.0/168.0;
-            weights[3] = -5.0/42.0;
-            weights[4] = +5.0/14.0;
-            weights[5] = -1.0/1.0;
-            weights[6] = +1.0/6.0;
-            weights[7] = +5.0/7.0;
-            weights[8] = -5.0/28.0;
-            weights[9] = +5.0/126.0;
-            weights[10] = -1.0/168.0;
-            weights[11] = +1.0/2310.0;
-            break;
-        case 12:   
-            /* --- Order 12 discretization --- */
-            inds[0] = -7;
-            inds[1] = -6;
-            inds[2] = -5;
-            inds[3] = -4;
-            inds[4] = -3;
-            inds[5] = -2;
-            inds[6] = -1;
-            inds[7] = +0;
-            inds[8] = +1;
-            inds[9] = +2;
-            inds[10] = +3;
-            inds[11] = +4;
-            inds[12] = +5;
-            weights[0] = -1.0/5544.0;
-            weights[1] = +1.0/396.0;
-            weights[2] = -1.0/60.0;
-            weights[3] = +5.0/72.0;
-            weights[4] = -5.0/24.0;
-            weights[5] = +1.0/2.0;
-            weights[6] = -7.0/6.0;
-            weights[7] = +13.0/42.0;
-            weights[8] = +5.0/8.0;
-            weights[9] = -5.0/36.0;
-            weights[10] = +1.0/36.0;
-            weights[11] = -1.0/264.0;
-            weights[12] = +1.0/3960.0;
-            break;
-        default:
-            std::cout << "WARNING: invalid choice of spatial discretization. Upwind discretizations of orders 1--12 implemented.\n";
-            MPI_Finalize();
-            exit(1);
-    }
-    
-    for (int i = 0; i < m_order+1; i++) {
-        weights[i] /= m_mesh.m_dx[dim];
-    }
-}
+// // Ensure there are sufficiently many DOFs to discretize derivative
+// if (m_mesh.m_nx[dim] < m_order + 1) {
+//     std::cout << "WARNING: FD stencil requires more grid points than are on grid! Increase nx!" << '\n';
+//     MPI_Finalize();
+//     exit(1);
+// }
+
 
 
 /* -------------------------------------------------------------------------- */

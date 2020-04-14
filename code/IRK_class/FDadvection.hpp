@@ -21,7 +21,42 @@
 #define PI 3.14159265358979323846
 
 
-/* Abstract class defining an equidistant cartesian mesh */
+/* Abstract class defining FD approximations of common differential operators */
+class FDStencil
+{
+public:    
+    FDStencil() {};    
+    
+    /* Stencils for upwind discretizations of D1 == d/dx for stencil biased to the left. */
+    static void GetD1UpwindPlus(int order, double dx, int * &nodes, double * &weights);
+    
+    /* Stencils for upwind discretizations of D1 == d/dx for stencil biased to the right. */
+    static void GetD1UpwindMinus(int order, double dx, int * &nodes, double * &weights);
+    
+    /* Stencils for upwind discretizations of variable-coefficient D1 == D1(x). */
+    static void GetVariableD1Upwind(bool conservative,
+                                    std::function<double(int)> localCoefficient,
+                                    int order,
+                                    int * const &plusNodes, double * const &plusWeights, 
+                                    int * const &minusNodes, double * const &minusWeights, 
+                                    int * &localNodes, double * &localWeights);
+    
+    /* Stencils for central discretizations of D1 == d/dx. */
+    static void GetD1Central(int order, double dx, int * &inds, double * &weights);
+    
+    /* Stencils for central discretizations variable-coefficient of D1 == D1(x). */
+    static void GetVariableD1Central(bool conservative,
+                                     std::function<double(int)> localCoefficient,
+                                     int order,
+                                     int * const &nodes, double * const &weights,
+                                     double * &localWeights);
+                                     
+    /* Stencils for central discretizations of D2 == d^2/dx^2. */
+    static void GetD2Central(int order, double dx, int * &nodes, double * &weights);
+};
+
+
+/* Abstract class defining an equidistant Cartesian mesh */
 class FDMesh
 {
 private:
@@ -190,45 +225,45 @@ private:
 
 
     // Call when using spatial parallelism                          
-    void getSpatialDiscretizationG(const MPI_Comm &globComm, double* &G, 
+    void GetSpatialDiscretizationG(const MPI_Comm &globComm, double* &G, 
                                     int &localMinRow, int &localMaxRow, int &spatialDOFs, double t) const;                               
-    void getSpatialDiscretizationL(const MPI_Comm &globComm, int* &L_rowptr, 
+    void GetSpatialDiscretizationL(const MPI_Comm &globComm, int* &L_rowptr, 
                                     int* &L_colinds, double* &L_data,
                                     double* &U0, bool getU0, int U0ID,
                                     int &localMinRow, int &localMaxRow, int &spatialDOFs,
                                     double t, int &bsize) const;                                            
     
     // Call when NOT using spatial parallelism                                        
-    void getSpatialDiscretizationG(double* &G, int &spatialDOFs, double t) const; 
-    void getSpatialDiscretizationL(int* &L_rowptr, int* &L_colinds, double* &L_data,
+    void GetSpatialDiscretizationG(double* &G, int &spatialDOFs, double t) const; 
+    void GetSpatialDiscretizationL(int* &L_rowptr, int* &L_colinds, double* &L_data,
                                     double* &U0, bool getU0, int U0ID, 
                                     int &spatialDOFs, double t, int &bsize) const;                                            
                                          
     /* Uses spatial parallelism */                                
-    void get2DSpatialDiscretizationL(const MPI_Comm &globComm, 
+    void Get2DSpatialDiscretizationL(const MPI_Comm &globComm, 
                                         int *&L_rowptr, int *&L_colinds, double *&L_data, 
                                         double * &U0, bool getU0, int U0ID,
                                         int &localMinRow, int &localMaxRow, int &spatialDOFs, 
                                         double t, int &bsize) const;
-    void get1DSpatialDiscretizationL(const MPI_Comm &globComm, 
+    void Get1DSpatialDiscretizationL(const MPI_Comm &globComm, 
                                         int *&L_rowptr, int *&L_colinds, double *&L_data, 
                                         double * &U0, bool getU0, int U0ID,
                                         int &localMinRow, int &localMaxRow, int &spatialDOFs, 
                                         double t, int &bsize) const;                                
                                     
     /* No spatial parallelism */
-    void get2DSpatialDiscretizationL(int *&L_rowptr, int *&L_colinds, double *&L_data, 
+    void Get2DSpatialDiscretizationL(int *&L_rowptr, int *&L_colinds, double *&L_data, 
                                         double *&U0, bool getU0, int U0ID,
                                         int &spatialDOFs, double t, int &bsize) const;
                                 
     /* Uses spatial parallelism */  
-    void getInitialCondition(const MPI_Comm &globComm, 
+    void GetInitialCondition(const MPI_Comm &globComm, 
                                    double * &U0, 
                                    int      &localMinRow, 
                                    int      &localMaxRow, 
                                    int      &spatialDOFs) const;
                                 
-    void getInitialCondition(double * &U0, 
+    void GetInitialCondition(double * &U0, 
                              int      &spatialDOFs) const;
     
     bool GetExactPDESolution(const MPI_Comm &globComm, 
@@ -256,14 +291,10 @@ private:
                                int        &spatialDOFs) const;
 
 
-    /* Helper functions; shouldn't really be called outside of this class */
-    void getLocalUpwindDiscretization(double * &localWeights, int * &localInds,
-                                        std::function<double(int)> localWaveSpeed,
-                                        double * const &plusWeights, int * const &plusInds, 
-                                        double * const &minusWeights, int * const &minusInds,
-                                        int nWeights) const;
     
-    void get1DUpwindStencil(int * &inds, double * &weight, int dim) const;
+    
+    
+    
     void Get1DDissipationStencil(int * &inds, double *&weights, int &nnz) const; 
     
     double GetInitialIterate(double x, int U0ID) const;       /* 1D initial iterate for iterative solver */
