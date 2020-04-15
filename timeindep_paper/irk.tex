@@ -1089,9 +1089,9 @@ It turns out analogous ideas as used for the adjugate formulation can be applied
 to the $2\times 2$ operator in \eqref{eq:block}. Note that the Schur complement
 of \eqref{eq:block} is given by
 %
-\begin{align*}
+\begin{align}\label{eq:simpSchur}
 S & := \eta I - \widehat{\mathcal{L}} + \beta^2 (\eta I - \widehat{\mathcal{L}})^{-1},
-\end{align*}
+\end{align}
 %
 and consider a block lower triangular preconditioner for \eqref{eq:block} given by
 %
@@ -1128,15 +1128,54 @@ is well-known in the block-preconditioning community that a few iterations of
 an effective preconditioner typically yields convergence on the $2\times 2$
 operator just as fast as if performing direct solves in the preconditioning. 
 
-Thus, we have an algorithm that is similar in essence to that of \Cref{sec:solve},
+%
+\begin{remark}[Symmetric operators and three-term recursion]
+For SPD spatial operators, the nonsymmetric matrix in \eqref{eq:block} does
+not appear amenable to use with PCG, even in a modified norm. However, it is
+somewhat amenable to MINRES -- scaling the second equation in \eqref{eq:block}
+by $-1$ yields a new equation
+%
+\begin{align}\label{eq:block_symm}
+\begin{bmatrix} \eta I - \widehat{\mathcal{L}} & \beta I\\
+	\beta I & -(\eta I - \widehat{\mathcal{L}})\end{bmatrix}
+	\begin{bmatrix}\mathbf{k}_i \\\mathbf{k}_{i+1}\end{bmatrix} 
+& = \begin{bmatrix}\mathbf{f}_i \\ -\mathbf{f}_{i+1}\end{bmatrix},
+\end{align}
+%
+where $\mathbf{f}_i$ corresponds to the $i$th block of $(Q_0^T\otimes I)\mathbf{f}$
+in \eqref{eq:keq3}. We now have a symmetric saddle-point like operator with
+definite diagonal blocks. The resulting Schur complement is simply
+\eqref{eq:simpSchur} scaled by $-1$, $S_m := -( \eta I - \widehat{\mathcal{L}} +
+\beta^2 (\eta I - \widehat{\mathcal{L}})^{-1}) = -S$. MINRES requires
+an SPD preconditioner, and natural options are either a block-diagonal or
+block-LDU preconditioner using (SPD) diagonal blocks
+$(\eta I  - \widehat{\mathcal{L}})^{-1}$ (or some SPD preconditioner for
+$(\eta I  - \widehat{\mathcal{L}})$). In this case, block-diagonal
+preconditioning can be expected to take approximately twice as many
+iterations to reach a given tolerance as block-triangular when using
+minimal residual methods \todo{cite}. When $(\eta I  - \widehat{\mathcal{L}})$
+is inverted exactly, block-LDU preconditioning converges to a given
+tolerance in approximately the same number of iterations as block-triangular
+preconditioning, at the cost of an additional linear solve. Approximate
+solves of $(\eta I  - \widehat{\mathcal{L}})$ (such as a few multigrid
+iterations) in each larger iteration on the $2\times 2$ matrix is more
+complicated. Generally, due to the negative definiteness of $S_m$, the
+preconditioned operator ends up with eigenvalues clustered at $\pm 1$, which
+tends to slow down convergence of the Krylov method compared with, say,
+block-triangular preconditioning, where eigenvalues/field-of-values are
+clustered at $1$.
+\end{remark}
+%
+
+In general, we have an algorithm that is similar in essence to that of \Cref{sec:solve},
 but is able to store all stage vectors and is compatible with a simplified Newton
-iteration. Note, for linear problems the algorithm from \Cref{sec:solve} is still
+iteration. For linear problems, the algorithm from \Cref{sec:solve} is still
 preferable because the nonlinear method presented here requires more memory to
-store stage vectors, is not amenable to the use of CG/MINRES, and the Krylov
-method of choice must store two stages instead of one for each vector in the
-Krylov space. On the bright side, the method based on a real Schur decomposition
-does give insight into a preconditioning for the fully nonlinear and
-time-dependent setting, which is discussed in the next section. 
+store all stage vectors, the Krylov method of choice must store two stages instead
+of one for each vector in the Krylov space, and three-term Krylov recursion is
+only feasible in limited scenarios. The method based on a real Schur decomposition
+also gives important insight into a preconditioning for the fully nonlinear
+and time-dependent setting, which is discussed in the following section. 
 
 %
 \begin{remark}[Closed form Inverse]
@@ -1154,11 +1193,9 @@ which doubles the number of linear solves.
 
 
 
-%% Interestingly, some analysis seems to suggest a similar algorithm could
-%% be effective with the traditional Kronecker product form. If this is the
-%% case, should say so. Motivate A0^{-1} to tie in with linear algorithm and
-%% to motivate the general case, which would be less apparent w/o A0^{-1}.
-%% ---> Try to show proof of Theorem can be applied for this version as well...
+% See "Parallel iterative linear solvers for multistep Runge-Kutta methods"
+%
+%
 %
 \begin{remark}[A similar approach for $A_0$]
 This is not the first work to consider a real Schur decomposition of $A_0$
