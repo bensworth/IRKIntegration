@@ -21,39 +21,116 @@
 #define PI 3.14159265358979323846
 
 
-/* Abstract class defining FD approximations of common differential operators */
-class FDStencil
+enum FDBias {
+    CENTRAL = 0, UPWIND = 1
+};
+
+struct FDStencil {
+    int size = 0;
+    int * nodes = NULL;
+    double * weights = NULL;
+};
+
+
+// TODO: I want to have the stencil data be read only... But not really sure how to do it...
+/* Abstract class defining FD approximations of constant and variable-coefficient differential operators */
+class FDApprox
 {
-public:    
-    FDStencil() {};    
+private:
+    int m_derivative;   /* Degree of derivative to be approximated */
+    int m_order;        /* Order of FD approximation */
+    double m_dx;        /* Mesh width used in approximation */
+    
+    FDBias m_bias;      /* Bias of FD stencil */
+    
+    bool m_c_set;       /* Has coefficient of operator been set? */
+    bool m_c_current;   /* Do member stencils use current coefficient? */
+    bool m_variable;    /* Is operator constant- or variable-coefficient? */
+    double m_constant_c;/* Coefficient of constant-coefficient operator */
+    std::function<double(double)> m_variable_c; /* Variable coefficient of variable-coefficient operator */
+    bool m_conservative;/* Is variable coefficient in conservative or non-conservative form? */
+    
+    double m_x;         /* Point FD approximation is being applied at */
+    bool m_x_current;   /* Do member stencils use current x? */
+    
+    int m_size; /* Number of entries in stencils. NOTE: Cannot change over lifetime of object. */
+    int * m_nodes, * m_plusNodes, * m_minusNodes;
+    double * m_weights, * m_localWeights, * m_plusWeights, * m_minusWeights;
+    
+    bool m_delete_nodes;
     
     /* Stencils for upwind discretizations of D1 == d/dx for stencil biased to the left. */
-    static void GetD1UpwindPlus(int order, double dx, int * &nodes, double * &weights);
+    void GetD1UpwindPlus(int * &nodes, double * &weights) const;
     
     /* Stencils for upwind discretizations of D1 == d/dx for stencil biased to the right. */
-    static void GetD1UpwindMinus(int order, double dx, int * &nodes, double * &weights);
+    void GetD1UpwindMinus(int * &nodes, double * &weights) const;
     
     /* Stencils for upwind discretizations of variable-coefficient D1 == D1(x). */
-    static void GetVariableD1Upwind(bool conservative,
-                                    std::function<double(int)> localCoefficient,
-                                    int order,
-                                    int * const &plusNodes, double * const &plusWeights, 
-                                    int * const &minusNodes, double * const &minusWeights, 
-                                    int * &localNodes, double * &localWeights);
+    void GetVariableD1Upwind(int * &localNodes, double * &localWeights) const;
     
     /* Stencils for central discretizations of D1 == d/dx. */
-    static void GetD1Central(int order, double dx, int * &inds, double * &weights);
+    void GetD1Central(int * &inds, double * &weights) const;
     
     /* Stencils for central discretizations variable-coefficient of D1 == D1(x). */
-    static void GetVariableD1Central(bool conservative,
-                                     std::function<double(int)> localCoefficient,
-                                     int order,
-                                     int * const &nodes, double * const &weights,
-                                     double * &localWeights);
+    void GetVariableD1Central(double * &localWeights) const;
                                      
     /* Stencils for central discretizations of D2 == d^2/dx^2. */
-    static void GetD2Central(int order, double dx, int * &nodes, double * &weights);
+    void GetD2Central(int * &nodes, double * &weights) const;
+    
+    /* Stencils for central discretizations variable-coefficient of D2 == D2(x). */
+    void GetVariableD2Central(double * &localWeights) const;
+    
+public:    
+    
+    /// Operators
+    FDApprox(int derivative, int order, double dx); // Bias is N/A
+    FDApprox(int derivative, int order, double dx, FDBias bias); // Bias applies                                             
+    
+    ~FDApprox();
+    
+    // Set location of point to be discretized for variable-coefficient operator
+    inline void SetX(double x) { m_x = x; m_x_current = false; };
+    // Get location of point to be discretized for variable-coefficient operator
+    inline double GetX(double x) const { return m_x; } ;
+    
+    // Set constant coefficient
+    inline void SetCoefficient(double c) {
+        m_constant_c = c;
+        m_variable = false;
+        m_c_set = true;
+        m_c_current = false;
+        m_x_current = true; // Discretization doesn't depend on x
+    } 
+    
+    // Set variable coefficient and its type
+    inline void SetCoefficient(std::function<double(double)> const &c, bool conservative) { 
+        m_variable_c = c;
+        m_conservative = conservative;
+        m_variable = true;
+        m_c_set = true;
+        m_c_current = false;
+     }
+     
+    // Set variable coefficient
+    inline void SetCoefficient(std::function<double(double)> const &c) { 
+        SetCoefficient(c, m_conservative);
+    }
+
+    // Set type of variable coefficient
+    inline void SetVarCoefficientType(bool conservative) {
+        if (m_conservative != conservative) {
+            m_c_current = false;
+            m_conservative = conservative;
+        }
+    }
+    
+    // Size of stencil (i.e., nodes/weights arrays)
+    inline int GetSize() const { return m_size; };
+    
+    void GetApprox(int * &nodes, double * &weights);
+
 };
+
 
 
 /* Abstract class defining an equidistant Cartesian mesh */
@@ -276,8 +353,6 @@ private:
                              
     bool GetExactPDESolution(double * &U0, 
                             int      &spatialDOFs, double t) const;
-                            
-    
 
     void GetGridFunction(void   *  GridFunction, 
                          double * &B, 
@@ -297,9 +372,10 @@ private:
     
     void Get1DDissipationStencil(int * &inds, double *&weights, int &nnz) const; 
     
-    double GetInitialIterate(double x, int U0ID) const;       /* 1D initial iterate for iterative solver */
-    double GetInitialIterate(double x, double y,        /* 2D initial iterate for iterative solver */
-                        int U0ID) const; 
+    /* Initial iterate for iterative solver */
+    double GetInitialIterate(double x, int U0ID) const;       
+    double GetInitialIterate(double x, double y, int U0ID) const;
+     
     double InitCond(double x) const;                          /* 1D initial condition */
     double InitCond(double x, double y) const;                /* 2D initial condition */
     double WaveSpeed(double x, double t) const;               /* 1D wave speed */
@@ -313,28 +389,22 @@ private:
 
     double LagrangeOutflowCoefficient(int i, int k, int p) const;
     double InflowBoundary(double t) const;
-    
     void AppendInflowStencil1D(double * &G, double t) const;
-    
     void GetOutflowDiscretization(int &outflowStencilNnz, double * &localOutflowWeights, 
                                     int * &localOutflowInds, int stencilNnz, double * localWeights, 
                                     int * localInds, int dim, int DOFInd) const; 
 
-    int factorial(int n) const { return (n == 1 || n == 0) ? 1 : factorial(n - 1) * n; };
-    
-    
-    int GlobalIndToMeshInd(int globInd) const;
     void GetInflowBoundaryDerivatives1D(double * &du, double t) const;
     void GetInflowValues(std::map<int, double> &uGhost, double t, int dim) const;
     double GetCentralFDApprox(std::function<double(double)> f, double x0, int order, double h) const;
 
+    int GlobalIndToMeshInd(int globInd) const;
     
     /* Utility-type functions */
     void Merge1DStencilsIntoMap(int * indsIn1, double * weightsIn1, int nnzIn1, 
                                 int * indsIn2, double * weightsIn2, int nnzIn2,
                                 std::map<int, double> &out) const;
-                                
-    int div_ceil(int numerator, int denominator) const;    
+                                   
     void NegateData(int start, int stop, double * &data) const;
     
     
@@ -403,3 +473,5 @@ public:
     Pass type == 0 to set both type 1 and 2 with same parameters */
     void SetAMG_parameters(AMG_parameters parameters, int type = 0);
 };
+
+

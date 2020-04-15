@@ -1,16 +1,170 @@
 #include "FDadvection.hpp"
 
 /* -------------------------------------------------------------------------- */
+/* --------------------------- Utility functions ---------------------------- */
+/* -------------------------------------------------------------------------- */
+
+// Integer ceiling division
+int div_ceil(int numerator, int denominator)
+{
+        std::div_t res = std::div(numerator, denominator);
+        return res.rem ? (res.quot + 1) : res.quot;
+}
+
+// Factorial
+int factorial(int n) { return (n == 1 || n == 0) ? 1 : factorial(n - 1) * n; };
+
+
+/* -------------------------------------------------------------------------- */
 /* ------------------------- FDApproximation class -------------------------- */
 /* -------------------------------------------------------------------------- */
 
-/* Stencils for upwind discretizations of D1 == d/dx for stencil biased to the left. */
-void FDStencil::GetD1UpwindPlus(int order, double dx, int * &nodes, double * &weights)
-{    
-    nodes   = new int[order+1];
-    weights = new double[order+1];
+// Operator for which stencil bias is not applicable (i.e. for even-order derivatives)
+FDApprox::FDApprox(int derivative, int order, double dx)
+{
+    FDApprox(derivative, order, dx, CENTRAL);
+}
+
+// Operator for which bias is applicable (i.e., odd-order derivatives)
+FDApprox::FDApprox(int derivative, int order, double dx, FDBias bias) : 
+    m_derivative{derivative}, m_order{order}, m_dx{dx}, m_bias{bias}, 
+    m_c_set(false),
+    m_c_current(false),
+    m_conservative(false),
+    m_x{0.0},
+    m_x_current(false),
+    m_nodes{NULL}, m_plusNodes{NULL}, m_minusNodes{NULL}, 
+    m_weights{NULL}, m_localWeights{NULL}, m_plusWeights{NULL}, m_minusWeights{NULL},
+    m_delete_nodes(true)
+{
+    if (bias == UPWIND && m_derivative % 2 == 0) {
+        mfem_error("FDApprox::FDApprox() Even-order derivatives cannot use UPWIND bias");
+    }
     
-    switch (order) {
+    if (m_derivative > 2) {
+        mfem_error("FDApprox::FDApprox() Only 1st and 2nd derivatives implememted");
+    }
+    
+    m_size = m_order + 1;
+}
+
+FDApprox::~FDApprox() 
+{
+    if (m_nodes && m_delete_nodes) delete m_nodes; m_nodes = NULL;
+    if (m_weights) delete m_weights; m_weights = NULL;
+    if (m_localWeights) delete m_localWeights; m_localWeights = NULL;
+    if (m_plusNodes) delete m_plusNodes; m_plusNodes = NULL;
+    if (m_plusWeights) delete m_plusWeights; m_plusWeights = NULL;
+    if (m_minusNodes) delete m_minusNodes; m_minusNodes = NULL;
+    if (m_minusWeights) delete m_minusWeights; m_minusWeights = NULL;
+}
+
+/* Local approximation to derivative at point x. 
+NOTE: User does not assume owndership of nodes and weights, they're simply 
+pointed to  */
+void FDApprox::GetApprox(int * &nodes, double * &weights)
+{
+    if (!m_c_set) {
+        mfem_error("FDApprox::GetApprox() coefficient not set");
+    }
+    
+    // If neither coefficient nor x updated, nodes & weights are still valid. 
+    if (m_c_current && m_x_current) {
+        weights = m_weights;
+        nodes   = m_nodes;
+        return;
+    }
+    
+    // Constant-constant operator
+    if (!m_variable) {
+        // Free member stencils if previously allocated memory
+        if (m_nodes) delete m_nodes; m_nodes = NULL;
+        if (m_weights) delete m_weights; m_weights = NULL;
+        // D1 
+        if (m_derivative == 1) {
+            // Upwind D1
+            if (m_bias == UPWIND) {
+                // "Wind blows" left --> right
+                if (m_constant_c >= 0) {
+                    GetD1UpwindPlus(m_nodes, m_weights);
+                } else {
+                    GetD1UpwindMinus(m_nodes, m_weights);
+                }
+            // Central D1
+            } else {
+                GetD1Central(m_nodes, m_weights);
+            }
+        // D2 (central)
+        } else if (m_derivative == 2) {
+            GetD2Central(m_nodes, m_weights);
+        }
+        
+        // Scale weights by coefficient
+        for (int i = 0; i < m_size; i++) {
+            m_weights[i] *= m_constant_c;
+        }
+        
+        weights = m_weights;
+        nodes   = m_nodes;
+        
+    // Variable-coefficient operator 
+    // Requires computing new weights (and possibly getting local nodes)
+    } else if (m_variable_c) {
+        
+        // This block will only ever be called on the 1st call to this function,
+        // it sets appropriate member stencils.
+        if (!m_localWeights) {
+            // Upwind D1 AND conservative D2 use upwind D1 stencils in both directions
+            if ((m_derivative == 1 && m_bias == UPWIND) || (m_derivative == 2 && m_conservative)) {
+                GetD1UpwindPlus(m_plusNodes, m_plusWeights);
+                GetD1UpwindMinus(m_minusNodes, m_minusWeights);
+                // m_nodes will just point to m_plusNodes OR m_minusNodes,
+                // which will be used to free the associated data
+                m_delete_nodes = false; 
+            
+            // Central D1 requires central stencil
+            } else if (m_derivative == 1 && m_bias == CENTRAL) {
+                GetD1Central(m_nodes, m_weights);
+            
+            // Non-conservative D2 requires central stencil
+            } else if (m_derivative == 2 && !m_conservative) {
+                GetD2Central(m_nodes, m_weights);
+            }
+            
+            // Allocate memory for local weights 
+            m_localWeights = new double[m_size];
+        }
+        
+        // D1
+        if (m_derivative == 1) {
+            if (m_bias == UPWIND) {
+                GetVariableD1Upwind(m_nodes, m_localWeights);
+            } else if (m_bias == CENTRAL) {
+                GetVariableD1Central(m_localWeights);
+            }
+        }
+        // D2
+        else if (m_derivative == 2) {
+            GetVariableD2Central(m_localWeights);
+        }
+        
+        weights = m_localWeights;
+        nodes = m_nodes;
+        
+    }
+    
+    // Member stencils are w.r.t. current x and coefficient
+    m_x_current = true;
+    m_c_current = true;
+}
+
+/* Stencils for upwind discretizations of D1 == d/dx for stencil biased to the left. */
+void FDApprox::GetD1UpwindPlus(int * &nodes, double * &weights) const
+{    
+    nodes   = new int[m_size];
+    weights = new double[m_size];
+    
+    switch (m_order) {
         /* --- Order 1 discretization --- */
         case 1: 
             nodes[0] = -1;
@@ -172,30 +326,30 @@ void FDStencil::GetD1UpwindPlus(int order, double dx, int * &nodes, double * &we
             weights[10] = -1.0/840.0;
             break;
         default:
-            std::cout << "FDStencil::GetD1UpwindPlus() invalid discretization. Orders 1--10 implemented.\n";
+            std::cout << "FDApprox::GetD1UpwindPlus() invalid discretization. Orders 1--10 implemented.\n";
             MPI_Finalize();
             exit(1);
     }
     
-    for (int i = 0; i < order+1; i++) {
-        weights[i] /= dx;
+    for (int i = 0; i < m_size; i++) {
+        weights[i] /= m_dx;
     }
 }
 
 /* Stencils for upwind discretizations of D1 == d/dx for stencil biased to the right. */
-void FDStencil::GetD1UpwindMinus(int order, double dx, int * &nodes, double * &weights) 
+void FDApprox::GetD1UpwindMinus(int * &nodes, double * &weights) const
 {
     // Get left-bias stencils 
     int    * plusNodes   = NULL;
     double * plusWeights = NULL;
-    GetD1UpwindPlus(order, dx, plusNodes, plusWeights);
+    GetD1UpwindPlus(plusNodes, plusWeights);
     
     // Reverse left-biased stencils and flip sign of weights
-    nodes   = new int[order + 1];
-    weights = new double[order + 1];
-    for (int i = 0; i < order + 1; i++) {
-        nodes[i]   = -plusNodes[order-i];
-        weights[i] = -plusWeights[order-i];
+    nodes   = new int[m_size];
+    weights = new double[m_size];
+    for (int i = 0; i < m_size; i++) {
+        nodes[i]   = -plusNodes[m_size-1-i];
+        weights[i] = -plusWeights[m_size-1-i];
     } 
     delete plusNodes;
     delete plusWeights;
@@ -203,108 +357,67 @@ void FDStencil::GetD1UpwindMinus(int order, double dx, int * &nodes, double * &w
 
 
 /* Stencils for upwind discretizations of variable-coefficient D1 == D1(x)
-    D1 == d/dx(coefficient(x) * ) -- conservative == true
-    D1 == coefficient(x)*d/dx     -- conservative == false
+    D1 == d/dx(c(x) * ) -- conservative == true
+    D1 == c(x)*d/dx     -- conservative == false
 
 NOTES:
- - localCoefficient(index) returns the value of coefficient(dx*index) where index == 0 denotes the point in question
  - localNodes just returns a pointer to plusNodes/minusNodes depending on wind direction
  - Memory must be already allocated for localWeights   
  */ 
-void FDStencil::GetVariableD1Upwind(bool conservative,
-                                    std::function<double(int)> localCoefficient,
-                                    int order,
-                                    int * const &plusNodes, double * const &plusWeights, 
-                                    int * const &minusNodes, double * const &minusWeights, 
-                                    int * &localNodes, double * &localWeights)
+void FDApprox::GetVariableD1Upwind(int * &localNodes, double * &localWeights) const
 {   
-    // Number of nodes/weights for discretizing with given order
-    int size = order + 1; 
      
     // Coefficient at point in question; the sign of this determines the upwind direction
-    double coefficient0 = localCoefficient(0); 
+    double coefficient0 = m_variable_c(m_x); 
     
     // Wind blows from minus to plus
     if (coefficient0 >= 0.0) {
-        localNodes = plusNodes;
+        localNodes = m_plusNodes;
     
-        // Conservative: Need to discretize d/dx(coefficient * )
-        if (conservative) {
-            for (int i = 0; i < size; i++) {
-                localWeights[i] = localCoefficient(plusNodes[i]) * plusWeights[i];
+        // Conservative: Need to discretize d/dx(coefficient(x) * )
+        if (m_conservative) {
+            for (int i = 0; i < m_size; i++) {
+                localWeights[i] = m_variable_c(m_x + m_dx*localNodes[i]) * m_plusWeights[i];
             }
     
-        // Non-conservative: Need to discretize coefficient*d/dx    
+        // Non-conservative: Need to discretize coefficient(x0)*d/dx    
         } else {
-            for (int i = 0; i < size; i++) {
-                localWeights[i] = coefficient0 * plusWeights[i];
+            for (int i = 0; i < m_size; i++) {
+                localWeights[i] = coefficient0 * m_plusWeights[i];
             }
         }
     
     // Wind blows from plus to minus
     } else {        
-        localNodes = minusNodes;
+        localNodes = m_minusNodes;
         
-        // Conservative: Need to discretize d/dx(coefficient * )
-        if (conservative) {
-            for (int i = 0; i < size; i++) {
-                localWeights[i] = localCoefficient(minusNodes[i]) * minusWeights[i];
+        // Conservative: Need to discretize d/dx(coefficient(x) * )
+        if (m_conservative) {
+            for (int i = 0; i < m_size; i++) {
+                localWeights[i] = m_variable_c(m_x + m_dx*localNodes[i]) * m_minusWeights[i];
             }
     
-        // Non-conservative: Need to discretize coefficient*d/dx    
+        // Non-conservative: Need to discretize coefficient(x0)*d/dx    
         } else {
-            for (int i = 0; i < size; i++) {
-                localWeights[i] = coefficient0 * minusWeights[i];
+            for (int i = 0; i < m_size; i++) {
+                localWeights[i] = coefficient0 * m_minusWeights[i];
             }
         }
     }    
 }
-
-
-/* Stencils for central discretizations of variable-coefficient D1 == D1(x)
-    D1 == d/dx(coefficient(x) * ) -- conservative == true
-    D1 == coefficient(x)*d/dx     -- conservative == false
-
-NOTES:
- - localCoefficient(index) returns the value of coefficient(dx*index) where index == 0 denotes the point in question
- - Memory must be already allocated for localWeights   
- */ 
-void FDStencil::GetVariableD1Central(bool conservative,
-                                     std::function<double(int)> localCoefficient,
-                                     int order,
-                                     int * const &nodes, double * const &weights,
-                                     double * &localWeights)
-{
-    // Number of nodes/weights for discretizing with given order
-    int size = order + 1; 
-    
-    // Conservative: Need to discretize d/dx(coefficient * )
-    if (conservative) {
-        for (int i = 0; i < size; i++) {
-            localWeights[i] = localCoefficient(nodes[i]) * weights[i];
-        }
-
-    // Non-conservative: Need to discretize coefficient*d/dx    
-    } else {
-        double coefficient0 = localCoefficient(0);
-        for (int i = 0; i < size; i++) {
-            localWeights[i] = coefficient0 * weights[i];
-        }
-    }
-}                                 
-
+                            
 
 /* Stencils for central discretizations of D1 == d/dx. 
 
 NOTES:
  -A 0 coefficient for the 0th node is always included so the stencil is contiguous  
 */
-void FDStencil::GetD1Central(int order, double dx, int * &nodes, double * &weights)
+void FDApprox::GetD1Central(int * &nodes, double * &weights) const
 {    
-    nodes   = new int[order+1];
-    weights = new double[order+1];
+    nodes   = new int[m_size];
+    weights = new double[m_size];
 
-    switch (order) {
+    switch (m_order) {
         /* --- Order 2 discretization --- */
         case 2:
             nodes[0] = -1;
@@ -391,23 +504,48 @@ void FDStencil::GetD1Central(int order, double dx, int * &nodes, double * &weigh
             weights[10] = +1.0/1260.0;
             break;  
         default:
-            std::cout << "FDStencil::GetD1Central() invalid discretization. Orders 2,4,6,8,10 implemented.\n";
+            std::cout << "FDApprox::GetD1Central() invalid discretization. Orders 2,4,6,8,10 implemented.\n";
             MPI_Finalize();
             exit(1);
     }
     
-    for (int i = 0; i < order+1; i++) {
-        weights[i] /= dx;
+    for (int i = 0; i < m_size; i++) {
+        weights[i] /= m_dx;
     }
 }
 
-/* Stencils for central discretizations of D2 == d^2/dx^2. */
-void FDStencil::GetD2Central(int order, double dx, int * &nodes, double * &weights)
-{   
-    nodes    = new int[order+1];
-    weights = new double[order+1];
+/* Stencils for central discretizations of variable-coefficient D1 == D1(x)
+    D1 == d/dx(c(x) * ) -- conservative == true
+    D1 == c(x)*d/dx     -- conservative == false
 
-    switch (order) {
+NOTES:
+ - Memory must be already allocated for localWeights   
+ */ 
+void FDApprox::GetVariableD1Central(double * &localWeights) const
+{
+    
+    // Conservative: Need to discretize d/dx(coefficient(x) * )
+    if (m_conservative) {
+        for (int i = 0; i < m_size; i++) {
+            localWeights[i] = m_variable_c(m_x + m_dx*m_nodes[i]) * m_weights[i];
+        }
+
+    // Non-conservative: Need to discretize coefficient(x0)*d/dx    
+    } else {
+        double coefficient0 = m_variable_c(m_x);
+        for (int i = 0; i < m_size; i++) {
+            localWeights[i] = coefficient0 * m_weights[i];
+        }
+    }
+} 
+
+/* Stencils for central discretizations of D2 == d^2/dx^2. */
+void FDApprox::GetD2Central(int * &nodes, double * &weights) const
+{   
+    nodes   = new int[m_size];
+    weights = new double[m_size];
+
+    switch (m_order) {
         /* --- Order 2 discretization --- */
         case 2:
             nodes[0] = -1;
@@ -494,16 +632,48 @@ void FDStencil::GetD2Central(int order, double dx, int * &nodes, double * &weigh
             weights[10] = +1.0/3150.0;
             break;                                  
         default:
-            std::cout << "FDStencil::GetD2Central() invalid discretization. Orders 2,4,6,8,10 implemented.\n";
+            std::cout << "FDApprox::GetD2Central() invalid discretization. Orders 2,4,6,8,10 implemented.\n";
             MPI_Finalize();
             exit(1);
     }
     
-    for (int i = 0; i < order+1; i++) {
-        weights[i] /= dx * dx;
+    for (int i = 0; i < m_size; i++) {
+        weights[i] /= m_dx * m_dx;
     }
 }
 
+/* Stencils for central discretizations of variable-coefficient D2 == D2(x)
+    D2 == d/dx(coefficient(x)*d/dx() ) -- conservative == true
+    D2 == coefficient(x0)*d^2/dx^2     -- conservative == false
+
+NOTES:
+ - localCoefficient(index) returns the value of coefficient(x0 + index*dx),
+        where x=x0 is the point being discretized at
+ - Memory must be already allocated for localWeights   
+ */ 
+void FDApprox::GetVariableD2Central(double * &localWeights) const
+{
+
+    // Conservative: Need to discretize d/dx(coefficient(x)*d/dx )
+    if (m_conservative) {
+        
+        // Need to apply d/dx plus, then d/dx minus or vice versa
+        mfem_error("Oops. I'm not yet implememted");
+
+        for (int i = 0; i < m_size; i++) {
+            localWeights[i] = 0.0;
+        }
+        
+        
+
+    // Non-conservative: Need to discretize coefficient(x)*d^2/dx^2    
+    } else {
+        double coefficient0 = m_variable_c(m_x);
+        for (int i = 0; i < m_size; i++) {
+            localWeights[i] = coefficient0 * m_weights[i];
+        }
+    }
+}
 
 /* -------------------------------------------------------------------------- */
 /* ----------------------------- FDMesh class ------------------------------- */
@@ -972,8 +1142,6 @@ void FDadvection::GetHypreParMatrixL(double t, HypreParMatrix * &L) const {
     int    * L_colinds;
     double * L_data;
     
-    std::cout << "HPR0" << '\n';
-    
     // No parallelism: Spatial discretization on single processor
     if (!m_parallel) {
         GetSpatialDiscretizationL(L_rowptr, L_colinds, L_data, U,  getU, U_ID, spatialDOFs, t, m_size);
@@ -986,24 +1154,13 @@ void FDadvection::GetHypreParMatrixL(double t, HypreParMatrix * &L) const {
                                     t, m_size);
     }
 
-    std::cout << "HPR1" << '\n';
-
-    std::cout << "ilow, iup, dofs = " << ilower  << ", " << iupper << ", " << spatialDOFs << '\n';
-    
-    
-    std::cout << "HPR2" << '\n';
-
     // Flip the sign of L since the base class expects L from du/dt = L*u and not du/dt + L*u = 0
     NegateData(L_rowptr[0], L_rowptr[iupper-ilower+1], L_data);
-
-    std::cout << "HPR3" << '\n';
 
     GetHypreParMatrixFromCSRData(m_comm,  
                                     ilower, iupper, spatialDOFs, 
                                     L_rowptr, L_colinds, L_data,
                                     L); 
-    
-    std::cout << "L.Height() = " << L->Height() << '\n';
     
     /* These are copied into L, so can delete */
     // TODO[seg]: L_data was causing seg fault for me w/ ImplicitSolve, check ownership.
@@ -1102,58 +1259,6 @@ void FDadvection::GetG(double t, HypreParVector * &g) const {
     g->MakeDataOwner();
 }
 
-// void SpatialDiscretization::SetL(double t) {
-//     /* Get L for the first time */
-//     if (!m_L) {
-//         m_t_L = t;
-//         GetSpatialDiscretizationL(t, m_L);
-// 
-//     /* Get L at a different time than what it's currently stored at */
-//     } else if (m_L_isTimedependent && t != m_t_L) {
-//         m_t_L = t;
-//         delete m_L;
-//         m_L = NULL;
-//         GetSpatialDiscretizationL(t, m_L);
-//     }
-// }
-
-// /* Set initial condition in solution vector */
-// void SpatialDiscretization::SetU0() {
-//     if (!m_u) {
-//         GetSpatialDiscretizationU0(m_u);
-//         height = m_u->Size(); // TODO : Need a  better way  of setting this...
-//     } else {
-//         std::cout << "WARNING: Initial condition cannot overwrite existing value of m_u" << '\n';
-//     }
-// }
-
-// void SpatialDiscretization::SetG(double t) {
-//     /* Get g for the first time */
-//     if (!m_g) {
-//         m_t_g = t;
-//         GetSpatialDiscretizationG(t, m_g);
-// 
-//     /* Get g at a different time than what it's currently stored at */
-//     } else if (m_G_isTimedependent && t != m_t_g) {
-//         m_t_g = t;
-//         delete m_g;
-//         m_g = NULL;
-//         GetSpatialDiscretizationG(t, m_g);
-//     }
-// 
-//     if (m_M_exists) {
-//         std::cout << "WARNING: Need to implement inv(M) * RHS" << '\n';
-//         MPI_Finalize();
-//         exit(1);
-//     }
-// }
-
-// /* Functions setting HYPRE matrix/vector member variables  */
-// void SpatialDiscretization::SetM() {
-//     if (!m_M) GetSpatialDiscretizationM(m_M);
-// }
-
-
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
 /* -------------------------------------------------------------------------- */
@@ -1178,11 +1283,6 @@ void FDadvection::SetNumDissipation(Num_dissipation dissipation_params)
 
 FDadvection::~FDadvection()
 {
-    // if (m_M) delete m_M;
-    // if (m_L) delete m_L;
-    // if (m_u) delete m_u;
-    // if (m_g) delete m_g;
-    //if (m_z) delete m_z;
     if (m_I) delete m_I;
     if (m_L) delete m_L;
     
@@ -1195,12 +1295,7 @@ FDadvection::~FDadvection()
 }
 
 
-// Integer ceiling division
-int FDadvection::div_ceil(int numerator, int denominator) const
-{
-        std::div_t res = std::div(numerator, denominator);
-        return res.rem ? (res.quot + 1) : res.quot;
-}
+
 
 /* Return data to be used as an initial iterate. Data depends on integer U0ID */
 double FDadvection::GetInitialIterate(double x, int U0ID) const {
@@ -1409,7 +1504,7 @@ void FDadvection::GetSpatialDiscretizationL(int * &L_rowptr, int * &L_colinds,
         Get1DSpatialDiscretizationL(NULL, L_rowptr,
                                       L_colinds, L_data, U0,
                                       getU0, U0ID, dummy1, dummy2,
-                                      spatialDOFs, t, bsize);
+                                      spatialDOFs, t, bsize);                          
     } else if (m_dim == 2) {
         // Call a serial implementation of 2D code
         Get2DSpatialDiscretizationL(L_rowptr,
@@ -1448,18 +1543,18 @@ void FDadvection::Get2DSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_
                                               int &spatialDOFs, double t, int &bsize) const
 {
     // Unpack variables frequently used
-    // x-related variables
     int nx          = m_mesh.m_nx[0];
     double dx       = m_mesh.m_dx[0];
-    int xFD_Order   = m_order;
-    int xStencilNnz = xFD_Order + 1; // Width of the FD stencil
-    int xDim        = 0;
-    // y-related variables
     int ny          = m_mesh.m_nx[1];
     double dy       = m_mesh.m_dx[1];
-    int yFD_Order   = m_order;
-    int yStencilNnz = yFD_Order + 1; // Width of the FD stencil
-    int yDim        = 1;
+    
+    // Initialize FD approximations of each term
+    FDApprox xadv(1, m_order, dx, UPWIND);
+    xadv.SetVarCoefficientType(m_conservativeForm);
+    int xStencilNnz = xadv.GetSize();
+    FDApprox yadv(1, m_order, dy, UPWIND);
+    yadv.SetVarCoefficientType(m_conservativeForm);
+    int yStencilNnz = yadv.GetSize();
     
     /* ----------------------------------------------------------------------- */
     /* ------ Initialize variables needed to compute CSR structure of L ------ */
@@ -1480,29 +1575,20 @@ void FDadvection::Get2DSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_
     /* ---------------------------------------------------------------- */
     /* ------ Get components required to approximate derivatives ------ */
     /* ---------------------------------------------------------------- */
-    // Get stencils for upwind discretizations
-    int * xPlusInds, * xMinusInds, * yPlusInds, * yMinusInds = NULL;
-    double * xPlusWeights, * xMinusWeights, * yPlusWeights, * yMinusWeights = NULL;
-    FDStencil::GetD1UpwindPlus(xFD_Order, dx, xPlusInds, xPlusWeights);
-    FDStencil::GetD1UpwindMinus(xFD_Order, dx, xMinusInds, xMinusWeights);
-    FDStencil::GetD1UpwindPlus(yFD_Order, dy, yPlusInds, yPlusWeights);
-    FDStencil::GetD1UpwindMinus(yFD_Order, dy, yMinusInds, yMinusWeights);
+    // These will just point to an pre-allocated arrays, so don't need memory allocated!
+    double * xLocalWeights, * yLocalWeights = NULL;
+    int    * xLocalNodes, * yLocalNodes = NULL; 
     
-    // Placeholder for weights to discretize derivatives at each point 
-    double * xLocalWeights = new double[xStencilNnz];
-    double * yLocalWeights = new double[yStencilNnz];
-    int    * xLocalInds; // This will just point to an existing array, doesn't need memory allocated!
-    int    * yLocalInds; // This will just point to an existing array, doesn't need memory allocated!
+    // Components of wavespeed in each direction
+    std::function<double(double)> xWaveSpeed;
+    std::function<double(double)> yWaveSpeed; 
+    
     int      xIndOnProc; 
     int      yIndOnProc; 
     int      xIndGlobal;
     int      yIndGlobal;
     double   x;
     double   y;
-    
-    // Compute x- and y-components of wavespeed given some dx or dy perturbation away from the current point
-    std::function<double(int)> xLocalWaveSpeed;
-    std::function<double(int)> yLocalWaveSpeed; 
     
     // Given local indices on current process return global index
     std::function<int(int, int, int)> MeshIndsOnProcToGlobalInd = [this, localMinRow](int row, int xIndOnProc, int yIndOnProc) { return localMinRow + xIndOnProc + yIndOnProc*m_mesh.m_nxOnProc[0]; };
@@ -1522,37 +1608,30 @@ void FDadvection::Get2DSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_
         yIndOnProc = rowcount / m_mesh.m_nxOnProc[0];                      // y-index on proc
         xIndGlobal = m_mesh.m_pIdx[0] * m_mesh.m_nxOnProcInt[0] + xIndOnProc; // Global x-index
         yIndGlobal = m_mesh.m_pIdx[1] * m_mesh.m_nxOnProcInt[1] + yIndOnProc; // Global y-index
-        y          = m_mesh.MeshIndToPoint(yIndGlobal, yDim);              // y-value of current point
-        x          = m_mesh.MeshIndToPoint(xIndGlobal, xDim);              // x-value of current point
+        y          = m_mesh.MeshIndToPoint(yIndGlobal, 1);              // y-value of current point
+        x          = m_mesh.MeshIndToPoint(xIndGlobal, 0);              // x-value of current point
 
-        // Compute x- and y-components of wavespeed given some dx or dy perturbation away from the current point
-        xLocalWaveSpeed = [this, x, dx, y, t, xDim](int xOffset) { return WaveSpeed(x + dx * xOffset, y, t, xDim); };
-        yLocalWaveSpeed = [this, x, y, dy, t, yDim](int yOffset) { return WaveSpeed(x, y + dy * yOffset, t, yDim); };
-    
         // Get stencil for discretizing x-derivative at current point 
-        FDStencil::GetVariableD1Upwind(m_conservativeForm,
-                                        xLocalWaveSpeed,
-                                        xFD_Order, 
-                                        xPlusInds, xPlusWeights, 
-                                        xMinusInds, xMinusWeights,
-                                        xLocalInds, xLocalWeights);
+        xWaveSpeed = [this, y, t](double x) { return WaveSpeed(x, y, t, 0); };
+        xadv.SetX(x);
+        xadv.SetCoefficient(xWaveSpeed);
+        xadv.GetApprox(xLocalNodes, xLocalWeights);
+        
         // Get stencil for discretizing y-derivative at current point 
-        FDStencil::GetVariableD1Upwind(m_conservativeForm,
-                                        yLocalWaveSpeed, 
-                                        yFD_Order,
-                                        yPlusInds, yPlusWeights, 
-                                        yMinusInds, yMinusWeights, 
-                                        yLocalInds, yLocalWeights);
-    
+        yWaveSpeed = [this, x, t](double y) { return WaveSpeed(x, y, t, 1); };
+        yadv.SetX(y);
+        yadv.SetCoefficient(yWaveSpeed);
+        yadv.GetApprox(yLocalNodes, yLocalWeights);
+        
         // Build so that column indices are in ascending order, this means looping 
         // over y first until we hit the current point, then looping over x, then continuing to loop over y
         // Actually, periodicity stuffs this up I think...
         for (int yNzInd = 0; yNzInd < yStencilNnz; yNzInd++) {
 
             // The two stencils will intersect somewhere at this y-point
-            if (yLocalInds[yNzInd] == 0) {
+            if (yLocalNodes[yNzInd] == 0) {
                 for (int xNzInd = 0; xNzInd < xStencilNnz; xNzInd++) {
-                    int temp = xIndOnProc + xLocalInds[xNzInd]; // Local x-index of current connection
+                    int temp = xIndOnProc + xLocalNodes[xNzInd]; // Local x-index of current connection
                     // Connection to process on WEST side
                     if (temp < 0) {
                         L_colinds[dataInd] = MeshIndsOnWestProcToGlobalInd(abs(temp), yIndOnProc);
@@ -1567,13 +1646,13 @@ void FDadvection::Get2DSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_
 
                     // The two stencils intersect at this point x-y-point, i.e. they share a 
                     // column in L, so add y-derivative information to x-derivative information that exists there
-                    if (xLocalInds[xNzInd] == 0) L_data[dataInd] += yLocalWeights[yNzInd]; 
+                    if (xLocalNodes[xNzInd] == 0) L_data[dataInd] += yLocalWeights[yNzInd]; 
                     dataInd += 1;
                 }
     
             // There is no possible intersection between between x- and y-stencils
             } else {
-                int temp = yIndOnProc + yLocalInds[yNzInd]; // Local y-index of current connection
+                int temp = yIndOnProc + yLocalNodes[yNzInd]; // Local y-index of current connection
                 // Connection to process on SOUTH side
                 if (temp < 0) {
                     L_colinds[dataInd] = MeshIndsOnSouthProcToGlobalInd(xIndOnProc, abs(temp));
@@ -1601,16 +1680,6 @@ void FDadvection::Get2DSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_
     if (dataInd > L_nnz) {
         std::cout << "WARNING: FD spatial discretization matrix has more nonzeros than allocated.\n";
     }
-    
-    // Clean up
-    delete[] xPlusInds;
-    delete[] xPlusWeights;
-    delete[] yPlusInds;
-    delete[] yPlusWeights;
-    delete[] xMinusInds;
-    delete[] xMinusWeights;
-    delete[] xLocalWeights;
-    delete[] yLocalWeights;
 }
                              
 
@@ -1623,19 +1692,18 @@ void FDadvection::Get2DSpatialDiscretizationL(int *&L_rowptr,
                                               int &spatialDOFs, double t, int &bsize) const
 {
     // Unpack variables frequently used
-    // x-related variables
     int nx          = m_mesh.m_nx[0];
     double dx       = m_mesh.m_dx[0];
-    int xFD_Order   = m_order;
-    int xStencilNnz = xFD_Order + 1; // Width of the FD stencil
-    int xDim        = 0;
-    // y-related variables
     int ny          = m_mesh.m_nx[1];
     double dy       = m_mesh.m_dx[1];
-    int yFD_Order   = m_order;
-    int yStencilNnz = yFD_Order + 1; // Width of the FD stencil
-    int yDim        = 1;
-
+    
+    // Initialize FD approximations of each term
+    FDApprox xadv(1, m_order, dx, UPWIND);
+    xadv.SetVarCoefficientType(m_conservativeForm);
+    int xStencilNnz = xadv.GetSize();
+    FDApprox yadv(1, m_order, dy, UPWIND);
+    yadv.SetVarCoefficientType(m_conservativeForm);
+    int yStencilNnz = yadv.GetSize();
 
     /* ----------------------------------------------------------------------- */
     /* ------ Initialize variables needed to compute CSR structure of L ------ */
@@ -1652,59 +1720,42 @@ void FDadvection::Get2DSpatialDiscretizationL(int *&L_rowptr,
     L_rowptr[0]     = 0;
     if (getU0) U0   = new double[m_onProcSize]; // Initial guesss at solution
 
-
     /* ---------------------------------------------------------------- */
     /* ------ Get components required to approximate derivatives ------ */
     /* ---------------------------------------------------------------- */
-    // Get stencils for upwind discretizations
-    int * xPlusInds, * xMinusInds, * yPlusInds, * yMinusInds = NULL;
-    double * xPlusWeights, * xMinusWeights, * yPlusWeights, * yMinusWeights = NULL;
-    FDStencil::GetD1UpwindPlus(xFD_Order, dx, xPlusInds, xPlusWeights);
-    FDStencil::GetD1UpwindMinus(xFD_Order, dx, xMinusInds, xMinusWeights);
-    FDStencil::GetD1UpwindPlus(yFD_Order, dy, yPlusInds, yPlusWeights);
-    FDStencil::GetD1UpwindMinus(yFD_Order, dy, yMinusInds, yMinusWeights); 
-
-    // Placeholder for weights to discretize derivatives at point 
-    double * xLocalWeights = new double[xStencilNnz];
-    double * yLocalWeights = new double[yStencilNnz];
-    int * xLocalInds; // This will just point to an existing array, doesn't need memory allocated!
-    int * yLocalInds; // This will just point to an existing array, doesn't need memory allocated!
-    int xInd;
-    int yInd;
-    double x;
-    double y;
-
-    // Get functions that compute x- and y-components of wavespeed given some dx or dy perturbation away from the current point
-    std::function<double(int)> xLocalWaveSpeed;
-    std::function<double(int)> yLocalWaveSpeed;    
-
+    // These will just point to an pre-allocated arrays, so don't need memory allocated!
+    int    * xLocalNodes, * yLocalNodes = NULL; 
+    double * xLocalWeights, * yLocalWeights = NULL;
+        
+    // Components of wavespeed in each direction
+    std::function<double(double)> xWaveSpeed;
+    std::function<double(double)> yWaveSpeed; 
+    
+    int      xInd;
+    int      yInd;
+    double   x;
+    double   y;
+    
     /* ------------------------------------------------------------------- */
     /* ------ Get CSR structure of L for all rows on this processor ------ */
     /* ------------------------------------------------------------------- */
     for (int row = localMinRow; row <= localMaxRow; row++) {
         xInd = row % nx;                   // x-index of current point
         yInd = row / nx;                   // y-index of current point
-        x    = m_mesh.MeshIndToPoint(xInd, xDim); // x-value of current point
-        y    = m_mesh.MeshIndToPoint(yInd, yDim); // y-value of current point
-
-        // Get functions that compute x- and y-components of wavespeed given some dx or dy perturbation away from the current point
-        xLocalWaveSpeed = [this, x, dx, y, t, xDim](int xOffset) { return WaveSpeed(x + dx * xOffset, y, t, xDim); };
-        yLocalWaveSpeed = [this, x, y, dy, t, yDim](int yOffset) { return WaveSpeed(x, y + dy * yOffset, t, yDim); };
+        x    = m_mesh.MeshIndToPoint(xInd, 0); // x-value of current point
+        y    = m_mesh.MeshIndToPoint(yInd, 1); // y-value of current point
 
         // Get stencil for discretizing x-derivative at current point 
-        FDStencil::GetVariableD1Upwind(m_conservativeForm,
-                                        xLocalWaveSpeed,
-                                        xFD_Order, 
-                                        xPlusInds, xPlusWeights, 
-                                        xMinusInds, xMinusWeights,
-                                        xLocalInds, xLocalWeights);
+        xWaveSpeed = [this, y, t](double x) { return WaveSpeed(x, y, t, 0); };
+        xadv.SetX(x);
+        xadv.SetCoefficient(xWaveSpeed);
+        xadv.GetApprox(xLocalNodes, xLocalWeights);
+        
         // Get stencil for discretizing y-derivative at current point 
-        FDStencil::GetVariableD1Upwind(m_conservativeForm,
-                                        yLocalWaveSpeed, 
-                                        yFD_Order,
-                                        yPlusInds, yPlusWeights, 
-                                        yMinusInds, yMinusWeights, 
-                                        yLocalInds, yLocalWeights);
+        yWaveSpeed = [this, x, t](double y) { return WaveSpeed(x, y, t, 1); };
+        yadv.SetX(y);
+        yadv.SetCoefficient(yWaveSpeed);
+        yadv.GetApprox(yLocalNodes, yLocalWeights);
 
         // Build so that column indices are in ascending order, this means looping 
         // over y first until we hit the current point, then looping over x, then continuing to loop over y
@@ -1712,16 +1763,16 @@ void FDadvection::Get2DSpatialDiscretizationL(int *&L_rowptr,
         for (int yNzInd = 0; yNzInd < yStencilNnz; yNzInd++) {
             
             // The two stencils will intersect somewhere at this y-point
-            if (yLocalInds[yNzInd] == 0) {
+            if (yLocalNodes[yNzInd] == 0) {
 
                 for (int xNzInd = 0; xNzInd < xStencilNnz; xNzInd++) {
                     // Account for periodicity here. This always puts resulting x-index in range 0,nx-1
-                    L_colinds[dataInd] = ((xInd + xLocalInds[xNzInd] + nx) % nx) + yInd*nx; 
+                    L_colinds[dataInd] = ((xInd + xLocalNodes[xNzInd] + nx) % nx) + yInd*nx; 
                     L_data[dataInd]    = xLocalWeights[xNzInd];
 
                     // The two stencils intersect at this point x-y-point, i.e. they share a 
                     // column in L, so add y-derivative information to x-derivative information that exists there
-                    if (xLocalInds[xNzInd] == 0) {
+                    if (xLocalNodes[xNzInd] == 0) {
                         L_data[dataInd] += yLocalWeights[yNzInd]; 
                     }
                     dataInd += 1;
@@ -1730,7 +1781,7 @@ void FDadvection::Get2DSpatialDiscretizationL(int *&L_rowptr,
             // There is no possible intersection between between x- and y-stencils
             } else {
                 // Account for periodicity here. This always puts resulting y-index in range 0,ny-1
-                L_colinds[dataInd] = xInd + ((yInd + yLocalInds[yNzInd] + ny) % ny)*nx;
+                L_colinds[dataInd] = xInd + ((yInd + yLocalNodes[yNzInd] + ny) % ny)*nx;
                 L_data[dataInd]    = yLocalWeights[yNzInd];
                 dataInd += 1;
             }
@@ -1746,117 +1797,8 @@ void FDadvection::Get2DSpatialDiscretizationL(int *&L_rowptr,
     // Check that sufficient data was allocated
     if (dataInd > L_nnz) {
         std::cout << "WARNING: FD spatial discretization matrix has more nonzeros than allocated.\n";
-    }
-    
-    // Clean up
-    delete[] xPlusInds;
-    delete[] xPlusWeights;
-    delete[] yPlusInds;
-    delete[] yPlusWeights;
-    delete[] xMinusInds;
-    delete[] xMinusWeights;
-    delete[] xLocalWeights;
-    delete[] yLocalWeights;    
+    }  
 }
-
-
-
-
-// // Get local CSR structure of FD spatial discretization matrix, L
-// void FDadvection::Get1DSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_rowptr,
-//                                               int *&L_colinds, double *&L_data, double *&U0,
-//                                               bool getU0, int &localMinRow, int &localMaxRow,
-//                                               int &spatialDOFs, double t, int &bsize) 
-// {
-//     // Unpack variables frequently used
-//     int nx          = m_mesh.m_nx[0];
-//     double dx       = m_mesh.m_dx[0];
-//     int xFD_Order   = m_order;
-//     int xStencilNnz = xFD_Order + 1; // Width of the FD stencil
-//     int xDim        = 0;
-// 
-// 
-//     /* ----------------------------------------------------------------------- */
-//     /* ------ Initialize variables needed to compute CSR structure of L ------ */
-//     /* ----------------------------------------------------------------------- */
-//     localMinRow  = m_mesh.m_globOffset;                    // First row on proc
-//     localMaxRow  = m_mesh.m_globOffset + m_onProcSize - 1; // Last row on proc
-//     spatialDOFs  = m_spatialDOFs;
-//     int L_nnz    = xStencilNnz * m_onProcSize;  // Nnz on proc
-//     L_rowptr     = new int[m_onProcSize + 1];
-//     L_colinds    = new int[L_nnz];
-//     L_data       = new double[L_nnz];
-//     int rowcount = 0;
-//     int dataInd  = 0;
-//     L_rowptr[0]  = 0;
-//     if (getU0) U0 = new double[m_onProcSize]; // Initial guesss at solution    
-// 
-//     /* ---------------------------------------------------------------- */
-//     /* ------ Get components required to approximate derivatives ------ */
-//     /* ---------------------------------------------------------------- */
-//     // Get stencils for upwind discretizations, wind blowing left to right
-//     int * plusInds;
-//     double * plusWeights;
-//     get1DUpwindStencil(plusInds, plusWeights, xDim);
-// 
-// 
-//     // Generate stencils for wind blowing right to left by reversing stencils
-//     int * minusInds       = new int[xStencilNnz];
-//     double * minusWeights = new double[xStencilNnz];
-//     for (int i = 0; i < xStencilNnz; i++) {
-//         minusInds[i]    = -plusInds[xFD_Order-i];
-//         minusWeights[i] = -plusWeights[xFD_Order-i];
-//     } 
-// 
-//     // Placeholder for weights and indices to discretize derivative at each point
-//     double * localWeights = new double[xStencilNnz];
-//     int * localInds; // This will just point to an existing array, doesn't need memory allocated!
-//     double x;
-// 
-//     // Get function, which given an integer offset, computes wavespeed(x + dx * offset, t)
-//     std::function<double(int)> localWaveSpeed;    
-// 
-// 
-//     /* ------------------------------------------------------------------- */
-//     /* ------ Get CSR structure of L for all rows on this processor ------ */
-//     /* ------------------------------------------------------------------- */
-//     for (int row = localMinRow; row <= localMaxRow; row++) {
-//         x = m_mesh.MeshIndToPoint(row, xDim); // Mesh point we're discretizing at 
-// 
-//         // Get function, which given an integer offset, computes wavespeed(x + dx * offset, t)
-//         localWaveSpeed = [this, x, dx, t](int offset) { return WaveSpeed(x + dx * offset, t); };
-// 
-//         // Get weights for discretizing spatial component at current point 
-//         GetVariableD1Upwind(localWeights, localInds,
-//                                         localWaveSpeed, 
-//                                         plusWeights, plusInds, 
-//                                         minusWeights, minusInds, 
-//                                         xStencilNnz);
-// 
-// 
-// 
-// 
-// 
-//         for (int count = 0; count < xStencilNnz; count++) {
-//             L_colinds[dataInd] = (localInds[count] + row + nx) % nx; // Account for periodicity here. This always puts in range 0,nx-1
-//             L_data[dataInd]    = localWeights[count];
-//             dataInd += 1;
-//         }        
-// 
-//         // Set initial guess at the solution
-//         if (getU0) U0[rowcount] = 1.0; // TODO : Set this to a random value?    
-// 
-//         L_rowptr[rowcount+1] = dataInd;
-//         rowcount += 1;
-//     }    
-// 
-//     // Clean up
-//     delete[] plusInds;
-//     delete[] plusWeights;
-//     delete[] minusInds;
-//     delete[] minusWeights;
-//     delete[] localWeights;
-// }
 
 
 // Get local CSR structure of FD spatial discretization matrix, L
@@ -1867,12 +1809,15 @@ void FDadvection::Get1DSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_
 {
     
     // Unpack variables frequently used
+    // x-related variables
     int nx          = m_mesh.m_nx[0];
     double dx       = m_mesh.m_dx[0];
-    int xFD_Order   = m_order;
-    int xStencilNnz = xFD_Order + 1; // Width of the FD stencil
-    int xDim        = 0;
     
+    // Initialize FD approximation
+    FDApprox xadv(1, m_order, dx, UPWIND);
+    auto waveSpeed = [this, t](double x) { return WaveSpeed(x, t); };
+    xadv.SetCoefficient(waveSpeed, m_conservativeForm);
+    int xStencilNnz = xadv.GetSize();
     
     int NnzPerRow = xStencilNnz; // Estimate of NNZ per row of L
     // Get stencil information for numerical dissipation term if there is one, so total NNZ estimate can be updated */
@@ -1885,7 +1830,7 @@ void FDadvection::Get1DSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_
         
         // kth-degree dissipation uses k/2 points in both directions
         // pth-order upwind uses floor[(p+2)/2] DOFs in upwind direction
-        NnzPerRow = 2 * std::max( (xFD_Order + 2)/2, m_dissipation_params.degree/2 ) + 1; // So this is a bound on nnz of total stencil
+        NnzPerRow = 2 * std::max( (m_order + 2)/2, m_dissipation_params.degree/2 ) + 1; // So this is a bound on nnz of total stencil
     } 
     
     /* ----------------------------------------------------------------------- */
@@ -1906,61 +1851,35 @@ void FDadvection::Get1DSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_
     /* ---------------------------------------------------------------- */
     /* ------ Get components required to approximate derivatives ------ */
     /* ---------------------------------------------------------------- */
-    // Get stencils for upwind discretizations
-    int * plusInds, * minusInds = NULL;
-    double * plusWeights, * minusWeights = NULL;
-    FDStencil::GetD1UpwindPlus(xFD_Order, dx, plusInds, plusWeights);
-    FDStencil::GetD1UpwindMinus(xFD_Order, dx, minusInds, minusWeights);
+    // These will just point to an pre-allocated arrays, so don't need memory allocated!
+    double * localWeights = NULL;
+    int    * localNodes = NULL;
     
-    // int * centralInds;
-    // double * centralWeights;
-    // FDStencil::GetD1Central(xFD_Order, dx, centralInds, centralWeights);
-    
-    // Placeholder for weights and indices to discretize derivative at each point
-    double * localWeights = new double[xStencilNnz];
-    int * localInds; // This will just point to an existing array, doesn't need memory allocated!
     double x;
     int xInd;
-    
-    // Get function, which given an integer offset, computes wavespeed(x + dx * offset, t)
-    std::function<double(int)> localWaveSpeed;    
     
          
     // Different components of the domain for inflow/outflow boundaries
     double xIntLeftBndry  = m_mesh.MeshIndToPoint(m_order/2 + 2, 0); // For x < this, stencil has some dependence on inflow
     double xIntRightBndry = m_mesh.MeshIndToPoint(m_mesh.m_nx[0] - div_ceil(m_order, 2) + 1, 0); // For x > this, stencil has some dependence on outflow ghost points
-        
+
          
     /* ------------------------------------------------------------------- */
     /* ------ Get CSR structure of L for all rows on this processor ------ */
     /* ------------------------------------------------------------------- */
     for (int row = localMinRow; row <= localMaxRow; row++) {
         xInd = GlobalIndToMeshInd(row);    // Mesh index of point we're discretizing at
-        x    = m_mesh.MeshIndToPoint(xInd, xDim);   // Value of point we're discretizing at
-
-        // Get function, which given an integer offset, computes wavespeed(x + dx * offset, t)
-        localWaveSpeed = [this, x, dx, t](int offset) { return WaveSpeed(x + dx * offset, t); };
-                
-        // Get weights for discretizing spatial component at current point 
-        FDStencil::GetVariableD1Upwind(m_conservativeForm, 
-                                        localWaveSpeed, 
-                                        xFD_Order,
-                                        plusInds, plusWeights, 
-                                        minusInds, minusWeights, 
-                                        localInds, localWeights);
-                
-        // FDStencil::GetVariableD1Central(m_conservativeForm,
-        //                                 localWaveSpeed,
-        //                                  xFD_Order,
-        //                                  centralInds, centralWeights,
-        //                                  localWeights);        
-        // localInds = centralInds;                                 
+        x    = m_mesh.MeshIndToPoint(xInd, 0);   // Value of point we're discretizing at
+        
+        // Get stencil for discretizing x-derivative at current point 
+        xadv.SetX(x);
+        xadv.GetApprox(localNodes, localWeights);        
                                         
         // Periodic BCs simply wrap stencil at both boundaries
         if (m_periodic) {
             if (!m_dissipation) {
                 for (int count = 0; count < xStencilNnz; count++) {
-                    L_colinds[dataInd] = (localInds[count] + row + nx) % nx; // Account for periodicity here. This always puts in range 0,nx-1
+                    L_colinds[dataInd] = (localNodes[count] + row + nx) % nx; // Account for periodicity here. This always puts in range 0,nx-1
                     L_data[dataInd]    = localWeights[count];
                     dataInd += 1;
                 }
@@ -1970,7 +1889,7 @@ void FDadvection::Get1DSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_
                 and structure of the summed stencil can change depending on the upwinding direction */
             } else {
                 std::map<int, double> sum; // The summed/combined stencil
-                Merge1DStencilsIntoMap(localInds, localWeights, xStencilNnz, dissInds, dissWeights, dissNnz, sum);
+                Merge1DStencilsIntoMap(localNodes, localWeights, xStencilNnz, dissInds, dissWeights, dissNnz, sum);
                 std::map<int, double>::iterator it;
                 for (it = sum.begin(); it != sum.end(); it++) {
                     L_colinds[dataInd] = (it->first + row + nx) % nx; // Account for periodicity here. This always puts in range 0,nx-1
@@ -1994,8 +1913,8 @@ void FDadvection::Get1DSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_
                 /* We simply use the stencil as normal but we truncating it to the interior points  
                 with the remaining components are picked up in the solution-independent vector */
                 for (int count = 0; count < xStencilNnz; count++) {
-                    if (localInds[count] + row >= 0) { // Only allow dependencies on interior points
-                        L_colinds[dataInd] = localInds[count] + row;
+                    if (localNodes[count] + row >= 0) { // Only allow dependencies on interior points
+                        L_colinds[dataInd] = localNodes[count] + row;
                         L_data[dataInd]    = localWeights[count];
                         dataInd += 1;
                     }
@@ -2008,7 +1927,7 @@ void FDadvection::Get1DSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_
                 int      xOutflowStencilNnz;
                 int    * localOutflowInds;
                 double * localOutflowWeights;
-                GetOutflowDiscretization(xOutflowStencilNnz, localOutflowWeights, localOutflowInds, xStencilNnz, localWeights, localInds, 0, xInd); 
+                GetOutflowDiscretization(xOutflowStencilNnz, localOutflowWeights, localOutflowInds, xStencilNnz, localWeights, localNodes, 0, xInd); 
                 
                 // Add in stencil after potentially performing extrapolation
                 for (int count = 0; count < xOutflowStencilNnz; count++) {
@@ -2023,7 +1942,7 @@ void FDadvection::Get1DSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_
             // DOFs stencil only depends on interior DOFs (proceed as normal)
             } else {
                 for (int count = 0; count < xStencilNnz; count++) {
-                    L_colinds[dataInd] = localInds[count] + row;
+                    L_colinds[dataInd] = localNodes[count] + row;
                     L_data[dataInd]    = localWeights[count];
                     dataInd += 1;
                 }     
@@ -2034,17 +1953,8 @@ void FDadvection::Get1DSpatialDiscretizationL(const MPI_Comm &globComm, int *&L_
         if (getU0) U0[rowcount] = GetInitialIterate(x, U0ID);
         
         L_rowptr[rowcount+1] = dataInd;
-        rowcount += 1;
-            
+        rowcount += 1;    
     }  
-      
-    
-    // Clean up
-    delete[] plusInds;
-    delete[] plusWeights;
-    delete[] minusInds;
-    delete[] minusWeights;
-    delete[] localWeights;
 }
 
 
@@ -2070,7 +1980,7 @@ void FDadvection::Merge1DStencilsIntoMap(int * indsIn1, double * weightsIn1, int
 
 // DOFInd is the index of x_{DOFInd}. This is the point we're discretizing at
 void FDadvection::GetOutflowDiscretization(int &outflowStencilNnz, double * &localOutflowWeights, int * &localOutflowInds, 
-                                    int stencilNnz, double * localWeights, int * localInds, int dim, int xInd) const
+                                    int stencilNnz, double * localWeights, int * localNodes, int dim, int xInd) const
 {
     
     int p = m_order; // Interpolation polynomial is of degree at most p-1 (interpolates p DOFs closest to boundary)
@@ -2085,10 +1995,10 @@ void FDadvection::GetOutflowDiscretization(int &outflowStencilNnz, double * &loc
     // Populate dictionary with stencil information depending on interior DOFs
     int count = 0;
     for (int j = xInd - p/2 - 1; j <= m_mesh.m_nx[dim]; j++) {
-        entries[localInds[count]] = localWeights[count];
+        entries[localNodes[count]] = localWeights[count];
         count += 1;
     }
-    count -= 1; // Note that localInds[count] == connection to u_[nx]
+    count -= 1; // Note that localNodes[count] == connection to u_[nx]
     
     // Extrapolation leads to additional coupling to the p DOFs closest to the boundary
     for (int k = 0; k <= p-1; k++) {
@@ -2385,7 +2295,7 @@ double FDadvection::GetCentralFDApprox(std::function<double(double)> f, double x
         return (- 0.5*f(x0-h) + 0.5*f(x0+h))/h;
     } else if (order == 2) {
         return (f(x0-h) -2*f(x0) + f(x0+h))/(h*h);
-    } else if (order == 2) {
+    } else if (order == 3) {
         return (-0.5*f(x0-2*h) + f(x0-h) - f(x0+h) + 0.5*f(x0+2*h))/(h*h*h);
     } else {
         std::cout << "WARNING: FD approximations for derivative of order " << order << " not implemented!" << '\n';
@@ -2434,24 +2344,22 @@ void FDadvection::AppendInflowStencil1D(double * &G, double t) const {
     /* ---------------------------------------------------------------- */
     /* ------ Get components required to approximate derivatives ------ */
     /* ---------------------------------------------------------------- */
-    // Get stencils for upwind discretizations
-    int * plusInds, * minusInds = NULL;
-    double * plusWeights, * minusWeights = NULL;
-    FDStencil::GetD1UpwindPlus(xFD_Order, dx, plusInds, plusWeights);
-    FDStencil::GetD1UpwindMinus(xFD_Order, dx, minusInds, minusWeights);
-    // NOTE: We shouldn't need stencils for wind blowing right to left since wind is 
-    // assumed to blow left to right at all these points near the boundary, 
-    // but we need these arrays for the implementation that gets the stencil 
+    // These will just point to an pre-allocated arrays, so don't need memory allocated!
+    double * localWeights;
+    int    * localNodes;
     
-    // Placeholder for weights and indices to discretize derivative at each point
-    double * localWeights = new double[xStencilNnz];
-    int * localInds; // This will just point to an existing array, doesn't need memory allocated!
-    int xInd;
+    // Initialize FD approximation
+    FDApprox adv(1, xFD_Order, dx, UPWIND);
+    
+    // Width of stencils
+    xStencilNnz = adv.GetSize();
+    
+    // Wavespeed in each direction
+    std::function<double(double)> waveSpeed;
+    
     double x;
+    int xInd;
     
-    
-    // Get function, which given an integer offset, computes wavespeed(x + dx * offset, t)
-    std::function<double(int)> localWaveSpeed;  
     
     // There are p/2+1 DOFs whose stencil depends on inflow and potentially ghost points
     for (int row = 0; row <= m_order/2; row++) {
@@ -2460,19 +2368,17 @@ void FDadvection::AppendInflowStencil1D(double * &G, double t) const {
             
         // Value of grid point we're discretizing at
         x = m_mesh.MeshIndToPoint(xInd, xDim); 
-        
-        // Get function, which given an integer offset, computes wavespeed(x + dx * offset, t)
-        localWaveSpeed = [this, x, dx, t](int offset) { return WaveSpeed(x + dx * offset, t); };
-                
-        // Get weights for discretizing spatial component at current point 
-        FDStencil::GetVariableD1Upwind(m_conservativeForm, localWaveSpeed, xFD_Order,
-                                        plusInds, plusWeights, minusInds, minusWeights,
-                                        localInds, localWeights);
+            
+        // Get stencil for discretizing x-derivative at current point 
+        waveSpeed = [this, t](double x) { return WaveSpeed(x, t); };
+        adv.SetX(x);
+        adv.SetCoefficient(waveSpeed);
+        adv.GetApprox(localNodes, localWeights);      
             
         // Loop over entries in stencil, adding couplings to boundary point or ghost points                            
         // TODO: Why do I have to subtract and not add here??
         for (int count = 0; count < xStencilNnz; count++) {
-            if (xInd + localInds[count] <= 0) G[row] -= localWeights[count] * uGhost[xInd + localInds[count]]; 
+            if (xInd + localNodes[count] <= 0) G[row] -= localWeights[count] * uGhost[xInd + localNodes[count]]; 
         }                                 
     }
 }
