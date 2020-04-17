@@ -25,11 +25,17 @@ enum FDBias {
     CENTRAL = 0, UPWIND = 1
 };
 
-struct FDStencil {
-    int size = 0;
-    int * nodes = NULL;
-    double * weights = NULL;
-};
+// class FDStencil {
+// public:
+//     int size;
+//     int * nodes;
+//     double * weights;
+//     FDStencil() : size(0), nodes(NULL), weights(NULL) {};    
+//     ~FDStencil() {
+//         if (nodes) delete nodes; nodes = NULL;
+//         if (weights) delete weights; weights = NULL;
+//     }
+// };
 
 
 // TODO: I want to have the stencil data be read only... But not really sure how to do it...
@@ -54,6 +60,7 @@ private:
     bool m_x_current;   /* Do member stencils use current x? */
     
     int m_size; /* Number of entries in stencils. NOTE: Cannot change over lifetime of object. */
+    
     int * m_nodes, * m_plusNodes, * m_minusNodes;
     double * m_weights, * m_localWeights, * m_plusWeights, * m_minusWeights;
     

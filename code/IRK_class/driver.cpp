@@ -256,6 +256,7 @@ int main(int argc, char *argv[])
             std::vector<int> type;
             std::vector<double> eig_ratio;
             MyIRK.GetSolveStats(avg_iter, type, eig_ratio);
+            solinfo.Print("nsys", avg_iter.size());
             for (int system = 0; system < avg_iter.size(); system++) {
                 solinfo.Print("sys" + to_string(system+1) + "_iters", avg_iter[system]);
                 solinfo.Print("sys" + to_string(system+1) + "_type", type[system]);

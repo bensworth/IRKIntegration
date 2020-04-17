@@ -2355,7 +2355,8 @@ void FDadvection::AppendInflowStencil1D(double * &G, double t) const {
     xStencilNnz = adv.GetSize();
     
     // Wavespeed in each direction
-    std::function<double(double)> waveSpeed;
+    auto waveSpeed = [this, t](double x) { return WaveSpeed(x, t); };
+    adv.SetCoefficient(waveSpeed);
     
     double x;
     int xInd;
@@ -2370,9 +2371,7 @@ void FDadvection::AppendInflowStencil1D(double * &G, double t) const {
         x = m_mesh.MeshIndToPoint(xInd, xDim); 
             
         // Get stencil for discretizing x-derivative at current point 
-        waveSpeed = [this, t](double x) { return WaveSpeed(x, t); };
         adv.SetX(x);
-        adv.SetCoefficient(waveSpeed);
         adv.GetApprox(localNodes, localWeights);      
             
         // Loop over entries in stencil, adding couplings to boundary point or ghost points                            
