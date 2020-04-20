@@ -1033,7 +1033,7 @@ FDSpaceDisc::~FDSpaceDisc()
 /* Get CSR structure for discretization of 1D constant-coefficient operator */
 void FDSpaceDisc::Get1DConstantOperatorCSR(int derivative, Vector c,
                                          int order, FDBias bias,
-                                         int * &rowptr, int * &colinds, double * &data)
+                                         int * &rowptr, int * &colinds, double * &data) const
 {
     // Initialize FD approximation
     FDApprox dxapprox(derivative, order, m_mesh.m_dx[0], bias);
@@ -1080,7 +1080,7 @@ void FDSpaceDisc::Get1DConstantOperatorCSR(int derivative, Vector c,
 /* Get CSR structure for discretization of 2D constant-coefficient operator */
 void FDSpaceDisc::Get2DConstantOperatorCSR(int derivative, Vector c,
                                          int order, FDBias bias,
-                                         int * &rowptr, int * &colinds, double * &data)
+                                         int * &rowptr, int * &colinds, double * &data) const
 {
     // Initialize FD approximation of each term
     FDApprox dxapprox(derivative, order, m_mesh.m_dx[0], bias);
@@ -1261,9 +1261,9 @@ HypreParMatrix * FDSpaceDisc::GetHypreParIdentityMatrix() const
                                 I); 
 
     /* These are copied into I, so can delete */
-    // delete[] I_rowptr;
-    // delete[] I_colinds;
-    // delete[] I_data;
+    delete[] I_rowptr;
+    delete[] I_colinds;
+    delete[] I_data;
     
     return I;
 } 
@@ -1279,8 +1279,11 @@ FDLinearOp::~FDLinearOp()
     if (m_Op) delete m_Op;    
 }
     
-void FDLinearOp::Assemble()
+void FDLinearOp::Assemble() const
 {
+    // Operator already assembled, cannot have changed...
+    if (m_Op) return; 
+    
     // Get local CSR structure of matrix
     int * rowptr, * colinds = NULL;
     double * data = NULL;
@@ -1301,7 +1304,116 @@ void FDLinearOp::Assemble()
                                  m_globMinRow, m_globMaxRow, m_globSize,
                                  rowptr, colinds, data, m_Op);
                                  
-    // delete[] rowptr;
-    // delete[] colinds;
-    // delete[] data;                             
+    delete[] rowptr;
+    delete[] colinds;
+    delete[] data;                             
 };
+
+
+FDNonlinearOp::FDNonlinearOp(const FDMesh &mesh, int derivative, Vector c, 
+                                double (*f)(double), int order, FDBias bias) 
+    : FDSpaceDisc(mesh, derivative, order, bias),
+                                m_c(c), m_f(f), m_df(NULL), m_Jac(NULL) { };
+
+FDNonlinearOp::FDNonlinearOp(const FDMesh &mesh, int derivative, Vector c, 
+                                double (*f)(double), double (*df)(double), 
+                                int order, FDBias bias) 
+    : FDSpaceDisc(mesh, derivative, order, bias),
+                                m_c(c), m_f(f), m_df(df), m_Jac(NULL) { };
+
+// c.grad(f(u))
+void FDNonlinearOp::Mult(const Vector &a, Vector &b) const
+{
+    if (m_dim != 1) mfem_error("Only 1D implemented....");
+    //if (m_bias != CENTRAL) mfem_error("Only have central implemented....");
+    
+    // Initialize FD approximation
+    FDApprox dxapprox(m_derivative, m_order, m_mesh.m_dx[0], m_bias);
+    dxapprox.SetCoefficient(m_c(0));
+    int dxNnz = dxapprox.GetSize();
+    
+    // Get FD approximation
+    int * dxNodes = NULL; 
+    double * dxWeights = NULL;
+    dxapprox.GetApprox(dxNodes, dxWeights);
+
+    b = 0.0;
+    for (int row = 0; row < m_localSize; row++) {
+        for (int i = 0; i < dxNnz; i++) {
+            // Account for periodicity here. This always puts in range [0,nx-1]
+            int j = (dxNodes[i] + row + m_mesh.m_globOffset + m_mesh.m_nx[0]) % m_mesh.m_nx[0]; 
+            b(row) += (*m_f)(a(j))*dxWeights[i];
+        }
+    }  
+}
+
+/* Get CSR structure for discretization of 1D constant-coefficient operator 
+
+A(u) ~ d/dx f(u)
+
+A(u)_j = [f(u_{j}) - f(u_{j-1})] / dx
+
+                  |col j-2|       col j-1     |      col j      |
+A'(u)_j [0, ...., |   0   | -df/du(u_{j-1})/dx| df/du(u_{j})/dx ]
+
+A'(u) = d/du A(u)
+      ~ d/du d/dx f(u)
+      ~ df/du du/dx
+*/
+void FDNonlinearOp::AssembleGradient(const Vector &u) 
+{
+    if (m_Jac) delete m_Jac;
+    
+    if (!m_df) mfem_error("AssembleGradient:: Must set gradient function with SetGradientFunction()");
+
+    // Initialize FD approximation
+    FDApprox dxapprox(m_derivative, m_order, m_mesh.m_dx[0], m_bias);
+    dxapprox.SetCoefficient(m_c(0));
+    int dxNnz = dxapprox.GetSize();
+
+    // Get FD approximation
+    int * dxNodes = NULL; 
+    double * dxWeights = NULL;
+    dxapprox.GetApprox(dxNodes, dxWeights);
+
+
+    /* -------------------------------------- */
+    /* ------ Initialize CSR structure ------ */
+    /* -------------------------------------- */
+    int localNnz = dxNnz * m_localSize; 
+    int * rowptr  = new int[m_localSize + 1];
+    int * colinds = new int[localNnz];
+    double * data = new double[localNnz];
+    rowptr[0]   = 0;
+    int dataInd = 0;
+
+    double c = m_c(0);
+
+    /* --------------------------------------------- */
+    /* ------ Get CSR structure of local rows ------ */
+    /* --------------------------------------------- */
+    for (int row = 0; row < m_localSize; row++) {
+        for (int i = 0; i < dxNnz; i++) {
+            // Account for periodicity here. This always puts in range [0,nx-1]
+            int j = (dxNodes[i] + row + m_mesh.m_globOffset + m_mesh.m_nx[0]) % m_mesh.m_nx[0]; 
+            colinds[dataInd] = j;
+            data[dataInd]    = dxWeights[i] * (*m_df)(u(j));
+            dataInd++;
+        }
+        rowptr[row+1] = dataInd;
+    }  
+
+    // Check sufficient data was allocated
+    if (dataInd > localNnz) {
+        std::cout << "WARNING: Matrix has more nonzeros than allocated.\n";
+    }
+    
+    // Assemble global matrix
+    GetHypreParMatrixFromCSRData(m_mesh.m_comm, 
+                                 m_globMinRow, m_globMaxRow, m_globSize,
+                                 rowptr, colinds, data, m_Jac);
+                                 
+    delete[] rowptr;
+    delete[] colinds;
+    delete[] data;                              
+}

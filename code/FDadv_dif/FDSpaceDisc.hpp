@@ -194,9 +194,13 @@ public:
                                       double t, Vector &u) const;                                  
 
     /* Get mesh info */
-    double Get_dx(int dim = 0) const { return m_dx[dim]; };
-    int    Get_nx(int dim = 0) const { return m_nx[dim]; };
-    int    Get_dim() const { return m_dim; };
+    inline double Get_dx(int dim = 0) const { return m_dx[dim]; };
+    inline int    Get_nx(int dim = 0) const { return m_nx[dim]; };
+    inline int    Get_dim() const { return m_dim; };
+    inline MPI_Comm GetComm() { return m_comm; };
+    
+    inline int GetGlobalSize() { return m_nxTotal; };
+    inline int GetLocalSize() { return m_nxLocalTotal; };
 };
 
 
@@ -223,11 +227,11 @@ protected:
 
     void Get1DConstantOperatorCSR(int derivative, Vector c,
                                   int order, FDBias bias,
-                                  int * &rowptr, int * &colinds, double * &data);
+                                  int * &rowptr, int * &colinds, double * &data) const;
     
     void Get2DConstantOperatorCSR(int derivative, Vector c,
                                   int order, FDBias bias,
-                                  int * &rowptr, int * &colinds, double * &data);
+                                  int * &rowptr, int * &colinds, double * &data) const;
     
     
     /* -------------------------------------------------------------------------- */
@@ -250,53 +254,88 @@ public:
     FDSpaceDisc(const FDMesh &mesh, int derivative, int order, FDBias bias);
     ~FDSpaceDisc();
     
-    /* --- Virtual functions from base class requiring implementation --- */
-    void Mult(const Vector &x, Vector &y) const = 0;
+    /* --- Functions for derived classes to implement --- */
+    virtual void Mult(const Vector &x, Vector &y) const = 0;
+    
+    virtual void AssembleGradient(const Vector &u) 
+        { mfem_error("GetGradient:: Not overridden in derived class"); };
+    
+    // virtual Operator &GetGradient(const Vector &u) const
+    // {
+    //    mfem_error("Operator::GetGradient() is not overloaded!");
+    //    return const_cast<Operator &>(*this);
+    // }
     
     HypreParMatrix * GetHypreParIdentityMatrix() const;
 };
 
 
+// c.grad(u)
 class FDLinearOp : public FDSpaceDisc 
 {
     
 private:
     Vector m_c;
-    HypreParMatrix * m_Op;    
+    mutable HypreParMatrix * m_Op;    
     
 public:
     /* Constructors */
     FDLinearOp(const FDMesh &mesh, int derivative, Vector c, int order, FDBias bias);
     ~FDLinearOp();
     
-    void Assemble();
+    void Assemble() const;
     
     void Mult(const Vector &x, Vector &y) const { m_Op->Mult(x, y); };
     
-    HypreParMatrix * GetOp() const 
-    { 
-        if (m_Op) return m_Op; 
-        else mfem_error("GetOp:: Operator not assembled"); 
-        return NULL;
+    // HypreParMatrix &GetOp() const 
+    // { 
+    //     if (m_Op) return *m_Op; 
+    //     else mfem_error("GetOp:: Operator not assembled"); 
+    //     return NULL;
+    // };
+    
+    
+    // Gradient of linear operator is just the operator...
+    HypreParMatrix & GetGradient() const 
+    {   
+        if (!m_Op) { Assemble(); }
+        return *m_Op; 
     };
+    HypreParMatrix & GetGradient(const Vector &u) const { return GetGradient(); };
+    
+    
 };
 
 
-// class FDNonlinearOp : public FDSpaceDisc 
-// {
-//     private:
-//         double (*Function)(double u);
-//         double (*GradientFunction)(double u);
-//         HypreParMatrix * Jac;  
-// 
-//     public:
-//         /* Constructors */
-//         FDNonlinearOp(const FDMesh &mesh, int derivative, Vector c, double (*F_)(double), int order, FDBias bias) {};
-// 
-//         void AssembleJac(const Vector &u) {};
-// 
-//         HypreParMatrix * GetJac() const { return Jac; };
-// 
-//         //void Mult(const Vector &x, Vector &y) const { Op->Mult(x, y); };
-// };
+// c.grad(f(u)) for potentially nonlinear f
+class FDNonlinearOp : public FDSpaceDisc 
+{
+    private:
+        double (*m_f)(double u);
+        double (*m_df)(double u);
+        Vector m_c;
+        HypreParMatrix * m_Jac;  
+
+    public:
+        /* Constructors */
+        FDNonlinearOp(const FDMesh &mesh, int derivative, Vector c, 
+                        double (*f)(double), 
+                        int order, FDBias bias);
+        FDNonlinearOp(const FDMesh &mesh, int derivative, Vector c, 
+                        double (*f)(double), double (*df)(double), 
+                        int order, FDBias bias);                
+        
+        void Mult(const Vector &x, Vector &y) const;
+        
+        void SetGradientFunction(double (*df)(double u)) { m_df = df; };
+        
+        void AssembleGradient(const Vector &x); 
+        
+        HypreParMatrix & GetGradient(const Vector &u) const 
+        { 
+            if (!m_Jac) mfem_error("GetGradient:: Gradient not assembled!");
+                
+            return *m_Jac;
+        };
+};
 

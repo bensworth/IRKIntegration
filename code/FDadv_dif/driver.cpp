@@ -9,6 +9,23 @@ using namespace std;
 #define PI 3.14159265358979323846
 
 
+struct NEWTON_params {
+    double reltol = 1e-6;
+    int maxiter = 10;
+    int printlevel = 2;
+    int rebuildJacobian = 0; // Frequency at which Jacobian is updated
+    int rebuildJacobianPreconditioner = 0; // Frequency at which preconditioner for Jacobian is rebuilt
+    bool matrixFree = false; // Compute action of Jacobian matrix free, but still require `A` Jacobian for preconditioning
+};
+
+struct GMRES_params {
+    double abstol = 1e-6;
+    double reltol = 1e-6;
+    int maxiter = 100;
+    int printlevel = 2;
+    int kdim = 30;
+};
+
 struct AMG_params {
     bool use_AIR = true;
     double distance = 1.5;
@@ -23,13 +40,7 @@ struct AMG_params {
     int coarsening = 6;
 };
 
-struct GMRES_params {
-    double abstol = 1e-6;
-    double reltol = 1e-6;
-    int maxiter = 100;
-    int printlevel = 2;
-    int kdim = 30;
-};
+
 
 // Solve scalar advection-diffusion equation,
 //     u_t + alpha.grad(f(u)) = div( mu*grad(u) ) + s(x,t),
@@ -62,13 +73,14 @@ public:
     inline void Print(string id, T entry) {*this << id << " " << entry << "\n";};
 };
 
-enum AdvectionType {
-   LINEAR = 0, NONLINEAR = 1 
-};
+
+enum PDELinearity { LINEAR = 0, NONLINEAR = 1 };
+class BEOper;
+class JacPrec;
 
 // Problem parameters global functions depend on
 Vector alpha, mu;
-AdvectionType advection;
+PDELinearity linearity;
 int dim, problem;
 
 /* f(u) = u */
@@ -84,52 +96,54 @@ double Source(const Vector &x, double t);
 double PDESolution(const Vector &x, double t);
 
 
+
 /** Provides the time-dependent RHS of the ODEs after spatially discretizing the 
     PDE,
         du/dt = -A(u) + D*u + s(t).
     where:
-        A: The advection discretization,
+        A: The linearity discretization,
         D: The diffusion discretization,
-        s: The solution-independent source term discretization.
-*/
+        s: The solution-independent source term discretization. */
 class AdvDif : public TimeDependentOperator
 {
 private:    
-    AdvectionType advection;    // Type of advection to use
+    PDELinearity linearity;    // Type of linearity operator 
     int problem;                // ID of problem. problem==1 has exact solution implemented
     
     int dim;                    // Spatial dimension
     FDMesh &Mesh;               // Mesh on which the PDE is discretized
     
-    FDLinearOp * Dif;           // Diffusion operator
-    FDLinearOp * AdvLin;        // Linear advection operator
-    //FDNonlinearOp * AdvNonlin;  // Nonlinear advection operator
-    
     Vector alpha;               // Advection coefficients
     Vector mu;                  // Diffusion coefficients
-    
-    // For solution of linear systems when implicit time stepping
-    HypreParMatrix * I;         // Identity operator
-    HypreParMatrix * K;         // I - dt_K*[A - D]
-    double dt_K; 
-    GMRESSolver * GMRES_solver;
-    HypreBoomerAMG * AMG_solver;
-    GMRES_params GMRES;
-    AMG_params AMG;
-    
-    Vector * s;                 // Solution independent source term
-    Vector * z;                 // Auxillary vector
+    FDLinearOp * D;             // Diffusion operator
+    FDLinearOp * AL;            // Linear advection operator
+    FDNonlinearOp * AN;         // Nonlinear advection operator
+    FDSpaceDisc * A;            // `The` advection operator
+        
+    mutable Vector source, temp;// Solution independent source term & auxillary vector
 
+    // Require linear/nonlinear solves for implicit time stepping
+    bool solversInit;
+    BEOper * be;                    // Operator describing the BE equation to be solved
+    IterativeSolver * be_solver;    // `The` solver for BE equation
+    NewtonSolver * nlbe_solver;     // Solver for `nonlinear` BE equation
+    GMRESSolver * lbe_solver;       // Solver for `linearized` BE equation
+    JacPrec * lbe_prec;             // Preconditioner for linear solver
+    NEWTON_params NEWTON;           // Newton solver parameters
+    GMRES_params GMRES;             // GMRES solver params
+    AMG_params AMG;                 // AMG solver params
+    
+    
     /// Set solution independent source term at current time
-    inline void SetSource() const { Mesh.EvalFunction(&Source, GetTime(), *s); };
+    inline void SetSource() const { Mesh.EvalFunction(&Source, GetTime(), source); };
 
-
-    void SetupGMRES();
-
+    /// Initialize solvers for implicit time-stepping the first time ImplicitSolve is called.
+    void InitSolvers(double dt0);
+    
 public:
     
-    AdvDif(FDMesh &Mesh_, AdvectionType advection_, Vector alpha_, Vector mu_, 
-            int order, int problem_ = 0);
+    AdvDif(FDMesh &Mesh_, PDELinearity linearity_, Vector alpha_, Vector mu_, 
+            int order, FDBias advection_bias, int problem_ = 0);
     ~AdvDif();
     
     /// Allocate memory to and assign initial condition.
@@ -138,182 +152,381 @@ public:
     /// Compute the right-hand side of the ODE system.
     void Mult(const Vector &u, Vector &du_dt) const;
     
-    /** Solve the Backward-Euler equation: k = f(u + dt*k, t), for the unknown k.
-        This is the only requirement for high-order SDIRK implicit integration.*/
-    void ImplicitSolve(const double dt, const Vector &u, Vector &k);
-    
     /// Get error w.r.t. exact PDE solution (if available)
     bool GetError(int save, const char * out, double t, const Vector &u, 
                     double &eL1, double &eL2, double &eLinf);
-                    
-    inline void SetGMRES_params(GMRES_params params) { GMRES = params; SetupGMRES(); };
-    inline void SetAMG_params(AMG_params params) { AMG = params; };                
+    
+    /// Solve Backward-Euler equation for unknown k for implicit time-steping,
+    ///     k + dt*[A(k) - D*k] = -A(u) + D*u + s(t)
+    void ImplicitSolve(const double dt, const Vector &u, Vector &k); 
+    
+    /// Set solver parameters fot implicit time-stepping; MUST be called before InitSolvers()
+    inline void SetAMGParams(AMG_params params) {
+        if (!solversInit) AMG = params; else mfem_error("SetAMGParams:: Can only be called before InitSolvers::"); };
+    inline void SetGMRESParams(GMRES_params params) { 
+        if (!solversInit) GMRES = params; else mfem_error("SetGMRESParams:: Can only be called before InitSolvers::"); };
+    inline void SetNewtonParams(NEWTON_params params) { 
+        if (!solversInit) NEWTON = params; else mfem_error("SetNewtonParams:: Can only be called before InitSolvers::"); };
 };
 
 
-AdvDif::AdvDif(FDMesh &Mesh_, AdvectionType advection_, Vector alpha_, Vector mu_, 
-        int order, int problem_) 
-    : TimeDependentOperator(Mesh_.m_nxLocalTotal),
-        Mesh{Mesh_}, advection{advection_}, 
+/** Operator defining the backward Euler system to be solved during implicit 
+    time stepping,
+        BEOper(k) == k + dt*[A(k) - D*k] 
+    k -- the unknown, 
+    A -- (potentially nonlinear) advection operator, 
+    D -- linear diffusion oprator,
+    dt -- a constant. */   
+class BEOper : public Operator 
+{
+private:
+    
+    friend class JacPrec; // This needs to access members
+
+    PDELinearity linearity;
+    FDSpaceDisc * A; // `The` advection  operator
+    FDLinearOp * AL, * D; // Linear operators
+    FDNonlinearOp * AN; // Nonlinear advection operator
+    mutable HypreParMatrix * Jacobian; // Declare mutable so can be updated w/ GetGradient
+    HypreParMatrix * I;
+    double dt;
+    mutable bool dt_current; // Does Jacobian use current value of dt? Saves rebuilding for linear problem.
+    mutable Vector temp; // Auxillary vector
+    
+    int updateJacobian; // TODO: Need to implement, but if we don't want to update every Newton iter, can use this to just keep same Jacobian... 
+    
+    
+public:
+
+    // General operator
+    BEOper(int height, PDELinearity linearity_, FDLinearOp * AL_, FDNonlinearOp * AN_, FDLinearOp * D_, double dt_) 
+        : Operator(height), linearity(linearity_), A(NULL), AL(AL_), AN(AN_) , D(D_), 
+        Jacobian(NULL), dt(dt_), dt_current(false), temp(height)
+        {
+            
+            if (linearity == NONLINEAR) {
+                if (AL) mfem_error("BEOper:: Can specify only 1 A!");
+                I = AN->GetHypreParIdentityMatrix();
+                A = AN;
+            } else {
+                A = AL;
+                if (!AL && !D) mfem_error("BEOper:: Require at least one of A and D");
+                I = (AL_) ? AL_->GetHypreParIdentityMatrix() : D_->GetHypreParIdentityMatrix();
+            }
+        }
+
+    ~BEOper() { delete I; delete Jacobian; };
+    
+    /// Set current dt 
+    void Setdt(double dt_) 
+    { 
+        if (dt == dt_) {
+            dt_current = true;
+        } else {
+            dt = dt_;
+            dt_current = false;
+        }
+    };
+
+    /** Compute action of operator, y = k + dt*[A(k) - D*k] 
+        -For nonlinear problem, Newton uses this to compute residual,
+        -For linear problem, GMRES can use this to compute action of system being solved. */ 
+    virtual void Mult(const Vector &k, Vector &y) const;
+
+    /// Passed to Preconditioner's SetOperator once at begginning of each Newton it,
+    /// make flag so that it can be updated or not, etc...
+    /// GMRES for nonlinear problem requires the action of this... also, 
+    /// AMG needs access since this is what it preconditions on...
+    /** Compute Jacobian of operator, Jacobian = I + dt*(grad_A(k) - D) 
+        -For nonlinear problem, this is passed to GMRES's SetOperator() at each Newton iteration
+        -For 
+    */
+    virtual Operator &GetGradient(const Vector &k) const;
+};
+
+
+
+/** Wrapper for an AMG preconditioner for GMRES when solving a Jacobian linear system.
+
+The advantage of doing it like this rather than GMRES implicitly passing the 
+Operator from BEOper::GetGradient(x) to an AMG preconditioner of said GMRES
+is that we can explicitly control whether we update the AMG solver using the 
+newest Jacobian or not (probably don't want to update it all the time because
+often the assembly of the AMG solver is much more expensive than the solve phase
+itself...)
+
+This also means that for the solution of linear systems, GMRES is able to use the
+BEOper::Mult() rather than Jacobian::Mult(), but this isn't really an advantage...
+it's probably more work realistically... But actually, we could do JFNK...
+*/
+class JacPrec : public Solver
+{
+    
+private:
+    HypreBoomerAMG * J_prec; 
+    BEOper &be;   
+    int J_update;
+    
+    // TODO: Flag specifying whether solver uses same Jacobian that GMRES does
+    bool usesCurrentGMRESJacobian; 
+    
+public:
+    
+    JacPrec(BEOper &be_, HypreBoomerAMG * J_prec_, int J_update_) 
+    : Solver(J_prec_->Height()), be(be_), J_prec(J_prec_), J_update(J_update_) {};
+    
+    ~JacPrec() { delete J_prec; };
+    
+    inline void SetUpdate(int update) { J_update = update; };
+    
+    /** Called by GMRES
+        -Nonlinear problem: Will be passed the HypreParMatrix from BEOper::GetGradient(x) 
+            that GMRES will use for current Newton iter.
+        -Linear problem: Passed the BEOper that GMRES is to solve. GMRES will use the BEOper::Mult()
+            function to compute the action of the BEOper, and we'll need to build the Jacobian
+            matrix here. */
+    void SetOperator(const Operator &op) {
+        //std::cout << "/* Jac is init =  */" << (be.Jacobian == NULL) << '\n';
+        // HMMMMM.... Can I do a dynamic cast??? Actually, can I just access BE...
+        //mfem_error("Yes. This should be NULL. I need to init it!!!");
+        // If ready to update AMG's Jacobian (e.g., do some check here to see if we're ready to update...)
+        //if (!(op.Jacobian)) mfem_error("Yes. This should be NULL. I need to init it!!!");
+        
+        Vector dummy;
+        J_prec->SetOperator(be.GetGradient(dummy));
+        // This SetOperator is only called by GMRES....
+        //if (reset jacobian) usesCurrentGMRESJacobian = true;
+    };
+    
+    /// Solve using J_prec.
+    inline void Mult(const Vector &x, Vector &y) const { J_prec->Mult(x, y); };
+};
+
+
+/* Initialize solvers for implicit time integration */
+void AdvDif::InitSolvers(double dt0) 
+{
+    if (solversInit) mfem_error("InitSolvers:: Can only initialize solvers once");
+    solversInit = true;
+    
+    // Initialize BE operator
+    int height = this->Height();
+    be = new BEOper(height, linearity, AL, AN, D, dt0);
+    
+    // Preconditioner for GMRES solution of Jacobian system
+    HypreBoomerAMG * amg_solver = new HypreBoomerAMG;
+    amg_solver->SetPrintLevel(0); 
+    amg_solver->SetMaxIter(1); 
+    amg_solver->SetTol(0.0);
+    amg_solver->SetMaxLevels(50); 
+    amg_solver->iterative_mode = false;
+    if (AMG.use_AIR) {                        
+        amg_solver->SetLAIROptions(AMG.distance, 
+                                    AMG.prerelax, AMG.postrelax,
+                                    AMG.strength_tolC, AMG.strength_tolR, 
+                                    AMG.filter_tolR, AMG.interp_type, 
+                                    AMG.relax_type, AMG.filterA_tol,
+                                    AMG.coarsening);                                       
+    }
+    else {
+        amg_solver->SetInterpolation(0);
+        amg_solver->SetCoarsening(AMG.coarsening);
+        amg_solver->SetAggressiveCoarsening(1);
+    }
+    // TODO, pass meaningful int here describing resetting AMG operator...
+    lbe_prec = new JacPrec(*be, amg_solver, 1); 
+
+    // GMRES solver for Jacobian system
+    lbe_solver = new GMRESSolver(Mesh.GetComm());
+    lbe_solver->iterative_mode = false;
+    lbe_solver->SetAbsTol(GMRES.abstol);
+    lbe_solver->SetRelTol(GMRES.reltol);
+    lbe_solver->SetMaxIter(GMRES.maxiter);
+    lbe_solver->SetPrintLevel(GMRES.printlevel);
+    lbe_solver->SetKDim(GMRES.kdim);
+    lbe_solver->SetPreconditioner(*lbe_prec); // JacPrec is preconditioner for GMRES
+
+    // Require Newton for nonlinear BE equation
+    if (AN) { 
+    //if (!AN) { // Can use this to solve linear problem with Newton instead, ramping up halting tols for GMRES we see it converges in a single iter as expected.
+        nlbe_solver = new NewtonSolver(Mesh.GetComm());
+        nlbe_solver->iterative_mode = false;
+        nlbe_solver->SetMaxIter(NEWTON.maxiter);
+        nlbe_solver->SetRelTol(NEWTON.reltol);
+        nlbe_solver->SetPrintLevel(NEWTON.printlevel);
+        nlbe_solver->SetSolver(*lbe_solver); // GMRES is linear solver
+        nlbe_solver->SetOperator(*be); // Newton applied to BEOper
+        be_solver = nlbe_solver;
+    
+    // Use GMRES for linear BE equation 
+    } else {
+        lbe_solver->SetOperator(*be); // GMRES applied to BEOper
+        be_solver = lbe_solver;
+    }
+}
+
+
+
+Operator &BEOper::GetGradient(const Vector &k) const {
+    // Jacobian will use current value of dt. maybe...
+    dt_current = true;
+    
+    // Jacobian for linear problem
+    if (linearity == LINEAR) 
+    {
+        if (dt_current && Jacobian) {
+            return *Jacobian;
+            
+        // Assemble because wasn't previously, or dt changed
+        } else {
+            if (Jacobian) delete Jacobian;
+            if (D && A) {
+                /* Having problems here... 
+                This seems to work for the moment. But Add nor ParAdd work consistently 
+                on 1 and multiple procs.
+                Actually, I think the problem is they don't have the same `col_map_offd`
+                arrays... But I don't really know what's going on... Anyway, this next line
+                prevents me from freeing the AMG solver (get a seg fault when I try).
+                Actually, it works for 1D, but not 2D; what gives?! The problems are set up
+                in the exact same way...
+                */
+                //J = HypreParMatrixAdd(dt, *(AL->GetOp()), -dt, *(D->GetOp())); // J <- dt(A-D)
+                Jacobian = HypreParMatrixAdd(dt, AL->GetGradient(), -dt, D->GetGradient()); // J <- dt(A-D)
+                *Jacobian += *I; // K <- I + dt*(A-D)
+
+            } else if (D) {
+                // TODO: Even if I use `Add` here I'm getting seg faults... Why?!
+                // But seem to be able to free the AMG solver associated with this K...
+                Jacobian = HypreParMatrixAdd(-dt, D->GetGradient(), 1.0, *I); // K <- I -dt*D
+            } else {
+                //J = HypreParMatrixAdd(dt, *(AL->GetOp()), 1.0, *I); // J <- I + dt*A
+                Jacobian = HypreParMatrixAdd(dt, AL->GetGradient(), 1.0, *I); // J <- I + dt*A
+            }
+            // // These owndership flags are identical for all the different cases...
+            // std::cout << "data = " << static_cast<signed>(K->OwnsDiag()) << "\n";
+            // std::cout << "offd = " << static_cast<signed>(K->OwnsOffd()) << "\n";
+            // std::cout << "cols = " << static_cast<signed>(K->OwnsColMap()) << "\n";
+            return *Jacobian;
+        }
+    } 
+    // Assemble Jacobian for nonlinear problem    
+    else 
+    {
+        if (Jacobian) delete Jacobian;
+        mfem_error("GetGradient:: Nonlinear Jacobian not implemented...");
+        return *Jacobian;
+    }
+}
+
+/* Evaluate BE Operator: y = k + dt*[A(k) - D*k] */
+void BEOper::Mult(const Vector &k, Vector &y) const
+{
+    if (D && A) {
+        A->Mult(k, y);
+        D->Mult(k, temp);
+        y.Add(-1., temp);
+    } else if (D) {
+        D->Mult(k, y);
+        y.Neg();
+    } else {
+        A->Mult(k, y);
+    }
+    y *= dt;
+    y += k;
+}
+
+
+AdvDif::AdvDif(FDMesh &Mesh_, PDELinearity linearity_, Vector alpha_, Vector mu_, 
+        int order, FDBias advection_bias, int problem_) 
+    : TimeDependentOperator(Mesh_.GetLocalSize()),
+        Mesh{Mesh_}, linearity{linearity_}, 
         alpha(alpha_), mu(mu_),
         problem{problem_}, dim(Mesh_.m_dim),
-        Dif(NULL), AdvLin(NULL),
-        K(NULL), I(NULL), dt_K{0.0}, GMRES_solver(NULL), AMG_solver(NULL),
-        GMRES(), AMG(),
-        s(NULL), z(NULL)
+        D(NULL), AL(NULL), AN(NULL), A(NULL),
+        solversInit(false), be(NULL), nlbe_solver(NULL), lbe_solver(NULL), lbe_prec(NULL),
+        NEWTON(), GMRES(), AMG(),
+        source(Mesh_.GetLocalSize()), temp(Mesh_.GetLocalSize())
 {
-    s = new Vector(Mesh_.m_nxLocalTotal);
-    z = new Vector(Mesh_.m_nxLocalTotal);
-    
-    if (mu.Normlp(infinity()) > 1e-15)
-    {
-        Dif = new FDLinearOp(Mesh, 2, mu, order, CENTRAL);
-        Dif->Assemble();
+    // Assemble diffusion operator if non-zero
+    if (mu.Normlp(infinity()) > 1e-15) {
+        D = new FDLinearOp(Mesh, 2, mu, order, CENTRAL);
+        D->Assemble();
     }
     
-    if (alpha.Normlp(infinity()) > 1e-15)
-    {
-        if (advection == LINEAR) 
+    // Assemble advection operator if non-zero
+    if (alpha.Normlp(infinity()) > 1e-15) {
+        if (linearity == LINEAR) 
         {
-            AdvLin = new FDLinearOp(Mesh, 1, alpha, order, CENTRAL);
-            AdvLin->Assemble();
+            AL = new FDLinearOp(Mesh, 1, alpha, order, CENTRAL);
+            AL->Assemble();
+            //AL = new FDNonlinearOp(Mesh, 1, alpha, &LinearFlux, order, advection_bias);
+            //AL->SetGradientFunction(&GradientLinearFlux);
+            
+            A = AL; 
         } else {
-            mfem_error("Nonlinear mult not implemented...");
-        }    
-    }
+            AN = new FDNonlinearOp(Mesh, 1, alpha, &NonlinearFlux, order, advection_bias);
+            AN->SetGradientFunction(&GradientNonlinearFlux);
+            A = AN; 
+        }   
+    // Ensure operator is linear if advection is zero     
+    } else {
+        linearity = LINEAR;
+    }    
     
-    
-    // Initialize parameters for GMRES
-    SetupGMRES();
+    if (!A && !D) mfem_error("AdvDif::AdvDif() Require at least one non-zero PDE coefficient.");
 };
 
 
-/* Solve the linear system
-    K*k = [I + dt*(A - D)]*k = (-A+D)*u + s(t) == Mult(u)
-*/
+/** Solve the BE equation,
+    k + dt*[A(k) - D*k] = b == -A(u)+D*u + s(t) == this->Mult(u), for k */
 void AdvDif::ImplicitSolve(const double dt, const Vector &u, Vector &k)
 {
-   if ((fabs(dt_K - dt) > 1e-4 * dt) || !K)
-   {
-        // Set I once only
-        if (!I) {
-           if (Dif) I = Dif->GetHypreParIdentityMatrix(); else I = AdvLin->GetHypreParIdentityMatrix();
-        }
-             
-        // Delete existing K 
-        if (K) { 
-            //delete AMG_solver; // TODO: See other comments about this...
-            delete K;
-        }
+    // Initialize solvers on first pass.
+    if (!solversInit) InitSolvers(dt);
+    
+    // Solve system....
+    Mult(u, temp); // Set RHS
+    be->Setdt(dt); // Set time step to be used in be solve be's solve.
+    be_solver->Mult(temp, k); 
 
-        // Build K
-        dt_K = dt;
-        if (Dif && AdvLin) {
-            /* Having problems here... 
-            This seems to work for the moment. But Add nor ParAdd work consistently 
-            on 1 and multiple procs.
-            Actually, I think the problem is they don't have the same `col_map_offd`
-            arrays... But I don't really know what's going on... Anyway, this next line
-            prevents me from freeing the AMG solver (get a seg fault when I try).
-            Actually, it works for 1D, but not 2D; what gives?! The problems are set up
-            in the exact same way...
-            */
-            K = HypreParMatrixAdd(dt, *(AdvLin->GetOp()), -dt, *(Dif->GetOp())); // K <- dt(A-D)
-            *K += *I; // K <- I + dt*(A-D)
-            
-        } else if (Dif) {
-            // TODO: Even if I use `Add` here I'm getting seg faults... Why?!
-            // But seem to be able to free the AMG solver associated with this K...
-            K = HypreParMatrixAdd(-dt, *(Dif->GetOp()), 1.0, *I); // K <- I -dt*D
-        } else if (AdvLin) {
-            K = HypreParMatrixAdd(dt, *(AdvLin->GetOp()), 1.0, *I); // K <- I + dt*A
-        }
-        // // These owndership flags are identical for all the different cases...
-        // std::cout << "data = " << static_cast<signed>(K->OwnsDiag()) << "\n";
-        // std::cout << "offd = " << static_cast<signed>(K->OwnsOffd()) << "\n";
-        // std::cout << "cols = " << static_cast<signed>(K->OwnsColMap()) << "\n";
-       
-        // Build AMG preconditioner for GMRES
-        AMG_solver = new HypreBoomerAMG(*K);
-        AMG_solver->SetPrintLevel(0); 
-        AMG_solver->SetMaxIter(1); 
-        AMG_solver->SetMaxLevels(50); 
-        if (AMG.use_AIR) {                        
-            AMG_solver->SetLAIROptions(AMG.distance, 
-                                        AMG.prerelax, AMG.postrelax,
-                                        AMG.strength_tolC, AMG.strength_tolR, 
-                                        AMG.filter_tolR, AMG.interp_type, 
-                                        AMG.relax_type, AMG.filterA_tol,
-                                        AMG.coarsening);                                       
-        }
-        else {
-            AMG_solver->SetInterpolation(0);
-            AMG_solver->SetCoarsening(AMG.coarsening);
-            AMG_solver->SetAggressiveCoarsening(1);
-        }
-
-        // Reset GMRES preconditioner and operator
-        GMRES_solver->SetPreconditioner(*AMG_solver);
-        GMRES_solver->SetOperator(*K);
-    }
-    this->Mult(u, *z);
-    GMRES_solver->Mult(*z, k);
+    MFEM_VERIFY(be_solver->GetConverged(), "BE solver did not converge.");
 }
 
-
-// Build GMRES using parameters 
-void AdvDif::SetupGMRES() {
-    if (GMRES_solver) delete GMRES_solver;
-        
-    GMRES_solver = new GMRESSolver(Mesh.m_comm);
-    GMRES_solver->SetAbsTol(GMRES.abstol);
-    GMRES_solver->SetRelTol(GMRES.reltol);
-    GMRES_solver->SetMaxIter(GMRES.maxiter);
-    GMRES_solver->SetPrintLevel(GMRES.printlevel);
-    GMRES_solver->SetKDim(GMRES.kdim);
-    GMRES_solver->iterative_mode = false;
-}
 
 /* Evaluate RHS of ODEs: du_dt = -A(u) + D*u + s(t) */
 void AdvDif::Mult(const Vector &u, Vector &du_dt) const
 {
-    if (advection == LINEAR) {
-        if (Dif && AdvLin) {
-            Dif->Mult(u, du_dt);
-            AdvLin->Mult(u, *s); // Use s as auxillary vector, is reset below anyways
-            du_dt -= *s;
-        } else if (Dif) {
-            Dif->Mult(u, du_dt);
-        } else if (AdvLin) {
-            AdvLin->Mult(u, du_dt);
-            du_dt.Neg();
-        }
+    if (D && A) {
+        D->Mult(u, du_dt);
+        A->Mult(u, source); // Use s as auxillary vector, is reset below anyways (noting that temp can be one of the vectors passed...)
+        du_dt.Add(-1., source);
+    } else if (D) {
+        D->Mult(u, du_dt);
     } else {
-        mfem_error("Nonlinear mult not implemented...");
+        A->Mult(u, du_dt);
+        du_dt.Neg();
     }
-    
-    // Add solution-independent source term
+    // Solution-independent source term
     SetSource();
-    du_dt += *s;
+    du_dt += source;
 }
 
 
 AdvDif::~AdvDif()
 {
-    delete s;
-    delete z;
-    if (GMRES_solver) delete GMRES_solver;
-    /* TODO: WHY can't I free AMG_solver. Actually, this seems related to 
+    //if (gmres_solver) delete gmres_solver;
+    /* TODO: WHY can't I free amg_solver. Actually, this seems related to 
         *** The MPI_Comm_free() function was called after MPI_FINALIZE was invoked.
         *** This is disallowed by the MPI standard.
-    if (AMG_solver) delete AMG_solver;
+    if (amg_solver) delete amg_solver;
     */
-    //if (AMG_solver) delete AMG_solver;
-    if (K) delete K;
-    if (I) delete I;
-    if (Dif) delete Dif;
-    if (AdvLin) delete AdvLin;
-    //if (AdvNonlin) delete AdvNonlin;
+    if (be) delete be;
+    if (nlbe_solver) delete nlbe_solver;
+    if (lbe_solver) delete lbe_solver;
+    //if (lbe_prec) delete lbe_prec;
+    if (D) delete D;
+    if (AL) delete AL;
+    if (AN) delete AN;
 }
 
 /* SAMPLE RUNS:
@@ -345,8 +558,10 @@ int main(int argc, char *argv[])
     /* ------------------------------------------------------ */
     /* PDE */
     problem = 1;
-    advection = LINEAR;
-    int advection_temp = static_cast<int>(advection);
+    linearity = LINEAR;
+    int linearity_temp = static_cast<int>(linearity);
+    FDBias advection_bias = CENTRAL;
+    int advection_bias_temp = static_cast<int>(advection_bias);
     double ax=1.0, ay=1.0; // Advection coefficients
     double mx=1.0, my=1.0; // Diffusion coefficients
     
@@ -364,9 +579,10 @@ int main(int argc, char *argv[])
     int npx       = -1; // # procs in x-direction
     int npy       = -1; // # procs in y-direction
     
-    // AMG and Krylov parameters
+    // Solver parameters
     AMG_params AMG;
     GMRES_params GMRES;
+    NEWTON_params NEWTON;
     int use_AIR_temp = (int) AMG.use_AIR;
     
     
@@ -376,7 +592,7 @@ int main(int argc, char *argv[])
     
     
     OptionsParser args(argc, argv);
-    args.AddOption(&advection_temp, "-adv", "--advection-type",
+    args.AddOption(&linearity_temp, "-adv", "--advection-type",
                   "adv=0 is linear, adv=1 is nonlinear.");
     args.AddOption(&problem, "-ex", "--example-problem",
                   "Problem ID."); 
@@ -411,15 +627,18 @@ int main(int argc, char *argv[])
     args.AddOption(&dt, "-dt", "--time-step-size", "t_j = j*dt");
 
     /* AMG parameters */
-    args.AddOption(&use_AIR_temp, "-air", "--use-air", 
-                        "0==standard AMG, 1==AIR");
-    
+    args.AddOption(&use_AIR_temp, "-air", "--use-air", "0==standard AMG, 1==AIR");
     /* Krylov parameters */
-    args.AddOption(&GMRES.reltol, "-rtol", "--rel-tol", "Krlov: Relative stopping tolerance");
-    args.AddOption(&GMRES.abstol, "-atol", "--abs-tol", "Krlov: Absolute stopping tolerance");
-    args.AddOption(&GMRES.maxiter, "-maxit", "--max-iterations", "Krlov: Maximum iterations");
-    args.AddOption(&GMRES.kdim, "-kdim", "--Krylov-dimension", "Krlov: Maximum subspace dimension");
-    args.AddOption(&GMRES.printlevel, "-kp", "--Krylov-print", "Krlov: Print level");
+    args.AddOption(&GMRES.reltol, "-krtol", "--gmres-rel-tol", "GMRES: Relative stopping tolerance");
+    args.AddOption(&GMRES.abstol, "-katol", "--gmres-abs-tol", "GMRES: Absolute stopping tolerance");
+    args.AddOption(&GMRES.maxiter, "-kmaxit", "--gmres-max-iterations", "GMRES: Maximum iterations");
+    args.AddOption(&GMRES.kdim, "-kdim", "--gmres-dimension", "GMRES: Maximum subspace dimension");
+    args.AddOption(&GMRES.printlevel, "-kp", "--gmres-print", "GMRES: Print level");
+    /* Newton parameters */
+    args.AddOption(&NEWTON.reltol, "-nrtol", "--newton-rel-tol", "Newton: Relative stopping tolerance");
+    args.AddOption(&NEWTON.maxiter, "-nmaxit", "--newton-max-iterations", "Newton: Maximum iterations");
+    args.AddOption(&NEWTON.printlevel, "-np", "--newton-print", "Newton: Print level");
+    
     
     /* --- Text output of solution etc --- */              
     args.AddOption(&out, "-out", "--out-directory", "Name of output file."); 
@@ -429,15 +648,15 @@ int main(int argc, char *argv[])
     if (myid == 0) {
         args.PrintOptions(std::cout); 
     }
-    // Set up remaing params
-    advection = static_cast<AdvectionType>(advection_temp);
-    
+    // Set final forms of remaing params
+    linearity = static_cast<PDELinearity>(linearity_temp);
+    advection_bias = static_cast<FDBias>(advection_bias_temp);
+    AMG.use_AIR = (bool) use_AIR_temp;
     std::vector<int> np = {};
     if (npx != -1) {
         if (dim >= 1) np.push_back(npx);
         if (dim >= 2) np.push_back(npy);
     }
-
     alpha.SetSize(dim);
     mu.SetSize(dim);
     alpha(0) = ax;
@@ -447,12 +666,47 @@ int main(int argc, char *argv[])
         mu(1) = my;
     }
     
-    /* --- Set up spatial discretization --- */
-    // Build mesh on which we discretize
+    
+    ///////////////////////////////////////
+    // Assemble mesh on which we discretize
+    ///////////////////////////////////////
     FDMesh Mesh(MPI_COMM_WORLD, dim, refLevels, np);
     
-    // Initialize the spatial discretization operator
-    AdvDif SpaceDisc(Mesh, advection, alpha, mu, order, problem);
+    
+    ///////////////////////////////////////////////////
+    // Define the ODE solver used for time integration.
+    ///////////////////////////////////////////////////
+    ODESolver *ode_solver;
+    switch (ode_solver_type)
+    {
+        // Explicit methods
+        case 1: ode_solver = new ForwardEulerSolver; break;
+        case 2: ode_solver = new RK2Solver(0.5); break; // midpoint method
+        case 3: ode_solver = new RK3SSPSolver; break;
+        case 4: ode_solver = new RK4Solver; break;
+    
+        // Implicit L-stable methods
+        case 11: ode_solver = new BackwardEulerSolver; break;
+        case 12: ode_solver = new SDIRK23Solver(2); break;
+        case 13: ode_solver = new SDIRK33Solver; break;
+        default:
+            if (myid == 0) cout << "Unknown ODE solver type: " << ode_solver_type << '\n';
+            MPI_Finalize();
+            return 3;
+    }
+
+    
+    ///////////////////////////////////////////
+    /* --- Set up spatial discretization --- */
+    ///////////////////////////////////////////
+    AdvDif SpaceDisc(Mesh, linearity, alpha, mu, order, advection_bias, problem);
+        
+    // Initialize solvers for implicit time integration
+    if (ode_solver_type > 10) {
+        SpaceDisc.SetAMGParams(AMG);
+        SpaceDisc.SetGMRESParams(GMRES);
+        SpaceDisc.SetNewtonParams(NEWTON);
+    }    
         
     // Get initial condition
     Vector * u = NULL;
@@ -483,38 +737,12 @@ int main(int argc, char *argv[])
         nt = ceil(tf/dt);
     }
     
+
     
-    // Define the ODE solver used for time integration.
-    ODESolver *ode_solver;
-    switch (ode_solver_type)
-    {
-        // Explicit methods
-        case 1: ode_solver = new ForwardEulerSolver; break;
-        case 2: ode_solver = new RK2Solver(0.5); break; // midpoint method
-        case 3: ode_solver = new RK3SSPSolver; break;
-        case 4: ode_solver = new RK4Solver; break;
-    
-        // Implicit L-stable methods
-        case 11: ode_solver = new BackwardEulerSolver; break;
-        case 12: ode_solver = new SDIRK23Solver(2); break;
-        case 13: ode_solver = new SDIRK33Solver; break;
-        default:
-            if (myid == 0) cout << "Unknown ODE solver type: " << ode_solver_type << '\n';
-            MPI_Finalize();
-            return 3;
-    }
-
-
-    // Set solver parameters for implicit time integration
-    if (ode_solver_type > 10) {
-        AMG.use_AIR = (bool) use_AIR_temp;
-        SpaceDisc.SetAMG_params(AMG);
-        SpaceDisc.SetGMRES_params(GMRES);
-    }
-
+    ///////////////
+    /* Time-step */
+    ///////////////
     ode_solver->Init(SpaceDisc);
-    
-    /* Main time-stepping loop */
     double t = 0.0;
     SpaceDisc.SetTime(t);
     int step = 0;
@@ -626,7 +854,7 @@ double Source(const Vector &x, double t) {
     switch (problem) {
         // Source is chosen for manufactured solution
         case 1:
-            switch (advection) {
+            switch (linearity) {
                 // Linear advection term
                 case LINEAR:
                     switch (x.Size()) {
@@ -654,11 +882,11 @@ double Source(const Vector &x, double t) {
                     switch (x.Size()) {
                         case 1: {
                             double u = 0.5*PI*(x(0)-alpha(0)*t);
-                            double z = t*mu(0);
+                            double z = mu(0)*t;
                             return 0.5*exp(-2.*z)*(
                                     -4.*PI*alpha(0)*pow(cos(u),6.)*sin(2.*u)
                                     + exp(z)*pow(cos(u),2.)
-                                    * (-mu(0)*(-1.-2.*PI*PI+(4.*PI*PI-1.)*cos(2.*u)) 
+                                    * (mu(0)*(-1.-2.*PI*PI+(4.*PI*PI-1.)*cos(2.*u)) 
                                         + 2.*PI*alpha(0)*sin(2*u)));
                         }
                         case 2:
@@ -700,7 +928,7 @@ double PDESolution(const Vector &x, double t)
             }
             break;
         case 2:
-            if (advection == NONLINEAR) cout <<  "PDESolution:: not implemented for NONLINEAR problem " << problem << "\n";
+            if (linearity == NONLINEAR) cout <<  "PDESolution:: not implemented for NONLINEAR problem " << problem << "\n";
             switch (x.Size()) {
                 case 1:
                 {   
