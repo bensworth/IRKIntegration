@@ -294,6 +294,10 @@ public:
     //     return NULL;
     // };
     
+    HypreParMatrix & Get() const { 
+        if (!m_Op) Assemble(); 
+        return *m_Op; 
+    };
     
     // Gradient of linear operator is just the operator...
     HypreParMatrix & GetGradient() const 
@@ -314,7 +318,13 @@ class FDNonlinearOp : public FDSpaceDisc
         double (*m_f)(double u);
         double (*m_df)(double u);
         Vector m_c;
-        HypreParMatrix * m_Jac;  
+        mutable HypreParMatrix * m_Gradient;  
+
+        
+        void Mult1D(const Vector &x, Vector &y) const;
+        void Mult2D(const Vector &x, Vector &y) const;
+        HypreParMatrix &GetGradient1D(const Vector &u) const;
+        HypreParMatrix &GetGradient2D(const Vector &u) const;
 
     public:
         /* Constructors */
@@ -329,13 +339,6 @@ class FDNonlinearOp : public FDSpaceDisc
         
         void SetGradientFunction(double (*df)(double u)) { m_df = df; };
         
-        void AssembleGradient(const Vector &x); 
-        
-        HypreParMatrix & GetGradient(const Vector &u) const 
-        { 
-            if (!m_Jac) mfem_error("GetGradient:: Gradient not assembled!");
-                
-            return *m_Jac;
-        };
+        HypreParMatrix & GetGradient(const Vector &u) const;
 };
 

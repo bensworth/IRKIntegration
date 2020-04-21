@@ -1312,22 +1312,44 @@ void FDLinearOp::Assemble() const
 
 FDNonlinearOp::FDNonlinearOp(const FDMesh &mesh, int derivative, Vector c, 
                                 double (*f)(double), int order, FDBias bias) 
-    : FDSpaceDisc(mesh, derivative, order, bias),
-                                m_c(c), m_f(f), m_df(NULL), m_Jac(NULL) { };
+    : FDSpaceDisc(mesh, derivative, order, bias), m_Gradient(NULL),
+                                m_c(c), m_f(f), m_df(NULL) 
+{ 
+if (bias != CENTRAL) mfem_error("Don't have upwind implemented...");
+};
 
 FDNonlinearOp::FDNonlinearOp(const FDMesh &mesh, int derivative, Vector c, 
                                 double (*f)(double), double (*df)(double), 
                                 int order, FDBias bias) 
-    : FDSpaceDisc(mesh, derivative, order, bias),
-                                m_c(c), m_f(f), m_df(df), m_Jac(NULL) { };
+    : FDSpaceDisc(mesh, derivative, order, bias), m_Gradient(NULL),
+                                m_c(c), m_f(f), m_df(df) 
+{
+if (bias != CENTRAL) mfem_error("Don't have upwind implemented...");
+};
 
-// c.grad(f(u))
 void FDNonlinearOp::Mult(const Vector &a, Vector &b) const
 {
-    if (m_dim != 1) mfem_error("Only 1D implemented....");
-    //if (m_bias != CENTRAL) mfem_error("Only have central implemented....");
-    
-    // Initialize FD approximation
+    if (m_dim == 1) {
+        Mult1D(a, b);
+    }
+    else if (m_dim == 2) {
+        Mult2D(a, b);    
+    }
+}
+HypreParMatrix &FDNonlinearOp::GetGradient(const Vector &u) const
+{
+    if (m_dim == 1) {
+        return GetGradient1D(u);
+    } else if (m_dim == 2) {
+        return GetGradient2D(u);    
+    } else {
+        return *m_Gradient;
+    }
+}
+
+// c.grad(f(u))
+void FDNonlinearOp::Mult1D(const Vector &a, Vector &b) const
+{
     FDApprox dxapprox(m_derivative, m_order, m_mesh.m_dx[0], m_bias);
     dxapprox.SetCoefficient(m_c(0));
     int dxNnz = dxapprox.GetSize();
@@ -1342,30 +1364,181 @@ void FDNonlinearOp::Mult(const Vector &a, Vector &b) const
         for (int i = 0; i < dxNnz; i++) {
             // Account for periodicity here. This always puts in range [0,nx-1]
             int j = (dxNodes[i] + row + m_mesh.m_globOffset + m_mesh.m_nx[0]) % m_mesh.m_nx[0]; 
-            b(row) += (*m_f)(a(j))*dxWeights[i];
+            b(row) += ((*m_f)(a(j)))*dxWeights[i];
         }
     }  
 }
 
-/* Get CSR structure for discretization of 1D constant-coefficient operator 
 
-A(u) ~ d/dx f(u)
-
-A(u)_j = [f(u_{j}) - f(u_{j-1})] / dx
-
-                  |col j-2|       col j-1     |      col j      |
-A'(u)_j [0, ...., |   0   | -df/du(u_{j-1})/dx| df/du(u_{j})/dx ]
-
-A'(u) = d/du A(u)
-      ~ d/du d/dx f(u)
-      ~ df/du du/dx
-*/
-void FDNonlinearOp::AssembleGradient(const Vector &u) 
+// c.grad(f(u)) = c(0)*df/dx + c(1)*df/dy
+void FDNonlinearOp::Mult2D(const Vector &a, Vector &b) const
 {
-    if (m_Jac) delete m_Jac;
+    // Initialize FD approximation of each term
+    FDApprox dxapprox(m_derivative, m_order, m_mesh.m_dx[0], m_bias);
+    dxapprox.SetCoefficient(m_c(0));
+    int dxNnz = dxapprox.GetSize();
+    FDApprox dyapprox(m_derivative, m_order, m_mesh.m_dx[1], m_bias);
+    dyapprox.SetCoefficient(m_c(1));
+    int dyNnz = dyapprox.GetSize();
     
-    if (!m_df) mfem_error("AssembleGradient:: Must set gradient function with SetGradientFunction()");
+    // Get FD approximation for each term
+    int * dxNodes, * dyNodes = NULL; 
+    double * dxWeights, * dyWeights = NULL;
+    dxapprox.GetApprox(dxNodes, dxWeights);
+    dyapprox.GetApprox(dyNodes, dyWeights);
 
+    Array<int> locInds(2), conInds(2);
+    b = 0.0;
+    for (int row = 0; row < m_localSize; row++) {
+        m_mesh.LocalDOFIndToLocalMeshInds(row, locInds); // Indices of point we're discretizing at...
+        // x-derivative
+        conInds[1] = locInds[1];
+        for (int i = 0; i < dxNnz; i++) {
+            // Account for periodicity here. This always puts in range [0,nx-1]
+            conInds[0] = (locInds[0] + dxNodes[i] + m_mesh.m_nx[0]) % m_mesh.m_nx[0]; 
+            b(row) += ((*m_f)(a(m_mesh.LocalMeshIndsToGlobalDOFInd(conInds))))*dxWeights[i];
+        }
+        
+        // y-derivative         
+        conInds[0] = locInds[0];                                 
+        for (int j = 0; j < dyNnz; j++) {
+            // Account for periodicity here. This always puts in range [0,nx-1]
+            conInds[1] = (locInds[1] + dyNodes[j] + m_mesh.m_nx[1]) % m_mesh.m_nx[1]; 
+            b(row) += ((*m_f)(a(m_mesh.LocalMeshIndsToGlobalDOFInd(conInds))))*dyWeights[j];
+        }    
+    }           
+}
+
+
+/* Get gradient of 2D operator, c.grad(f(u)) */
+HypreParMatrix &FDNonlinearOp::GetGradient2D(const Vector &u) const
+{
+    //std::cout << "get grad..." << '\n';
+    if (!m_df) mfem_error("FDNonlinearOp::GetGradient() Must set gradient function (see SetGradientFunction())");
+
+    if (m_Gradient) delete m_Gradient;
+    
+    // Initialize FD approximation of each term
+    FDApprox dxapprox(m_derivative, m_order, m_mesh.m_dx[0], m_bias);
+    dxapprox.SetCoefficient(m_c(0));
+    int dxNnz = dxapprox.GetSize();
+    FDApprox dyapprox(m_derivative, m_order, m_mesh.m_dx[1], m_bias);
+    dyapprox.SetCoefficient(m_c(1));
+    int dyNnz = dyapprox.GetSize();
+    
+    // Get FD approximation for each term
+    int * dxNodes, * dyNodes = NULL; 
+    double * dxWeights, * dyWeights = NULL;
+    dxapprox.GetApprox(dxNodes, dxWeights);
+    dyapprox.GetApprox(dyNodes, dyWeights);
+
+    
+    /* -------------------------------------- */
+    /* ------ Initialize CSR structure ------ */
+    /* -------------------------------------- */
+    // Discretization of x- and y-derivatives at point i,j will both use i,j in their stencils (hence the -1)
+    int localNnz = (dxNnz + dyNnz - 1) * m_localSize; 
+    int * rowptr      = new int[m_localSize + 1];
+    int * colinds     = new int[localNnz];
+    double * data        = new double[localNnz];
+    rowptr[0]   = 0;
+    int dataInd = 0;
+
+    Array<int> locInds(2), locIndsMax(2), tempInds(2);
+    locIndsMax[0] = m_mesh.m_nxLocal[0]-1;
+    locIndsMax[1] = m_mesh.m_nxLocal[1]-1;
+
+
+    /* --------------------------------------------- */
+    /* ------ Get CSR structure of local rows ------ */
+    /* --------------------------------------------- */
+    for (int row = 0; row < m_localSize; row++) {                                          
+        //std::cout << "row = " << row << '\n';
+        m_mesh.LocalDOFIndToLocalMeshInds(row, locInds);
+        
+        // Build so that column indices are in ascending order, this means looping 
+        // over y first until we hit the current point, then looping over x, 
+        // then continuing to loop over y (Actually, periodicity stuffs this up I think...)
+        for (int j = 0; j < dyNnz; j++) {
+
+            // The two stencils intersect at (0,0)
+            if (dyNodes[j] == 0) {
+                for (int i = 0; i < dxNnz; i++) {
+                    int con = locInds[0] + dxNodes[i]; // Local x-index of current connection
+                    // Connection to process on WEST side
+                    if (con < 0) {
+                        colinds[dataInd] = m_mesh.LocalOverflowToGlobalDOFInd(locInds[1], con, WEST);
+                        //colinds[dataInd] = MeshIndsOnWestProcToGlobalInd(abs(con), yLocInd);
+                    // Connection to process on EAST side
+                    } else if (con > locIndsMax[0]) {
+                        colinds[dataInd] = m_mesh.LocalOverflowToGlobalDOFInd(locInds[1], con - locIndsMax[0], EAST);
+                        //colinds[dataInd] = MeshIndsOnEastProcToGlobalInd(con - (m_mesh.m_nxLocal[0]-1), yLocInd);
+                    // Connection is on processor
+                    } else {
+                        //colinds[dataInd] = MeshIndsOnProcToGlobalInd(row, con, yLocInd);
+                        tempInds[0] = con;
+                        tempInds[1] = locInds[1];
+                        colinds[dataInd] = m_mesh.LocalMeshIndsToGlobalDOFInd(tempInds);
+                    }
+                    data[dataInd] = dxWeights[i] * ((*m_df)(u(colinds[dataInd])));
+                    
+                    // The two stencils intersect at this point, i.e. they share a column in the matrix
+                    if (dxNodes[i] == 0) data[dataInd] += dyWeights[j] * ((*m_df)(u(colinds[dataInd])));; 
+                    //std::cout << data[dataInd] << '\n';
+                    dataInd += 1;
+                }
+
+            // No intersection possible between between x- and y-stencils
+            } else {
+                int con = locInds[1] + dyNodes[j]; // Local y-index of current connection
+                // Connection to process on SOUTH side
+                if (con < 0) {
+                    colinds[dataInd] = m_mesh.LocalOverflowToGlobalDOFInd(locInds[0], con, SOUTH);
+                    //colinds[dataInd] = MeshIndsOnSouthProcToGlobalInd(xLocInd, abs(con));
+                // Connection to process on NORTH side
+                } else if (con > locIndsMax[1]) {
+                    colinds[dataInd] = m_mesh.LocalOverflowToGlobalDOFInd(locInds[0], con - locIndsMax[1], NORTH);
+                    //colinds[dataInd] = MeshIndsOnNorthProcToGlobalInd(xLocInd, con - (m_mesh.m_nxLocal[1]-1));
+                // Connection is on processor
+                } else {
+                    tempInds[0] = locInds[0];
+                    tempInds[1] = con;
+                    colinds[dataInd] = m_mesh.LocalMeshIndsToGlobalDOFInd(tempInds);
+                    //colinds[dataInd] = MeshIndsOnProcToGlobalInd(row, xLocInd, con);
+                }
+
+                data[dataInd] = dyWeights[j] * ((*m_df)(u(colinds[dataInd])));
+                //std::cout << data[dataInd] << '\n';
+                dataInd++;
+            }
+        }    
+        rowptr[row+1] = dataInd;
+    }    
+    // Check sufficient data was allocated
+    if (dataInd > localNnz) {
+        std::cout << "WARNING: Matrix has more nonzeros than allocated.\n";
+    }
+    
+    // Assemble global matrix
+    GetHypreParMatrixFromCSRData(m_mesh.m_comm, 
+                                 m_globMinRow, m_globMaxRow, m_globSize,
+                                 rowptr, colinds, data, m_Gradient);
+                                 
+    delete[] rowptr;
+    delete[] colinds;
+    delete[] data;   
+    
+    return *m_Gradient;                           
+}
+
+
+/* Get gradient of 1D operator, c.grad(f(u)) */
+HypreParMatrix &FDNonlinearOp::GetGradient1D(const Vector &u) const
+{
+    if (!m_df) mfem_error("FDNonlinearOp::GetGradient() Must set gradient function (see SetGradientFunction())");
+
+    if (m_Gradient) delete m_Gradient;
+    
     // Initialize FD approximation
     FDApprox dxapprox(m_derivative, m_order, m_mesh.m_dx[0], m_bias);
     dxapprox.SetCoefficient(m_c(0));
@@ -1397,7 +1570,7 @@ void FDNonlinearOp::AssembleGradient(const Vector &u)
             // Account for periodicity here. This always puts in range [0,nx-1]
             int j = (dxNodes[i] + row + m_mesh.m_globOffset + m_mesh.m_nx[0]) % m_mesh.m_nx[0]; 
             colinds[dataInd] = j;
-            data[dataInd]    = dxWeights[i] * (*m_df)(u(j));
+            data[dataInd]    = dxWeights[i] * ((*m_df)(u(j)));
             dataInd++;
         }
         rowptr[row+1] = dataInd;
@@ -1411,9 +1584,11 @@ void FDNonlinearOp::AssembleGradient(const Vector &u)
     // Assemble global matrix
     GetHypreParMatrixFromCSRData(m_mesh.m_comm, 
                                  m_globMinRow, m_globMaxRow, m_globSize,
-                                 rowptr, colinds, data, m_Jac);
+                                 rowptr, colinds, data, m_Gradient);
                                  
     delete[] rowptr;
     delete[] colinds;
-    delete[] data;                              
+    delete[] data;   
+    
+    return *m_Gradient;                           
 }
