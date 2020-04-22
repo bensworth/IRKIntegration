@@ -1098,8 +1098,8 @@ void FDSpaceDisc::Get2DConstantOperatorCSR(int derivative, Vector c,
     int dyNnz = dyapprox.GetSize();
     
     // Get FD approximation for each term
-    int * dxNodes, * dyNodes = NULL; 
-    double * dxWeights, * dyWeights = NULL;
+    int * dxNodes = NULL, * dyNodes = NULL; 
+    double * dxWeights = NULL, * dyWeights = NULL;
     dxapprox.GetApprox(dxNodes, dxWeights);
     dyapprox.GetApprox(dyNodes, dyWeights);
 
@@ -1292,7 +1292,7 @@ void FDLinearOp::Assemble() const
     if (m_Op) return; 
     
     // Get local CSR structure of matrix
-    int * rowptr, * colinds = NULL;
+    int * rowptr = NULL, * colinds = NULL;
     double * data = NULL;
     if (m_dim == 1) 
     {
@@ -1337,12 +1337,12 @@ if (bias != CENTRAL) mfem_error("Don't have upwind implemented...");
 void FDNonlinearOp::Mult(const Vector &a, Vector &b) const
 {
     if (m_dim == 1) {
-        Mult1DParallel(a, b);
-        // if (m_mesh.GetCommSize() > 1) {
-        //     Mult1DParallel(a, b);
-        // } else {
-        //     Mult1DSerial(a, b);
-        // }
+        //Mult1DParallel(a, b);
+        if (m_mesh.GetCommSize() > 1) {
+            Mult1DParallel(a, b);
+        } else {
+            Mult1DSerial(a, b);
+        }
     }
     else if (m_dim == 2) {
         Mult2D(a, b);    
@@ -1350,8 +1350,13 @@ void FDNonlinearOp::Mult(const Vector &a, Vector &b) const
 }
 HypreParMatrix &FDNonlinearOp::GetGradient(const Vector &u) const
 {
-    if (m_dim == 1) {
-        return GetGradient1D(u);
+    if (m_dim == 1) {    
+        //return GetGradient1DParallel(u);
+        if (m_mesh.GetCommSize() > 1) {
+            return GetGradient1DParallel(u);
+        } else {
+            return GetGradient1DSerial(u);
+        }
     } else if (m_dim == 2) {
         return GetGradient2D(u);    
     } else {
@@ -1393,6 +1398,7 @@ void FDNonlinearOp::Mult1DParallel(const Vector &a, Vector &b) const
     double * dxWeights = NULL;
     dxapprox.GetApprox(dxNodes, dxWeights);
 
+    /// --- Get boundary data from neighbouring processes --- ///
     // Unpack some variables
     MPI_Comm comm = m_mesh.GetComm();     // The communicator
     int left = m_mesh.m_nborpIdxWest[0];  // Left neighbour
@@ -1443,6 +1449,8 @@ void FDNonlinearOp::Mult1DParallel(const Vector &a, Vector &b) const
         for (int i = 0; i < nRecvFromLeft; i++) aRecvFromLeft[i] = a(m_mesh.m_nxLocal[0]-nRecvFromLeft+i);
     }
     
+    
+    /// --- Compute the action of FD operator --- ///
     b = 0.0;
     for (int row = 0; row < m_localSize; row++) {
         for (int i = 0; i < dxNnz; i++) {
@@ -1467,6 +1475,194 @@ void FDNonlinearOp::Mult1DParallel(const Vector &a, Vector &b) const
 }
 
 
+
+/* Get gradient of 1D operator, c.grad(f(u)) */
+HypreParMatrix &FDNonlinearOp::GetGradient1DParallel(const Vector &u) const
+{
+    if (!m_df) mfem_error("FDNonlinearOp::GetGradient() Must set gradient function (see SetGradientFunction())");
+
+    if (m_Gradient) delete m_Gradient;
+    
+    // Initialize FD approximation
+    FDApprox dxapprox(m_derivative, m_order, m_mesh.m_dx[0], m_bias);
+    dxapprox.SetCoefficient(m_c(0));
+    int dxNnz = dxapprox.GetSize();
+
+    // Get FD approximation
+    int * dxNodes = NULL; 
+    double * dxWeights = NULL;
+    dxapprox.GetApprox(dxNodes, dxWeights);
+
+    /// --- Get boundary data from neighbouring processes --- ///
+    // Unpack some variables
+    MPI_Comm comm = m_mesh.GetComm();     // The communicator
+    int left = m_mesh.m_nborpIdxWest[0];  // Left neighbour
+    int right = m_mesh.m_nborpIdxEast[0]; // Right neighbour
+
+    // Number of nodes in stencil to the left and right of us
+    int nRecvFromLeft = 0, nRecvFromRight = 0;
+    for (int i = 0; i < dxNnz; i++) {
+        if (dxNodes[i] < 0) {
+            nRecvFromLeft++;
+        } else if (dxNodes[i] > 0) {
+            nRecvFromRight++;
+        }
+    }
+    MFEM_VERIFY(nRecvFromLeft < m_mesh.m_nxLocal[0] && nRecvFromRight < m_mesh.m_nxLocal[0], 
+        "FDNonlinearOp::Mult1DParallel() Stencil cannot extend further than immediate neighbouring processes.");
+    
+    double * uRecvFromRight = new double[nRecvFromRight];
+    double * uRecvFromLeft = new double[nRecvFromLeft];
+    
+    // Get neighbouring processes boundary data
+    // Exploit that the chuncks we need to send are continguous in memory
+    if (m_mesh.GetCommSize() > 1) {
+        // How many boundary points do I send to my neighbours?
+        int nSendLeft = 0, nSendRight = 0; 
+
+        // Tell neighbours how much data I need and they tell me how much they need
+        MPI_Send(&nRecvFromLeft, 1, MPI_INT, left, 0, comm);
+        MPI_Recv(&nSendRight, 1, MPI_INT, right, 0, comm, MPI_STATUS_IGNORE);
+        MPI_Send(&nRecvFromRight, 1, MPI_INT, right, 1, comm);
+        MPI_Recv(&nSendLeft, 1, MPI_INT, left, 1, comm, MPI_STATUS_IGNORE);
+        
+        // ---- Send data to the left and recieve from the right
+        // Send boundary data to LHS neighbour
+        MPI_Send(u.GetData(), nSendLeft, MPI_DOUBLE, left, 2, comm);
+        // Receive RHS neighbour's boundary data
+        MPI_Recv(uRecvFromRight, nRecvFromRight, MPI_DOUBLE, right, 2, comm, MPI_STATUS_IGNORE);
+        
+        // ---- Send data to the right and recieve it from the left
+        // Send boundary data to RHS neighbour
+        MPI_Send(u.GetData()+m_mesh.m_nxLocal[0]-nSendRight, nSendRight, MPI_DOUBLE, right, 3, comm);
+        // Receive LHS neighbours boundary data
+        MPI_Recv(uRecvFromLeft, nRecvFromLeft, MPI_DOUBLE, left, 3, comm, MPI_STATUS_IGNORE);
+        
+    // Single process, just periodically wrap the data so it can use the same implementation below
+    } else {
+        for (int i = 0; i < nRecvFromRight; i++) uRecvFromRight[i] = u(i);
+        for (int i = 0; i < nRecvFromLeft; i++) uRecvFromLeft[i] = u(m_mesh.m_nxLocal[0]-nRecvFromLeft+i);
+    }
+    
+    /// --- Set up Jacobian matrix --- ///
+    /* -------------------------------------- */
+    /* ------ Initialize CSR structure ------ */
+    /* -------------------------------------- */
+    int localNnz = dxNnz * m_localSize; 
+    int * rowptr  = new int[m_localSize + 1];
+    int * colinds = new int[localNnz];
+    double * data = new double[localNnz];
+    rowptr[0]   = 0;
+    int dataInd = 0;
+
+    /* --------------------------------------------- */
+    /* ------ Get CSR structure of local rows ------ */
+    /* --------------------------------------------- */
+    for (int row = 0; row < m_localSize; row++) {
+        for (int i = 0; i < dxNnz; i++) {
+            // Local index of connection
+            int conn = dxNodes[i] + row; 
+            // Global index of connection, periodically wrapped.
+            colinds[dataInd] = (conn + m_mesh.m_globOffset + m_mesh.m_nx[0]) % m_mesh.m_nx[0]; 
+            
+            // Connection to left neighbouring process
+            if (conn < 0) {
+                conn += nRecvFromLeft;
+                data[dataInd] = dxWeights[i] * ((*m_df)(uRecvFromLeft[conn]));
+            // Connection to right neighbouring process    
+            } else if (conn >= m_localSize) {
+                conn -= m_localSize;
+                data[dataInd] = dxWeights[i] * ((*m_df)(uRecvFromRight[conn]));
+            // Connection is on process    
+            } else {
+                data[dataInd] = dxWeights[i] * ((*m_df)(u(conn)));
+            }
+            dataInd++;
+        }
+        rowptr[row+1] = dataInd;
+    }  
+
+    delete[] uRecvFromLeft;
+    delete[] uRecvFromRight;
+
+    // Check sufficient data was allocated
+    if (dataInd > localNnz) {
+        std::cout << "WARNING: Matrix has more nonzeros than allocated.\n";
+    }
+    
+    // Assemble global matrix
+    GetHypreParMatrixFromCSRData(m_mesh.m_comm, 
+                                 m_globMinRow, m_globMaxRow, m_globSize,
+                                 rowptr, colinds, data, m_Gradient);
+                                 
+    delete[] rowptr;
+    delete[] colinds;
+    delete[] data;   
+    
+    return *m_Gradient;                           
+}
+
+
+/* Get gradient of 1D operator, c.grad(f(u)) */
+HypreParMatrix &FDNonlinearOp::GetGradient1DSerial(const Vector &u) const
+{
+    if (!m_df) mfem_error("FDNonlinearOp::GetGradient() Must set gradient function (see SetGradientFunction())");
+
+    if (m_Gradient) delete m_Gradient;
+    
+    // Initialize FD approximation
+    FDApprox dxapprox(m_derivative, m_order, m_mesh.m_dx[0], m_bias);
+    dxapprox.SetCoefficient(m_c(0));
+    int dxNnz = dxapprox.GetSize();
+
+    // Get FD approximation
+    int * dxNodes = NULL; 
+    double * dxWeights = NULL;
+    dxapprox.GetApprox(dxNodes, dxWeights);
+
+
+    /* -------------------------------------- */
+    /* ------ Initialize CSR structure ------ */
+    /* -------------------------------------- */
+    int localNnz = dxNnz * m_localSize; 
+    int * rowptr  = new int[m_localSize + 1];
+    int * colinds = new int[localNnz];
+    double * data = new double[localNnz];
+    rowptr[0]   = 0;
+    int dataInd = 0;
+
+    /* --------------------------------------------- */
+    /* ------ Get CSR structure of local rows ------ */
+    /* --------------------------------------------- */
+    for (int row = 0; row < m_localSize; row++) {
+        for (int i = 0; i < dxNnz; i++) {
+            // Account for periodicity here. This always puts in range [0,nx-1]
+            int j = (dxNodes[i] + row + m_mesh.m_globOffset + m_mesh.m_nx[0]) % m_mesh.m_nx[0]; 
+            colinds[dataInd] = j;
+            data[dataInd]    = dxWeights[i] * ((*m_df)(u(j)));
+            dataInd++;
+        }
+        rowptr[row+1] = dataInd;
+    }  
+
+    // Check sufficient data was allocated
+    if (dataInd > localNnz) {
+        std::cout << "WARNING: Matrix has more nonzeros than allocated.\n";
+    }
+    
+    // Assemble global matrix
+    GetHypreParMatrixFromCSRData(m_mesh.m_comm, 
+                                 m_globMinRow, m_globMaxRow, m_globSize,
+                                 rowptr, colinds, data, m_Gradient);
+                                 
+    delete[] rowptr;
+    delete[] colinds;
+    delete[] data;   
+    
+    return *m_Gradient;                           
+}
+
+
 // c.grad(f(u)) = c(0)*df/dx + c(1)*df/dy
 void FDNonlinearOp::Mult2D(const Vector &a, Vector &b) const
 {
@@ -1479,8 +1675,8 @@ void FDNonlinearOp::Mult2D(const Vector &a, Vector &b) const
     int dyNnz = dyapprox.GetSize();
     
     // Get FD approximation for each term
-    int * dxNodes, * dyNodes = NULL; 
-    double * dxWeights, * dyWeights = NULL;
+    int * dxNodes = NULL, * dyNodes = NULL; 
+    double * dxWeights = NULL, * dyWeights = NULL;
     dxapprox.GetApprox(dxNodes, dxWeights);
     dyapprox.GetApprox(dyNodes, dyWeights);
 
@@ -1524,8 +1720,8 @@ HypreParMatrix &FDNonlinearOp::GetGradient2D(const Vector &u) const
     int dyNnz = dyapprox.GetSize();
     
     // Get FD approximation for each term
-    int * dxNodes, * dyNodes = NULL; 
-    double * dxWeights, * dyWeights = NULL;
+    int * dxNodes = NULL, * dyNodes = NULL; 
+    double * dxWeights = NULL, * dyWeights = NULL;
     dxapprox.GetApprox(dxNodes, dxWeights);
     dyapprox.GetApprox(dyNodes, dyWeights);
 
@@ -1628,64 +1824,3 @@ HypreParMatrix &FDNonlinearOp::GetGradient2D(const Vector &u) const
     return *m_Gradient;                           
 }
 
-
-/* Get gradient of 1D operator, c.grad(f(u)) */
-HypreParMatrix &FDNonlinearOp::GetGradient1D(const Vector &u) const
-{
-    if (!m_df) mfem_error("FDNonlinearOp::GetGradient() Must set gradient function (see SetGradientFunction())");
-
-    if (m_Gradient) delete m_Gradient;
-    
-    // Initialize FD approximation
-    FDApprox dxapprox(m_derivative, m_order, m_mesh.m_dx[0], m_bias);
-    dxapprox.SetCoefficient(m_c(0));
-    int dxNnz = dxapprox.GetSize();
-
-    // Get FD approximation
-    int * dxNodes = NULL; 
-    double * dxWeights = NULL;
-    dxapprox.GetApprox(dxNodes, dxWeights);
-
-
-    /* -------------------------------------- */
-    /* ------ Initialize CSR structure ------ */
-    /* -------------------------------------- */
-    int localNnz = dxNnz * m_localSize; 
-    int * rowptr  = new int[m_localSize + 1];
-    int * colinds = new int[localNnz];
-    double * data = new double[localNnz];
-    rowptr[0]   = 0;
-    int dataInd = 0;
-
-    double c = m_c(0);
-
-    /* --------------------------------------------- */
-    /* ------ Get CSR structure of local rows ------ */
-    /* --------------------------------------------- */
-    for (int row = 0; row < m_localSize; row++) {
-        for (int i = 0; i < dxNnz; i++) {
-            // Account for periodicity here. This always puts in range [0,nx-1]
-            int j = (dxNodes[i] + row + m_mesh.m_globOffset + m_mesh.m_nx[0]) % m_mesh.m_nx[0]; 
-            colinds[dataInd] = j;
-            data[dataInd]    = dxWeights[i] * ((*m_df)(u(j)));
-            dataInd++;
-        }
-        rowptr[row+1] = dataInd;
-    }  
-
-    // Check sufficient data was allocated
-    if (dataInd > localNnz) {
-        std::cout << "WARNING: Matrix has more nonzeros than allocated.\n";
-    }
-    
-    // Assemble global matrix
-    GetHypreParMatrixFromCSRData(m_mesh.m_comm, 
-                                 m_globMinRow, m_globMaxRow, m_globSize,
-                                 rowptr, colinds, data, m_Gradient);
-                                 
-    delete[] rowptr;
-    delete[] colinds;
-    delete[] data;   
-    
-    return *m_Gradient;                           
-}

@@ -70,9 +70,9 @@ ScalarFun Flux(int fluxID) {
 ScalarFun GradientFlux(int fluxID) {
     switch (fluxID) {
         case 0:
-            return LinearFlux;
+            return GradientLinearFlux;
         case 1:
-            return NonlinearFlux;
+            return GradientNonlinearFlux;
         default:
             return NULL;
     }
@@ -101,7 +101,7 @@ struct GMRES_params {
 };
 
 struct AMG_params {
-    bool use_AIR = true;
+    bool use_AIR = !true;
     double distance = 1.5;
     string prerelax = "";
     string postrelax = "FFC";
@@ -662,7 +662,10 @@ public:
         op_type{NONLINEAR}, A(AN_), AN(AN_), D(D_), 
         Jacobian(NULL), I(AN_->GetHypreParIdentityMatrix()),
         u(NULL), temp1(height), temp2(height), 
-        dt{0.0}, dt_current(false) { };
+        dt{0.0}, dt_current(false) 
+        {
+            MFEM_VERIFY((A), "BEOper() Requires valid nonlinear A!");
+        };
     
     ~BEOper() { delete I; if (Jacobian) delete Jacobian; };
     
@@ -766,7 +769,7 @@ void BEOper::Mult(const Vector &k, Vector &y) const
         y += k;
     } else {
         add(*u, dt, k, temp1); // temp1 = u + dt*k
-        if (D && A) {
+        if (D) {
             A->Mult(temp1, y);
             D->Mult(temp1, temp2);
             y.Add(-1., temp2);
@@ -781,7 +784,7 @@ void BEOper::Mult(const Vector &k, Vector &y) const
 NONLINEAR: BEOper(k; dt, u) == k + A(u + dt*k) - D*(u + dt*k) 
 dBEOper/dk = I + dt*Gradient(A(u + dt*k)) - dt*D */
 Operator &BEOper::GetGradient(const Vector &k) const {
-    
+
     if (op_type == LINEAR) mfem_error("BEOper::GetGradient() N/A for linear function.");
     
     // TODO: Set flag here as to whether we actually want to build a new Jacobian
@@ -789,11 +792,11 @@ Operator &BEOper::GetGradient(const Vector &k) const {
     
     dt_current = true; // New Jacobian uses current dt.
     add(*u, dt, k, temp1); // temp1 = u + dt*k
-    if (D && A) {
+    if (D) {
         Jacobian = HypreParMatrixAdd(dt, AN->GetGradient(temp1), -dt, D->Get()); 
         *Jacobian += *I; 
     } else {
-        Jacobian = HypreParMatrixAdd(dt, AL->GetGradient(temp1), 1.0, *I); 
+        Jacobian = HypreParMatrixAdd(dt, AN->GetGradient(temp1), 1.0, *I); 
     }
     return *Jacobian;
 }

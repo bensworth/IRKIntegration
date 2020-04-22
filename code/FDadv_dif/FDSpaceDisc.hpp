@@ -329,7 +329,8 @@ class FDNonlinearOp : public FDSpaceDisc
         void Mult1DSerial(const Vector &x, Vector &y) const;
         void Mult1DParallel(const Vector &x, Vector &y) const;
         void Mult2D(const Vector &x, Vector &y) const;
-        HypreParMatrix &GetGradient1D(const Vector &u) const;
+        HypreParMatrix &GetGradient1DSerial(const Vector &u) const;
+        HypreParMatrix &GetGradient1DParallel(const Vector &u) const;
         HypreParMatrix &GetGradient2D(const Vector &u) const;
 
     public:
