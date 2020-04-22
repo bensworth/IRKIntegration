@@ -160,10 +160,14 @@ public:
     int m_globOffset;                  /* Global index of first point on process */
     
     std::vector<int>    m_np;                   /* Number of procs in each dimension */
-    std::vector<int>    m_pIdx;             /* Grid indices of proc in each dimension */
-    std::vector<int>    m_nxLocal;             /* Number of points on proc in each dimension */
-    int                 m_nxLocalTotal;        /* Total number of points on proc */
+    std::vector<int>    m_pIdx;                 /* Grid indices of proc in each dimension */
+    std::vector<int>    m_nxLocal;              /* Number of points on proc in each dimension */
+    int                 m_nxLocalTotal;         /* Total number of points on proc */
     
+    std::vector<int>    m_nborpIdxEast;         /* Indices of east neighbour */
+    std::vector<int>    m_nborpIdxWest;         /* Indices of west neighbour */
+    std::vector<int>    m_nborpIdxNorth;        /* Indices of north neighbour */
+    std::vector<int>    m_nborpIdxSouth;        /* Indices of south neighbour */
     std::vector<int>    m_nxLocalInt;          /* Number of DOFs in each direction on procs in INTERIOR of proc domain */
     std::vector<int>    m_nxLocalBnd;          /* Number of DOFs in each direction on procs on BOUNDARY of proc domain */
 
@@ -197,10 +201,11 @@ public:
     inline double Get_dx(int dim = 0) const { return m_dx[dim]; };
     inline int    Get_nx(int dim = 0) const { return m_nx[dim]; };
     inline int    Get_dim() const { return m_dim; };
-    inline MPI_Comm GetComm() { return m_comm; };
+    inline MPI_Comm GetComm() const { return m_comm; };
+    inline int GetCommSize() const { return m_commSize; };
     
-    inline int GetGlobalSize() { return m_nxTotal; };
-    inline int GetLocalSize() { return m_nxLocalTotal; };
+    inline int GetGlobalSize() const { return m_nxTotal; };
+    inline int GetLocalSize() const { return m_nxLocalTotal; };
 };
 
 
@@ -321,7 +326,8 @@ class FDNonlinearOp : public FDSpaceDisc
         mutable HypreParMatrix * m_Gradient;  
 
         
-        void Mult1D(const Vector &x, Vector &y) const;
+        void Mult1DSerial(const Vector &x, Vector &y) const;
+        void Mult1DParallel(const Vector &x, Vector &y) const;
         void Mult2D(const Vector &x, Vector &y) const;
         HypreParMatrix &GetGradient1D(const Vector &u) const;
         HypreParMatrix &GetGradient2D(const Vector &u) const;

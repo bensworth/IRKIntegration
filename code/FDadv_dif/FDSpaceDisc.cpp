@@ -767,6 +767,13 @@ FDMesh::FDMesh(MPI_Comm comm, int dim, int refLevels, std::vector<int> np)
             // Global index of first point on proc
             m_globOffset = m_pIdx[0] * m_nxLocalInt[0]; 
             
+            // Set ranks of neighbours on periodic domain
+            m_nborpIdxEast.resize(1);         
+            m_nborpIdxWest.resize(1);     
+            m_nborpIdxWest[0] = (m_pIdx[0] > 0) ? m_pIdx[0]-1 : m_np[0]-1;
+            m_nborpIdxEast[0] = (m_pIdx[0] < m_np[0]-1) ? m_pIdx[0]+1 : 0;
+
+            
         /* --- Two spatial dimensions --- */
         } 
         else if (m_dim == 2) 
@@ -1330,7 +1337,12 @@ if (bias != CENTRAL) mfem_error("Don't have upwind implemented...");
 void FDNonlinearOp::Mult(const Vector &a, Vector &b) const
 {
     if (m_dim == 1) {
-        Mult1D(a, b);
+        Mult1DParallel(a, b);
+        // if (m_mesh.GetCommSize() > 1) {
+        //     Mult1DParallel(a, b);
+        // } else {
+        //     Mult1DSerial(a, b);
+        // }
     }
     else if (m_dim == 2) {
         Mult2D(a, b);    
@@ -1347,8 +1359,8 @@ HypreParMatrix &FDNonlinearOp::GetGradient(const Vector &u) const
     }
 }
 
-// c.grad(f(u))
-void FDNonlinearOp::Mult1D(const Vector &a, Vector &b) const
+// c.grad(f(u)) in serial
+void FDNonlinearOp::Mult1DSerial(const Vector &a, Vector &b) const
 {
     FDApprox dxapprox(m_derivative, m_order, m_mesh.m_dx[0], m_bias);
     dxapprox.SetCoefficient(m_c(0));
@@ -1367,6 +1379,91 @@ void FDNonlinearOp::Mult1D(const Vector &a, Vector &b) const
             b(row) += ((*m_f)(a(j)))*dxWeights[i];
         }
     }  
+}
+
+// c.grad(f(u)) in parallel
+void FDNonlinearOp::Mult1DParallel(const Vector &a, Vector &b) const
+{
+    FDApprox dxapprox(m_derivative, m_order, m_mesh.m_dx[0], m_bias);
+    dxapprox.SetCoefficient(m_c(0));
+    int dxNnz = dxapprox.GetSize();
+    
+    // Get FD approximation
+    int * dxNodes = NULL; 
+    double * dxWeights = NULL;
+    dxapprox.GetApprox(dxNodes, dxWeights);
+
+    // Unpack some variables
+    MPI_Comm comm = m_mesh.GetComm();     // The communicator
+    int left = m_mesh.m_nborpIdxWest[0];  // Left neighbour
+    int right = m_mesh.m_nborpIdxEast[0]; // Right neighbour
+
+    // Number of nodes in stencil to the left and right of us
+    int nRecvFromLeft = 0, nRecvFromRight = 0;
+    for (int i = 0; i < dxNnz; i++) {
+        if (dxNodes[i] < 0) {
+            nRecvFromLeft++;
+        } else if (dxNodes[i] > 0) {
+            nRecvFromRight++;
+        }
+    }
+    MFEM_VERIFY(nRecvFromLeft < m_mesh.m_nxLocal[0] && nRecvFromRight < m_mesh.m_nxLocal[0], 
+        "FDNonlinearOp::Mult1DParallel() Stencil cannot extend further than immediate neighbouring processes.");
+    
+    double * aRecvFromRight = new double[nRecvFromRight];
+    double * aRecvFromLeft = new double[nRecvFromLeft];
+    
+    // Get neighbouring processes boundary data
+    // Exploit that the chuncks we need to send are continguous in memory
+    if (m_mesh.GetCommSize() > 1) {
+        // How many boundary points do I send to my neighbours?
+        int nSendLeft = 0, nSendRight = 0; 
+
+        // Tell neighbours how much data I need and they tell me how much they need
+        MPI_Send(&nRecvFromLeft, 1, MPI_INT, left, 0, comm);
+        MPI_Recv(&nSendRight, 1, MPI_INT, right, 0, comm, MPI_STATUS_IGNORE);
+        MPI_Send(&nRecvFromRight, 1, MPI_INT, right, 1, comm);
+        MPI_Recv(&nSendLeft, 1, MPI_INT, left, 1, comm, MPI_STATUS_IGNORE);
+        
+        // ---- Send data to the left and recieve from the right
+        // Send boundary data to LHS neighbour
+        MPI_Send(a.GetData(), nSendLeft, MPI_DOUBLE, left, 2, comm);
+        // Receive RHS neighbour's boundary data
+        MPI_Recv(aRecvFromRight, nRecvFromRight, MPI_DOUBLE, right, 2, comm, MPI_STATUS_IGNORE);
+        
+        // ---- Send data to the right and recieve it from the left
+        // Send boundary data to RHS neighbour
+        MPI_Send(a.GetData()+m_mesh.m_nxLocal[0]-nSendRight, nSendRight, MPI_DOUBLE, right, 3, comm);
+        // Receive LHS neighbours boundary data
+        MPI_Recv(aRecvFromLeft, nRecvFromLeft, MPI_DOUBLE, left, 3, comm, MPI_STATUS_IGNORE);
+        
+    // Single process, just periodically wrap the data so it can use the same implementation below
+    } else {
+        for (int i = 0; i < nRecvFromRight; i++) aRecvFromRight[i] = a(i);
+        for (int i = 0; i < nRecvFromLeft; i++) aRecvFromLeft[i] = a(m_mesh.m_nxLocal[0]-nRecvFromLeft+i);
+    }
+    
+    b = 0.0;
+    for (int row = 0; row < m_localSize; row++) {
+        for (int i = 0; i < dxNnz; i++) {
+            int conn = dxNodes[i] + row;
+            
+            // Connection to left neighbouring process
+            if (conn < 0) {
+                conn += nRecvFromLeft;
+                b(row) += ((*m_f)(aRecvFromLeft[conn]))*dxWeights[i];
+            // Connection to right neighbouring process    
+            } else if (conn >= m_localSize) {
+                conn -= m_localSize;
+                b(row) += ((*m_f)(aRecvFromRight[conn]))*dxWeights[i];
+            // Connection is on process    
+            } else {
+                b(row) += ((*m_f)(a(conn)))*dxWeights[i];
+            }
+        }
+    }  
+    delete[] aRecvFromLeft;
+    delete[] aRecvFromRight;
 }
 
 

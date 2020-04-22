@@ -124,7 +124,7 @@ struct AMG_params {
 class AdvDif : public TimeDependentOperator
 {
 private:    
-    Linearity op_type;    // (assumed) Linearity of flux function
+    Linearity op_type;          // (assumed) Linearity of flux function
     
     int dim;                    // Spatial dimension
     FDMesh &Mesh;               // Mesh on which the PDE is discretized
@@ -303,7 +303,7 @@ int main(int argc, char *argv[])
                   "save>0 will save solution info, save>1 also saves solution (and exact solution, if implemented).");              
     args.Parse();
     if (myid == 0) {
-        args.PrintOptions(std::cout); 
+    //    args.PrintOptions(std::cout); 
     }
     // Set final forms of remaing params
     GENERAL_FLUX = (bool) GENERAL_FLUX_temp;
