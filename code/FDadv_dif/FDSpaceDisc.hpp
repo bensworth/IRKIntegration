@@ -13,7 +13,7 @@ using namespace mfem;
 
 
 enum Direction {
-    EAST = 0, WEST = 1, NORTH = 2, SOUTH = 3
+    WEST = 0, EAST = 1, SOUTH = 2, NORTH = 3
 };
 
 enum FDBias {
@@ -164,18 +164,12 @@ public:
     std::vector<int>    m_nxLocal;              /* Number of points on proc in each dimension */
     int                 m_nxLocalTotal;         /* Total number of points on proc */
     
-    std::vector<int>    m_nborRanks;            /* Rank of neighbouring processes. W,E,S,N */
-    std::vector<int>    m_nborpIdxWest;         /* Indices of west neighbour */
-    std::vector<int>    m_nborpIdxEast;         /* Indices of east neighbour */
-    std::vector<int>    m_nborpIdxSouth;        /* Indices of south neighbour */
-    std::vector<int>    m_nborpIdxNorth;        /* Indices of north neighbour */
-    
-    std::vector<int>    m_nxLocalInt;          /* Number of DOFs in each direction on procs in INTERIOR of proc domain */
-    std::vector<int>    m_nxLocalBnd;          /* Number of DOFs in each direction on procs on BOUNDARY of proc domain */
-
-    std::vector<int>    m_nborGlobOffset; /* Global index of first DOF owned by neighbouring procs */
-    std::vector<int>    m_nborNxLocal;   /* Number of DOFs in each direction owned by neighbouring procs */
-
+    std::vector<int>    m_nborRanks;            /* Rank of neighbouring processes. */
+    std::vector<int>    m_nborGlobOffset;       /* Global index of first DOF owned by neighbouring procs */
+    std::vector<std::vector<int>> m_nborpIdx;   /* Proc indices of neighbours */
+    std::vector<std::vector<int>> m_nborNxLocal;/* Local problem sizes on neighbouring procs */
+    std::vector<int>    m_nxLocalInt;           /* Number of DOFs in each direction on procs in INTERIOR of proc domain */
+    std::vector<int>    m_nxLocalBnd;           /* Number of DOFs in each direction on procs on BOUNDARY of proc domain */
     
     FDMesh(MPI_Comm comm, int dim = 1, int refLevels = 5, std::vector<int> np = {});
     //~FDMesh();
@@ -228,7 +222,7 @@ protected:
     int m_globMinRow;                          /* Global index of first DOF on proc */
     int m_globMaxRow;                          /* Global index of last DOF on proc */
     
-    //bool     m_parallel;      
+    bool     m_parallel;      
     MPI_Comm m_comm;         
     int      m_commSize;     
     int      m_rank;       
@@ -256,8 +250,7 @@ protected:
     
     /* -------------------------------------------------------------------------- */
                         
-public:
-    bool     m_parallel;   
+public: 
     
     /* Constructors */
     FDSpaceDisc(const FDMesh &mesh, int derivative, int order, FDBias bias);
