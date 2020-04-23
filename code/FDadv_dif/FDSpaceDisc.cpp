@@ -958,6 +958,20 @@ void FDMesh::LocalDOFIndToMeshPoints(int i, Vector &x) const
     }
 }
 
+int FDMesh::LocalMeshIndsToLocalDOFInd(Array<int> MeshInds) const
+{
+    switch (m_dim) {
+        case 1:
+            return MeshInds[0];
+            break;
+        case 2:
+            return MeshInds[0] + MeshInds[1]*m_nxLocal[0];
+            break;
+        default:
+            return 0;
+    }
+}
+
 
 /* Get global index of DOF that's on a neighbouring process.
 
@@ -1381,7 +1395,11 @@ HypreParMatrix &FDNonlinearOp::GetGradient(const Vector &u) const
             return GetGradient1DSerial(u);
         }
     } else if (m_dim == 2) {
-        return GetGradient2D(u);    
+        if (m_mesh.GetCommSize() > 1) {
+            return GetGradient2DParallel(u);
+        } else {
+            return GetGradient2DSerial(u);
+        }
     } else {
         return *m_Gradient;
     }
@@ -1922,8 +1940,261 @@ void FDNonlinearOp::Mult2DSerial(const Vector &a, Vector &b) const
 }
 
 
+/* Get gradient of 2D operator, c.grad(f(a)) */
+//
+// TODO: code deadlocking for non 2x2 or 2x1
+HypreParMatrix &FDNonlinearOp::GetGradient2DParallel(const Vector &a) const
+{
+    if (m_Gradient) delete m_Gradient;
+    
+    // Initialize FD approximation of each term
+    FDApprox dxapprox(m_derivative, m_order, m_mesh.m_dx[0], m_bias);
+    dxapprox.SetCoefficient(m_c(0));
+    int dxNnz = dxapprox.GetSize();
+    FDApprox dyapprox(m_derivative, m_order, m_mesh.m_dx[1], m_bias);
+    dyapprox.SetCoefficient(m_c(1));
+    int dyNnz = dyapprox.GetSize();
+    
+    // Get FD approximation for each term
+    int * dxNodes = NULL, * dyNodes = NULL; 
+    double * dxWeights = NULL, * dyWeights = NULL;
+    dxapprox.GetApprox(dxNodes, dxWeights);
+    dyapprox.GetApprox(dyNodes, dyWeights);
+
+
+    //////////////////////
+    //       NORTH      //
+    // WEST        EAST //
+    //       SOUTH      //
+    //////////////////////
+    /// --- Get boundary data from neighbouring processes --- ///
+    MPI_Comm comm = m_mesh.GetComm();     
+    int west = m_mesh.m_nborRanks[0];
+    int east = m_mesh.m_nborRanks[1];
+    int south = m_mesh.m_nborRanks[2];
+    int north = m_mesh.m_nborRanks[3];
+    
+//    std::cout << "P=" << m_mesh.m_rank << ", (W,E,S,N)=" << "(" << west << ", " << east << ", " << south << ", " << north << ")" << '\n';
+    
+    // Number of nodes in stencil that'll reach into a neighbour
+    // x-direction
+    int nRecvFromWest1D = 0, nRecvFromEast1D = 0;
+    for (int i = 0; i < dxNnz; i++) {
+        if (dxNodes[i] < 0) {
+            nRecvFromWest1D++;
+        } else if (dxNodes[i] > 0) {
+            nRecvFromEast1D++;
+        }
+    }
+    // y-direction
+    int nRecvFromSouth1D = 0, nRecvFromNorth1D = 0;
+    for (int i = 0; i < dyNnz; i++) {
+        if (dyNodes[i] < 0) {
+            nRecvFromSouth1D++;
+        } else if (dxNodes[i] > 0) {
+            nRecvFromNorth1D++;
+        }
+    }
+    MFEM_VERIFY(nRecvFromWest1D < m_mesh.m_nxLocalBnd[0] && nRecvFromEast1D < m_mesh.m_nxLocalBnd[0]
+                && nRecvFromSouth1D < m_mesh.m_nxLocalBnd[1] && nRecvFromNorth1D < m_mesh.m_nxLocalBnd[1], 
+        "FDNonlinearOp::Mult1DParallel() Stencil cannot extend further than immediate neighbouring processes.");
+
+    int nxLocal = m_mesh.m_nxLocal[0];
+    int nyLocal = m_mesh.m_nxLocal[1];
+
+    // Total number of doubles to recieve
+    int nRecvFromWest = nRecvFromWest1D * nyLocal;
+    int nRecvFromEast = nRecvFromEast1D * nyLocal;
+    int nRecvFromSouth = nxLocal * nRecvFromSouth1D;
+    int nRecvFromNorth = nxLocal * nRecvFromNorth1D;
+
+    // Allocate memory for data I'm going to recieve
+    double * aRecvFromWest = new double[nRecvFromWest];
+    double * aRecvFromEast = new double[nRecvFromEast];
+    double * aRecvFromSouth = new double[nRecvFromSouth];
+    double * aRecvFromNorth = new double[nRecvFromNorth];
+
+    // How much data do I send to my neighbours?
+    int nSendWest1D = 0, nSendEast1D = 0, nSendSouth1D = 0, nSendNorth1D = 0;
+    
+    // --- Send data WESTward --- //
+    MPI_Send(&nRecvFromWest1D, 1, MPI_INT, west, 0, comm);
+    MPI_Recv(&nSendEast1D, 1, MPI_INT, west, 0, comm, MPI_STATUS_IGNORE);
+    // --- Send data EASTward --- //
+    MPI_Send(&nRecvFromEast1D, 1, MPI_INT, east, 0, comm);
+    MPI_Recv(&nSendWest1D, 1, MPI_INT, east, 0, comm, MPI_STATUS_IGNORE);
+    // --- Send data SOUTHward --- //
+    MPI_Send(&nRecvFromSouth1D, 1, MPI_INT, south, 0, comm);
+    MPI_Recv(&nSendNorth1D, 1, MPI_INT, south, 0, comm, MPI_STATUS_IGNORE);
+    // --- Send data NORTHward --- //
+    MPI_Send(&nRecvFromNorth1D, 1, MPI_INT, north, 0, comm);
+    MPI_Recv(&nSendSouth1D, 1, MPI_INT, north, 0, comm, MPI_STATUS_IGNORE);
+    
+    // Total number of doubles to send
+    int nSendWest = nSendWest1D * nyLocal;
+    int nSendEast = nSendEast1D * nyLocal;
+    int nSendSouth = nxLocal * nSendSouth1D;
+    int nSendNorth = nxLocal * nSendNorth1D;
+
+    //////////////////////
+    //       NORTH      //
+    // WEST        EAST //
+    //       SOUTH      //
+    //////////////////////
+    // Copy EAST/WEST-ward data so that it's contiguous in memory. 
+    // (already the case for data I send NORTH/SOUTH-ward data.)
+    // Send first nSendWest1D columns on process to west neighbour
+    double * aSendWest = new double[nSendWest];
+    int i=0;
+    for (int row = 0; row < nyLocal; row++) {
+        for (int col = 0; col < nSendWest1D; col++) {
+            aSendWest[i] = a(row*nxLocal + col);
+            i++;
+        }
+    }
+    // Send last nSendEast1D cols on process to east neighbour
+    double * aSendEast = new double[nSendEast];
+    i=0;
+    for (int row = 0; row < nyLocal; row++) {
+        for (int col = nxLocal-nSendEast1D; col < nxLocal; col++) {
+            aSendEast[i] = a(row*nxLocal + col);
+            i++;
+        }
+    }
+    
+    // --- Send data WESTward --- //
+    // Send data to west
+    MPI_Send(aSendWest, nSendWest, MPI_DOUBLE, west, 0, comm);
+    // Receive east neighbour's data  (I'm its west neighbour)
+    MPI_Recv(aRecvFromEast, nRecvFromEast, MPI_DOUBLE, west, 0, comm, MPI_STATUS_IGNORE);
+    delete[] aSendWest;
+    
+    // --- Send data EASTward --- //
+    // Send data to east 
+    MPI_Send(aSendEast, nSendEast, MPI_DOUBLE, east, 0, comm);
+    // Receive west neighbour's data (I'm its east neighbour)
+    MPI_Recv(aRecvFromWest, nRecvFromWest, MPI_DOUBLE, east, 0, comm, MPI_STATUS_IGNORE);
+    delete[] aSendEast;
+    
+    // --- Send data SOUTHward --- //
+    // Send data to south (first nSendSouth1D rows on process)
+    MPI_Send(a.GetData(), nSendSouth, MPI_DOUBLE, south, 0, comm);
+    // Receive north neighbour's data (I'm its south neighbour)
+    MPI_Recv(aRecvFromNorth, nRecvFromNorth, MPI_DOUBLE, south, 0, comm, MPI_STATUS_IGNORE);
+    
+    // --- Send data NORTHward --- //
+    // Send data to north (last nSendNorth1D rows on process)
+    MPI_Send(a.GetData() + (nyLocal-nSendNorth1D)*nxLocal, nSendNorth, MPI_DOUBLE, north, 0, comm);
+    // Receive south neighbour's data (I'm its north neighbour)
+    MPI_Recv(aRecvFromSouth, nRecvFromSouth, MPI_DOUBLE, north, 0, comm, MPI_STATUS_IGNORE);
+    
+    
+    /* -------------------------------------- */
+    /* ------ Initialize CSR structure ------ */
+    /* -------------------------------------- */
+    // Discretization of x- and y-derivatives at point i,j will both use i,j in their stencils (hence the -1)
+    int localNnz = (dxNnz + dyNnz - 1) * m_localSize; 
+    int * rowptr  = new int[m_localSize + 1];
+    int * colinds = new int[localNnz];
+    double * data = new double[localNnz];
+    rowptr[0]   = 0;
+    int dataInd = 0;
+
+    Array<int> locInds(2), locIndsMax(2), tempInds(2);
+    locIndsMax[0] = m_mesh.m_nxLocal[0]-1;
+    locIndsMax[1] = m_mesh.m_nxLocal[1]-1;
+
+
+    /* --------------------------------------------- */
+    /* ------ Get CSR structure of local rows ------ */
+    /* --------------------------------------------- */
+    for (int row = 0; row < m_localSize; row++) {                                          
+        m_mesh.LocalDOFIndToLocalMeshInds(row, locInds);
+        
+        // Build so that column indices are in ascending order, this means looping 
+        // over y first until we hit the current point, then looping over x, 
+        // then continuing to loop over y (Actually, periodicity stuffs this up I think...)
+        for (int j = 0; j < dyNnz; j++) {
+
+            // The two stencils intersect at (0,0)
+            if (dyNodes[j] == 0) {
+                for (int i = 0; i < dxNnz; i++) {
+                    int conn = locInds[0] + dxNodes[i]; // Local x-index of current connection
+                    // Connection to process on WEST side
+                    if (conn < 0) {
+                        colinds[dataInd] = m_mesh.LocalOverflowToGlobalDOFInd(locInds[1], conn, WEST);
+                        conn += nRecvFromWest1D; // Connection in x-direction among received data
+                        int ind = conn + nRecvFromWest1D*locInds[1]; // Global index in recieved data
+                        data[dataInd] = ((*m_df)(aRecvFromWest[ind]))*dxWeights[i];
+                    
+                    // Connection to process on EAST side
+                    } else if (conn > locIndsMax[0]) {
+                        colinds[dataInd] = m_mesh.LocalOverflowToGlobalDOFInd(locInds[1], conn - locIndsMax[0], EAST);
+                        conn -= nxLocal;  // Connection in x-direction among received data        
+                        int ind = conn + nRecvFromEast1D*locInds[1]; // Global index in recieved data
+                        data[dataInd] = ((*m_df)(aRecvFromEast[ind]))*dxWeights[i];
+                        
+                    // Connection is on processor
+                    } else {
+                        tempInds[0] = conn;
+                        tempInds[1] = locInds[1];
+                        colinds[dataInd] = m_mesh.LocalMeshIndsToGlobalDOFInd(tempInds);
+                        data[dataInd] = ((*m_df)(a(m_mesh.LocalMeshIndsToLocalDOFInd(tempInds))))*dxWeights[i];
+                    }
+                    
+                    // The two stencils intersect at this point, i.e. they share a column in the matrix
+                    // This must be an on process connection.
+                    if (dxNodes[i] == 0) data[dataInd] += ((*m_df)(a(row)))*dyWeights[j]; 
+                    dataInd += 1;
+                }
+
+            // No intersection possible between between x- and y-stencils
+            } else {
+                int conn = locInds[1] + dyNodes[j]; // Local y-index of current connection
+                // Connection to process on SOUTH side
+                if (conn < 0) {
+                    colinds[dataInd] = m_mesh.LocalOverflowToGlobalDOFInd(locInds[0], conn, SOUTH);
+                    conn += nRecvFromSouth1D; // Connection in y-direction among received data
+                    int ind = locInds[0] + conn*nxLocal; // Global index in recieved data
+                    data[dataInd] = ((*m_df)(aRecvFromSouth[ind]))*dyWeights[j];
+                    //data[dataInd] = 0.;
+                // Connection to process on NORTH side
+                } else if (conn > locIndsMax[1]) {
+                    colinds[dataInd] = m_mesh.LocalOverflowToGlobalDOFInd(locInds[0], conn - locIndsMax[1], NORTH);
+                    conn -= nyLocal; // Connection in y-direction among received data        
+                    int ind = locInds[0] + conn*nxLocal; // Global index in recieved data
+                    data[dataInd] = ((*m_df)(aRecvFromNorth[ind]))*dyWeights[j];
+
+                // Connection is on processor
+                } else {
+                    tempInds[0] = locInds[0];
+                    tempInds[1] = conn;
+                    colinds[dataInd] = m_mesh.LocalMeshIndsToGlobalDOFInd(tempInds);
+                    data[dataInd] = ((*m_df)(a(m_mesh.LocalMeshIndsToLocalDOFInd(tempInds))))*dyWeights[j];
+                }
+                dataInd++;
+            }
+        }    
+        rowptr[row+1] = dataInd;
+    }    
+    // Check sufficient data was allocated
+    if (dataInd > localNnz) std::cout << "WARNING: Matrix has more nonzeros than allocated.\n";
+    
+    // Assemble global matrix
+    GetHypreParMatrixFromCSRData(m_mesh.m_comm, 
+                                 m_globMinRow, m_globMaxRow, m_globSize,
+                                 rowptr, colinds, data, m_Gradient);
+                                 
+    delete[] rowptr;
+    delete[] colinds;
+    delete[] data;   
+    
+    return *m_Gradient;                           
+}
+
+
 /* Get gradient of 2D operator, c.grad(f(u)) */
-HypreParMatrix &FDNonlinearOp::GetGradient2D(const Vector &u) const
+HypreParMatrix &FDNonlinearOp::GetGradient2DSerial(const Vector &u) const
 {
     if (m_Gradient) delete m_Gradient;
     
@@ -1977,14 +2248,11 @@ HypreParMatrix &FDNonlinearOp::GetGradient2D(const Vector &u) const
                     // Connection to process on WEST side
                     if (con < 0) {
                         colinds[dataInd] = m_mesh.LocalOverflowToGlobalDOFInd(locInds[1], con, WEST);
-                        //colinds[dataInd] = MeshIndsOnWestProcToGlobalInd(abs(con), yLocInd);
                     // Connection to process on EAST side
                     } else if (con > locIndsMax[0]) {
                         colinds[dataInd] = m_mesh.LocalOverflowToGlobalDOFInd(locInds[1], con - locIndsMax[0], EAST);
-                        //colinds[dataInd] = MeshIndsOnEastProcToGlobalInd(con - (m_mesh.m_nxLocal[0]-1), yLocInd);
                     // Connection is on processor
                     } else {
-                        //colinds[dataInd] = MeshIndsOnProcToGlobalInd(row, con, yLocInd);
                         tempInds[0] = con;
                         tempInds[1] = locInds[1];
                         colinds[dataInd] = m_mesh.LocalMeshIndsToGlobalDOFInd(tempInds);
@@ -1993,7 +2261,6 @@ HypreParMatrix &FDNonlinearOp::GetGradient2D(const Vector &u) const
                     
                     // The two stencils intersect at this point, i.e. they share a column in the matrix
                     if (dxNodes[i] == 0) data[dataInd] += ((*m_df)(u(colinds[dataInd])))*dyWeights[j]; 
-                    //std::cout << data[dataInd] << '\n';
                     dataInd += 1;
                 }
 
@@ -2003,21 +2270,16 @@ HypreParMatrix &FDNonlinearOp::GetGradient2D(const Vector &u) const
                 // Connection to process on SOUTH side
                 if (con < 0) {
                     colinds[dataInd] = m_mesh.LocalOverflowToGlobalDOFInd(locInds[0], con, SOUTH);
-                    //colinds[dataInd] = MeshIndsOnSouthProcToGlobalInd(xLocInd, abs(con));
                 // Connection to process on NORTH side
                 } else if (con > locIndsMax[1]) {
                     colinds[dataInd] = m_mesh.LocalOverflowToGlobalDOFInd(locInds[0], con - locIndsMax[1], NORTH);
-                    //colinds[dataInd] = MeshIndsOnNorthProcToGlobalInd(xLocInd, con - (m_mesh.m_nxLocal[1]-1));
                 // Connection is on processor
                 } else {
                     tempInds[0] = locInds[0];
                     tempInds[1] = con;
                     colinds[dataInd] = m_mesh.LocalMeshIndsToGlobalDOFInd(tempInds);
-                    //colinds[dataInd] = MeshIndsOnProcToGlobalInd(row, xLocInd, con);
                 }
-
                 data[dataInd] = ((*m_df)(u(colinds[dataInd])))*dyWeights[j];
-                //std::cout << data[dataInd] << '\n';
                 dataInd++;
             }
         }    

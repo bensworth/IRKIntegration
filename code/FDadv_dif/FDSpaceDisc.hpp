@@ -186,6 +186,7 @@ public:
     int LocalOverflowToGlobalDOFInd(int locInd, int overflow, Direction nbor) const;
     void LocalDOFIndToLocalMeshInds(int i, Array<int> &meshInds) const;
     int LocalMeshIndsToGlobalDOFInd(const Array<int> &meshInds) const;
+    int LocalMeshIndsToLocalDOFInd(Array<int> MeshInds) const;
 
     void EvalFunction(double (*Function)(const Vector &x), 
                                       Vector * &u) const;
@@ -227,7 +228,7 @@ protected:
     int m_globMinRow;                          /* Global index of first DOF on proc */
     int m_globMaxRow;                          /* Global index of last DOF on proc */
     
-    bool     m_parallel;      
+    //bool     m_parallel;      
     MPI_Comm m_comm;         
     int      m_commSize;     
     int      m_rank;       
@@ -256,6 +257,7 @@ protected:
     /* -------------------------------------------------------------------------- */
                         
 public:
+    bool     m_parallel;   
     
     /* Constructors */
     FDSpaceDisc(const FDMesh &mesh, int derivative, int order, FDBias bias);
@@ -334,7 +336,8 @@ class FDNonlinearOp : public FDSpaceDisc
         void Mult2DParallel(const Vector &x, Vector &y) const;
         HypreParMatrix &GetGradient1DSerial(const Vector &a) const;
         HypreParMatrix &GetGradient1DParallel(const Vector &a) const;
-        HypreParMatrix &GetGradient2D(const Vector &u) const;
+        HypreParMatrix &GetGradient2DSerial(const Vector &u) const;
+        HypreParMatrix &GetGradient2DParallel(const Vector &u) const;
 
     public:
         /* Constructors */
