@@ -654,6 +654,7 @@ public:
         Jacobian(NULL), u(NULL), temp1(height), temp2(height), 
         dt{0.0}, dt_current(false)
         {
+            MFEM_VERIFY((A) || (D), "BEOper() Requires valid A and/or D!");
             I = (A) ? A->GetHypreParIdentityMatrix() : D->GetHypreParIdentityMatrix();
         }
 

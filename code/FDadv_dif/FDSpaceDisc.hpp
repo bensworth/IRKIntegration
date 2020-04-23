@@ -164,10 +164,12 @@ public:
     std::vector<int>    m_nxLocal;              /* Number of points on proc in each dimension */
     int                 m_nxLocalTotal;         /* Total number of points on proc */
     
-    std::vector<int>    m_nborpIdxEast;         /* Indices of east neighbour */
+    std::vector<int>    m_nborRanks;            /* Rank of neighbouring processes. W,E,S,N */
     std::vector<int>    m_nborpIdxWest;         /* Indices of west neighbour */
-    std::vector<int>    m_nborpIdxNorth;        /* Indices of north neighbour */
+    std::vector<int>    m_nborpIdxEast;         /* Indices of east neighbour */
     std::vector<int>    m_nborpIdxSouth;        /* Indices of south neighbour */
+    std::vector<int>    m_nborpIdxNorth;        /* Indices of north neighbour */
+    
     std::vector<int>    m_nxLocalInt;          /* Number of DOFs in each direction on procs in INTERIOR of proc domain */
     std::vector<int>    m_nxLocalBnd;          /* Number of DOFs in each direction on procs on BOUNDARY of proc domain */
 
@@ -328,9 +330,10 @@ class FDNonlinearOp : public FDSpaceDisc
         
         void Mult1DSerial(const Vector &x, Vector &y) const;
         void Mult1DParallel(const Vector &x, Vector &y) const;
-        void Mult2D(const Vector &x, Vector &y) const;
-        HypreParMatrix &GetGradient1DSerial(const Vector &u) const;
-        HypreParMatrix &GetGradient1DParallel(const Vector &u) const;
+        void Mult2DSerial(const Vector &x, Vector &y) const;
+        void Mult2DParallel(const Vector &x, Vector &y) const;
+        HypreParMatrix &GetGradient1DSerial(const Vector &a) const;
+        HypreParMatrix &GetGradient1DParallel(const Vector &a) const;
         HypreParMatrix &GetGradient2D(const Vector &u) const;
 
     public:
