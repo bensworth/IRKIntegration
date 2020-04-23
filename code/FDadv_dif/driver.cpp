@@ -10,7 +10,7 @@ using namespace std;
 
 
 // Solve scalar advection-diffusion equation,
-//     u_t + alpha.grad(f(u)) = div( mu*grad(u) ) + s(x,t),
+//     u_t + alpha.grad(f(u)) = div( mu \odot grad(u) ) + s(x,t),
 // for constant vectors alpha, and mu.
 // 
 // An initial condition is specified, and periodic spatial boundaries are used.
@@ -415,12 +415,14 @@ int main(int argc, char *argv[])
     /* --- Save solve data --- */
     /* ----------------------- */
     if (save > 0) {
-        ostringstream outt;
-        outt << out << "." << myid;
-        ofstream sol;
-        sol.open(outt.str().c_str());
-        if (save > 1) u->Print_HYPRE(sol);
-        sol.close();
+        if (save > 1) {
+            ostringstream outt;
+            outt << out << "." << myid;
+            ofstream sol;
+            sol.open(outt.str().c_str());
+            u->Print_HYPRE(sol);
+            sol.close();
+        }
         
         /* Get error against exact PDE solution if available */
         double eL1, eL2, eLinf = 0.0; 
@@ -699,7 +701,7 @@ class JacPrec : public Solver
     
 private:
     HypreBoomerAMG * J_prec; 
-    BEOper &be;   
+    BEOper &be;  
     
 public:
     
@@ -744,6 +746,7 @@ public:
             // that if we're doing Jacobian-free GMRES, we most def. don't want 
             // to update this every Newton iter.    
             J_prec->SetOperator(*(be.Jacobian)); // Note not calling be.GetGradient() since it's just been called by GMRES.
+            
         }
     };
 };
@@ -1010,14 +1013,16 @@ bool AdvDif::GetError(int save, const char * out, double t, const Vector &u, dou
     }
     
     if (soln_implemented) {
-        int myid;
-        MPI_Comm_rank(MPI_COMM_WORLD, &myid);
-        ostringstream outt;
-        outt << out << "_exact" << "." << myid;
-        ofstream sol;
-        sol.open(outt.str().c_str());
-        if (save > 1) u_exact->Print_HYPRE(sol);
-        sol.close();
+        if (save > 1) {
+            int myid;
+            MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+            ostringstream outt;
+            outt << out << "_exact" << "." << myid;
+            ofstream sol;
+            sol.open(outt.str().c_str());
+            u_exact->Print_HYPRE(sol);
+            sol.close();
+        }
         
         *u_exact -= u; // Error vector
         eL1   = u_exact->Normlp(1);

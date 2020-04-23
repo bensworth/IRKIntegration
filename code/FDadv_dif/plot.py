@@ -219,14 +219,14 @@ if params["space_dim"] == 2:
         plt.colorbar(ticks=np.linspace(np.amin(uT), np.amax(uT), 7), format='%0.1f')	
         
         #### For setting up colour bar between (0,1)
-        #levels = np.linspace(0, 1, 20)
-        #plt.contourf(X, Y, uT, levels=levels, vmin=0, vmax=1, cmap=cmap)
-        #plt.colorbar(ticks=np.linspace(0, 1, 7), format='%0.1f')	
-        
+        # levels = np.linspace(0, 1, 20)
+        # plt.contourf(X, Y, uT, levels=levels, vmin=0, vmax=1, cmap=cmap)
+        # plt.colorbar(ticks=np.linspace(0, 1, 7), format='%0.1f')	
         
         plt.title("$u_{{\\rm{{num}}}}(x,y,{:.2f})$".format(T), **fs)
         plt.xlabel("$x$", **fs)
         plt.ylabel("$y$", **fs)
+        #plt.savefig('out.pdf', bbox_inches='tight')
         
         ### --- Analytical solution --- ###
         if U_exact_exists:
