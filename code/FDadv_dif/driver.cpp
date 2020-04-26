@@ -8,7 +8,19 @@ using namespace std;
 
 #define PI 3.14159265358979323846
 
+// TODO: Segfault associated w/ freeing HypreBoomerAMG... Currently not being
+// deleted... See associated `TODO` comment...
 
+// Sample runs:
+//      *** Solve 2D in space problem w/ 4th-order discretizations in space & time ***
+//      --- linear problem ---
+//      mpirun -np 4 ./driver -f 0 -gf 0 -d 2 -t 14 -o 4 -ex 1 -mx 0.075 -my 0.075 -dt -2 -l 5 
+//      --- linear problem solved with Newton's method ---
+//      mpirun -np 4 ./driver -f 0 -gf 1 -d 2 -t 14 -o 4 -ex 1 -mx 0.075 -my 0.075 -dt -2 -l 5 
+//      --- nonlinear problem ---
+//      mpirun -np 4 ./driver -f 1 -d 2 -t 14 -o 4 -ex 1 -mx 0.075 -my 0.075 -dt -2 -l 5 
+// 
+// 
 // Solve scalar advection-diffusion equation,
 //     u_t + alpha.grad(f(u)) = div( mu \odot grad(u) ) + s(x,t),
 // for constant vectors alpha, and mu.
@@ -49,35 +61,6 @@ enum Linearity { LINEAR = 0, NONLINEAR = 1 };
 class BEOper;
 class JacPrec;
 
-/* f(u) = u; fluxID == 0 */
-double LinearFlux(double u) { return u; }; 
-double GradientLinearFlux(double u) { return 1.0; };
-/* f(u) = u^2; fluxID == 1 */
-double NonlinearFlux(double u) { return u*u; }; 
-double GradientNonlinearFlux(double u) { return 2.*u; };
-
-typedef double (*ScalarFun)(double);
-ScalarFun Flux(int fluxID) {
-    switch (fluxID) {
-        case 0:
-            return LinearFlux;
-        case 1:
-            return NonlinearFlux;
-        default:
-            return NULL;
-    }
-}
-ScalarFun GradientFlux(int fluxID) {
-    switch (fluxID) {
-        case 0:
-            return GradientLinearFlux;
-        case 1:
-            return GradientNonlinearFlux;
-        default:
-            return NULL;
-    }
-}
-
 /* Functions definining some parts of PDE */
 double InitialCondition(const Vector &x);
 double Source(const Vector &x, double t);
@@ -87,21 +70,21 @@ double PDESolution(const Vector &x, double t);
 struct NEWTON_params {
     double reltol = 1e-6;
     int maxiter = 10;
-    int printlevel = 1; 
+    int printlevel = 2; 
     int rebuildJacobian = 0; // TOOD: Frequency at which Jacobian is updated
     int rebuildJacobianPreconditioner = 0; // TODO: Frequency at which preconditioner for Jacobian is rebuilt
 };
 
 struct GMRES_params {
-    double abstol = 1e-6;
-    double reltol = 1e-6;
+    double abstol = 1e-8;
+    double reltol = 1e-8;
     int maxiter = 100;
-    int printlevel = 2;
+    int printlevel = 0;
     int kdim = 30;
 };
 
 struct AMG_params {
-    bool use_AIR = !true;
+    bool use_AIR = !true; 
     double distance = 1.5;
     string prerelax = "";
     string postrelax = "FFC";
@@ -186,17 +169,10 @@ public:
 };
 
 
-
-/* SAMPLE RUNS:
-
-*/
-
 /* NOTES:
- - Cannot simultaneously specify CFL AND dt. By default, dt is set by CFL, but setting dt takes presidence!
- 
- - Cannot simultaneously specify nt AND tf. Bu default, tf set by nt, but setting tf takes presidence!
-*/
-
+ - Cannot simultaneously specify dt, nt, and tf. Values of dt and tf take precidense 
+ over nt. By default, however, nt and tf are specified and dt is determined from 
+ them accordingly. */
 int main(int argc, char *argv[])
 {
     // Initialize parallel
@@ -218,17 +194,16 @@ int main(int argc, char *argv[])
     int advection_bias_temp = static_cast<int>(advection_bias);
     double ax=1.0, ay=1.0; // Advection coefficients
     double mx=1.0, my=1.0; // Diffusion coefficients
+    dim = 1; // Spatial dimension
     
     /* --- Time integration --- */
     int nt     = 10;  // Number of time steps
-    double dt  = -1.0;// Time step size
-    double CFL = 5.0; // CFL number == dt/dx
-    double tf  = -1.0; // Final integration time
-    int ode_solver_type = 1;  // RK scheme
+    double dt  = 0.0; // Time step size. dt < 0 means: dt == |dt|*dx
+    double tf  = 2.0; // Final integration time
+    int ode_solver_type = 1;  // RK scheme (see below)
 
     /* --- Spatial discretization --- */
     int order     = 2; // Approximation order
-    dim           = 1; // Spatial dimension
     int refLevels = 4; // nx == 2^refLevels in every dimension
     int npx       = -1; // # procs in x-direction
     int npy       = -1; // # procs in y-direction
@@ -239,7 +214,6 @@ int main(int argc, char *argv[])
     NEWTON_params NEWTON;
     int use_AIR_temp = (int) AMG.use_AIR;
     
-    
     // Output paramaters
     int save         = 0;  // Save solution vector
     const char * out = "data/U"; // Filename of data to be saved...
@@ -248,7 +222,7 @@ int main(int argc, char *argv[])
     args.AddOption(&fluxID, "-f", "--flux-function",
                   "0==Linear==u, 1==Nonlinear==u^2.");
     args.AddOption(&GENERAL_FLUX_temp, "-gf", "--general-flux-function",
-                  "Ignores linearity of flux if linear.");              
+                  "1==Ignores linearity of flux if it's linear.");              
     args.AddOption(&problem, "-ex", "--example-problem",
                   "1 (and 2 for linear problem)."); 
     args.AddOption(&ax, "-ax", "--alpha-x",
@@ -259,11 +233,16 @@ int main(int argc, char *argv[])
                   "Diffusion in x-direction."); 
     args.AddOption(&my, "-my", "--mu-y",
                   "Diffusion in y-direction."); 
-    
-    args.AddOption(&ode_solver_type, "-t", "--RK-disc",
+    args.AddOption(&dim, "-d", "--dim",
+                  "Spatial dimension.");              
+
+     /* Time integration */
+    args.AddOption(&ode_solver_type, "-t", "--RK-method",
                   "Time discretization.");
     args.AddOption(&nt, "-nt", "--num-time-steps", "Number of time steps.");    
-                  
+    args.AddOption(&tf, "-tf", "--tf", "0 <= t <= tf");
+    args.AddOption(&dt, "-dt", "--time-step-size", "t_j = j*dt. NOTE: dt<0 means dt==|dt|*dx");
+
     /* Spatial discretization */
     args.AddOption(&order, "-o", "--order",
                   "FD: Approximation order."); 
@@ -271,18 +250,12 @@ int main(int argc, char *argv[])
                   "Advection bias: 0==CENTRAL, 1==UPWIND"); 
     args.AddOption(&refLevels, "-l", "--level",
                   "FD: Mesh refinement; 2^refLevels DOFs in each dimension.");
-    args.AddOption(&dim, "-d", "--dim",
-                  "Spatial problem dimension.");
     args.AddOption(&npx, "-px", "--nprocs-in-x",
                   "FD: Number of procs in x-direction.");
     args.AddOption(&npy, "-py", "--nprocs-in-y",
                   "FD: Number of procs in y-direction.");                          
-       
-    /* CFL parameters */
-    args.AddOption(&CFL, "-cfl", "--advection-like-cfl", "cfl==dt/dx");
-    args.AddOption(&tf, "-tf", "--final-integration-time", "0 <= t <= tf");
-    args.AddOption(&dt, "-dt", "--time-step-size", "t_j = j*dt");
-
+     
+    /// --- Solver parameters --- ///   
     /* AMG parameters */
     args.AddOption(&use_AIR_temp, "-air", "--use-air", "0==standard AMG, 1==AIR");
     /* Krylov parameters */
@@ -296,14 +269,13 @@ int main(int argc, char *argv[])
     args.AddOption(&NEWTON.maxiter, "-nmaxit", "--newton-max-iterations", "Newton: Maximum iterations");
     args.AddOption(&NEWTON.printlevel, "-np", "--newton-print", "Newton: Print level");
     
-    
     /* --- Text output of solution etc --- */              
     args.AddOption(&out, "-out", "--out-directory", "Name of output file."); 
     args.AddOption(&save, "-save", "--save-sol-data",
                   "save>0 will save solution info, save>1 also saves solution (and exact solution, if implemented).");              
     args.Parse();
     if (myid == 0) {
-    //    args.PrintOptions(std::cout); 
+        args.PrintOptions(std::cout); 
     }
     // Set final forms of remaing params
     GENERAL_FLUX = (bool) GENERAL_FLUX_temp;
@@ -324,9 +296,9 @@ int main(int argc, char *argv[])
     }
     
     
-    ///////////////////////////////////////
-    // Assemble mesh on which we discretize
-    ///////////////////////////////////////
+    ////////////////////////////////////////
+    // Assemble mesh on which we discretize.
+    ////////////////////////////////////////
     FDMesh Mesh(MPI_COMM_WORLD, dim, refLevels, np);
     
     
@@ -354,12 +326,12 @@ int main(int argc, char *argv[])
     }
 
     
-    ///////////////////////////////////////////
-    /* --- Set up spatial discretization --- */
-    ///////////////////////////////////////////
+    /////////////////////////////////
+    // Set up spatial discretization.
+    /////////////////////////////////
     AdvDif SpaceDisc(Mesh, fluxID, alpha, mu, order, advection_bias);
         
-    // Initialize solvers for implicit time integration
+    // Initialize solver parameters for implicit time integration
     if (ode_solver_type > 10) {
         SpaceDisc.SetAMGParams(AMG);
         SpaceDisc.SetGMRESParams(GMRES);
@@ -374,38 +346,36 @@ int main(int argc, char *argv[])
     double dx = Mesh.Get_dx();
     int    nx = Mesh.Get_nx();
     
-    // If user hasn't set dt, time step so that we run at prescribed CFL
-    if (dt == -1.0) dt = dx * CFL;
     
-    // If user hasn't set tf, set it according to nt and dt
-    bool set_tf = true;
-    if (tf == -1.0) {
-        tf = nt * dt;
-        set_tf = false;
-    // Update nt otherwise
+    //////////////
+    // Time-march. 
+    //////////////
+    
+    // dt < 0 means dt == |dt|*dx
+    if (dt < 0.0) {
+        dt *= -dx;
+        nt = ceil(tf/dt);
+    // dt not set, choose it according to nt and tf
+    } else if (dt == 0.0) {
+        dt = tf / (nt - 0);    
+    // Adjust nt so that we (at least) step to tf    
     } else {
         nt = ceil(tf/dt);
     }
     
-
-    
-    ///////////////
-    /* Time-step */
-    ///////////////
     ode_solver->Init(SpaceDisc);
     double t = 0.0;
     SpaceDisc.SetTime(t);
     int step = 0;
-    int numsteps = ceil((tf-t)/dt);
-    while (t < tf) {
+    while (t-tf < 0) { // Step when we've at least reached tf 
         step++;
-        if (myid == 0) std::cout << "Time-step " << step << " of " << numsteps << '\n';
+        if (myid == 0) std::cout << "Time-step " << step << " of " << nt << " (t=" << t << "-->t=" << t+dt << ")\n";
     
         // Step from t to t+dt
         ode_solver->Step(*u, t, dt);
     }
     
-    if (set_tf && (fabs(t-tf)>1e-15)) {
+    if (fabs(t-tf)>1e-14) {
         if (myid == 0) std::cout << "WARNING: Requested tf of " << tf << " adjusted to " << t << '\n';
     }
     tf = t; // Update final time
@@ -615,6 +585,35 @@ double PDESolution(const Vector &x, double t)
 }
 
 
+/* f(u) = u; fluxID == 0 */
+double LinearFlux(double u) { return u; }; 
+double GradientLinearFlux(double u) { return 1.0; };
+/* f(u) = u^2; fluxID == 1 */
+double NonlinearFlux(double u) { return u*u; }; 
+double GradientNonlinearFlux(double u) { return 2.*u; };
+// Return pointer to flux function
+typedef double (*ScalarFun)(double);
+ScalarFun Flux(int fluxID) {
+    switch (fluxID) {
+        case 0:
+            return LinearFlux;
+        case 1:
+            return NonlinearFlux;
+        default:
+            return NULL;
+    }
+}
+// Return pointer to gradient of flux function
+ScalarFun GradientFlux(int fluxID) {
+    switch (fluxID) {
+        case 0:
+            return GradientLinearFlux;
+        case 1:
+            return GradientNonlinearFlux;
+        default:
+            return NULL;
+    }
+}
 
 
 /** The operator to be inverted solved during implicit time stepping. The form 
@@ -682,7 +681,7 @@ public:
         u = u_;
     };
 
-    /** Compute action of operator */ 
+    /// Compute action of operator 
     virtual void Mult(const Vector &k, Vector &y) const;
 
     /// LINEAR: Compute Jacobian. Will be called by GMRES's preconditioner at will.
@@ -1004,18 +1003,21 @@ void AdvDif::ImplicitSolve(const double dt, const Vector &u, Vector &k)
 
 /* Get error against exact PDE solution if available. Also output if num solution is output */
 bool AdvDif::GetError(int save, const char * out, double t, const Vector &u, double &eL1, double &eL2, double &eLinf) {
+    int myid;
+    MPI_Comm_rank(MPI_COMM_WORLD, &myid);
     
     bool soln_implemented = false;
     Vector * u_exact = NULL;
-    if (problem == 1 || problem == 2) {
+    if (problem == 1 || (problem == 2 && fluxID == 0)) {
+        if (myid == 0) std::cout << "PDE solution IS implemented for this problem." << '\n';
         soln_implemented = true;
         Mesh.EvalFunction(&PDESolution, t, u_exact); 
+    } else {
+        if (myid == 0) std::cout << "PDE solution is NOT implemented for this problem." << '\n';
     }
     
     if (soln_implemented) {
         if (save > 1) {
-            int myid;
-            MPI_Comm_rank(MPI_COMM_WORLD, &myid);
             ostringstream outt;
             outt << out << "_exact" << "." << myid;
             ofstream sol;
@@ -1044,7 +1046,11 @@ bool AdvDif::GetError(int save, const char * out, double t, const Vector &u, dou
             double dy = Mesh.Get_dx(1);
             eL1 *= dy;
             eL2 *= sqrt(dy);
-        }    
+        }
+        if (myid == 0) {
+            std::cout << "Discrete error measured at final time:" << '\n';
+            std::cout << "\teL1=" << eL1 << "\n\teL2=" << eL2 << "\n\teLinf=" << eLinf << '\n';    
+        }
     }
     return soln_implemented;
 }
