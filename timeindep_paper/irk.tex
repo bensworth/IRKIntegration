@@ -1128,6 +1128,28 @@ is well-known in the block-preconditioning community that a few iterations of
 an effective preconditioner typically yields convergence on the $2\times 2$
 operator just as fast as if performing direct solves in the preconditioning. 
 
+\tcp{
+I'm a little confused here... In MATLAB, when I compute the Schur decomposition, I instead find $2 \times 2$ blocks are of the form
+\[
+\tilde{R} =
+\begin{bmatrix}
+\eta & \phi \\
+\theta & \eta
+\end{bmatrix},
+\]
+for some real numbers $\phi, \theta$.
+From the small amount I could find online about the Schur decomposition, I believe these blocks are similar to the diagonal blocks, ${\rm diag}(\eta - \imath \beta, \eta + \imath \beta)$, you get if you do a complex Schur decomposition. Under this assumption, the blocks above must take the form
+\[
+\tilde{R} = 
+\begin{bmatrix}
+\eta & \phi \\
+- \frac{\beta^2}{\phi} & \eta
+\end{bmatrix}.
+\]
+Now, since the two sets of diagonal blocks are similar, we can similarity transform between the two. I.e., just working with the $2 \times 2$ case,  letting $R$ be the block you have above, and letting $\tilde{R}$ be the block upper triangular matrix I compute in MATLAB, then the we have $R = P^{-1} \tilde{R}P$ (we can form such similarity transforms as block diagonal matrices $2 \times 2$ blocks as similarity transforms for the general case). And the unitary matrices $Q$ are the same as I compute in MATLAB associated with $\tilde{R}$.
+I also note that the Schur complement of $\tilde{R} \otimes I - I \otimes \widehat{\cal L}$ is still $\eta I - \widehat{\mathcal{L}} + \beta^2 (\eta I - \widehat{\mathcal{L}})^{-1}$, so does this even matter?
+}
+
 %
 \begin{remark}[Symmetric operators and three-term recursion]
 For SPD spatial operators, the nonsymmetric matrix in \eqref{eq:block} does
