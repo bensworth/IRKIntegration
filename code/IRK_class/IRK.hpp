@@ -29,9 +29,10 @@ protected:
     MPI_Comm m_globComm;
     
 public:
-    // NOTE: Knowledge of a mass matrix is decuded from the value of TimeDependentOperator::isImplicit() 
-    IRKOperator(MPI_Comm comm) 
-        : TimeDependentOperator(), m_globComm{comm}, m_M_exists{this->isImplicit()} {};
+    // NOTE: Knowledge of a mass matrix is decuded from the value of TimeDependentOperator::Type == IMPLICIT
+    IRKOperator(MPI_Comm comm, int n=0, double t=0.0, Type type=EXPLICIT) 
+        : TimeDependentOperator(n, t, type), 
+            m_globComm{comm}, m_M_exists{type == IMPLICIT} {};
     
     ~IRKOperator() { };
 

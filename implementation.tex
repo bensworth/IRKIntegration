@@ -277,6 +277,7 @@ actually gain very little improvement in convergence by applying more iterations
 % ------------------------------------------------------------------------------------ %
 % ------------------------------------------------------------------------------------ %
 % ------------------------------------------------------------------------------------ 
+\newpage
 \section{Numerical results}
 
 We numerically approximate the solution of the advection problem,
@@ -314,7 +315,7 @@ u(x,y,t) &= \cos(\pi(x - t)) \cos(\pi(y - t)) \exp(\cos(2\pi t) - 1).
 \end{align}
 
 
-\begin{figure}
+\begin{figure}[H]
 \centerline{
 \includegraphics[width = 0.55\textwidth]{figures/SDIRK_d1_FD4}
 \quad
@@ -330,7 +331,7 @@ u(x,y,t) &= \cos(\pi(x - t)) \cos(\pi(y - t)) \exp(\cos(2\pi t) - 1).
 }
 \end{figure}
 
-\begin{figure}
+\begin{figure}[H]
 \centerline{
 \includegraphics[width = 0.55\textwidth]{figures/SDIRK_d2_FD4}
 \quad
@@ -343,6 +344,54 @@ u(x,y,t) &= \cos(\pi(x - t)) \cos(\pi(y - t)) \exp(\cos(2\pi t) - 1).
 }
 \caption{\textbf{Two dimensions:} $L_{\infty}$ errors measured at $t \approx 2$. Theoretically predicted convergence rates of ${\cal O}(p)$ are shown as dashed black lines. \tcp{Note SDIRK and Radau IIA are a bit messy... Not so sure why. Convergence seemed a bit better in $L_1$ and $L_2$. Note in particular that SDIRK3 is quite large at the coarsest resolution (the numerical solution grows, not sure why... Doesn't happen for constant coefficient... Note it's the same spatial disc. that causes issues for Radau IIA(3))}
 \label{fig:errors2D}
+}
+\end{figure}
+
+
+% ------------------------------------------------------------------------------------ %
+% ------------------------------------------------------------------------------------ %
+% ------------------------------------------------------------------------------------ 
+\newpage
+\newpage
+\section{Numerical results II}
+
+\begin{itemize}
+\setlength\itemsep{0.5em}
+
+\item Want to look at cost and scalability of solvers. Kind of hard to decide what  to look at, there are many different parameters...
+
+\item Look at two examples:
+\begin{enumerate}
+\item SDIRK4: Has 5 linear factors.
+
+\item Gauss8: Has 2 quadratic factors. Efficiency of preconditioned Krylov solves is dependent on the ratio $\beta/\eta$, with smaller $\beta/\eta$ leading to a faster solve
+\end{enumerate}
+
+\end{itemize}
+
+\begin{figure}[H]
+\centerline{
+\includegraphics[width = 0.55\textwidth]{figures/SDIRKc}
+\quad
+\includegraphics[width = 0.55\textwidth]{figures/SDIRK_gmres}
+}
+\caption{SDIRK4+U4: Performance as a function of $\delta t$ and $\delta t / \delta x$; note that increasing $\delta t/\delta x$ means increasing the size of the spatial problem. \textbf{Left:} Discretization error. \textbf{Right:} Number of GMRES iterations.
+\label{fig:SDIRK4}
+}
+\end{figure}
+
+
+\begin{figure}[htb!]
+\centerline{
+\includegraphics[width = 0.45\textwidth]{figures/Gauss8c}
+}
+\centerline{
+\includegraphics[width = 0.55\textwidth]{figures/Gauss8_gmres}
+\quad
+\includegraphics[width = 0.55\textwidth]{figures/Gauss8_gmres_5iters}
+}
+\caption{Gauss8+U8: Performance as a function of $\delta t$ and $\delta t / \delta x$; note that increasing $\delta t/\delta x$ means increasing the size of the spatial problem. \textbf{Top:} Discretization error. \textbf{Left/Right:} Number of GMRES iterations using \underline{two/ten} applications of AMG as a preconditioner.
+\label{fig:Gauss8}
 }
 \end{figure}
 

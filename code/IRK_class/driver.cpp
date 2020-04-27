@@ -9,9 +9,15 @@
 using namespace mfem;
 using namespace std;
 
+/* Output dictionary entries via an ofstream */
+class OutDict : public std::ofstream {
+public:
+    template <class T>
+    inline void Print(string id, T entry) {*this << id << " " << entry << "\n";};
+};
 
-bool GetError(const FDadvection &SpaceDisc, double tf, const HypreParVector &u, double &eL1, double &eL2, double &eLinf);
-void SaveDict(string filename, map<string, string> mySolInfo);
+bool GetError(const FDadvection &SpaceDisc, const FDMesh &Mesh, double tf, const HypreParVector &u, double &eL1, double &eL2, double &eLinf);
+
 
 /* SAMPLE RUNS:
 
@@ -62,8 +68,8 @@ int main(int argc, char *argv[])
     int ndis       = 2; // Degree of numerical dissipation (2 or 4)
     double ndis_c0 = 0.0; 
     int ndis_c1    = 0;  
-    int px         = -1; // # procs in x-direction
-    int py         = -1; // # procs in y-direction
+    int npx        = -1; // # procs in x-direction
+    int npy        = -1; // # procs in y-direction
     
     // AMG parameters
     AMG_parameters AMG_params;
@@ -93,9 +99,9 @@ int main(int argc, char *argv[])
                   "FD: Mesh refinement; 2^refLevels DOFs in each dimension.");
     args.AddOption(&dim, "-d", "--dim",
                   "Spatial problem dimension.");
-    args.AddOption(&px, "-px", "--procx",
+    args.AddOption(&npx, "-px", "--nprocs-in-x",
                   "FD: Number of procs in x-direction.");
-    args.AddOption(&py, "-py", "--procy",
+    args.AddOption(&npy, "-py", "--nprocs-in-y",
                   "FD: Number of procs in y-direction.");                          
     args.AddOption(&ndis, "-ndis", "--num-dissipation-degree", 
                   "FD: Degree of numerical dissipation");
@@ -136,19 +142,23 @@ int main(int argc, char *argv[])
     }
     
     
-    /* --- Get FDadvection object --- */
-    std::vector<int> n_px = {};
-    if (px != -1) {
+    /* --- Set up spatial discretization --- */
+    std::vector<int> np = {};
+    if (npx != -1) {
         if (dim >= 1) {
-            n_px.push_back(px);
+            np.push_back(npx);
         }
         if (dim >= 2) {
-            n_px.push_back(py);
+            np.push_back(npy);
         }
     }
     
+    
+    // Build mesh
+    FDMesh Mesh(MPI_COMM_WORLD, dim, refLevels, np);
+    
     // Build Spatial discretization 
-    FDadvection SpaceDisc(MPI_COMM_WORLD, dim, refLevels, order, FD_ProblemID, n_px); 
+    FDadvection SpaceDisc(MPI_COMM_WORLD, Mesh, order, FD_ProblemID); 
     
     // Add numerical dissipation into FD-advection discretization if meaningful parameters passed */
     if (ndis > 0 && ndis_c0 > 0.0) {
@@ -166,8 +176,8 @@ int main(int argc, char *argv[])
     SpaceDisc.GetU0(u);
     
     // Get mesh info
-    double dx = SpaceDisc.Get_dx();
-    int    nx = SpaceDisc.Get_nx();
+    double dx = Mesh.Get_dx();
+    int    nx = Mesh.Get_nx();
     
     // If user hasn't set dt, time step so that we run at prescribed CFL
     if (dt == -1.0) {
@@ -215,61 +225,60 @@ int main(int argc, char *argv[])
     if (save > 0) {
         if (save > 1) u->Print(out);
         
-        double eL1, eL2, eLinf = 0.0; 
-        
         /* Get error against exact PDE solution if available */
-        bool got_error = GetError(SpaceDisc, tf, *u, eL1, eL2, eLinf);
+        double eL1, eL2, eLinf = 0.0; 
+        bool got_error = GetError(SpaceDisc, Mesh, tf, *u, eL1, eL2, eLinf);
         
         // Save data to file enabling easier inspection of solution            
         if (rank == 0) {
-            std::map<std::string, std::string> info;
-    
-            info["IRK"]             = to_string(IRK_ID);
-            info["tf"]              = to_string(tf);
-            info["dt"].resize(16);
-            info["dt"].resize(snprintf(&info["dt"][0], 16, "%.6e", dt));
-            info["nt"]              = to_string(nt);
-    
-            info["space_order"]     = to_string(order);
-            info["nx"]              = to_string(nx);
-            info["space_dim"]       = to_string(dim);
-            info["space_refine"]    = to_string(refLevels);
-            info["problemID"]       = to_string(FD_ProblemID);
-            info["P"]               = to_string(numProcess);
+            OutDict solinfo;
+            solinfo.open(out);
+            solinfo << scientific;
             
-            for (int d = 0; d < n_px.size(); d++) {
-                info[string("p_x") + to_string(d)] = to_string(n_px[d]);
-            }
-    
-            if (dx != -1.0) {
-                info["dx"].resize(16);
-                info["dx"].resize(snprintf(&info["dx"][0], 16, "%.6e", dx));
-            }
+            /* Temporal info */
+            solinfo.Print("IRK", IRK_ID);
+            solinfo.Print("dt", dt);
+            solinfo.Print("nt", nt);
+            solinfo.Print("tf", tf);
             
-            if (got_error) {
-                info["eL1"].resize(16);
-                info["eL2"].resize(16);
-                info["eLinf"].resize(16);
-                info["eL1"].resize(snprintf(&info["eL1"][0], 16, "%.6e", eL1));
-                info["eL2"].resize(snprintf(&info["eL2"][0], 16, "%.6e", eL2));
-                info["eLinf"].resize(snprintf(&info["eLinf"][0], 16, "%.6e", eLinf));
-            } 
-            
+            /* Spatial info */
+            solinfo.Print("dx", dx);
+            solinfo.Print("nx", nx);
+            solinfo.Print("space_dim", dim);
+            solinfo.Print("space_refine", refLevels);
+            solinfo.Print("problemID", FD_ProblemID); 
             
             /* Linear system/solve statistics */
+            solinfo.Print("krtol", reltol);
+            solinfo.Print("katol", abstol);
+            solinfo.Print("kdim", kdim);
             std::vector<int> avg_iter;
             std::vector<int> type;
             std::vector<double> eig_ratio;
             MyIRK.GetSolveStats(avg_iter, type, eig_ratio);
+            solinfo.Print("nsys", avg_iter.size());
             for (int system = 0; system < avg_iter.size(); system++) {
-                info[string("sys") + to_string(system+1) + "_iters"] = to_string(avg_iter[system]);
-                info[string("sys") + to_string(system+1) + "_type"] = to_string(type[system]);
-                info[string("sys") + to_string(system+1) + "_eig_ratio"] = to_string(eig_ratio[system]);
+                solinfo.Print("sys" + to_string(system+1) + "_iters", avg_iter[system]);
+                solinfo.Print("sys" + to_string(system+1) + "_type", type[system]);
+                solinfo.Print("sys" + to_string(system+1) + "_eig_ratio", eig_ratio[system]);
             }
-            SaveDict(out, info);
+            
+            /* Parallel info */
+            solinfo.Print("P", numProcess);
+            for (int d = 0; d < np.size(); d++) {
+                solinfo.Print("np" + to_string(d), np[d]);
+            }
+            
+            /* Error statistics */
+            if (got_error) {
+                solinfo.Print("eL1", eL1);
+                solinfo.Print("eL2", eL2);
+                solinfo.Print("eLinf", eLinf);
+            }
+            
+            solinfo.close();
         }
     }
-    
     delete u;
 
     MPI_Finalize();
@@ -278,11 +287,12 @@ int main(int argc, char *argv[])
 
 
 /* Get error against exact PDE solution if available */
-bool GetError(const FDadvection &SpaceDisc, double tf, const HypreParVector &u, 
-                double &eL1, double &eL2, double &eLinf) {
+bool GetError(const FDadvection &SpaceDisc, const FDMesh &Mesh, 
+                double tf, const HypreParVector &u, double &eL1, double &eL2, double &eLinf) {
     HypreParVector * u_exact = NULL;
     
-    if (SpaceDisc.GetUExact(tf, u_exact)) {
+    bool got_error = SpaceDisc.GetUExact(tf, u_exact);
+    if (got_error) {
         *u_exact -= u; // Error vector
         eL1   = u_exact->Normlp(1);
         eL2   = u_exact->Normlp(2);
@@ -295,33 +305,15 @@ bool GetError(const FDadvection &SpaceDisc, double tf, const HypreParVector &u,
         eLinf = GlobalLpNorm(infinity(), eLinf, MPI_COMM_WORLD);
         
         // Scale norms by mesh size
-        double dx = SpaceDisc.Get_dx(0);
+        double dx = Mesh.Get_dx(0);
         eL1 *= dx;
         eL2 *= sqrt(dx);
-        int dim = SpaceDisc.Get_dim();
+        int dim = Mesh.Get_dim();
         if (dim > 1) {
-            double dy = SpaceDisc.Get_dx(1);
+            double dy = Mesh.Get_dx(1);
             eL1 *= dy;
             eL2 *= sqrt(dy);
-        }
-        
-        return true;
-    } else {
-        return false;
+        }    
     }
-}
-
-/* Print dictionary to file */
-void SaveDict(string filename, map<string, string> mySolInfo) 
-{
-    ofstream solinfo;
-    solinfo.open(filename);
-    solinfo << scientific; // This means parameters will be printed with enough significant digits
-
-    // Print out contents from additionalInfo to file too
-    map<string, string>::iterator it;
-    for (it = mySolInfo.begin(); it != mySolInfo.end(); it++) {
-        solinfo << it->first << " " << it->second << "\n";
-    }
-    solinfo.close();
+    return got_error;
 }
