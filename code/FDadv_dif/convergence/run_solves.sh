@@ -21,18 +21,17 @@ tf=2            # Final integration time
 dim=2           # Spatial dimension
 
 ### --- DISCRETIZATIONS
-cfl=1; # dt = cfl*dx
-IRK=12; space=2  
-#IRK=14; space=4  
+dt=-1; # dt = |dt|*dx
+IRK=12; space=2  # 2nd-order discretization
+#IRK=14; space=4  # 4th-order discretization
 
 # Ramp up solver tolerances.
 katol=1e-8; krtol=1e-8
 nrtol=1e-8
 use_AIR=0
 
-# dt will go from [2^-dt_min_refine, ..., 2^-dt_max_refine]
-l_min_refine=8
-l_max_refine=8
+l_min_refine=3
+l_max_refine=4
 
 save=1 # Save only the text file output from the problem and not the solution
 
@@ -48,10 +47,9 @@ do
     echo "Refinement = $refine"
 
     # Run solver at current refinement
-    mpirun -np $np ../driver -f $flux -t $IRK -cfl $cfl -tf $tf -o $space \
-        -l $refine -d $dim -ex $problem -katol $katol -krtol $krtol -nrtol $nrtol \
+    mpirun -np $np ../driver -f $flux -t $IRK -tf $tf -o $space \
+        -dt $dt -l $refine -d $dim -ex $problem \
         -ax $ax -ay $ay -mx $mx -my $my \
-        -air $use_AIR \
+        -katol $katol -krtol $krtol -nrtol $nrtol -air $use_AIR \
         -save $save -out $dir${out/^REFINE^/$refine} 
-
 done
