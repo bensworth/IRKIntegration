@@ -1129,24 +1129,50 @@ an effective preconditioner typically yields convergence on the $2\times 2$
 operator just as fast as if performing direct solves in the preconditioning. 
 
 \tcp{
-I'm a little confused here... In MATLAB, when I compute the Schur decomposition, I instead find $2 \times 2$ blocks are of the form
+MATLAB computes the Schur decomposition of $2 \times 2$ matrix as
 \[
-\tilde{R} =
-\begin{bmatrix}
-\eta & \phi \\
-\theta & \eta
-\end{bmatrix},
-\]
-for some real numbers $\phi, \theta$.
-From the small amount I could find online about the Schur decomposition, I believe these blocks are similar to the diagonal blocks, ${\rm diag}(\eta - \imath \beta, \eta + \imath \beta)$, you get if you do a complex Schur decomposition. Under this assumption, the blocks above must take the form
-\[
-\tilde{R} = 
+A = \tilde{Q} \tilde{R} \tilde{Q}^\top
+=
+\tilde{Q}
 \begin{bmatrix}
 \eta & \phi \\
 - \frac{\beta^2}{\phi} & \eta
-\end{bmatrix}.
+\end{bmatrix}
+\tilde{Q}^\top \quad (*).
 \]
-Now, since the two sets of diagonal blocks are similar, we can similarity transform between the two. I.e., just working with the $2 \times 2$ case,  letting $R$ be the block you have above, and letting $\tilde{R}$ be the block upper triangular matrix I compute in MATLAB, then the we have $R = P^{-1} \tilde{R}P$ (we can form such similarity transforms as block diagonal matrices $2 \times 2$ blocks as similarity transforms for the general case). And the unitary matrices $Q$ are the same as I compute in MATLAB associated with $\tilde{R}$.
+But, we want it like,
+\[
+A = Q R Q^\top
+=
+Q
+\begin{bmatrix}
+\eta & \beta \\
+-\beta & \eta
+\end{bmatrix}
+Q^\top \quad (**).
+\]
+Now, $\tilde{R}$ and $R$ are of course similar, and, in fact, we have
+\[
+\tilde{R} = P^{-1} R P, \quad 
+P = 
+\begin{bmatrix}
+1 & 0 \\
+0 &  \tfrac{\phi}{\beta}
+\end{bmatrix} \quad (***).
+\]
+So, we can write the similarity transformation $(*)$ as
+\[
+A = \tilde{Q} (P^{-1} R P) \tilde{Q}^\top 
+= (\tilde{Q}P^{-1}) R (\tilde{Q} P^{-1})^{-1}
+\equiv W R W^{-1}. \quad (****)
+\]
+However, $(****)$ is not a Schur decomposition because $P$ is not orthogonal ($P^\top = P \neq P^{-1}$), and so neither is $W = \tilde{Q} P^{-1}$. This says that given the  Schur decomposition $(*)$ that we compute in MATLAB, we cannot transform it into  Schur decomposition $(**)$ that we actually want because $\tilde{R}$ and $R$ are not \textbf{unitarily similar}.}
+
+Furthermore, this says that we cannot do a Schur decomposition of an arbitrary $2 \times 2$ matrix $A$ in the form of $(**)$? Here's a proof by counter example: Take $A = \tilde{R}$, clearly we cannot write $\tilde{R} = Q R Q^\top$ because $\tilde{R}$ and $R$ are not unitarily similar (see non-unitary $P$ in  $(***)$).
+
+So, I think the best we can do for a matrix $A$ is the real, non-unitary similarity transform given by $(****)$; however, I think this is fine because the algebra you did doesn't depend on $Q$ being orthogonal, apart from maybe some of the comments you made about the fully time-dependent case regarding the sums of the coefficients being unity?
+
+\tcp{
 I also note that the Schur complement of $\tilde{R} \otimes I - I \otimes \widehat{\cal L}$ is still $\eta I - \widehat{\mathcal{L}} + \beta^2 (\eta I - \widehat{\mathcal{L}})^{-1}$, so does this even matter?
 }
 
