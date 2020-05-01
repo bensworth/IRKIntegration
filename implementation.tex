@@ -274,11 +274,193 @@ actually gain very little improvement in convergence by applying more iterations
 }
 
 
+% ------------------------------------------------------------------------------------ %
+% ------------------------------------------------------------------------------------ %
+% ------------------------------------------------------------------------------------ 
+\newpage
+\section{Numerical results}
+
+We numerically approximate the solution of the advection problem,
+\begin{align}
+u_t  + \nabla \cdot (\bm{\alpha}(\bm{x}) u) = s(\bm{x},t), \quad  \bm{x} \in (-1, 1)^d, \quad t \in (0, t_{\rm f}].
+\end{align}
+Some remarks:
+\begin{itemize}
+\item Periodic spatial boundaries
+
+\item $t_{\rm f} \approx 2$
+
+\item A $p$th-order IRK scheme is coupled with $p$th-order upwind finite differences in space.
+
+\item A CFL number of $c \approx 2$ is used (not practical in terms of cost of solves per accuracy obtained, but good for testing implementation since don't have to worry about solvers not coping well with difficult systems)
+
+\item Tests indicate that the code is implemented and working properly since theoretically predicated convergence rates are obtained in all cases.
+\end{itemize}
+
+\textbf{One dimension:} See Figure \ref{fig:errors1D}. Choose $s(x,t)$ such that
+\begin{align}
+\alpha(x) &= \tfrac{1}{2} \big[1 + \cos^2(\pi x) \big],
+\\
+u(x,t) &= \cos(\pi(x - t)) \exp(\cos(2\pi t) - 1).
+\end{align}
+
+\textbf{Two dimensions:} See Figure \ref{fig:errors2D}. Choose $s(x,y,t)$ such that
+\begin{align}
+\alpha(x,y) &= \left(
+\tfrac{1}{4} \big[1 + \cos^2(\pi x) \big] \big[ 1 + \sin^2(\pi y) \big],
+\tfrac{1}{4} \big[1 + \sin^2(\pi x) \big] \big[1 + \cos^2(\pi y) \big] 
+\right), 
+\\
+u(x,y,t) &= \cos(\pi(x - t)) \cos(\pi(y - t)) \exp(\cos(2\pi t) - 1).
+\end{align}
+
+
+\begin{figure}[H]
+\centerline{
+\includegraphics[width = 0.55\textwidth]{figures/SDIRK_d1_FD4}
+\quad
+\includegraphics[width = 0.55\textwidth]{figures/Gauss_d1_FD4}
+}
+\centerline{
+\includegraphics[width = 0.55\textwidth]{figures/RadauIIA_d1_FD4}
+\quad
+\includegraphics[width = 0.55\textwidth]{figures/LobattoIIIC_d1_FD4}
+}
+\caption{\textbf{One dimension:} $L_{\infty}$ errors measured at $t \approx 2$. Theoretically predicted convergence rates of ${\cal O}(p)$ are shown as dashed black lines.
+\label{fig:errors1D}
+}
+\end{figure}
+
+\begin{figure}[H]
+\centerline{
+\includegraphics[width = 0.55\textwidth]{figures/SDIRK_d2_FD4}
+\quad
+\includegraphics[width = 0.55\textwidth]{figures/Gauss_d2_FD4}
+}
+\centerline{
+\includegraphics[width = 0.55\textwidth]{figures/RadauIIA_d2_FD4}
+\quad
+\includegraphics[width = 0.55\textwidth]{figures/LobattoIIIC_d2_FD4}
+}
+\caption{\textbf{Two dimensions:} $L_{\infty}$ errors measured at $t \approx 2$. Theoretically predicted convergence rates of ${\cal O}(p)$ are shown as dashed black lines. \tcp{Note SDIRK and Radau IIA are a bit messy... Not so sure why. Convergence seemed a bit better in $L_1$ and $L_2$. Note in particular that SDIRK3 is quite large at the coarsest resolution (the numerical solution grows, not sure why... Doesn't happen for constant coefficient... Note it's the same spatial disc. that causes issues for Radau IIA(3))}
+\label{fig:errors2D}
+}
+\end{figure}
+
+
+% ------------------------------------------------------------------------------------ %
+% ------------------------------------------------------------------------------------ %
+% ------------------------------------------------------------------------------------ 
+\newpage
+\newpage
+\section{Numerical results II}
+
+\begin{itemize}
+\setlength\itemsep{0.5em}
+
+\item Want to look at cost and scalability of solvers. Kind of hard to decide what  to look at, there are many different parameters...
+
+\item Look at two examples:
+\begin{enumerate}
+\item SDIRK4: Has 5 linear factors.
+
+\item Gauss8: Has 2 quadratic factors. Efficiency of preconditioned Krylov solves is dependent on the ratio $\beta/\eta$, with smaller $\beta/\eta$ leading to a faster solve
+\end{enumerate}
+
+\end{itemize}
+
+\begin{figure}[H]
+\centerline{
+\includegraphics[width = 0.55\textwidth]{figures/SDIRKc}
+\quad
+\includegraphics[width = 0.55\textwidth]{figures/SDIRK_gmres}
+}
+\caption{SDIRK4+U4: Performance as a function of $\delta t$ and $\delta t / \delta x$; note that increasing $\delta t/\delta x$ means increasing the size of the spatial problem. \textbf{Left:} Discretization error. \textbf{Right:} Number of GMRES iterations.
+\label{fig:SDIRK4}
+}
+\end{figure}
+
+
+\begin{figure}[htb!]
+\centerline{
+\includegraphics[width = 0.45\textwidth]{figures/Gauss8c}
+}
+\centerline{
+\includegraphics[width = 0.55\textwidth]{figures/Gauss8_gmres}
+\quad
+\includegraphics[width = 0.55\textwidth]{figures/Gauss8_gmres_5iters}
+}
+\caption{Gauss8+U8: Performance as a function of $\delta t$ and $\delta t / \delta x$; note that increasing $\delta t/\delta x$ means increasing the size of the spatial problem. \textbf{Top:} Discretization error. \textbf{Left/Right:} Number of GMRES iterations using \underline{two/ten} applications of AMG as a preconditioner.
+\label{fig:Gauss8}
+}
+\end{figure}
+
 
 % ------------------------------------------------------------------------------- %
 % \bibliographystyle{siamplain}
 % \bibliography{refs.bib}
 
+
+% ------------------------------------------------------------------------------------ %
+% ------------------------------------------------------------------------------------ %
+% ------------------------------------------------------------------------------------ 
+\newpage
+\newpage
+\section{Nonlinear}
+Consider the method-of-lines approach to the numerical solution of partial differential
+equations (PDEs), where we discretize in space and arrive at a system of ODEs in time,
+%
+\begin{align}\label{eq:problem}
+	M\mathbf{u}'(t) =  \mathcal{N}(\mathbf{u},t) \quad\text{in }(0,T], \quad \mathbf{u}(0) = \mathbf{u}_0,
+\end{align}
+%
+where $M$ is a mass matrix and $\mathcal{N}\in\mathbb{R}^{N\times N}$ is a discrete, time-dependent, nonlinear operator depending on $t$ and $\mathbf{u}$ (including potential
+forcing terms). Then, consider time propagation using an $s$-stage Runge-Kutta scheme,
+characterized by the Butcher tableaux 
+%
+\begin{align*}
+	\renewcommand\arraystretch{1.2}
+	\begin{array}
+	{c|c}
+	\mathbf{c}_0 & A_0\\
+	\hline
+	& \mathbf{b}_0^T
+	\end{array},
+\end{align*}
+%
+with Runge-Kutta matrix $A_0 = (a_{ij})$, weight vector $\mathbf{b}_0^T = (b_1, \ldots, b_s)^T$,
+and quadrature nodes $\mathbf{c}_0 = (c_0, \ldots, c_s)$.
+
+Runge-Kutta methods update the solution using a sum over stage vectors,
+%
+\begin{align*}
+\mathbf{u}_{n+1} & = \mathbf{u}_n + \delta t \sum_{i=1}^s b_i\mathbf{k}_i, \\
+M\mathbf{k}_i & = \mathcal{N}\left(\mathbf{u}_n + \delta t\sum_{j=1}^s a_{ij}\mathbf{k}_j, t_n+\delta tc_i\right).
+\end{align*}
+%
+For nonlinear PDEs, $\mathcal{N}$ is linearized using, for example, a Newton or a Picard
+linearization of the underlying PDE. Let us denote this linearization ${\mathcal{L}}\in\mathbb{R}^{N\times N}$
+(or, in the case of a linear PDE, let $\mathcal{L} := \mathcal{N}$).
+Expanding, solving for the stages $\mathbf{k}$ as each step in a nonlinear iteration, or
+as the update to $\mathbf{u}$ for a linear PDE, can then be expressed as a block linear system,
+%
+\begin{align}\label{eq:k0}
+\left( \begin{bmatrix} M  & & \mathbf{0} \\ & \ddots \\ \mathbf{0} & & M\end{bmatrix}
+	- \delta t \begin{bmatrix} a_{11}\mathcal{L}_1 & ... & a_{1s}\mathcal{L}_1 \\
+	\vdots & \ddots & \vdots \\ a_{s1}\mathcal{L}_s & ... & a_{ss} \mathcal{L}_s \end{bmatrix} \right)
+	\begin{bmatrix} \mathbf{k}_1 \\ \vdots \\ \mathbf{k}_s \end{bmatrix} 
+& = \begin{bmatrix} \mathbf{f}_1 \\ \vdots \\ \mathbf{f}_s \end{bmatrix}.
+\end{align}
+
+
+Let's write the Jacobian of ${\cal N}$ w.r.t. the stages as
+\begin{align}
+J_{\cal N} = 
+\delta t (A \otimes I)
+\begin{bmatrix}
+{\cal N}' (\bm{u}_n + \delta t \sum \limits_{j = 1}^s \bm{k})
+\end{bmatrix}
+\end{align}
 
 \end{document}
 

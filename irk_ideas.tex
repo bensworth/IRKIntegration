@@ -94,6 +94,105 @@ as the update to $\mathbf{u}$ for a linear PDE, can then be expressed as a block
 \section{Navier Stokes and DAEs}
 
 
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+\newpage
+\section{Preconditioning fully implicit IRK system}
+
+% Plenty of people have looked at block preconditioning in the natural form. I am wondering
+% if using Will's factorization will make this much more effective? In particular, if you
+% look atht preconditioned operator for triangular preconditioning of standard IRK, you
+% get lots of terms along the lines of $(a_{ii}M - \mathcal{L}_i)^{-1}\mathcal{L}_j$. With
+% the factorization, you instead have $(\alpha_{ii}M - \mathcal{L}_i)^{-1}M$. This is
+% guaranteed to be small by discussion in IRK paper so far. Looks like this may not be
+% a good idea. Lower triangular preconditioning of $A_0^{-1}$ is very ineffective. Is
+% effective for $A_0$, but then we have the issue with $\mathcal{L}$ off diagonal..
+
+Consider the system
+%
+\begin{align}\label{eq:keq}
+\left( A_0^{-1}\otimes M - \delta t \begin{bmatrix} \mathcal{L}_1  & \\ & \ddots \\ && \mathcal{L}_s\end{bmatrix}\right)
+	(A_0\otimes I)	\begin{bmatrix} \mathbf{k}_1 \\ \vdots \\ \mathbf{k}_s \end{bmatrix} 
+& = \begin{bmatrix} \mathbf{f}_1 \\ \vdots \\ \mathbf{f}_s \end{bmatrix}.
+\end{align}
+%
+Suppose $\mathcal{L}_i = \mathcal{L}_j$ for all $i,j$. Then the second matrix can 
+be written $\delta t I\otimes\mathcal{L}$. 
+Let $A_0^{-1} = Q_0R_0Q_0^T$ be the real Schur decomposition of $A_0^{-1}$, where
+$Q_0$ is real-valued, orthogonal, and block upper triangular, and $R_0$ is a block
+upper triangular matrix, where each block represents an eigenvalue of $A_0^{-1}$.
+Real-valued eigenvalues have blocksize one, and complex eigenvalues $\eta\pm i\beta$
+are in $2\times 2$ blocks,
+%
+\begin{align*}
+\begin{bmatrix} \eta & \beta\\-\beta & \eta\end{bmatrix}.
+\end{align*}
+%
+Pulling out a $Q_0\otimes I$ and $Q_0^T\otimes I$ from the left and right,
+we can now solve \eqref{eq:keq} by inverting the matrix
+%
+\begin{align*}
+Q_0\otimes I\left( R_0\otimes M - \delta t I \otimes \mathcal{L}\right)Q_0^T\otimes I.
+\end{align*}
+%
+The inner matrix is now a block upper triangular matrix. The real-valued eigenvalues
+are straightforward to invert. Consider the complex case. We must invert a matrix along
+the lines of
+%
+\begin{align*}
+\begin{bmatrix} \eta M - \delta t \mathcal{L} & \beta M\\-\beta M & \eta M - \mathcal{L}\end{bmatrix}.
+\end{align*}
+%
+Let us scale both rows by $M^{-1}$ to get
+%
+\begin{align*}
+\begin{bmatrix} \eta I - \delta t M^{-1}\mathcal{L} & \beta I\\
+-\beta I & \eta I - M^{-1}\mathcal{L}\end{bmatrix}.
+\end{align*}
+%
+
+It turns out analogous ideas as used for the adjugate formulation can be applied
+here. Note that the Schur complement takes the form 
+%
+\begin{align*}
+S_{22} & := \eta I - M^{-1}\mathcal{L} + \beta^2 (\eta I - M^{-1}\mathcal{L})^{-1}.
+\end{align*}
+%
+Suppose we precondition this again by dropping the complex eigenvalue $\beta^2$,
+and considering
+%
+\begin{align*}
+(\eta I - M^{-1}\mathcal{L})^{-1}S_{22} & := I + \beta^2 (\eta I - M^{-1}\mathcal{L})^{-2}\\
+ & = I + \frac{\beta^2}{\eta^2} (M - \tfrac{1}{\eta}\mathcal{L})^{-2}M^2.
+\end{align*}
+%
+This is exactly the form we arrived at when analyzing preconditioning using the
+adjugate and determinant. The upside is that theory then tells us that we will
+converge rapidly applying block lower-triangular preconditioning to this operator. 
+Unfortunately, we cannot apply CG/MINRES if applicable, and for Krylov we need to
+store two stages simultaneously. 
+
+Also, I think we may have stumbled upon a way to precondition the fully time
+dependent system. If we return to \eqref{eq:keq} for $\mathcal{L}_i\neq\mathcal{L}_j$
+and pull out and apply the real Schur decomposition, we have
+\begin{align}\label{eq:keq2}
+Q_0\otimes I\left( R_0^{-1}\otimes M - \delta t (Q_0^T\otimes I)
+	\begin{bmatrix} \mathcal{L}_1  & \\ & \ddots \\ && \mathcal{L}_s\end{bmatrix}
+	(Q_0\otimes I)\right)Q_0^T\otimes I.
+\end{align}
+%
+Recall $Q_0$ is orthogonal, so for $\mathcal{L}_i = \mathcal{L}_j$, the coefficients
+of $Q_0$ work out so that the off-diagonals of the triple product with $\delta t$
+are zero and the diagonals are $\mathcal{L}$. Here instead we have elements with a
+form $\sum_{k=1}^s \zeta_k\mathcal{L}_k$, where $\sum_{k=1}^s \zeta_k$ equals one
+or zero for diagonal and off-diagonal, respectively. We could either ignore the error
+that induces and use a quasiNewton approach inverting \eqref{eq:keq2}, or use
+\eqref{eq:keq2} as a linear preonditioner to solve the true Jacobian each step.
+
+
+
+
 
 % ---------------------------------------------------------------------------------------------- %
 % ---------------------------------------------------------------------------------------------- %
