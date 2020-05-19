@@ -9,9 +9,10 @@
 
 date
 
-max_amgiter_type2=5
+# Number of AMG iters for AMG preconditioner of cc systems
+max_amgiter_type2=1
 
-outdir=data2 # Where the data is sent to
+outdir=data3 # Where the data is sent to
 
 np=4        # Number of processes
 atol=1e-15; rtol=1e-15
@@ -20,15 +21,15 @@ atol=1e-15; rtol=1e-15
 
 ### --- SDIRK --- ###
 # IRK=1; space=1  
-# IRK=2; space=2  
+#IRK=2; space=2  
 # IRK=3; space=3  
-IRK=4; space=4; atol=1e-15; rtol=1e-15    
+# IRK=4; space=4; atol=1e-15; rtol=1e-15    
 
 ### --- Gauss --- ###
 #IRK=12; space=2  
 #IRK=14; space=4  
 #IRK=16; space=6; #atol=1e-11; rtol=1e-11    
-IRK=18; space=8; atol=1e-15; rtol=1e-15  
+#IRK=18; space=8; atol=1e-15; rtol=1e-15  
 #IRK=110; space=10; atol=1e-15; rtol=1e-15  
 
 ### --- RadauIIA# --- ###
@@ -39,7 +40,7 @@ IRK=18; space=8; atol=1e-15; rtol=1e-15
 
 ### --- LobIIIC --- ###
 # IRK=32; space=2  
-# IRK=34; space=4  
+IRK=34; space=4  
 # IRK=36; space=6; atol=1e-15; rtol=1e-15     
 # IRK=38; space=8; atol=1e-15; rtol=1e-15   
 
@@ -58,7 +59,7 @@ save=1 # Save only the text file output from the problem and not the solution
 
 # Name of file to be output... "^REFINE^" will be replaced with the actual refinement...
 dir=$outdir/"$time_type"
-out=IRK"$IRK"_dt^REFINE^_d"$dim"_FD"$FD"_cfl1
+out=IRK"$IRK"_dt^REFINE^_d"$dim"_FD"$FD"_cfl1 # Need to manually change this CFL number...
 
 # Run solves at different temporal refinements...
 echo "solving..."
@@ -71,6 +72,7 @@ do
     echo "Temporal refinement = $dt_refine; dt = $dt"
 
     # Run solver at current refinement
+    # CFL is set by $dt_refine+X, X=1,2,3 --> CFL=1,2,4
     mpirun -np $np ../IRK_class/driver -t $IRK -dt $dt -tf $tf -o $space -l $(($dt_refine+1)) \
         -d $dim -FD $FD -atol $atol -rtol $rtol -maxit 250 -kdim 50 -save $save \
         -out $dir${out/^REFINE^/$dt_refine} -maxit_AMG $max_amgiter_type2

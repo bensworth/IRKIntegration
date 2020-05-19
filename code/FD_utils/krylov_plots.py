@@ -19,7 +19,7 @@ import argparse
 fiddling around to plot Krylov iters for various problems... some of the code
 here doesn't make much sense since I've not settled on the format to plot the data
 
-python test.py -dir data3/ -d 1 -FD 4 -g 0 -t 4 -dt_min 3 -dt_max 7 -cfl 1 2 4 
+python krylov_plots.py -dir data3/ -d 1 -FD 4 -g 0 -t 4 -dt_min 3 -dt_max 7 -cfl 1 2 4 
 
 
 
@@ -122,7 +122,7 @@ for i, cfl in enumerate(args["cfls"]):
             for system in range(0,nsys):
                 iters.append([])
                 # Just get eig ratios once, these are independent of dt
-                eig_ratio.append(float(params["sys" + str(system + 1) + "_eig_ratio"]))        
+                eig_ratio.append(float(params["sys" + str(system + 1) + "_eig_ratio"]))                
         
         # Add info for every system        
         for system in range(0, nsys):
