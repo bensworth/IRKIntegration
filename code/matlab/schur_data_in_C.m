@@ -5,26 +5,26 @@ clear
 
 %%% --- Tables --- %%% 
 % UNCOMMENT ONE OF ME AND HIT RUN!
-ID = 'SDIRK1';
-%ID = 'SDIRK2';
-%ID = 'SDIRK3';
-%ID = 'SDIRK4';
+%ID = 'SDIRK1';
+% ID = 'SDIRK2';
+% ID = 'SDIRK3';
+% ID = 'SDIRK4';
 
 %ID = 'Gauss2';
-%ID =  'Gauss4';
+ID =  'Gauss4';
 %ID =  'Gauss6';
 %ID =  'Gauss8';
 %ID =  'Gauss10';
 % 
-%ID = 'RadauIIA3';
-ID = 'RadauIIA5';
-%ID = 'RadauIIA7';
-%ID = 'RadauIIA9';
-%  
-%ID =  'LobIIIC2';
-%ID =  'LobIIIC4';
-%ID =  'LobIIIC6';
-%ID =  'LobIIIC8';
+% ID = 'RadauIIA3';
+% ID = 'RadauIIA5';
+% ID = 'RadauIIA7';
+% ID = 'RadauIIA9';
+% %  
+% ID =  'LobIIIC2';
+% ID =  'LobIIIC4';
+% ID =  'LobIIIC6';
+% ID =  'LobIIIC8';
 
 % This sets the precision of all computations to 32 digits...
 %...digits(32) no it don't...
@@ -41,6 +41,7 @@ R_block_row_starts_label = 'R0_block_row_starts';
 R_block_sizes_label = 'R0_block_sizes';
 b_label    = 'b0';
 c_label    = 'c0';
+d_label    = 'd0';
 
 % zeta_label = 'm_zeta';
 % eta_label  = 'm_eta';
@@ -62,7 +63,7 @@ Ainv = inv(A);
 %condeig(Ainv) % Interesting... A\I v.s., inv(A) results in a massive
 %difference here for SDIRK schemes...
     
-
+d = ((A')\b);
 
 % Treat SDIRK differently: Schur decomposition is horribly ill-conditioned
 % for these lower triangular matrices. That is to say, if we compute the
@@ -240,10 +241,10 @@ myfprintf('/* --- R block sizes --- */\n');
 for i = 1:s_eff
     outformat11(R_block_sizes_label, i-1, block_sizes(i))
 end
-myfprintf('/* --- R block row starts --- */\n');
-for i = 1:s_eff
-    outformat11(R_block_row_starts_label, i-1, block_row_starts(i))
-end
+% myfprintf('/* --- R block row starts --- */\n');
+% for i = 1:s_eff
+%     outformat11(R_block_row_starts_label, i-1, block_row_starts(i))
+% end
 % b
 myfprintf('/* --- b --- */\n');
 for i = 1:s
@@ -253,6 +254,11 @@ end
 myfprintf('/* --- c --- */\n');
 for i = 1:s
     outformat1(c_label, i-1, c(i))
+end
+% d
+myfprintf('/* --- d --- */\n');
+for i = 1:s
+    outformat1(d_label, i-1, d(i))
 end
 
 
