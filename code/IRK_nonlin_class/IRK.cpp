@@ -68,31 +68,6 @@ IRK::IRK(IRKOperator *S, IRKType RK_ID)
     
     // Stage operator
     m_stageOper = new IRKStageOper(m_IRKOper, m_stageOffsets, m_RK); 
-    
-    
-    // /* --- Construct object for every REAL factor in char. poly --- */
-    // m_CharPolyOps.SetSize(m_zeta.Size() + m_eta.Size()); 
-    // 
-    // // Initialize data the user might retrieve later
-    // m_avg_iter.resize(m_CharPolyOps.Size(), 0);
-    // m_type.resize(m_CharPolyOps.Size());
-    // m_eig_ratio.resize(m_CharPolyOps.Size(), 0.0);
-    // 
-    // // Linear factors. I.e., those of type 1
-    // double dt_dummy = -1.0; // Use dummy dt, will be set properly before inverting factor.
-    // int count = 0;
-    // for (int i = 0; i < m_zeta.Size(); i++) {
-    //     m_CharPolyOps[count] = new CharPolyOp(dt_dummy, m_zeta(i), *m_IRKOper);
-    //     m_type[count] = 1;
-    //     count++;
-    // }
-    // // Quadratic factors. I.e., those of type 2
-    // for (int i = 0; i < m_eta.Size(); i++) {
-    //     m_CharPolyOps[count] = new CharPolyOp(dt_dummy, m_eta(i), m_beta(i), *m_IRKOper);
-    //     m_type[count] = 2;
-    //     m_eig_ratio[count] = m_beta(i)/m_eta(i);
-    //     count++;
-    // } 
 }
 
 IRK::~IRK() {
@@ -113,8 +88,7 @@ void IRK::InitSolvers()
     m_nonlinear_solver->iterative_mode = false;
     m_nonlinear_solver->SetMaxIter(m_NEWTON.maxiter);
     m_nonlinear_solver->SetRelTol(m_NEWTON.reltol);
-    m_nonlinear_solver->SetPrintLevel(m_NEWTON.printlevel);
-    
+    m_nonlinear_solver->SetPrintLevel(m_NEWTON.printlevel);    
     m_nonlinear_solver->SetSolver(*m_jacobian_solver); // The linear solver for the Newton method
 }
 
@@ -181,36 +155,6 @@ void IRK::Run(Vector &x, double &t, double &dt, double tf)
     //for (int i = 0; i < m_avg_iter.size(); i++) m_avg_iter[i] = round(m_avg_iter[i] / double(numsteps));
 }
 
-
-// 
-// /* Sequentially invert factors in characteristic polynomial */
-// for (int i = 0; i < m_CharPolyOps.Size(); i++) {
-//     // Print info about system being solved
-//     if (m_rank == 0 && m_krylov_print > 0) {
-//         std::cout << "  System " << i+1 << " of " << m_CharPolyOps.Size() <<
-//         " (type=" << m_CharPolyOps[i]->Type() << "):  ";
-//         if (m_krylov_print != 2) std::cout << '\n';
-//     }
-// 
-//     // Ensure that correct time step is used in factored polynomial
-//     m_CharPolyOps[i]->Setdt(dt);
-// 
-//     // Set operator and preconditioner for ith polynomial term
-//     m_CharPolyPrec.SetType(m_CharPolyOps[i]->Type());
-//     m_IRKOper->SetSystem(i, t, dt, m_CharPolyOps[i]->Gamma(), m_CharPolyOps[i]->Type());
-//     m_krylov->SetPreconditioner(m_CharPolyPrec);
-//     m_krylov->SetOperator(*(m_CharPolyOps[i]));    
-// 
-//     // Invert ith factor in polynomial, y <- FACTOR(i)^{-1} * z
-//     m_krylov->Mult(m_z, m_y); 
-// 
-//     // Check for convergence 
-//     if (!m_krylov->GetConverged()) {
-//         string msg = "IRK::Step() Krylov solver at t=" + to_string(t) + " not converged [system " 
-//                         + to_string(i+1) + "/" + to_string(m_CharPolyOps.Size()) 
-//                         + " (type=" + to_string(m_CharPolyOps[i]->Type()) + ")\n";
-//         mfem_error(msg.c_str());
-//     }
 // 
 //     // Record number of iterations
 //     m_avg_iter[i] += m_krylov->GetNumIterations();

@@ -106,10 +106,14 @@ private:
         
     mutable Vector source, temp;// Solution independent source term & auxillary vector
 
-    // Preconditioners for blocks within Jacobian during Newton-type method
-    bool precInit;
-    JacPrec * prec;     // Preconditioner. // TODO. Will need Array/std::vector of these 
-    AMG_params AMG;     // AMG solver params
+    // Preconditioners for systems of the form B = gamma*I-dt*Jacobian
+    Array<HypreBoomerAMG *> B_prec; // 
+    AMG_params AMG;                 // AMG solver params
+    mutable bool JacobianUpdated; // Jacobian updated since any calls to SetSystem()
+    int B_index;
+    
+    // Compatible identity matrix
+    HypreParMatrix * identity;
     
     // dL/du
     mutable HypreParMatrix * Jacobian;
@@ -140,29 +144,28 @@ public:
     bool GetError(int save, const char * out, double t, const Vector &u, 
                     double &eL1, double &eL2, double &eLinf);
     
+
+    /** Precondition B*x=y <==> (\gamma*I - dt*L')*x=y */
+    inline void ImplicitPrec(const Vector &x, Vector &y) const {
+        MFEM_ASSERT(B_prec[B_index], 
+            "AdvDif::ImplicitPrec() Must first set system! See SetSystem()");
+        B_prec[B_index]->Mult(x, y);
+    }
     
     
-    // /// Solve Backward-Euler equation for unknown k for implicit time-steping,
-    // ///     k + A(x + dt*k) - D*(x + dt*k) = s(t)
-    // void ImplicitSolve(const double dt, const Vector &u, Vector &k); 
-    
-    // TODO: These will need to be setup appropriately to use Jacobian
-    // /** Precondition (\gamma*M - dt*L) OR (\gamma*I - dt*L) */
-    // virtual void ImplicitPrec(const Vector &x, Vector &y) const = 0;
-    // 
-    // // Function to ensure that ImplicitPrec preconditions (\gamma*M - dt*L) OR (\gamma*I - dt*L)
-    // // with gamma and dt as passed to this function.
-    // //      + index -> index of real char poly factor, [0,#number of real factors)
-    // //      + type -> eigenvalue type, 1 = real, 2 = complex pair
-    // //      + t -> time.
-    // // These additional parameters are to provide ways to track when
-    // // (\gamma*M - dt*L) or (\gamma*I - dt*L) must be reconstructed or not to minimize setup.
-    // virtual void SetSystem(int index, double t, double dt,
-    //                        double gamma, int type) = 0;
+    // Function to ensure that ImplicitPrec preconditions (\gamma*M - dt*L') OR (\gamma*I - dt*L')
+    // with gamma and dt as passed to this function.
+    //      + index -> index of system, [0,s_eff)
+    //      + type -> eigenvalue type, 1 = real, 2 = complex pair
+    //      + t -> time.
+    // These additional parameters are to provide ways to track when
+    // (\gamma*M - dt*L') _OR_ (\gamma*I - dt*L') must be reconstructed or not to minimize setup.
+    // NOTE: Must use the Operator that a reference is returned to via calling
+    // GetExplicitGradient().
+    void SetSystem(int index, double dt, double gamma, int type);
     
     /// Set solver parameters fot implicit time-stepping; MUST be called before InitSolvers()
-    inline void SetAMGParams(AMG_params params) {
-        if (!precInit) AMG = params; else mfem_error("SetAMGParams:: Can only be called before InitSolvers::"); };
+    inline void SetAMGParams(AMG_params params) { AMG = params; };
 };
 
 
@@ -171,6 +174,8 @@ public:
 // the components that are added
 HypreParMatrix &AdvDif::GetExplicitGradient(const Vector &x) const {
     if (Jacobian) delete Jacobian;
+
+    JacobianUpdated = true;
 
     if (A && D) {
         Jacobian = HypreParMatrixAdd(-1., A->GetGradient(x), 1., D->Get()); 
@@ -182,6 +187,63 @@ HypreParMatrix &AdvDif::GetExplicitGradient(const Vector &x) const {
     }
     return *Jacobian;
 }
+
+void AdvDif::SetSystem(int index, double dt, double gamma, int type) {
+    MFEM_ASSERT(Jacobian, "AdvDif::SetSystem() Jacobian not yet set!");
+    
+    B_index = index;
+    
+    // If Jacobian has been updated since last call to this function, delete all
+    // existing preconditioners that were based on it.
+    if (JacobianUpdated) {
+        for (int i = 0; i < B_prec.Size(); i++) {
+            delete B_prec[i]; 
+            B_prec[i] = NULL;
+        }
+        JacobianUpdated = false;
+    }
+    
+    // Make space for new preconditioner to be built 
+    if (index >= B_prec.Size()) B_prec.Append(NULL);
+    
+    // Build new preconditioner 
+    if (!B_prec[index]) {
+        
+        // Assemble identity matrix 
+        if (!identity) identity = (A) ? A->GetHypreParIdentityMatrix() : D->GetHypreParIdentityMatrix();
+        
+        // B = gamma*I - dt*Jacobian
+        HypreParMatrix * B = HypreParMatrixAdd(-dt, *Jacobian, gamma, *identity); 
+        
+        /* Build AMG preconditioner for B */
+        HypreBoomerAMG * amg_solver = new HypreBoomerAMG(*B);
+        
+        // TODO: Can I now free B? I get a segfault when I do...
+        // delete B;
+        
+        amg_solver->SetPrintLevel(0); 
+        amg_solver->SetMaxIter(1); 
+        amg_solver->SetTol(0.0);
+        amg_solver->SetMaxLevels(50); 
+        //amg_solver->iterative_mode = false;
+        if (AMG.use_AIR) {                        
+            amg_solver->SetLAIROptions(AMG.distance, 
+                                        AMG.prerelax, AMG.postrelax,
+                                        AMG.strength_tolC, AMG.strength_tolR, 
+                                        AMG.filter_tolR, AMG.interp_type, 
+                                        AMG.relax_type, AMG.filterA_tol,
+                                        AMG.coarsening);                                       
+        } else {
+            amg_solver->SetInterpolation(0);
+            amg_solver->SetCoarsening(AMG.coarsening);
+            amg_solver->SetAggressiveCoarsening(1);
+        } 
+        
+        B_prec[index] = amg_solver;
+    }
+}
+
+
 
 
 /* NOTES:
@@ -863,7 +925,8 @@ AdvDif::AdvDif(FDMesh &Mesh_, int fluxID, Vector alpha_, Vector mu_,
         alpha(alpha_), mu(mu_),
         dim(Mesh_.m_dim),
         D(NULL), A(NULL),
-        precInit(false), prec(NULL), AMG(), Jacobian(NULL),
+        B_prec(), B_index{0}, AMG(), 
+        Jacobian(NULL), identity(NULL), JacobianUpdated(false),
         source(Mesh_.GetLocalSize()), temp(Mesh_.GetLocalSize())
 {
     // Assemble diffusion operator if non-zero
@@ -990,16 +1053,15 @@ bool AdvDif::GetError(int save, const char * out, double t, const Vector &u, dou
 
 AdvDif::~AdvDif()
 {
-    //if (gmres_solver) delete gmres_solver;
+    
+    if (D) delete D;
+    if (A) delete A;
+    
+    if (identity) delete identity;
+    
     /* TODO: WHY can't I free amg_solver. Actually, this seems related to 
         *** The MPI_Comm_free() function was called after MPI_FINALIZE was invoked.
         *** This is disallowed by the MPI standard.
-    if (amg_solver) delete amg_solver;
     */
-    //if (be) delete be;
-    //if (nlbe_solver) delete nlbe_solver;
-    //if (lbe_solver) delete lbe_solver;
-    //if (lbe_prec) delete lbe_prec;
-    if (D) delete D;
-    if (A) delete A;
+    //for (int i = B_prec.Size()-1; i >= 0; i--) delete B_prec[i];
 }

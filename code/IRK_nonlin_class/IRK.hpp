@@ -41,8 +41,8 @@ enum class KrylovMethod {CG, MINRES, GMRES, BICGSTAB, FGMRES};
 
 // Parameters for Krylov solver
 struct Krylov_params {
-    double abstol = 1e-13;
-    double reltol = 1e-13;
+    double abstol = 1e-10;
+    double reltol = 1e-10;
     int maxiter = 100;
     int printlevel = 0;
     int kdim = 30;
@@ -114,19 +114,20 @@ public:
         mfem_error("IRKOperator::ApplyMInv() is not overridden!");
     }
     
-    // /** Precondition (\gamma*M - dt*L) OR (\gamma*I - dt*L) */
-    // virtual void ImplicitPrec(const Vector &x, Vector &y) const = 0;
+    /** Precondition (\gamma*M - dt*L') _OR_ (\gamma*I - dt*L') */
+    virtual void ImplicitPrec(const Vector &x, Vector &y) const = 0;
     
     
-    // Function to ensure that ImplicitPrec preconditions (\gamma*M - dt*L) OR (\gamma*I - dt*L)
+    // Function to ensure that ImplicitPrec preconditions (\gamma*M - dt*L') OR (\gamma*I - dt*L')
     // with gamma and dt as passed to this function.
-    //      + index -> index of real char poly factor, [0,#number of real factors)
+    //      + index -> index of system, [0,s_eff)
     //      + type -> eigenvalue type, 1 = real, 2 = complex pair
     //      + t -> time.
     // These additional parameters are to provide ways to track when
-    // (\gamma*M - dt*L) or (\gamma*I - dt*L') must be reconstructed or not to minimize setup.
-    // virtual void SetSystem(int index, double t, double dt,
-    //                        double gamma, int type) = 0;
+    // (\gamma*M - dt*L') _OR_ (\gamma*I - dt*L') must be reconstructed or not to minimize setup.
+    // NOTE: Must use the Operator that a reference is returned to via calling
+    // GetExplicitGradient().
+    virtual void SetSystem(int index, double dt, double gamma, int type) = 0;
     
     // Does a mass matrix exist for this discretization; this needs to be public so IRK can access it
     bool m_M_exists; 
@@ -395,6 +396,9 @@ public:
 };
 
 
+
+
+
 // Defines diagonal blocks appearing in the Kronecker product Jacobian. 
 // These take the form 1x1 or 2x2 blocks.
 //
@@ -405,7 +409,9 @@ public:
 //      [R(0,0)*I-dt*N'  R(0,1)*I  ]
 //      [R(1,0)*I      R(1,1)-dt*N']
 //
-// NOTE: The Jacobian block N' is assumed to be the same on both diagonals
+// NOTE: 
+//      -Jacobian block N' is assumed to be the same on both diagonals
+//      -R(0,0)==R(1,1) (up to machine precision anyways)
 //
 // TODO
 //  -make BlockOperator rather than Operator??
@@ -484,6 +490,78 @@ public:
 };
 
 
+// Preconditioner for Kronecker-product diagonal blocks taking the form
+// 1x1: 
+//      [R(0,0)*I - dt*N']
+// 
+// 2x2:
+//      [R(0,0)*I-dt*N'  R(0,1)*I  ]
+//      [R(1,0)*I      R(0,0)-dt*N']
+//
+// The 2x2 operator is preconditioned by the INVERSE of
+//      [R(0,0)*I-dt*N'      0        ]
+//      [R(1,0)*I       R(0,0)*I-dt*N']
+//
+// Where, in all cases, IRKOper.ImplicitPrec(x,y) is used to approximately 
+//      solve [R(0,0)*I-dt*N']*y=x
+class KronJacDiagBlockPrec : public Solver
+{
+private:
+    const IRKOperator &IRKOper;
+    int size;
+    bool identity; // Use identity preconditioner. Useful as a comparison.
+    
+    // Data required for 2x2 operators
+    Array<int> offsets; 
+    double R10;
+    mutable BlockVector x_block, y_block;
+    mutable Vector temp; // Auxillary vector
+    
+public:
+    
+    /// 1x1 block
+    KronJacDiagBlockPrec(int height, const IRKOperator &IRKOper_, 
+        bool identity_=false) 
+        : Solver(height), IRKOper(IRKOper_), size{1}, identity(identity_) {};
+
+    /// 2x2 block
+    KronJacDiagBlockPrec(int height, const IRKOperator &IRKOper_, 
+        double R10_, Array<int> offsets_, bool identity_=false) 
+        : Solver(height), IRKOper(IRKOper_), size{2}, identity(identity_),
+            R10{R10_}, offsets(offsets_), temp(offsets_[1]) {};
+    
+    ~KronJacDiagBlockPrec() {};
+    
+    /// Apply action of preconditioner
+    inline void Mult(const Vector &x, Vector &y) const {
+        // Use an identity preconditioner
+        if (identity) {
+            y = x;
+            
+        // Use proper preconditioner    
+        } else {
+            // 1x1 system
+            if (size == 1) {
+                IRKOper.ImplicitPrec(x, y);
+            }
+            // 2x2 system uses 2x2 block lower triangular preconditioner 
+            else if (size == 2) {
+                // Wrap scalar Vectors with BlockVectors
+                x_block.Update(x.GetData(), offsets);
+                y_block.Update(y.GetData(), offsets);
+                // Forward substitution
+                IRKOper.ImplicitPrec(x_block.GetBlock(0), y_block.GetBlock(0));
+                add(x_block.GetBlock(1), -R10, y_block.GetBlock(0), temp); // temp <- x[1] - R10*y[0]
+                IRKOper.ImplicitPrec(temp, y_block.GetBlock(1));
+            }
+        }
+    };
+    
+    /// Purely virtual function we must implement but do not use.
+    virtual void SetOperator(const Operator &op) {  };
+};
+
+
 // N' (the Jacobian of N) is assumed constant w.r.t w, so that
 // the diagonal block of Jacobians can be written as a Kronecker product,
 //      I \otimes N' ~ diag(N'(u+dt*w1), ..., N'(u+dt*ws))
@@ -513,10 +591,13 @@ private:
     Vector temp_scalar; 
      
     // Diagonal blocks inverted during backward substitution
-    Array<KronJacDiagBlock *> JacobianDiagBlock;
+    Array<KronJacDiagBlock *> JacDiagBlock;
     
     // Solver for inverting diagonal blocks
     IterativeSolver * krylov_solver; 
+    
+    // Preconditioners to assist with inversion of diagonal blocks
+    Array<KronJacDiagBlockPrec *> JacDiagBlockPrec;
     
     // Jacobian of N.
     Operator * N_jac;
@@ -560,14 +641,17 @@ public:
         double R00;         // 1x1 diagonal block of R0
         DenseMatrix R(2);   // 2x2 diagonal block of R0
         int row = 0;        // Row of R0 we're accessing
-        JacobianDiagBlock.SetSize(StageOper.Butcher.s_eff);
+        JacDiagBlock.SetSize(StageOper.Butcher.s_eff);
+        JacDiagBlockPrec.SetSize(StageOper.Butcher.s_eff);
+        bool identity = !true; // Use identity preconditioners...
         for (int i = 0; i < StageOper.Butcher.s_eff; i++) {
             
             // 1x1 diagonal block
             if (StageOper.Butcher.R0_block_sizes[i] == 1)
             {
                 R00 = StageOper.Butcher.R0(row,row);
-                JacobianDiagBlock[i] = new KronJacDiagBlock(offsets[1], R00);    
+                JacDiagBlock[i] = new KronJacDiagBlock(offsets[1], R00);    
+                JacDiagBlockPrec[i] = new KronJacDiagBlockPrec(offsets[1], *(StageOper.IRKOper), identity);
             } 
             // 2x2 diagonal block
             else 
@@ -583,27 +667,25 @@ public:
                 R(0,1) = StageOper.Butcher.R0(row,row+1);
                 R(1,0) = StageOper.Butcher.R0(row+1,row);
                 R(1,1) = StageOper.Butcher.R0(row+1,row+1);
-                JacobianDiagBlock[i] = new KronJacDiagBlock(2*offsets[1], R, offsets_2);
+                JacDiagBlock[i] = new KronJacDiagBlock(2*offsets[1], R, offsets_2);
+                JacDiagBlockPrec[i] = new KronJacDiagBlockPrec(2*offsets[1], *(StageOper.IRKOper),
+                                            R(1,0), offsets_2, identity);
                 row++; // We've processed 2 rows of R0 here.
             }
+            
             row++; // Increment to next row of R0
         }
         
         // Set up Krylov solver for inverting diagonal blocks
         GetKrylovSolver(krylov_solver, solver_params);
-        
-        // TODO Set the preconditioner... This will be done inside the backward 
-        // substitution loop depending on the system being solved...
-        //krylov_solver->SetPreconditioner(); // JacPrec is preconditioner for m_KRYLOV
-
-        
     };
     
     
     ~KronJacSolver()
     {
-        for (int i = 0; i < JacobianDiagBlock.Size(); i++) {
-            delete JacobianDiagBlock[i];
+        for (int i = 0; i < JacDiagBlock.Size(); i++) {
+            delete JacDiagBlockPrec[i];
+            delete JacDiagBlock[i];
         }
         delete krylov_solver;
     };
@@ -657,7 +739,7 @@ public:
             if (N_jac_lin == 0) {
                 temp_scalar = *(StageOper.u);
                 StageOper.IRKOper->SetTime(t);
-            // Eval jacobian of N at u + dt*w(N_jac_linearization)
+            // Eval jacobian of N at u + dt*w(N_jac_lin)
             } else {
                 int idx = N_jac_lin-1; 
                 add(*(StageOper.u), dt, StageOper.GetCurrentIterate().GetBlock(idx), temp_scalar);
@@ -715,10 +797,18 @@ public:
             mfem::out << "\t  Block solve " << s_eff-diagBlock << " of " << s_eff;
             
             // Update parameters for the diag block to be inverted
-            JacobianDiagBlock[diagBlock]->SetParameters(StageOper.dt, N_jac);
+            JacDiagBlock[diagBlock]->SetParameters(StageOper.dt, N_jac);
             
-            // Pass diagonal block to GMRES 
-            krylov_solver->SetOperator(*JacobianDiagBlock[diagBlock]);
+            
+            int system_idx = s_eff-diagBlock-1; // Note the reverse ordering...
+            // SetSystem(int index, double dt, double gamma, int type);
+            StageOper.IRKOper->SetSystem(system_idx, StageOper.dt, R(idx, idx), StageOper.Butcher.R0_block_sizes[diagBlock]);
+            
+            // Pass preconditioner for diagonal block to Krylov solver
+            krylov_solver->SetPreconditioner(*JacDiagBlockPrec[diagBlock]);
+            
+            // Pass diagonal block to Krylov solver
+            krylov_solver->SetOperator(*JacDiagBlock[diagBlock]);
             
             // Invert 1x1 diagonal block
             if (StageOper.Butcher.R0_block_sizes[diagBlock] == 1) 
