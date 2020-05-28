@@ -76,6 +76,29 @@ IRK::IRK(IRKOperator *IRKOper_, IRKType RK_ID_)
     
     // Stage operator, F(w)
     m_stageOper = new IRKStageOper(m_IRKOper, m_stageOffsets, m_Butcher); 
+    
+    
+    m_avg_newton_iter = 0;
+    m_avg_krylov_iter.resize(m_Butcher.s_eff, 0);
+    m_system_size.resize(m_Butcher.s_eff);
+    m_eig_ratio.resize(m_Butcher.s_eff);
+    
+    // Set sizes, and eigenvalue ratios, beta/eta
+    int row = 0;
+    for (int i = 0; i < m_Butcher.s_eff; i++) {
+        m_system_size[i] = m_Butcher.R0_block_sizes[i];
+        
+        // 1x1 block has beta=0
+        if (m_system_size[i] == 1) {
+            m_eig_ratio[i] = 0.;
+        // 2x2 block
+        } else {
+            // eta == diag entry of block, beta == sqrt(-1 * product of off diagonals)
+            m_eig_ratio[i] = sqrt(-m_Butcher.R0(row+1,row)*m_Butcher.R0(row,row+1)) / m_Butcher.R0(row,row);
+            row++;
+        }
+        row++;
+    }
 }
 
 IRK::~IRK() {
@@ -129,6 +152,9 @@ void IRK::Init(TimeDependentOperator &F)
 /* Apply RK update, x = x + (dt*b0^\top \otimes I)*k */
 void IRK::Step(Vector &x, double &t, double &dt)
 {
+    // Reset iteration counter for Jacobian solve from previous newton iteration
+    m_jacobian_solver->ResetNumIterations();
+    
     // Pass current values of dt and x to stage operator
     m_stageOper->SetParameters(&x, t, dt); 
     
@@ -145,6 +171,15 @@ void IRK::Step(Vector &x, double &t, double &dt)
                     << ", ||r|| = " << m_nonlinear_solver->GetFinalNorm() 
                     << '\n';
     }
+    
+    // Add iteration counts from this solve to existing counts
+    m_avg_newton_iter += m_nonlinear_solver->GetNumIterations();
+    vector<int> krylov_iters = m_jacobian_solver->GetNumIterations();
+    for (int system = 0; system < m_avg_krylov_iter.size(); system++) {
+        m_avg_krylov_iter[system] += krylov_iters[system];
+    }
+    
+    
     
     // Check for convergence 
     if (!m_nonlinear_solver->GetConverged()) {
@@ -177,14 +212,12 @@ void IRK::Run(Vector &x, double &t, double &dt, double tf)
         Step(x, t, dt);
     }
     
-    // Average out number of Krylov iters over whole of time stepping
-    //for (int i = 0; i < m_avg_iter.size(); i++) m_avg_iter[i] = round(m_avg_iter[i] / double(numsteps));
+    // Average out number of Newton and Krylov iters over whole of time stepping
+    m_avg_newton_iter = round(m_avg_newton_iter / double(numsteps));
+    for (int i = 0; i < m_avg_krylov_iter.size(); i++) {
+        m_avg_krylov_iter[i] = round(m_avg_krylov_iter[i] / double(numsteps));
+    }
 }
-
-// 
-//     // Record number of iterations
-//     m_avg_iter[i] += m_krylov->GetNumIterations();
-// }
 
 /* Set dimensions of Butcher arrays after setting s and s_eff. */
 void RKButcherData::SizeData() {

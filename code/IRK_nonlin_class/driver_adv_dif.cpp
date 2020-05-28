@@ -11,6 +11,13 @@ using namespace std;
 
 // mpirun -np 4 ./driver_adv_dif -f 1 -d 1 -o 10 -ex 1 -mx 0.1 -my 0.1 -l 6 -dt -5 -t 110 -save 2 -tf 1 -np 2 -nmaxit 20 -kp 2 -nrtol 1e-8 -nktol 1e-12
 
+/*
+
+test problem...
+
+mpirun -np 4 ./driver_adv_dif -f 1 -d 2 -o 4 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -l 4 -dt -2 -t 14 -save 2 -tf 2 -np 2 -nmaxit 20 -nrtol 1e-10 -natol 1e-10 -krtol 1e-13 -katol 1e-13 -kp 0
+/*
+
 // TODO: Segfault associated w/ freeing HypreBoomerAMG... Currently not being
 // deleted... See associated `TODO` comment...
 
@@ -347,6 +354,7 @@ int main(int argc, char *argv[])
     args.AddOption(&KRYLOV.printlevel, "-kp", "--gmres-print", "KRYLOV: Print level");
     /* Newton parameters */
     args.AddOption(&NEWTON.reltol, "-nrtol", "--newton-rel-tol", "Newton: Relative stopping tolerance");
+    args.AddOption(&NEWTON.abstol, "-natol", "--newton-abs-tol", "Newton: Absolute stopping tolerance");
     args.AddOption(&NEWTON.maxiter, "-nmaxit", "--newton-max-iterations", "Newton: Maximum iterations");
     args.AddOption(&NEWTON.printlevel, "-np", "--newton-print", "Newton: Print level");
     
@@ -472,20 +480,26 @@ int main(int argc, char *argv[])
             solinfo.Print("space_refine", refLevels);
             solinfo.Print("problemID", problem); 
             
-            // /* Linear system/solve statistics */
-            // solinfo.Print("krtol", reltol);
-            // solinfo.Print("katol", abstol);
-            // solinfo.Print("kdim", kdim);
-            // std::vector<int> avg_iter;
-            // std::vector<int> type;
-            // std::vector<double> eig_ratio;
-            // MyIRK.GetSolveStats(avg_iter, type, eig_ratio);
-            // solinfo.Print("nsys", avg_iter.size());
-            // for (int system = 0; system < avg_iter.size(); system++) {
-            //     solinfo.Print("sys" + to_string(system+1) + "_iters", avg_iter[system]);
-            //     solinfo.Print("sys" + to_string(system+1) + "_type", type[system]);
-            //     solinfo.Print("sys" + to_string(system+1) + "_eig_ratio", eig_ratio[system]);
-            // }
+            /* Nonlinear and linear system/solve statistics */
+            
+            int avg_newton_iter;
+            std::vector<int> avg_krylov_iter;
+            std::vector<int> system_size;
+            std::vector<double> eig_ratio;
+            MyIRK.GetSolveStats(avg_newton_iter, avg_krylov_iter, system_size, eig_ratio);
+            solinfo.Print("nrtol", NEWTON.reltol);
+            solinfo.Print("natol", NEWTON.abstol);
+            solinfo.Print("newton_iters", avg_newton_iter);
+            
+            solinfo.Print("krtol", KRYLOV.reltol);
+            solinfo.Print("katol", KRYLOV.abstol);
+            solinfo.Print("kdim", KRYLOV.kdim);
+            solinfo.Print("nsys", avg_krylov_iter.size());
+            for (int system = 0; system < avg_krylov_iter.size(); system++) {
+                solinfo.Print("sys" + to_string(system+1) + "_iters", avg_krylov_iter[system]);
+                solinfo.Print("sys" + to_string(system+1) + "_type", system_size[system]);
+                solinfo.Print("sys" + to_string(system+1) + "_eig_ratio", eig_ratio[system]);
+            }
             
             /* Parallel info */
             solinfo.Print("P", numProcess);

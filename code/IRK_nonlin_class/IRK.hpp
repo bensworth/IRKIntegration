@@ -32,6 +32,7 @@ enum IRKType {
 // Parameters for Newton solver
 struct NEWTON_params {
     double reltol = 1e-6;
+    double abstol = 1e-6;
     int maxiter = 10;
     int printlevel = 2; 
 };
@@ -176,7 +177,7 @@ class KronJacSolver;
 class IRKStageOper : public BlockOperator
 {
 private:
-    friend class KronJacSolver;  // Approximate Jacobian solver needs access
+    friend class KronJacSolver;   // Approximate Jacobian solver needs access
     
     Array<int> &offsets;          // Offsets of operator     
     
@@ -462,9 +463,12 @@ private:
     // Solvers for inverting diagonal blocks
     IterativeSolver * krylov_solver1; // 1x1 solver
     IterativeSolver * krylov_solver2; // 2x2 solver
-    // Note: krylov_solver2 is just a pointer to krylov_solver1 if there aren't 
-    // both 1x1 and 2x2 systems to solve AND if different solver parameters weren't passed 
-    bool multiple_krylov; // Do we really use different solvers?
+    // NOTE: krylov_solver2 is just a pointer to krylov_solver1 so long as there aren't 
+    // both 1x1 and 2x2 systems to solve AND different solver parameters weren't passed 
+    bool multiple_krylov; // Do we really use two different solvers?
+    
+    // Number of Krylov iterations for each diagonal block
+    mutable vector<int> krylov_iters;
     
     // Preconditioners to assist with inversion of diagonal blocks
     Array<KronJacDiagBlockPrec *> JacDiagBlockPrec;
@@ -564,6 +568,13 @@ public:
             GetKrylovSolver(krylov_solver2, solver_params2);
             multiple_krylov = true;
         }
+        
+        krylov_iters.resize(StageOper.Butcher.s_eff, 0);
+    };
+    
+    inline vector<int> GetNumIterations() { return krylov_iters; };
+    inline void ResetNumIterations() { 
+        for (int i = 0; i < krylov_iters.size(); i++) krylov_iters[i] = 0; 
     };
     
     // Constructor for when 1x1 and 2x2 systems use same solver
@@ -717,6 +728,7 @@ public:
                 // Solve
                 krylov_solver1->Mult(z_block.GetBlock(idx), y_block.GetBlock(idx));
                 krylov_converged = krylov_solver1->GetConverged();
+                krylov_iters[diagBlock] += krylov_solver1->GetNumIterations();
             } 
             // Invert 2 x 2 diagonal block
             else if (StageOper.Butcher.R0_block_sizes[diagBlock] == 2) 
@@ -750,6 +762,7 @@ public:
                 // Solve
                 krylov_solver2->Mult(z_2block, y_2block);
                 krylov_converged = krylov_solver2->GetConverged();    
+                krylov_iters[diagBlock] += krylov_solver1->GetNumIterations();
             }
             
             // Check convergence 
@@ -796,10 +809,11 @@ private:
     bool m_krylov2;                     // Do we use a second solver?
 
     
-    /* --- Relating to solution of linear systems --- */
-    // vector<int> m_avg_iter;  // Across whole integration, avg number of Krylov iters for each system
-    // vector<int> m_type;      // Type 1 or 2?
-    // vector<double> m_eig_ratio; // The ratio beta/eta
+    /* --- Statistics on solution of nonlinear and linear systems --- */
+    int m_avg_newton_iter;          // Across whole integration, avg number of Newton iterations per time step
+    vector<int> m_avg_krylov_iter;  // Across whole integration, avg number of Krylov iterations per time step (for every 1x1 and 2x2 system)
+    vector<int> m_system_size;      // Associated linear system sizes: 1x1 or 2x2?
+    vector<double> m_eig_ratio;     // The ratio beta/eta
 public:
 
 
@@ -837,14 +851,16 @@ public:
         m_krylov2 = true; // Using two Krylov solvers
     }
     
-
-    // // Get statistics about solution of linear systems
-    // inline void GetSolveStats(vector<int> &avg_iter, vector<int> &type, 
-    //                             vector<double> &eig_ratio) const {
-    //                                 avg_iter  =  m_avg_iter;
-    //                                 type      =  m_type;
-    //                                 eig_ratio =  m_eig_ratio;
-    //                             }
+    // Get statistics about solution of nonlinear and linear systems
+    inline void GetSolveStats(int &avg_newton_iter, 
+                                vector<int> &avg_krylov_iter, 
+                                vector<int> &system_size, 
+                                vector<double> &eig_ratio) const {
+                                    avg_newton_iter = m_avg_newton_iter;
+                                    avg_krylov_iter = m_avg_krylov_iter;
+                                    system_size     = m_system_size;
+                                    eig_ratio       =  m_eig_ratio;
+                                }
 };
 
 #endif
