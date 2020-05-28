@@ -36,7 +36,7 @@ struct NEWTON_params {
     int printlevel = 2; 
 };
 
-// Different type of Krylov solvers
+// Different types of Krylov solvers
 enum class KrylovMethod {CG, MINRES, GMRES, BICGSTAB, FGMRES};
 
 // Parameters for Krylov solver
@@ -132,137 +132,6 @@ public:
     // Does a mass matrix exist for this discretization; this needs to be public so IRK can access it
     bool m_M_exists; 
 };
-
-// 
-// /* Wrapper to preconditioner factors in a polynomial by preconditioning either
-//     TYPE 1. [gamma*M - dt*L] _OR_ [gamma*I - dt*L]
-//     TYPE 2. [gamma*M - dt*L]M^{-1}[gamma*M - dt*L]  _OR_ [gamma*I - dt*L]^2
-// 
-// [gamma*M - dt*L] _OR_ [gamma*I - dt*L] is preconditioned using
-// IRKOperator.ImplicitPrec(). Type 2 involves two IRKOperator.ImplicitPrec()
-// applications, with an application of M in between, IRKOperator.ApplyM().
-// */
-// class CharPolyPrecon : public Solver
-// {
-// 
-// private:
-//     int m_type; /* 1 or 2; type of preconditioner to provide */
-//     IRKOperator &m_IRKOper; /* Holds all information about spatial discretization */
-// 
-// public:
-// 
-//     CharPolyPrecon(IRKOperator &S)
-//         : Solver(S.Height(), false), m_IRKOper(S), m_type(-1) { };
-// 
-//     ~CharPolyPrecon() { };
-// 
-//     void SetType(int type) { m_type = type; };
-// 
-//     inline void Mult(const Vector &x, Vector &y) const
-//     {
-//         if (m_type == 1) {
-//             m_IRKOper.ImplicitPrec(x, y); // Precondition [gamma*M - dt*L] _OR_ [gamma*I - dt*L]
-// 
-//         } else if (m_type == 2) {
-//             Vector z(x);
-//             // With mass matrix 
-//             if (m_IRKOper.m_M_exists) {
-//                 m_IRKOper.ImplicitPrec(z, y);     // Precondition [gamma*M - dt*L]
-//                 m_IRKOper.ImplicitMult(y, z);     // Apply M
-//                 m_IRKOper.ImplicitPrec(z, y);     // Precondition [gamma*M - dt*L]
-//             // Without mass matrix
-//             } else {
-//                 m_IRKOper.ImplicitPrec(x, z);     // Precondition [gamma*I - dt*L]
-//                 m_IRKOper.ImplicitPrec(z, y);     // Precondition [gamma*I - dt*L]
-//             }
-//         }
-//         else {
-//             mfem_error("CharPolyPrecon::Must set polynomial type 1 or 2!\n");
-//         }
-//     };
-// 
-//     // Purely virtual function we must implement but do not use
-//     virtual void SetOperator(const Operator &op) {  };
-// };
-
-/* Char. poly factors, F:
-    TYPE 1. F == [zeta*M - dt*L], _OR_ F == [zeta*I - dt*L]
-    TYPE 2. F == [(eta^2+beta^2)*M - 2*eta*dt*L + dt^2*L*M^{-1}*L] _OR_ [(eta^2+beta^2)*I - 2*eta*dt*L + (dt*L)^2]
-*/
-// class CharPolyOp : public Operator
-// {
-// private:
-// 
-//     int m_type; // 1 or 2; type of factor
-//     double m_gamma; // Constant in preconditioner
-//     double m_dt;
-//     Vector m_c;     // Coefficients describing operator as polynomial in L
-//     IRKOperator &m_IRKOper;
-// 
-// public:
-// 
-//     /* Constructor for TYPE 1 char. polynomial factor */
-//     CharPolyOp(double dt, double zeta, IRKOperator &S) 
-//         : Operator(S.Height()), m_c(2), m_dt{dt}, m_IRKOper{S},
-//             m_gamma(zeta), m_type(1)
-//     {
-//         // Coefficients of operator as a polynomial in L
-//         m_c(0) = zeta;
-//         m_c(1) = -1.0;
-//     };
-// 
-//     /* Constructor for TYPE 2 char. polynomial factor */
-//     CharPolyOp(double dt, double eta, double beta, IRKOperator &S) 
-//         : Operator(S.Height()), m_dt{dt}, m_IRKOper{S},
-//         m_c(3), m_gamma(eta), m_type(2)
-//     {
-//         // Coefficients of operator as a polynomial in L
-//         m_c(0) = eta*eta + beta*beta;
-//         m_c(1) = -2.0*eta;
-//         m_c(2) = 1.0;
-//     };
-// 
-//     inline int Type() {return m_type; };
-//     inline double Gamma() {return m_gamma; };
-//     inline double dt() {return m_dt; };
-//     inline void Setdt(double dt) { m_dt = dt; };
-// 
-//     /* y <- char. poly factor(dt*M^{-1}*L)*x _OR_ y <- char. poly factor(dt*L)*x */
-//     inline void Mult(const Vector &x, Vector &y) const 
-//     {
-//         // If no mass matrix, factor is simply a polynomial in dt*L
-//         if (!m_IRKOper.m_M_exists) {
-//             m_IRKOper.PolynomialMult(m_c, m_dt, x, y); 
-// 
-//         // If mass matrix exists, factor is not quite a polynomial in dt*L
-//         } else {
-//             Vector z(x); // Auxillary vector
-// 
-//             // F == [zeta*M - dt*L]
-//             if (m_type == 1) {
-//                 m_IRKOper.ImplicitMult(x, z);
-//                 z *= m_c(0);
-//                 m_IRKOper.ApplyL(x, y);
-//                 y *= -m_dt;
-//                 y += z;
-// 
-//             // F == [(eta^2 + beta^2)*M - 2*dt*L + dt^2*L*M^{-1}*L]
-//             } else {
-//                 m_IRKOper.ApplyL(x, y);
-//                 m_IRKOper.ApplyMInv(y, z);
-//                 z *= m_c(2)*m_dt;
-//                 z.Add(m_c(1), x); // z = [c(1)*I + c(2)*dt*M^{-1}*L]*x
-//                 m_IRKOper.ApplyL(z, y);
-//                 y *= m_dt;   // y = dt*L*[c(1)*I + c(2)*dt*M^{-1}*L]*x
-//                 m_IRKOper.ImplicitMult(x, z);
-//                 z *= m_c(0); 
-//                 y += z;
-//             }
-//         }
-//     }
-//     ~CharPolyOp() { };
-// };
-
 
     
 class RKButcherData 
@@ -567,15 +436,12 @@ public:
 //      I \otimes N' ~ diag(N'(u+dt*w1), ..., N'(u+dt*ws))
 // Letting J = A^-1 \otimes I - dt * I \otimes N', here we solve J*x=b via 
 // block backward substitution, making use of the Schur decomposition of A^-1.
-//
-// TODO:
-//  -Possibility, but maybe overkill. Allow two different Krylov solvers so that
-//      a different solver can be used to invert 1x1 blocks (this could exploit 
-//      SDP properties etc, which cannot be done for the 2x2 blocks)
 class KronJacSolver : public Solver
 {
 
 private:
+    int printlevel;
+    
     IRKStageOper &StageOper;
     
     Array<int> &offsets;    // Offsets for vectors with s blocks
@@ -593,8 +459,12 @@ private:
     // Diagonal blocks inverted during backward substitution
     Array<KronJacDiagBlock *> JacDiagBlock;
     
-    // Solver for inverting diagonal blocks
-    IterativeSolver * krylov_solver; 
+    // Solvers for inverting diagonal blocks
+    IterativeSolver * krylov_solver1; // 1x1 solver
+    IterativeSolver * krylov_solver2; // 2x2 solver
+    // Note: krylov_solver2 is just a pointer to krylov_solver1 if there aren't 
+    // both 1x1 and 2x2 systems to solve AND if different solver parameters weren't passed 
+    bool multiple_krylov; // Do we really use different solvers?
     
     // Preconditioners to assist with inversion of diagonal blocks
     Array<KronJacDiagBlockPrec *> JacDiagBlockPrec;
@@ -616,28 +486,33 @@ private:
     int N_jac_update_rate;
     
 public:
-    
-    KronJacSolver(IRKStageOper &StageOper_, const Krylov_params &solver_params,
-                  int N_jac_lin_, int N_jac_update_rate_) 
+
+    // General constructor, where 1x1 and 2x2 systems can use different Krylov solvers
+    // NOTE: To use only a single solver, requires &solver_params1==&solver_params2
+    KronJacSolver(IRKStageOper &StageOper_, 
+                    const Krylov_params &solver_params1, const Krylov_params &solver_params2, 
+                    int N_jac_lin_, int N_jac_update_rate_) 
         : Solver(StageOper_.Height()),
+        printlevel(solver_params1.printlevel),
         StageOper(StageOper_),
-        offsets(StageOper_.RowOffsets()),
+        offsets(StageOper_.RowOffsets()), offsets_2(0),
         x_block(StageOper_.RowOffsets()), b_block(StageOper_.RowOffsets()), 
         b_block_temp(StageOper_.RowOffsets()), x_block_temp(StageOper_.RowOffsets()), 
         y_2block(), z_2block(),
         temp_scalar(StageOper_.RowOffsets()[1]),
-        offsets_2(0),
+        krylov_solver1(NULL), krylov_solver2(NULL), multiple_krylov(false),
         N_jac(NULL), 
         N_jac_lin{N_jac_lin_},
         N_jac_update_rate{N_jac_update_rate_}
-    {
-        
+    {    
         MFEM_ASSERT(N_jac_lin > 0 && N_jac_lin <= StageOper.Butcher.s, 
                 "KronJacSolver: Require 0 < N_jac_linearization <= s");
         MFEM_ASSERT(N_jac_update_rate == 0 || N_jac_update_rate == 1, 
                 "KronJacSolver: Require N_jac_update_rate==0 or 1");
         
         // Create operators describing diagonal blocks
+        bool type1_solves = false; // Do we solve any 1x1 systems?
+        bool type2_solves = false; // Do we solve any 2x2 systems?
         double R00;         // 1x1 diagonal block of R0
         DenseMatrix R(2);   // 2x2 diagonal block of R0
         int row = 0;        // Row of R0 we're accessing
@@ -649,6 +524,7 @@ public:
             // 1x1 diagonal block
             if (StageOper.Butcher.R0_block_sizes[i] == 1)
             {
+                type1_solves = true;
                 R00 = StageOper.Butcher.R0(row,row);
                 JacDiagBlock[i] = new KronJacDiagBlock(offsets[1], R00);    
                 JacDiagBlockPrec[i] = new KronJacDiagBlockPrec(offsets[1], *(StageOper.IRKOper), identity);
@@ -656,6 +532,7 @@ public:
             // 2x2 diagonal block
             else 
             {
+                type2_solves = true;
                 if (offsets_2.Size() == 0) {
                     offsets_2.SetSize(3);
                     offsets_2[0] = offsets[0];
@@ -676,10 +553,24 @@ public:
             row++; // Increment to next row of R0
         }
         
-        // Set up Krylov solver for inverting diagonal blocks
-        GetKrylovSolver(krylov_solver, solver_params);
+        // Set up Krylov solver 
+        GetKrylovSolver(krylov_solver1, solver_params1);
+        krylov_solver2 = krylov_solver1; // By default, 2x2 systems solved with krylov_solver1.
+        
+        // Setup different solver for 2x2 blocks if needed (solving both 1x1 and 
+        // 2x2 systems AND references to solver parameters are not identical)
+        if ((type1_solves && type2_solves) && (&solver_params1 != &solver_params2)) {
+            MFEM_ASSERT(solver_params2.solver == KrylovMethod::GMRES, "IRK:: 2x2 systems must use GMRES.\n");
+            GetKrylovSolver(krylov_solver2, solver_params2);
+            multiple_krylov = true;
+        }
     };
     
+    // Constructor for when 1x1 and 2x2 systems use same solver
+    KronJacSolver(IRKStageOper &StageOper_, const Krylov_params &solver_params,
+                  int N_jac_lin_, int N_jac_update_rate_)   
+                  : KronJacSolver(StageOper_, solver_params, solver_params, 
+                                    N_jac_lin_, N_jac_update_rate_) {};
     
     ~KronJacSolver()
     {
@@ -687,15 +578,13 @@ public:
             delete JacDiagBlockPrec[i];
             delete JacDiagBlock[i];
         }
-        delete krylov_solver;
+        delete krylov_solver1;
+        if (multiple_krylov) delete krylov_solver2;
     };
     
     /// Set up Krylov solver for inverting diagonal blocks
-    //
-    // NOTE: Rather than accessing member solver, leave open possibility of setting
-    // up any Krylov solver for when I add another solver to handle 1x1/2x2 systems differently.
-    inline void GetKrylovSolver(IterativeSolver * &solver, const Krylov_params &solver_params) {
-        switch (solver_params.solver) {
+    inline void GetKrylovSolver(IterativeSolver * &solver, const Krylov_params &params) {
+        switch (params.solver) {
             case KrylovMethod::CG:
                 solver = new CGSolver(StageOper.IRKOper->GetComm());
                 break;
@@ -704,29 +593,30 @@ public:
                 break;
             case KrylovMethod::GMRES:
                 solver = new GMRESSolver(StageOper.IRKOper->GetComm());
-                static_cast<GMRESSolver*>(solver)->SetKDim(solver_params.kdim);
+                static_cast<GMRESSolver*>(solver)->SetKDim(params.kdim);
                 break;
             case KrylovMethod::BICGSTAB:
-                krylov_solver = new MINRESSolver(StageOper.IRKOper->GetComm());
+                solver = new MINRESSolver(StageOper.IRKOper->GetComm());
                 break;    
             case KrylovMethod::FGMRES:
                 solver = new FGMRESSolver(StageOper.IRKOper->GetComm());
-                static_cast<FGMRESSolver*>(solver)->SetKDim(solver_params.kdim);
+                static_cast<FGMRESSolver*>(solver)->SetKDim(params.kdim);
                 break;
             default:
                 mfem_error("IRK::Invalid Krylov solve type.\n");   
         }
         
         solver->iterative_mode = false;
-        solver->SetAbsTol(solver_params.abstol);
-        solver->SetRelTol(solver_params.reltol);
-        solver->SetMaxIter(solver_params.maxiter);
-        solver->SetPrintLevel(solver_params.printlevel);
+        solver->SetAbsTol(params.abstol);
+        solver->SetRelTol(params.reltol);
+        solver->SetMaxIter(params.maxiter);
+        solver->SetPrintLevel(params.printlevel);
     }
     
     
-    // Newton method will pass the operator returned from its GetGradient() to this,
-    // but we don't actually require this.
+    /// Newton method will pass the operator returned from its GetGradient() to 
+    /// this, but we don't actually require it. However, we do access whether
+    /// we need to update our Jacobian, N_jac.
     void SetOperator (const Operator &op) { 
     
         double dt = StageOper.dt;
@@ -780,12 +670,13 @@ public:
     NOTE: RHS vector z is not const, since its data is overridden during the solve */
     void BlockBackwardSubstitution(BlockVector &z_block, BlockVector &y_block) const
     {
-        mfem::out << "\t---Backward solve---" << '\n';
+        if (printlevel > 0) mfem::out << "  ---Backward solve---" << '\n';
         
         // Short hands
         int s = StageOper.Butcher.s; 
         int s_eff = StageOper.Butcher.s_eff; 
         DenseMatrix R = StageOper.Butcher.R0; 
+        bool krylov_converged;
         
         // Block index of current unknown (index w.r.t y/z block sizes, not Rs)
         int idx = s-1;
@@ -794,7 +685,7 @@ public:
         for y[idx], or 2x2 systems for (y[idx],y[idx+1]) */
         for (int diagBlock = s_eff-1; diagBlock >= 0; diagBlock--)
         {
-            mfem::out << "\t  Block solve " << s_eff-diagBlock << " of " << s_eff;
+            if (printlevel > 0) mfem::out << "    Block solve " << s_eff-diagBlock << " of " << s_eff;
             
             // Update parameters for the diag block to be inverted
             JacDiagBlock[diagBlock]->SetParameters(StageOper.dt, N_jac);
@@ -804,16 +695,13 @@ public:
             // SetSystem(int index, double dt, double gamma, int type);
             StageOper.IRKOper->SetSystem(system_idx, StageOper.dt, R(idx, idx), StageOper.Butcher.R0_block_sizes[diagBlock]);
             
-            // Pass preconditioner for diagonal block to Krylov solver
-            krylov_solver->SetPreconditioner(*JacDiagBlockPrec[diagBlock]);
-            
-            // Pass diagonal block to Krylov solver
-            krylov_solver->SetOperator(*JacDiagBlock[diagBlock]);
-            
             // Invert 1x1 diagonal block
             if (StageOper.Butcher.R0_block_sizes[diagBlock] == 1) 
             {
-                mfem::out << ": 1x1 block" << '\n';
+                if (printlevel > 0) {
+                    mfem::out << ": 1x1 block  -->  ";
+                    if (printlevel != 2) mfem::out << '\n';
+                }
                 // --- Form RHS vector (this overrides z_block[idx]) --- //
                 // Substract out known information from LHS of equation
                 for (int j = idx+1; j < s; j++) {
@@ -822,13 +710,21 @@ public:
                 
                 // --- Solve 1x1 system --- //
                 // [R(idx, idx)*I - dt*L]*y[idx] = augmented(z[idx])
-                krylov_solver->Mult(z_block.GetBlock(idx), y_block.GetBlock(idx));
-            
+                // Pass preconditioner for diagonal block to Krylov solver
+                krylov_solver1->SetPreconditioner(*JacDiagBlockPrec[diagBlock]);
+                // Pass diagonal block to Krylov solver
+                krylov_solver1->SetOperator(*JacDiagBlock[diagBlock]);
+                // Solve
+                krylov_solver1->Mult(z_block.GetBlock(idx), y_block.GetBlock(idx));
+                krylov_converged = krylov_solver1->GetConverged();
             } 
             // Invert 2 x 2 diagonal block
             else if (StageOper.Butcher.R0_block_sizes[diagBlock] == 2) 
             {
-                mfem::out << ": 2x2 block" << '\n';
+                if (printlevel > 0) {
+                    mfem::out << ": 2x2 block  -->  ";
+                    if (printlevel != 2) mfem::out << '\n';
+                }
                 idx--; // Index first unknown in pair rather than second
         
                 // --- Form RHS vector (this overrides z_block[idx], z_block[idx+1]) --- //
@@ -847,11 +743,17 @@ public:
                 // --- Solve 2x2 system --- //
                 // [R(idx,idx)*I-dt*N'    R(idx,idx+1)    ][y[idx]  ] = augmented(z[idx])
                 // [R(idx+1,idx)*I    R(idx+1,idx+1)-dt*N'][y[idx+1]] = augmented(z[idx+1])
-                krylov_solver->Mult(z_2block, y_2block);
+                // Pass preconditioner for diagonal block to Krylov solver
+                krylov_solver2->SetPreconditioner(*JacDiagBlockPrec[diagBlock]);
+                // Pass diagonal block to Krylov solver
+                krylov_solver2->SetOperator(*JacDiagBlock[diagBlock]);
+                // Solve
+                krylov_solver2->Mult(z_2block, y_2block);
+                krylov_converged = krylov_solver2->GetConverged();    
             }
             
-            // Check for convergence of diagonal solver 
-            if (!krylov_solver->GetConverged()) {
+            // Check convergence 
+            if (!krylov_converged) {
                 string msg = "KronJacSolver::BlockBackwardSubstitution() Krylov solver at t=" 
                                 + to_string(StageOper.IRKOper->GetTime()) 
                                 + " not converged [system " + to_string(s_eff-diagBlock) 
@@ -877,46 +779,31 @@ private:
     int m_numProcess;
     int m_rank;
     
-    IRKOperator * m_IRKOper; // Holds all information about THE spatial discretization. TODO: Maybe rename to avoid confusion with Butcher m_s...
-    
-    Vector m_y, m_z; // Solution and RHS of linear systems
-    Vector m_f; // Auxillary vectors
-    
-    // Require linear/nonlinear solves for implicit time stepping
-    IRKStageOper * m_stageOper; // Operator encoding the s stages, F(k) = 0
-    bool m_solversInit;
-    NewtonSolver * m_nonlinear_solver;
-    KronJacSolver * m_jacobian_solver;
-    NEWTON_params m_NEWTON; // Parameters for Newton solvers
-    Krylov_params m_KRYLOV; // Parameters for Krylov solvers
-    
-    // // Char. poly factors and preconditioner wrapper
-    // Array<CharPolyOp  *> m_CharPolyOps;
-    // CharPolyPrecon  m_CharPolyPrec;
-    // IterativeSolver * m_krylov;
+    RKButcherData m_Butcher;    // Runge-Kutta Butcher tableau and associated data
 
-    // Runge-Kutta variables
-    RKButcherData m_RK;
-    BlockVector m_k;    // Stage vectors
-    BlockVector m_w;
-    Array<int> m_stageOffsets;
+    IRKOperator * m_IRKOper;    // All information about spatial discretization. 
+    BlockVector m_w;            // The stage vectors
+    Array<int> m_stageOffsets;  // Offsets 
+    IRKStageOper * m_stageOper; // Operator encoding stages, F(w) = 0
+    
+    // Nonlinear and linear solvers for computing stage vectors
+    bool m_solversInit;                 // Have the solvers been initialized?
+    NewtonSolver * m_nonlinear_solver;  // Nonlinear solver for inverting F
+    KronJacSolver * m_jacobian_solver;  // Linear solver for inverting approximate Jacobian
+    NEWTON_params m_newton_params;      // Parameters for Newton solver
+    Krylov_params m_krylov_params;      // Parameters for Krylov solver.
+    Krylov_params m_krylov_params2;     // Parameters for Krylov solver for 2x2 systems, if different than that for 1x1 systems
+    bool m_krylov2;                     // Do we use a second solver?
+
     
     /* --- Relating to solution of linear systems --- */
     // vector<int> m_avg_iter;  // Across whole integration, avg number of Krylov iters for each system
     // vector<int> m_type;      // Type 1 or 2?
     // vector<double> m_eig_ratio; // The ratio beta/eta
-    
-    
-    //void PolyAction();        // Compute action of a polynomial on a vector
-    // 
-    // // Construct right-hand side, z, for IRK integration, including applying
-    // // the block Adjugate and Butcher inverse 
-    // void ConstructRHS(const Vector &x, double t, double dt, Vector &z);
-
 public:
 
 
-    IRK(IRKOperator *S, IRKType RK_ID);
+    IRK(IRKOperator *IRKOper_, IRKType RK_ID_);
     ~IRK();
  
     void Init(TimeDependentOperator &F);
@@ -929,11 +816,27 @@ public:
 
     void InitSolvers();
 
-    /// Set solver parameters fot implicit time-stepping; MUST be called before InitSolvers()
-    inline void SetKrylovParams(Krylov_params params) { 
-        if (!m_solversInit) m_KRYLOV = params; else mfem_error("IRK::SetKrylovParams:: Can only be called before IRK::Run()"); };
+    /* --- Set solver parameters fot implicit time-stepping --- */
+    /// Newton solver
     inline void SetNewtonParams(NEWTON_params params) { 
-        if (!m_solversInit) m_NEWTON = params; else mfem_error("IRK::SetNewtonParams:: Can only be called before IRK::Run()"); };
+        MFEM_ASSERT(!m_solversInit, "IRK::SetNewtonParams:: Can only be called before IRK::Run()");
+        m_newton_params = params;
+    }
+    /// Krylov solver
+    inline void SetKrylovParams(Krylov_params params) { 
+        MFEM_ASSERT(!m_solversInit, "IRK::SetKrylovParams:: Can only be called before IRK::Run()");
+        m_krylov_params = params;
+        m_krylov2 = false; // Using single Krylov solver
+    }
+    /// Krylov solvers, if different solver to be used to 1x1 and 2x2 systems
+    // TODO: Really should check these structs are not equal by value here...
+    inline void SetKrylovParams(Krylov_params params1, Krylov_params params2) { 
+        MFEM_ASSERT(!m_solversInit, "IRK::SetKrylovParams:: Can only be called before IRK::Run()");
+        m_krylov_params  = params1;
+        m_krylov_params2 = params2;
+        m_krylov2 = true; // Using two Krylov solvers
+    }
+    
 
     // // Get statistics about solution of linear systems
     // inline void GetSolveStats(vector<int> &avg_iter, vector<int> &type, 
