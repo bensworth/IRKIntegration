@@ -9,7 +9,14 @@ using namespace std;
 
 #define PI 3.14159265358979323846
 
-// mpirun -np 1 ./driver_adv_dif -f 0 -d 1 -o 4 -ex 1 -mx 0.075 -l 4 -nt 2 -t 4
+// mpirun -np 4 ./driver_adv_dif -f 1 -d 1 -o 10 -ex 1 -mx 0.1 -my 0.1 -l 6 -dt -5 -t 110 -save 2 -tf 1 -np 2 -nmaxit 20 -kp 2 -nrtol 1e-8 -nktol 1e-12
+
+/*
+
+test problem...
+
+mpirun -np 4 ./driver_adv_dif -f 1 -d 2 -o 4 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -l 4 -dt -2 -t 14 -save 2 -tf 2 -np 2 -nmaxit 20 -nrtol 1e-10 -natol 1e-10 -krtol 1e-13 -katol 1e-13 -kp 0
+/*
 
 // TODO: Segfault associated w/ freeing HypreBoomerAMG... Currently not being
 // deleted... See associated `TODO` comment...
@@ -106,10 +113,15 @@ private:
         
     mutable Vector source, temp;// Solution independent source term & auxillary vector
 
-    // Preconditioners for blocks within Jacobian during Newton-type method
-    bool precInit;
-    JacPrec * prec;     // Preconditioner. // TODO. Will need Array/std::vector of these 
-    AMG_params AMG;     // AMG solver params
+    // Preconditioners for systems of the form B = gamma*I-dt*Jacobian
+    Array<HypreBoomerAMG *> B_prec; // 
+    Array<HypreParMatrix *> B_mats; // Seem's like it's only safe to free matrix once preconditioner is finished with it, so need to save these...
+    AMG_params AMG;                 // AMG solver params
+    mutable bool JacobianUpdated; // Jacobian updated since any calls to SetSystem()
+    int B_index;
+    
+    // Compatible identity matrix
+    HypreParMatrix * identity;
     
     // dL/du
     mutable HypreParMatrix * Jacobian;
@@ -140,29 +152,28 @@ public:
     bool GetError(int save, const char * out, double t, const Vector &u, 
                     double &eL1, double &eL2, double &eLinf);
     
+
+    /** Precondition B*x=y <==> (\gamma*I - dt*L')*x=y */
+    inline void ImplicitPrec(const Vector &x, Vector &y) const {
+        MFEM_ASSERT(B_prec[B_index], 
+            "AdvDif::ImplicitPrec() Must first set system! See SetSystem()");
+        B_prec[B_index]->Mult(x, y);
+    }
     
     
-    // /// Solve Backward-Euler equation for unknown k for implicit time-steping,
-    // ///     k + A(x + dt*k) - D*(x + dt*k) = s(t)
-    // void ImplicitSolve(const double dt, const Vector &u, Vector &k); 
-    
-    // TODO: These will need to be setup appropriately to use Jacobian
-    // /** Precondition (\gamma*M - dt*L) OR (\gamma*I - dt*L) */
-    // virtual void ImplicitPrec(const Vector &x, Vector &y) const = 0;
-    // 
-    // // Function to ensure that ImplicitPrec preconditions (\gamma*M - dt*L) OR (\gamma*I - dt*L)
-    // // with gamma and dt as passed to this function.
-    // //      + index -> index of real char poly factor, [0,#number of real factors)
-    // //      + type -> eigenvalue type, 1 = real, 2 = complex pair
-    // //      + t -> time.
-    // // These additional parameters are to provide ways to track when
-    // // (\gamma*M - dt*L) or (\gamma*I - dt*L) must be reconstructed or not to minimize setup.
-    // virtual void SetSystem(int index, double t, double dt,
-    //                        double gamma, int type) = 0;
+    // Function to ensure that ImplicitPrec preconditions (\gamma*M - dt*L') OR (\gamma*I - dt*L')
+    // with gamma and dt as passed to this function.
+    //      + index -> index of system, [0,s_eff)
+    //      + type -> eigenvalue type, 1 = real, 2 = complex pair
+    //      + t -> time.
+    // These additional parameters are to provide ways to track when
+    // (\gamma*M - dt*L') _OR_ (\gamma*I - dt*L') must be reconstructed or not to minimize setup.
+    // NOTE: Must use the Operator that a reference is returned to via calling
+    // GetExplicitGradient().
+    void SetSystem(int index, double dt, double gamma, int type);
     
     /// Set solver parameters fot implicit time-stepping; MUST be called before InitSolvers()
-    inline void SetAMGParams(AMG_params params) {
-        if (!precInit) AMG = params; else mfem_error("SetAMGParams:: Can only be called before InitSolvers::"); };
+    inline void SetAMGParams(AMG_params params) { AMG = params; };
 };
 
 
@@ -171,6 +182,8 @@ public:
 // the components that are added
 HypreParMatrix &AdvDif::GetExplicitGradient(const Vector &x) const {
     if (Jacobian) delete Jacobian;
+
+    JacobianUpdated = true;
 
     if (A && D) {
         Jacobian = HypreParMatrixAdd(-1., A->GetGradient(x), 1., D->Get()); 
@@ -182,6 +195,66 @@ HypreParMatrix &AdvDif::GetExplicitGradient(const Vector &x) const {
     }
     return *Jacobian;
 }
+
+void AdvDif::SetSystem(int index, double dt, double gamma, int type) {
+    MFEM_ASSERT(Jacobian, "AdvDif::SetSystem() Jacobian not yet set!");
+    
+    B_index = index;
+    
+    // If Jacobian has been updated since last call to this function, delete all
+    // existing preconditioners used existing Jacobian.
+    if (JacobianUpdated) {
+        for (int i = 0; i < B_prec.Size(); i++) {
+            delete B_prec[i]; 
+            B_prec[i] = NULL;
+            delete B_mats[i];
+            B_mats[i] = NULL;
+        }
+        JacobianUpdated = false;
+    }
+    
+    // Make space for new preconditioner to be built 
+    if (index >= B_prec.Size()) {
+        B_prec.Append(NULL);
+        B_mats.Append(NULL);
+    }
+    
+    // Build a new preconditioner 
+    if (!B_prec[index]) {
+        
+        // Assemble identity matrix 
+        if (!identity) identity = (A) ? A->GetHypreParIdentityMatrix() : D->GetHypreParIdentityMatrix();
+        
+        // B = gamma*I - dt*Jacobian
+        HypreParMatrix * B = HypreParMatrixAdd(-dt, *Jacobian, gamma, *identity); 
+        
+        /* Build AMG preconditioner for B */
+        HypreBoomerAMG * amg_solver = new HypreBoomerAMG(*B);
+        
+        amg_solver->SetPrintLevel(0); 
+        amg_solver->SetMaxIter(1); 
+        amg_solver->SetTol(0.0);
+        amg_solver->SetMaxLevels(50); 
+        //amg_solver->iterative_mode = false;
+        if (AMG.use_AIR) {                        
+            amg_solver->SetLAIROptions(AMG.distance, 
+                                        AMG.prerelax, AMG.postrelax,
+                                        AMG.strength_tolC, AMG.strength_tolR, 
+                                        AMG.filter_tolR, AMG.interp_type, 
+                                        AMG.relax_type, AMG.filterA_tol,
+                                        AMG.coarsening);                                       
+        } else {
+            amg_solver->SetInterpolation(0);
+            amg_solver->SetCoarsening(AMG.coarsening);
+            amg_solver->SetAggressiveCoarsening(1);
+        } 
+        
+        B_prec[index] = amg_solver;
+        B_mats[index] = B;
+    }
+}
+
+
 
 
 /* NOTES:
@@ -281,6 +354,7 @@ int main(int argc, char *argv[])
     args.AddOption(&KRYLOV.printlevel, "-kp", "--gmres-print", "KRYLOV: Print level");
     /* Newton parameters */
     args.AddOption(&NEWTON.reltol, "-nrtol", "--newton-rel-tol", "Newton: Relative stopping tolerance");
+    args.AddOption(&NEWTON.abstol, "-natol", "--newton-abs-tol", "Newton: Absolute stopping tolerance");
     args.AddOption(&NEWTON.maxiter, "-nmaxit", "--newton-max-iterations", "Newton: Maximum iterations");
     args.AddOption(&NEWTON.printlevel, "-np", "--newton-print", "Newton: Print level");
     
@@ -352,6 +426,10 @@ int main(int argc, char *argv[])
 
     // Initialize IRK time-stepping solver
     MyIRK.Init(SpaceDisc);
+    // Krylov_params KRYLOV2;
+    // KRYLOV2.solver = KrylovMethod::GMRES;
+    // KRYLOV2.printlevel = KRYLOV.printlevel;
+    // MyIRK.SetKrylovParams(KRYLOV, KRYLOV2);
     MyIRK.SetKrylovParams(KRYLOV);
     MyIRK.SetNewtonParams(NEWTON);
     
@@ -402,20 +480,26 @@ int main(int argc, char *argv[])
             solinfo.Print("space_refine", refLevels);
             solinfo.Print("problemID", problem); 
             
-            // /* Linear system/solve statistics */
-            // solinfo.Print("krtol", reltol);
-            // solinfo.Print("katol", abstol);
-            // solinfo.Print("kdim", kdim);
-            // std::vector<int> avg_iter;
-            // std::vector<int> type;
-            // std::vector<double> eig_ratio;
-            // MyIRK.GetSolveStats(avg_iter, type, eig_ratio);
-            // solinfo.Print("nsys", avg_iter.size());
-            // for (int system = 0; system < avg_iter.size(); system++) {
-            //     solinfo.Print("sys" + to_string(system+1) + "_iters", avg_iter[system]);
-            //     solinfo.Print("sys" + to_string(system+1) + "_type", type[system]);
-            //     solinfo.Print("sys" + to_string(system+1) + "_eig_ratio", eig_ratio[system]);
-            // }
+            /* Nonlinear and linear system/solve statistics */
+            
+            int avg_newton_iter;
+            std::vector<int> avg_krylov_iter;
+            std::vector<int> system_size;
+            std::vector<double> eig_ratio;
+            MyIRK.GetSolveStats(avg_newton_iter, avg_krylov_iter, system_size, eig_ratio);
+            solinfo.Print("nrtol", NEWTON.reltol);
+            solinfo.Print("natol", NEWTON.abstol);
+            solinfo.Print("newton_iters", avg_newton_iter);
+            
+            solinfo.Print("krtol", KRYLOV.reltol);
+            solinfo.Print("katol", KRYLOV.abstol);
+            solinfo.Print("kdim", KRYLOV.kdim);
+            solinfo.Print("nsys", avg_krylov_iter.size());
+            for (int system = 0; system < avg_krylov_iter.size(); system++) {
+                solinfo.Print("sys" + to_string(system+1) + "_iters", avg_krylov_iter[system]);
+                solinfo.Print("sys" + to_string(system+1) + "_type", system_size[system]);
+                solinfo.Print("sys" + to_string(system+1) + "_eig_ratio", eig_ratio[system]);
+            }
             
             /* Parallel info */
             solinfo.Print("P", numProcess);
@@ -601,260 +685,6 @@ ScalarFun GradientFlux(int fluxID) {
 }
 
 
-/** The operator to be inverted solved during implicit time stepping. The form 
-    of the operator is dependent on the linearity of the problem we're solving,
-        LINEAR:    BEOper(k; dt)    == k + dt*(A - D)*k 
-        NONLINEAR: BEOper(k; dt, u) == k + A(u + dt*k) - D*(u + dt*k)
-
-    k -- the unknown, 
-    A -- advection operator, 
-    D -- diffusion oprator,
-    dt -- a constant, 
-    u -- current state (only appears in the nonlinear problem) */    
-class BEOper : public Operator 
-{
-private:
-    
-    friend class JacPrec; // This needs to access members
-
-    Linearity op_type;
-    FDSpaceDisc * A;        // `The` advection  operator
-    FDNonlinearOp * AN;     // Nonlinear advection operator
-    FDLinearOp * AL, * D;   // Linear operators
-    
-    mutable HypreParMatrix * Jacobian; // Declare mutable so can be updated
-    HypreParMatrix * I;
-    
-    const Vector * u;               // Current state (nonlinear only)
-    mutable Vector temp1, temp2;    // Auxillary vectors
-    
-    double dt;                      // Current time step used in Mult, and in assembling new Jacobians
-    mutable bool dt_current;        // Does Jacobian use current value of dt? 
-    
-    int updateJacobian; // TODO: Need to implement, but if we don't want to update every Newton iter, can use this to just keep same Jacobian... 
-public:
-
-    // Linear operator
-    BEOper(int height, FDLinearOp * AL_, FDLinearOp * D_) : Operator(height), 
-        op_type{LINEAR}, A(AL_), AL(AL_), D(D_), 
-        Jacobian(NULL), u(NULL), temp1(height), temp2(height), 
-        dt{0.0}, dt_current(false)
-        {
-            MFEM_VERIFY((A) || (D), "BEOper() Requires valid A and/or D!");
-            I = (A) ? A->GetHypreParIdentityMatrix() : D->GetHypreParIdentityMatrix();
-        }
-
-    // Nonlinear operator. Must be called with a valid nonlinear advection operator!
-    BEOper(int height, FDNonlinearOp * AN_, FDLinearOp * D_) : Operator(height),
-        op_type{NONLINEAR}, A(AN_), AN(AN_), D(D_), 
-        Jacobian(NULL), I(AN_->GetHypreParIdentityMatrix()),
-        u(NULL), temp1(height), temp2(height), 
-        dt{0.0}, dt_current(false) 
-        {
-            MFEM_VERIFY((A), "BEOper() Requires valid nonlinear A!");
-        };
-    
-    ~BEOper() { delete I; if (Jacobian) delete Jacobian; };
-    
-    /// LINEAR: Set current dt
-    inline void SetParameters(double dt_) { dt_current = (dt == dt_) ? true : false; dt = dt_; };
-    
-    /// NONLINEAR: Set current dt and u values
-    inline void SetParameters(double dt_, const Vector * u_) { 
-        dt_current = (dt == dt_) ? true : false;
-        dt = dt_;
-        u = u_;
-    };
-
-    /// Compute action of operator 
-    virtual void Mult(const Vector &k, Vector &y) const;
-
-    /// LINEAR: Compute Jacobian. Will be called by KRYLOV's preconditioner at will.
-    HypreParMatrix &GetLinearGradient() const;
-
-    /// NONLINEAR: Compute Jacobian. Is called by Newton every iteration and 
-    /// passed into KRYLOV's SetOperator(), which then passes it to its 
-    /// preconditioner through its SetOperator().
-    virtual Operator &GetGradient(const Vector &k) const;
-};
-
-
-
-// 
-// // AMG-based preconditioner for KRYLOV solution of Jacobian system(s)
-// HypreBoomerAMG * amg_solver = new HypreBoomerAMG;
-// amg_solver->SetPrintLevel(0); 
-// amg_solver->SetMaxIter(1); 
-// amg_solver->SetTol(0.0);
-// amg_solver->SetMaxLevels(50); 
-// //amg_solver->iterative_mode = false;
-// if (AMG.use_AIR) {                        
-//     amg_solver->SetLAIROptions(AMG.distance, 
-//                                 AMG.prerelax, AMG.postrelax,
-//                                 AMG.strength_tolC, AMG.strength_tolR, 
-//                                 AMG.filter_tolR, AMG.interp_type, 
-//                                 AMG.relax_type, AMG.filterA_tol,
-//                                 AMG.coarsening);                                       
-// } else {
-//     amg_solver->SetInterpolation(0);
-//     amg_solver->SetCoarsening(AMG.coarsening);
-//     amg_solver->SetAggressiveCoarsening(1);
-// }
-// lbe_prec = new JacPrec(*be, amg_solver); 
-
-/** Wrapper for an AMG preconditioner for KRYLOV when solving a Jacobian systems(s) */
-class JacPrec : public Solver
-{
-    
-private:
-    HypreBoomerAMG * J_prec; 
-    BEOper &be;  
-    
-public:
-    
-    JacPrec(BEOper &be_, HypreBoomerAMG * J_prec_) : Solver(J_prec_->Height()), 
-        be(be_), J_prec(J_prec_) {};
-    
-    ~JacPrec() { delete J_prec; };
-    
-    /// Solve using J_prec.
-    inline void Mult(const Vector &x, Vector &y) const { J_prec->Mult(x, y); };
-    
-    /** Always called by GMRES
-        -LINEAR: Passed the BEOper that GMRES is applied to. GMRES will use the 
-            associated BEOper::Mult() function to compute the action of the BEOper, 
-            and we'll need to build the Jacobian matrix here. 
-        -NONLINEAR: Will be passed the HypreParMatrix that GMRES retrieves from
-            the associated BEOper::GetGradient(x). This is the HypreParMatrix
-            that GMRES will use for the current Newton iteration. */
-    inline void SetOperator(const Operator &op) {
-        
-        // Called for a linear problem
-        if (be.op_type == LINEAR)
-        {
-            // Only build Jacobian if not previously built.
-            if (!(be.Jacobian)) {
-                J_prec->SetOperator(be.GetLinearGradient());
-                
-            // Not interested in variable time-stepping, but leave this here.    
-            } else if (!(be.dt_current)) {
-                mfem_error("JacPrec::SetOperator() You're doing variable "
-                    "time-stepping, when would you like to update the linear "
-                    "operator used by GMRES's preconditioner?");
-            }
-        
-        // Called for a nonlinear problem
-        }
-        else if (be.op_type == NONLINEAR) 
-        {
-            // if update Jacobian preconditioner at every Newton iteration.
-            // TODO: Probably unecessary to update as often as possible. Maybe
-            // GMRES doesn't even get it updated as frequently as possible. Note
-            // that if we're doing Jacobian-free GMRES, we most def. don't want 
-            // to update this every Newton iter.    
-            J_prec->SetOperator(*(be.Jacobian)); // Note not calling be.GetGradient() since it's just been called by GMRES.
-            
-        }
-    };
-};
-
-// 
-// 
-// /* Compute action of operator:
-// LINEAR:    BEOper(k; dt)    == k + dt*(A - D)*k 
-// NONLINEAR: BEOper(k; dt, u) == k + A(u + dt*k) - D*(u + dt*k) */
-// void BEOper::Mult(const Vector &k, Vector &y) const
-// {
-//     if (op_type == LINEAR) {
-//         if (D && A) {
-//             A->Mult(k, y);
-//             D->Mult(k, temp1);
-//             y.Add(-1., temp1);
-//         } else if (D) {
-//             D->Mult(k, y);
-//             y.Neg();
-//         } else {
-//             A->Mult(k, y);
-//         }
-//         y *= dt;
-//         y += k;
-//     } else {
-//         add(*u, dt, k, temp1); // temp1 = u + dt*k
-//         if (D) {
-//             A->Mult(temp1, y);
-//             D->Mult(temp1, temp2);
-//             y.Add(-1., temp2);
-//         } else {
-//             A->Mult(temp1, y);
-//         }
-//         y += k;
-//     }
-// }
-// 
-
-
-
-// /* Compute Jacobian for nonlinear operator,
-// NONLINEAR: BEOper(k; dt, u) == k + A(u + dt*k) - D*(u + dt*k) 
-// dBEOper/dk = I + dt*Gradient(A(u + dt*k)) - dt*D */
-// Operator &BEOper::GetGradient(const Vector &k) const {
-// 
-//     if (op_type == LINEAR) mfem_error("BEOper::GetGradient() N/A for linear function.");
-// 
-//     // TODO: Set flag here as to whether we actually want to build a new Jacobian
-//     if (Jacobian) delete Jacobian;
-// 
-//     dt_current = true; // New Jacobian uses current dt.
-//     add(*u, dt, k, temp1); // temp1 = u + dt*k
-//     if (D) {
-//         Jacobian = HypreParMatrixAdd(dt, AN->GetGradient(temp1), -dt, D->Get()); 
-//         *Jacobian += *I; 
-//     } else {
-//         Jacobian = HypreParMatrixAdd(dt, AN->GetGradient(temp1), 1.0, *I); 
-//     }
-//     return *Jacobian;
-// }
-// 
-// /* Compute Jacobian for linear operator,
-// LINEAR: BEOper(k; dt) == k + dt*A*k - dt*D*k 
-// dBEOper/dk = I + dt*A - dt*D */
-// HypreParMatrix &BEOper::GetLinearGradient() const {
-// 
-//     if (op_type == NONLINEAR) mfem_error("BEOper::GetLinearGradient() N/A for nonlinear function.");
-// 
-//     // TODO: Set flag here as to whether we actually want to build a new Jacobian
-//     if (Jacobian) delete Jacobian;
-// 
-//     dt_current = true; // New Jacobian uses current dt.
-//     if (D && A) {
-//         /* Having problems here... 
-//         This seems to work for the moment. But Add nor ParAdd work consistently 
-//         on 1 and multiple procs.
-//         Actually, I think the problem is they don't have the same `col_map_offd`
-//         arrays... But I don't really know what's going on... Anyway, this next line
-//         prevents me from freeing the AMG solver (get a seg fault when I try).
-//         Actually, it works for 1D, but not 2D; what gives?! The problems are set up
-//         in the exact same way...
-//         */
-//         Jacobian = HypreParMatrixAdd(dt, AL->Get(), -dt, D->Get()); 
-//         *Jacobian += *I; 
-//     } else if (D) {
-//     // TODO: Even if I use `Add` here I'm getting seg faults... Why?!
-//     // But seem to be able to free the AMG solver associated with this K...
-//         Jacobian = HypreParMatrixAdd(-dt, D->Get(), 1.0, *I); // K <- I -dt*D
-//     } else {
-//         Jacobian = HypreParMatrixAdd(dt, AL->Get(), 1.0, *I); // J <- I + dt*A
-//     }
-//     // // These owndership flags are identical for all the different cases...
-//     // std::cout << "data = " << static_cast<signed>(K->OwnsDiag()) << "\n";
-//     // std::cout << "offd = " << static_cast<signed>(K->OwnsOffd()) << "\n";
-//     // std::cout << "cols = " << static_cast<signed>(K->OwnsColMap()) << "\n";
-//     //std::cout << "got J" << '\n';
-//     return *Jacobian;
-// }
-
-
-
 AdvDif::AdvDif(FDMesh &Mesh_, int fluxID, Vector alpha_, Vector mu_, 
         int order, FDBias advection_bias) 
     : IRKOperator(Mesh_.GetComm(), Mesh_.GetLocalSize()),
@@ -863,7 +693,8 @@ AdvDif::AdvDif(FDMesh &Mesh_, int fluxID, Vector alpha_, Vector mu_,
         alpha(alpha_), mu(mu_),
         dim(Mesh_.m_dim),
         D(NULL), A(NULL),
-        precInit(false), prec(NULL), AMG(), Jacobian(NULL),
+        B_prec(), B_mats(), B_index{0}, AMG(), 
+        Jacobian(NULL), identity(NULL), JacobianUpdated(false),
         source(Mesh_.GetLocalSize()), temp(Mesh_.GetLocalSize())
 {
     // Assemble diffusion operator if non-zero
@@ -899,40 +730,6 @@ void AdvDif::Mult(const Vector &u, Vector &du_dt) const
     du_dt += source;
 }
 
-// /** Solve the BE equation for k, given current state u. Depending on the linearity 
-// of the problem, we solve a different system:
-//     LINEAR:    k + dt*(A - D)*k = dt*(-A + D)*u + s(t) 
-//     NONLINEAR: k + A(u + dt*k) - D*(u + dt*k) = s(t) */
-// void AdvDif::ImplicitSolve(const double dt, const Vector &u, Vector &k)
-// {
-//     // Initialize solvers on first pass.
-//     if (!solversInit) InitSolvers();
-// 
-//     if (op_type == LINEAR) 
-//     {
-//         be->SetParameters(dt); // Set time step for be's solve
-//         be_solver->SetOperator(*be); // GMRES will be applied to current BEOper
-//         Mult(u, temp); // Set RHS of linear system
-//         be_solver->Mult(temp, k); 
-//     } 
-//     else 
-//     {
-//         be->SetParameters(dt, &u); // Set time step and current state for be's solve
-//         SetSource(); // Set RHS of nonlinear system
-//         be_solver->SetOperator(*be); // Newton will be applied to current BEOper
-//         be_solver->Mult(source, k); 
-//     }
-// 
-//     MFEM_VERIFY(be_solver->GetConverged(), "BE solver did not converge.");
-// 
-//     // Facilitate different printing from Newton.
-//     if (op_type == NONLINEAR && NEWTON.printlevel == 2) {
-//         if (Mesh.m_rank == 0) {
-//             std::cout << "Newton: Number of iterations: " << be_solver->GetNumIterations() 
-//                 << ", ||r|| = " << be_solver->GetFinalNorm() << '\n';
-//         }
-//     }
-// }
 
 /* Get error against exact PDE solution if available. Also output if num solution is output */
 bool AdvDif::GetError(int save, const char * out, double t, const Vector &u, double &eL1, double &eL2, double &eLinf) {
@@ -990,16 +787,19 @@ bool AdvDif::GetError(int save, const char * out, double t, const Vector &u, dou
 
 AdvDif::~AdvDif()
 {
-    //if (gmres_solver) delete gmres_solver;
-    /* TODO: WHY can't I free amg_solver. Actually, this seems related to 
+    /* TODO: WHY can't I free amg_solver... What's odd is that I can delete these
+    solvers elsewhere in the code...
         *** The MPI_Comm_free() function was called after MPI_FINALIZE was invoked.
         *** This is disallowed by the MPI standard.
-    if (amg_solver) delete amg_solver;
     */
-    //if (be) delete be;
-    //if (nlbe_solver) delete nlbe_solver;
-    //if (lbe_solver) delete lbe_solver;
-    //if (lbe_prec) delete lbe_prec;
+    
+    
+    //for (int i = 0; i < B_prec.Size(); i++) delete B_prec[i];
+    
+    // I can do this one, but not the one above... what gives?
+    for (int i = 0; i < B_mats.Size(); i++) delete B_mats[i]; 
+    
+    if (identity) delete identity;
     if (D) delete D;
     if (A) delete A;
 }

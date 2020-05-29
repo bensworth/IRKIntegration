@@ -8,6 +8,14 @@
 
 /* TODO:
     -Setup for use with mass matrix
+    
+    -I think it might make sense to re-order Schur decompositions so that if 
+        there is at least one real eigenvalue, it be put at the bottom of the diagonal of R0.
+        (I already have the MATLAB code to do this, but if we want to pull Schur
+        decompositions from elsewhere, it might not be possible to do this, or may be too painful).
+        The reason for this is that for the simplified Newton, we can evaluate the approximate Jacobian
+        correctly w.r.t, the final stage, and so if this is a 1x1 system, when we do the backward 
+        substitution, it would be as if we've solved for this stage using the true Jacobian.
 */
 
 /// y = (A \otimes I) * x for x,y s block vectors and A an s x s matrix
@@ -43,78 +51,90 @@ void KronTransformTranspose(const DenseMatrix &A, const BlockVector &x, BlockVec
 }
 
 
-
-
-
-IRK::IRK(IRKOperator *S, IRKType RK_ID)
-        : m_IRKOper(S), m_RK(RK_ID), 
+IRK::IRK(IRKOperator *IRKOper_, IRKType RK_ID_)
+        : m_IRKOper(IRKOper_), m_Butcher(RK_ID_), 
         m_stageOper(NULL),
         m_nonlinear_solver(NULL),
         m_jacobian_solver(NULL),
         m_solversInit(false),
-        m_comm{S->GetComm()}
-        
+        m_krylov2(false),
+        m_comm{IRKOper_->GetComm()}
 {
     // Get proc IDs
     MPI_Comm_rank(m_comm, &m_rank);
     MPI_Comm_size(m_comm, &m_numProcess);
     
-    // This stream will only print from P0
+    // This stream will only print from process 0
     if (m_rank > 0) mfem::out.Disable();
     
     // Setup block sizes for stage vectors
-    m_stageOffsets.SetSize(m_RK.s + 1); // Offsets for block vector
-    for (int i = 0; i <= m_RK.s; i++) m_stageOffsets[i] = i*S->Height();
+    m_stageOffsets.SetSize(m_Butcher.s + 1); 
+    for (int i = 0; i <= m_Butcher.s; i++) m_stageOffsets[i] = i*m_IRKOper->Height();
     
-    // Stage operator
-    m_stageOper = new IRKStageOper(m_IRKOper, m_stageOffsets, m_RK); 
+    // Initialize stage vectors
+    m_w.Update(m_stageOffsets);
+    
+    // Stage operator, F(w)
+    m_stageOper = new IRKStageOper(m_IRKOper, m_stageOffsets, m_Butcher); 
     
     
-    // /* --- Construct object for every REAL factor in char. poly --- */
-    // m_CharPolyOps.SetSize(m_zeta.Size() + m_eta.Size()); 
-    // 
-    // // Initialize data the user might retrieve later
-    // m_avg_iter.resize(m_CharPolyOps.Size(), 0);
-    // m_type.resize(m_CharPolyOps.Size());
-    // m_eig_ratio.resize(m_CharPolyOps.Size(), 0.0);
-    // 
-    // // Linear factors. I.e., those of type 1
-    // double dt_dummy = -1.0; // Use dummy dt, will be set properly before inverting factor.
-    // int count = 0;
-    // for (int i = 0; i < m_zeta.Size(); i++) {
-    //     m_CharPolyOps[count] = new CharPolyOp(dt_dummy, m_zeta(i), *m_IRKOper);
-    //     m_type[count] = 1;
-    //     count++;
-    // }
-    // // Quadratic factors. I.e., those of type 2
-    // for (int i = 0; i < m_eta.Size(); i++) {
-    //     m_CharPolyOps[count] = new CharPolyOp(dt_dummy, m_eta(i), m_beta(i), *m_IRKOper);
-    //     m_type[count] = 2;
-    //     m_eig_ratio[count] = m_beta(i)/m_eta(i);
-    //     count++;
-    // } 
+    m_avg_newton_iter = 0;
+    m_avg_krylov_iter.resize(m_Butcher.s_eff, 0);
+    m_system_size.resize(m_Butcher.s_eff);
+    m_eig_ratio.resize(m_Butcher.s_eff);
+    
+    // Set sizes, and eigenvalue ratios, beta/eta
+    int row = 0;
+    for (int i = 0; i < m_Butcher.s_eff; i++) {
+        m_system_size[i] = m_Butcher.R0_block_sizes[i];
+        
+        // 1x1 block has beta=0
+        if (m_system_size[i] == 1) {
+            m_eig_ratio[i] = 0.;
+        // 2x2 block
+        } else {
+            // eta == diag entry of block, beta == sqrt(-1 * product of off diagonals)
+            m_eig_ratio[i] = sqrt(-m_Butcher.R0(row+1,row)*m_Butcher.R0(row,row+1)) / m_Butcher.R0(row,row);
+            row++;
+        }
+        row++;
+    }
 }
 
 IRK::~IRK() {
+    delete m_jacobian_solver;
+    delete m_nonlinear_solver;
     delete m_stageOper;
-    //for (int i = 0; i < m_CharPolyOps.Size(); i++) delete m_CharPolyOps[i];    
 }
 
 
 void IRK::InitSolvers()
 {    
+    if (m_solversInit) return;
+    m_solversInit = true;
+    
     // Create solver for approximate Kronecker-product Jacobian system
-    int N_jac_update_rate = 0; // Update once only at start of each time step
-    int N_jac_lin = m_RK.s; // Linearize so that Jacobian is correct for last stage
-    m_jacobian_solver = new KronJacSolver(*m_stageOper, m_KRYLOV, N_jac_lin, N_jac_update_rate);
+    // TODO: Setup option for user to determine these parameters
+    int N_jac_update_rate = 0;  // Update once only at start of each time step
+    int N_jac_lin = m_Butcher.s;// Linearize so that Jacobian is evaluated correct for last stage
+    
+    // User requested different Krylov solvers for 1x1 and 2x2 blocks
+    if (m_krylov2) {
+        m_jacobian_solver = new KronJacSolver(*m_stageOper, m_krylov_params, m_krylov_params2, 
+                                                N_jac_lin, N_jac_update_rate);
+    // Use same Krylov solvers for 1x1 and 2x2 blocks
+    } else {
+        m_jacobian_solver = new KronJacSolver(*m_stageOper, m_krylov_params, 
+                                                N_jac_lin, N_jac_update_rate);
+    }
     
     // Setup Newton solver
     m_nonlinear_solver = new NewtonSolver(m_comm);
     m_nonlinear_solver->iterative_mode = false;
-    m_nonlinear_solver->SetMaxIter(m_NEWTON.maxiter);
-    m_nonlinear_solver->SetRelTol(m_NEWTON.reltol);
-    m_nonlinear_solver->SetPrintLevel(m_NEWTON.printlevel);
-    
+    m_nonlinear_solver->SetMaxIter(m_newton_params.maxiter);
+    m_nonlinear_solver->SetRelTol(m_newton_params.reltol);
+    m_nonlinear_solver->SetPrintLevel(m_newton_params.printlevel);    
+    if (m_newton_params.printlevel == 2) m_nonlinear_solver->SetPrintLevel(-1);
     m_nonlinear_solver->SetSolver(*m_jacobian_solver); // The linear solver for the Newton method
 }
 
@@ -123,27 +143,43 @@ void IRK::InitSolvers()
 void IRK::Init(TimeDependentOperator &F)
 {    
     ODESolver::Init(F);
-    m_y.SetSize(F.Height(), mem_type);
-    m_z.SetSize(F.Height(), mem_type);
-    m_f.SetSize(F.Height(), mem_type);
     
+    // Stage vectors
     m_w.Update(m_stageOffsets, mem_type);
-    
-    InitSolvers();
 }
 
 
-// Apply RK update
+/* Apply RK update, x = x + (dt*b0^\top \otimes I)*k */
 void IRK::Step(Vector &x, double &t, double &dt)
 {
-    // Give current values of dt and x for stage operator
+    // Reset iteration counter for Jacobian solve from previous newton iteration
+    m_jacobian_solver->ResetNumIterations();
+    
+    // Pass current values of dt and x to stage operator
     m_stageOper->SetParameters(&x, t, dt); 
     
-    // Set operator for Newton solver
+    // Reset operator for Newton solver
     m_nonlinear_solver->SetOperator(*m_stageOper);
     
-    // Solve for stages (Empty RHS is interpreted as 0)
+    // Solve for stages (Empty RHS is interpreted as zero RHS)
     m_nonlinear_solver->Mult(Vector(), m_w);
+    
+    // Facilitate different printing from Newton solver.
+    if (m_newton_params.printlevel == 2) {
+        mfem::out   << "Newton: Number of iterations: " 
+                    << m_nonlinear_solver->GetNumIterations() 
+                    << ", ||r|| = " << m_nonlinear_solver->GetFinalNorm() 
+                    << '\n';
+    }
+    
+    // Add iteration counts from this solve to existing counts
+    m_avg_newton_iter += m_nonlinear_solver->GetNumIterations();
+    vector<int> krylov_iters = m_jacobian_solver->GetNumIterations();
+    for (int system = 0; system < m_avg_krylov_iter.size(); system++) {
+        m_avg_krylov_iter[system] += krylov_iters[system];
+    }
+    
+    
     
     // Check for convergence 
     if (!m_nonlinear_solver->GetConverged()) {
@@ -151,21 +187,20 @@ void IRK::Step(Vector &x, double &t, double &dt)
         mfem_error(msg.c_str());
     }
 
-    // Update solution with weighted sum of stages, x = x + dt*inv(A)*b^\top*w        
-    // Stiffly accurate schemes have all but last entry of d0==0
-    for (int i = 0; i < m_RK.s; i++) {
-        if (fabs(m_RK.d0[i]) > 1e-15) x.Add(dt*m_RK.d0[i], m_w.GetBlock(i));
+    // Update solution with weighted sum of stages, x = x + (dt*d0^\top \otimes I)*w        
+    // NOTE: Stiffly accurate schemes have all but d0(s)=0 
+    for (int i = 0; i < m_Butcher.s; i++) {
+        if (fabs(m_Butcher.d0[i]) > 1e-15) x.Add(dt*m_Butcher.d0[i], m_w.GetBlock(i));
     }
-    t += dt;  // Time that x is evaulated at
+    t += dt; // Time that current x is evaulated at
 }
 
+/* Time step */
 void IRK::Run(Vector &x, double &t, double &dt, double tf) 
 {    
-    // Initialize nonlinear and linear solvers
-    InitSolvers();
+    m_w = 0.;       // Initialize stage vectors to 0
+    InitSolvers();  // Initialize solvers for computing stage vectors
     
-
-    m_w = 0.;
     /* Main time-stepping loop */
     int step = 0;
     int numsteps = ceil(tf/dt);
@@ -177,44 +212,12 @@ void IRK::Run(Vector &x, double &t, double &dt, double tf)
         Step(x, t, dt);
     }
     
-    // Average out number of Krylov iters over whole of time stepping
-    //for (int i = 0; i < m_avg_iter.size(); i++) m_avg_iter[i] = round(m_avg_iter[i] / double(numsteps));
+    // Average out number of Newton and Krylov iters over whole of time stepping
+    m_avg_newton_iter = round(m_avg_newton_iter / double(numsteps));
+    for (int i = 0; i < m_avg_krylov_iter.size(); i++) {
+        m_avg_krylov_iter[i] = round(m_avg_krylov_iter[i] / double(numsteps));
+    }
 }
-
-
-// 
-// /* Sequentially invert factors in characteristic polynomial */
-// for (int i = 0; i < m_CharPolyOps.Size(); i++) {
-//     // Print info about system being solved
-//     if (m_rank == 0 && m_krylov_print > 0) {
-//         std::cout << "  System " << i+1 << " of " << m_CharPolyOps.Size() <<
-//         " (type=" << m_CharPolyOps[i]->Type() << "):  ";
-//         if (m_krylov_print != 2) std::cout << '\n';
-//     }
-// 
-//     // Ensure that correct time step is used in factored polynomial
-//     m_CharPolyOps[i]->Setdt(dt);
-// 
-//     // Set operator and preconditioner for ith polynomial term
-//     m_CharPolyPrec.SetType(m_CharPolyOps[i]->Type());
-//     m_IRKOper->SetSystem(i, t, dt, m_CharPolyOps[i]->Gamma(), m_CharPolyOps[i]->Type());
-//     m_krylov->SetPreconditioner(m_CharPolyPrec);
-//     m_krylov->SetOperator(*(m_CharPolyOps[i]));    
-// 
-//     // Invert ith factor in polynomial, y <- FACTOR(i)^{-1} * z
-//     m_krylov->Mult(m_z, m_y); 
-// 
-//     // Check for convergence 
-//     if (!m_krylov->GetConverged()) {
-//         string msg = "IRK::Step() Krylov solver at t=" + to_string(t) + " not converged [system " 
-//                         + to_string(i+1) + "/" + to_string(m_CharPolyOps.Size()) 
-//                         + " (type=" + to_string(m_CharPolyOps[i]->Type()) + ")\n";
-//         mfem_error(msg.c_str());
-//     }
-// 
-//     // Record number of iterations
-//     m_avg_iter[i] += m_krylov->GetNumIterations();
-// }
 
 /* Set dimensions of Butcher arrays after setting s and s_eff. */
 void RKButcherData::SizeData() {
