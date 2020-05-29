@@ -39,214 +39,6 @@
 % ---------------------------------------------------------------------------------------------- %
 % ---------------------------------------------------------------------------------------------- %
 % ---------------------------------------------------------------------------------------------- %
-\section{Introduction}
-
-Consider the method-of-lines approach to solving partial differential equations (PDEs),
-where we discretize in space and arrive at a system of ODEs in time,
-%
-\begin{align}\label{eq:problem}
-	M\mathbf{u}'(t) =  \mathcal{N}(\mathbf{u},t) \quad\text{in }(0,T], \quad \mathbf{u}(0) = \mathbf{u}_0,
-\end{align}
-%
-where $M$ is a mass matrix, and $\mathcal{N}\in\mathbb{R}^{N\times N}$ a discrete, time-dependent, nonlinear
-operator depending on $t$ and $\mathbf{u}$ (including potential forcing terms).
-Then consider time propagation using an $s$-stage
-Runge-Kutta scheme, characterized by the Butcher tableaux 
-%
-\begin{align*}
-	\renewcommand\arraystretch{1.2}
-	\begin{array}
-	{c|c}
-	\mathbf{c}_0 & A_0\\
-	\hline
-	& \mathbf{b}_0^T
-	\end{array},
-\end{align*}
-%
-with Runge-Kutta matrix $A_0 = (a_{ij})$, weight vector $\mathbf{b}_0^T = (b_1, \ldots, b_s)^T$, and 
-nodes $\mathbf{c}_0 = (c_0, \ldots, c_s)$.
-
-Runge-Kutta methods update the solution using a sum over stage vectors,
-%
-\begin{align*}
-\mathbf{u}_{n+1} & = \mathbf{u}_n + \delta t \sum_{i=1}^s b_i\mathbf{k}_i, \\
-M\mathbf{k}_i & = \mathcal{N}\left(\mathbf{u}_n + \delta t\sum_{i=1}^s b_i\mathbf{k}_i, t_n+\delta tc_i\right).
-\end{align*}
-%
-For nonlinear PDEs, $\mathcal{N}$ is linearized using, for example, a Newton or a Picard
-linearization of the underlying PDE. Let us denote this linearization $\mathcal{L}\in\mathbb{R}^{N\times N}$
-(or, in the case of a linear PDE, let $\mathcal{L} := \mathcal{N}$).
-Expanding, solving for the stages $\mathbf{k}$ as each step in a nonlinear iteration, or
-as the update to $\mathbf{u}$ for a linear PDE, can then be expressed as a block linear system,
-%
-\begin{align}\label{eq:k0}
-\left( \begin{bmatrix} M  & & \mathbf{0} \\ & \ddots \\ \mathbf{0} & & M\end{bmatrix}
-	- \delta t \begin{bmatrix} a_{11}\mathcal{L}_1 & ... & a_{1s}\mathcal{L}_1 \\
-	\vdots & \ddots & \vdots \\ a_{s1}\mathcal{L}_s & ... & a_{ss} \mathcal{L}_s \end{bmatrix} \right)
-	\begin{bmatrix} \mathbf{k}_1 \\ \vdots \\ \mathbf{k}_s \end{bmatrix} 
-& = \begin{bmatrix} \mathbf{f}_1 \\ \vdots \\ \mathbf{f}_s \end{bmatrix}.
-\end{align}
-%
-
-% ---------------------------------------------------------------------------------------------- %
-% ---------------------------------------------------------------------------------------------- %
-% ---------------------------------------------------------------------------------------------- %
-\section{Navier Stokes and DAEs}
-
-
-% ---------------------------------------------------------------------------------------------- %
-% ---------------------------------------------------------------------------------------------- %
-% ---------------------------------------------------------------------------------------------- %
-\newpage
-\section{Preconditioning fully implicit IRK system}
-
-% Plenty of people have looked at block preconditioning in the natural form. I am wondering
-% if using Will's factorization will make this much more effective? In particular, if you
-% look atht preconditioned operator for triangular preconditioning of standard IRK, you
-% get lots of terms along the lines of $(a_{ii}M - \mathcal{L}_i)^{-1}\mathcal{L}_j$. With
-% the factorization, you instead have $(\alpha_{ii}M - \mathcal{L}_i)^{-1}M$. This is
-% guaranteed to be small by discussion in IRK paper so far. Looks like this may not be
-% a good idea. Lower triangular preconditioning of $A_0^{-1}$ is very ineffective. Is
-% effective for $A_0$, but then we have the issue with $\mathcal{L}$ off diagonal..
-
-Consider the system
-%
-\begin{align}\label{eq:keq}
-\left( A_0^{-1}\otimes M - \delta t \begin{bmatrix} \mathcal{L}_1  & \\ & \ddots \\ && \mathcal{L}_s\end{bmatrix}\right)
-	(A_0\otimes I)	\begin{bmatrix} \mathbf{k}_1 \\ \vdots \\ \mathbf{k}_s \end{bmatrix} 
-& = \begin{bmatrix} \mathbf{f}_1 \\ \vdots \\ \mathbf{f}_s \end{bmatrix}.
-\end{align}
-%
-Suppose $\mathcal{L}_i = \mathcal{L}_j$ for all $i,j$. Then the second matrix can 
-be written $\delta t I\otimes\mathcal{L}$. 
-Let $A_0^{-1} = Q_0R_0Q_0^T$ be the real Schur decomposition of $A_0^{-1}$, where
-$Q_0$ is real-valued, orthogonal, and block upper triangular, and $R_0$ is a block
-upper triangular matrix, where each block represents an eigenvalue of $A_0^{-1}$.
-Real-valued eigenvalues have blocksize one, and complex eigenvalues $\eta\pm i\beta$
-are in $2\times 2$ blocks,
-%
-\begin{align*}
-\begin{bmatrix} \eta & \beta\\-\beta & \eta\end{bmatrix}.
-\end{align*}
-%
-Pulling out a $Q_0\otimes I$ and $Q_0^T\otimes I$ from the left and right,
-we can now solve \eqref{eq:keq} by inverting the matrix
-%
-\begin{align*}
-Q_0\otimes I\left( R_0\otimes M - \delta t I \otimes \mathcal{L}\right)Q_0^T\otimes I.
-\end{align*}
-%
-The inner matrix is now a block upper triangular matrix. The real-valued eigenvalues
-are straightforward to invert. Consider the complex case. We must invert a matrix along
-the lines of
-%
-\begin{align*}
-\begin{bmatrix} \eta M - \delta t \mathcal{L} & \beta M\\-\beta M & \eta M - \mathcal{L}\end{bmatrix}.
-\end{align*}
-%
-Let us scale both rows by $M^{-1}$ to get
-%
-\begin{align*}
-\begin{bmatrix} \eta I - \delta t M^{-1}\mathcal{L} & \beta I\\
--\beta I & \eta I - M^{-1}\mathcal{L}\end{bmatrix}.
-\end{align*}
-%
-
-It turns out analogous ideas as used for the adjugate formulation can be applied
-here. Note that the Schur complement takes the form 
-%
-\begin{align*}
-S_{22} & := \eta I - M^{-1}\mathcal{L} + \beta^2 (\eta I - M^{-1}\mathcal{L})^{-1}.
-\end{align*}
-%
-Suppose we precondition this again by dropping the complex eigenvalue $\beta^2$,
-and considering
-%
-\begin{align*}
-(\eta I - M^{-1}\mathcal{L})^{-1}S_{22} & := I + \beta^2 (\eta I - M^{-1}\mathcal{L})^{-2}\\
- & = I + \frac{\beta^2}{\eta^2} (M - \tfrac{1}{\eta}\mathcal{L})^{-2}M^2.
-\end{align*}
-%
-This is exactly the form we arrived at when analyzing preconditioning using the
-adjugate and determinant. The upside is that theory then tells us that we will
-converge rapidly applying block lower-triangular preconditioning to this operator. 
-Unfortunately, we cannot apply CG/MINRES if applicable, and for Krylov we need to
-store two stages simultaneously. 
-
-Also, I think we may have stumbled upon a way to precondition the fully time
-dependent system. If we return to \eqref{eq:keq} for $\mathcal{L}_i\neq\mathcal{L}_j$
-and pull out and apply the real Schur decomposition, we have
-\begin{align}\label{eq:keq2}
-Q_0\otimes I\left( R_0^{-1}\otimes M - \delta t (Q_0^T\otimes I)
-	\begin{bmatrix} \mathcal{L}_1  & \\ & \ddots \\ && \mathcal{L}_s\end{bmatrix}
-	(Q_0\otimes I)\right)Q_0^T\otimes I.
-\end{align}
-%
-Recall $Q_0$ is orthogonal, so for $\mathcal{L}_i = \mathcal{L}_j$, the coefficients
-of $Q_0$ work out so that the off-diagonals of the triple product with $\delta t$
-are zero and the diagonals are $\mathcal{L}$. Here instead we have elements with a
-form $\sum_{k=1}^s \zeta_k\mathcal{L}_k$, where $\sum_{k=1}^s \zeta_k$ equals one
-or zero for diagonal and off-diagonal, respectively. We could either ignore the error
-that induces and use a quasiNewton approach inverting \eqref{eq:keq2}, or use
-\eqref{eq:keq2} as a linear preonditioner to solve the true Jacobian each step.
-
-
-
-
-
-% ---------------------------------------------------------------------------------------------- %
-% ---------------------------------------------------------------------------------------------- %
-% ---------------------------------------------------------------------------------------------- %
-\section{Inverting the fully implicit IRK system}
-
-The RK stage system in \eqref{eq:k0} can be reformulated as \todo{cite Will}
-%
-\begin{align*}
-\left( A_0^{-1}\otimes M - \delta t \begin{bmatrix} \mathcal{L}_1  & \\ & \ddots \\ && \mathcal{L}_s\end{bmatrix}\right)
-	(A_0\otimes I)	\begin{bmatrix} \mathbf{k}_1 \\ \vdots \\ \mathbf{k}_s \end{bmatrix} 
-& = \begin{bmatrix} \mathbf{f}_1 \\ \vdots \\ \mathbf{f}_s \end{bmatrix}.
-\end{align*}
-%
-For ease of notation, let us scale both sides of the system by a block-diagonal mass matrix 
-and, excusing the slight abuse of notation, let $\mathcal{L}_i \mapsto \delta t M^{-1}\mathcal{L}_i$,
-$i=1,..,s$. Note the time step is now included in $\mathcal{L}_i$. Because $\mathcal{L}_i$ is
-time-dependent, it is possible that $\delta t$ is also time-dependent.
-Now let $\alpha_{ij}$ denote the $ij$-element of $A_0^{-1}$ (assuming $A_0$ is
-invertible). Then, solving \eqref{eq:k0} can be effectively reduced to inverting the operator
-%
-\begin{align}\label{eq:k1}
-\mathcal{M}_s := A_0^{-1}\otimes I - \begin{bmatrix} \mathcal{L}_1  & \\ & \ddots \\ && \mathcal{L}_s\end{bmatrix}
-	& = 
-\begin{bmatrix} \alpha_{11}I - \mathcal{L}_1 & \alpha_{12}I & ... & \alpha_{1s}I \\
-	\alpha_{21}I & \alpha_{22}I - \mathcal{L}_2 & & \alpha_{2s}I \\
-	\ddots & & \ddots & \vdots \\ \alpha_{s1}I & ... & \alpha_{s(s-1)}I & \alpha_{ss}I - \mathcal{L}_s \end{bmatrix}.
-\end{align}
-%
-Note, there are a number of methods with one explicit stage preceded or followed by several
-fully implicit and coupled stages. In such cases, $A_0$ is
-not invertible, but the explicit stage can be eliminated from the system. The remaining operator
-can then be reformulated as above, and the inverse that must be applied takes the form of
-\eqref{eq:k1} but based on a principle submatrix of $A_0$.
-
-Returning to the time propagation, the Runge-Kutta update can be written as
-%
-\begin{align}\nonumber
-\mathbf{u}_{n+1} & = \mathbf{u}_n + \delta t\sum_{i=1}^s b_i{\mathbf{k}}_i \\
-& = \mathbf{u}_n + \delta t(\mathbf{b}_0^TA_0^{-1}\otimes I)\mathcal{M}_s^{-1}\mathbf{f}.\label{eq:update}
-\end{align}
-%
-In the case of stiffly accurate RK schemes, $\mathbf{b}_0^TA_0 = [0,...,0,1]$,
-and \eqref{eq:update} takes the simplified form
-%
-\begin{align*}
-\mathbf{u}_{n+1} & = \mathbf{u}_n + \delta t\begin{bmatrix}0 & ... & I \end{bmatrix}
-	\mathcal{M}_s^{-1}\mathbf{f}.
-\end{align*}
-%
-
-% ---------------------------------------------------------------------------------------------- %
-% ---------------------------------------------------------------------------------------------- %
-% ---------------------------------------------------------------------------------------------- %
 \section{The time-dependent case}
 
 % ---------------------------------------------------------------------------------------------- %
@@ -287,11 +79,8 @@ U = \begin{bmatrix}
 \end{align*}
 
 
-
 % ---------------------------------------------------------------------------------------------- %
 \subsubsection{3x3}
-
-
 
 \begin{align*}
 L & = 
@@ -349,19 +138,9 @@ Quasideterminant:
 }
 
 
-
-
-
-% ---------------------------------------------------------------------------------------------- %
-\subsubsection{4x4}
-
-
-
-
 % ---------------------------------------------------------------------------------------------- %
 % ---------------------------------------------------------------------------------------------- %
 \subsection{Direct inverse?}
-
 
 Consider 
 %
@@ -412,11 +191,6 @@ of that is maybe using the determinant/adjugate form would avoid having to apply
 of $P$ (which includes an inverse) every iteration. Downside is it seems like that doesn't
 take advantage of the fact that we only need $[0,...,0,1]\mathcal{M}_s^{-1}$.
 }
-
-
-
-
-
 
 
 % ---------------------------------------------------------------------------------------------- %

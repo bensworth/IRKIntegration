@@ -1,0 +1,389 @@
+\documentclass[a4paper,10pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amsthm,amssymb,amsfonts,stmaryrd}
+\usepackage{soul}
+\usepackage{array}
+\usepackage{empheq}
+\usepackage{xfrac}
+\usepackage{minibox}
+\usepackage{enumitem}
+	\setlist{nosep} % or \setlist{noitemsep} to leave space around whole list
+\usepackage{color}
+\usepackage{blkarray}
+\setcounter{MaxMatrixCols}{20}
+\usepackage{showlabels}
+\usepackage{arydshln}	% Dotted lines in arrays
+\usepackage{adjustbox}
+\usepackage{hyperref}
+\hypersetup{
+  colorlinks   = true, %Colours links instead of ugly boxes
+  urlcolor     = blue, %Colour for external hyperlinks
+  linkcolor    = blue, %Colour of internal links
+  citecolor   = red %Colour of citations
+}
+\usepackage{cleveref}
+
+
+\newtheorem{lemma}{Lemma}
+\newtheorem{definition}{Definition}
+\newtheorem{theorem}{Theorem}
+\newtheorem{corollary}{Corollary}
+
+\newcommand{\tcb}{\textcolor{blue}}
+\newcommand{\todo}[1]{\textcolor{red}{[TODO\@: #1]}}
+
+
+\begin{document}
+\allowdisplaybreaks
+
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+\section{Introduction}
+
+Consider the method-of-lines approach to solving partial differential equations (PDEs),
+where we discretize in space and arrive at a system of DAEs in time,
+%
+\begin{align}\label{eq:problem}
+\begin{split}
+	M\mathbf{u}'(t) & =  \mathcal{N}(\mathbf{u},p,t), \\ 
+	{0} & = \mathcal{G}(\mathbf{u}),
+\end{split}
+\end{align}
+%
+for $t\in(0,T]$ and initial conditions $\mathbf{u}(0) = \mathbf{u}_0, p= p_0$.
+Here $M$ is a mass matrix, $\mathcal{N}\in\mathbb{R}^{N\times N}$ a discrete,
+time-dependent, (non)linear operator depending on variables $t$, $\mathbf{u}$,
+and $p$ (including potential forcing terms), and $\mathcal{G}(\mathbf{u})$ is
+an algebraic constraint. We assume the DAE is index-2, where it cannot be
+immediately eliminated to arrive at an ODE, but for which we can apply the
+theory in Hairer on RK integration. Note, this encompasses many classical PDE
+problems, in particular, the divergence-free constraint that arises in fluid
+and plasma flow problems.
+
+Now consider time propagation using an $s$-stage Runge-Kutta scheme,
+characterized by the Butcher tableaux 
+%
+\begin{align*}
+	\renewcommand\arraystretch{1.2}
+	\begin{array}
+	{c|c}
+	\mathbf{c}_0 & A_0\\
+	\hline
+	& \mathbf{b}_0^T
+	\end{array},
+\end{align*}
+%
+with Runge-Kutta matrix $A_0 = (a_{ij})$, weight vector $\mathbf{b}_0^T =
+(b_1, \ldots, b_s)^T$, and nodes $\mathbf{c}_0 = (c_0, \ldots, c_s)$. We use
+the $\varepsilon$-embedding approacg to Runge-Kutta integration, where one can
+treat \eqref{eq:problem} as the singular limit of a problem with time
+derivative $\varepsilon p'$ as $\varepsilon \to 0$. The resulting method
+takes the form
+%
+\begin{align*}
+\mathbf{u}_{n+1} & = \mathbf{u}_n + \delta t \sum_{i=1} b_i\mathbf{k}_i, \\
+p_{n+1} & = p_n + \delta t \sum_{i=1}^s b_i{\ell}_i,
+\end{align*}
+%
+where 
+%
+\begin{align}\label{eq:UP}
+U_i & = \mathbf{u}_n + \delta t\sum_{j=1}^s a_{ij} \mathbf{k}_j, \hspace{5ex}
+P_i = p_n + \delta t\sum_{j=1}^s a_{ij} \ell_j,
+\end{align}
+%
+which satisfy the equations
+%
+\begin{align}\label{eq:kl}
+\mathbf{k}_i & = \mathcal{N}(U_i,P_i, t_i), \hspace{5ex} \mathcal{G}(U_i) = 0.
+\end{align}
+%
+
+This appears a bit cumbersome, so let assume for a given time step we have
+linearized using, for example, a Newton or a Picard linearization of the
+underlying PDE. Then we can pose \eqref{eq:problem} in linear block form
+via
+%
+\begin{align}\label{eq:problem2}
+\begin{split}
+\begin{bmatrix} M \mathbf{u}_t \\ 0 \end{bmatrix}
+	= \begin{bmatrix} L_{uu} & L_{up} \\ L_{pu} & S \end{bmatrix}
+	\begin{bmatrix} \mathbf{u} \\ p \end{bmatrix} + 
+	\begin{bmatrix} g \\ 0 \end{bmatrix}.
+\end{split},
+\end{align}
+%
+where $S$ (potentially $= 0$) is a stabilization matrix.
+In principle, I believe the forcing vectors can be nonzero in the constraint,
+but in focusing on flow-problems with a divergence-free
+constraint, we will assume the forcing function on $p$ is zero. We can
+now expand \eqref{eq:UP} and \eqref{eq:kl} to express the stage vectors
+$\{\mathbf{k}_j, \ell_j\}$ as the solution of a large block linear system,
+%
+\begin{align}\label{eq:k0}
+\left( \begin{bmatrix} \begin{bmatrix} M \\ & \mathbf{0}\end{bmatrix} & &
+	\mathbf{0} \\ & \ddots \\ \mathbf{0} & & \begin{bmatrix} M \\ & \mathbf{0}\end{bmatrix}
+		\end{bmatrix}
+	- \delta t \begin{bmatrix} a_{11}\begin{bmatrix} L^{(1)}_{uu} & L^{(1)}_{up} \\ L^{(1)}_{pu} & S \end{bmatrix} & ... & a_{1s}\begin{bmatrix} L^{(1)}_{uu} & L^{(1)}_{up} \\ L^{(1)}_{pu} & S \end{bmatrix} \\
+	\vdots & \ddots & \vdots \\ a_{s1}\begin{bmatrix} L^{(s)}_{uu} & L^{(s)}_{up} \\ L^{(s)}_{pu} & S \end{bmatrix} & ... & a_{ss} \begin{bmatrix} L^{(s)}_{uu} & L^{(s)}_{up} \\ L^{(s)}_{pu} & S \end{bmatrix} \end{bmatrix} \right)
+	\begin{bmatrix} \mathbf{k}_1 \\ \ell_1 \\ \vdots \\ \mathbf{k}_s \\ \ell_s\end{bmatrix} 
+& = \begin{bmatrix} \mathbf{f}_1 \\ \mathbf{0} \\ \vdots \\ \mathbf{f}_s \\ \mathbf{0} \end{bmatrix},
+\end{align}
+%
+where $\mathbf{f}_i = g(t_i) + L_{uu}\mathbf{u} ...$ and superscripts on
+spatial operators $L$ denote the time at which the spatial operator is
+evaluated (e.g., as a Jacobian in Newton). \tcb{Address right-hand side
+vectors correctly and fix in all following equations.}
+
+Note, the first term in \eqref{eq:k0} can be expressed as
+$I_s \otimes \begin{bmatrix} M \\ & \mathbf{0}\end{bmatrix}$, for $s\times s$
+identity matrix $I_s$. Now, let us insert between the matrix and vector in
+\eqref{eq:k0} the identity $(A_0^{-1}\otimes I)(A_0\otimes I)$. Distributing the
+$A_0^{-1}$ to the matrix yields the equivalent system
+%
+\begin{align}\label{eq:k1}
+\left(A_0^{-1} \otimes \begin{bmatrix} M \\ & \mathbf{0}\end{bmatrix}
+	- \delta t \begin{bmatrix} \begin{bmatrix} L^{(1)}_{uu} & L^{(1)}_{up} \\ L^{(1)}_{pu} & S \end{bmatrix} & \\
+	\ & \ddots & \ \\ & & \begin{bmatrix} L^{(s)}_{uu} & L^{(s)}_{up} \\ L^{(s)}_{pu} & S \end{bmatrix} \end{bmatrix} \right)
+	(A_0\otimes I)\begin{bmatrix} \mathbf{k}_1 \\ \ell_1 \\ \vdots \\ \mathbf{k}_s \\ \ell_s\end{bmatrix} 
+& = \begin{bmatrix} \mathbf{f}_1 \\ \mathbf{0} \\ \vdots \\ \mathbf{f}_s \\ \mathbf{0} \end{bmatrix},
+\end{align}
+%
+
+
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+\section{Linear/simplified Newton}
+
+Suppose we are solving a linear problem, or a nonlinear problem with a simplified
+Newton method, where the Jacobian is evaluated at a single time point for all
+stages. Let $\mathbf{K}$ denote the stage vector and $\mathbf{F}$ the right-hand
+side. Then, \eqref{eq:k0} can be expressed in a further condensed Kronecker
+product form as
+%
+\begin{align}\label{eq:k2}
+\left(A_0^{-1} \otimes \begin{bmatrix} M \\ & \mathbf{0}\end{bmatrix}
+	- \delta t I_s \otimes \begin{bmatrix} L_{uu} & L_{up} \\ L_{pu} & S \end{bmatrix} \right)
+	(A_0\otimes I)\mathbf{K} & = \mathbf{F}.
+\end{align}
+%
+We can simplify this further by appealing to the real Schur decomposition,
+$A_0^{-1} = Q_0R_0Q_0^T$, where $Q_0$ is orthogonal and $R_0$ block upper
+triangular, with each block corresponding to an eigenvalue (pair) of $A_0^{-1}$.
+Inserting $(Q_0\otimes I)(Q_0^T\otimes I)$ on the left and right of the
+matrix yields
+%
+\begin{align}\label{eq:k3}
+\left(R_0^{-1} \otimes \begin{bmatrix} M \\ & \mathbf{0}\end{bmatrix}
+	- \delta t I_s \otimes \begin{bmatrix} L_{uu} & L_{up} \\ L_{pu} & S \end{bmatrix} \right)
+	(R_0^{-1}Q_0^T\otimes I)\mathbf{K} & = (Q_0^T\otimes I)\mathbf{F}.
+\end{align}
+%
+
+Thus the fully implicit Runge-Kutta update requires the solution of the
+block upper triangular system in \eqref{eq:k3}, which can be accomplished
+through backward substitution. There will be two types of diagonal systems
+we must solve. The first corresponds to the (typically single) real eigenvalue
+$\eta$ of $A_0^{-1}$, for which we must solve an equivalent system as one
+obtained for, e.g., backward Euler with \eqref{eq:problem2}:
+%
+\begin{align}\label{eq:R1}
+\begin{bmatrix} \eta M - \delta tL_{uu} & -\delta tL_{up} \\ -\delta tL_{pu} & -\delta tS
+	\end{bmatrix}
+	\begin{bmatrix} \hat{\mathbf{k}}_j \\ \hat{\ell}_j\end{bmatrix} =
+	\begin{bmatrix} \hat{\mathbf{f}}_j \\ \hat{\mathbf{g}}_j \end{bmatrix}.
+\end{align}
+%
+This system is straightforward assuming reasonable $\eta$ values, and
+follows directly as one would apply a preconditioner to standard BE or
+SDIRK integration schemes.
+
+Complex eigenvalues $\eta + \mathrm{i}\beta$ result in a $2\times 2$ block
+in $R_0$, where each block is also a $2\times 2$ block corresponding to the
+time-dependent variable and algebraic constraint,
+%
+\begin{align}\label{eq:R2x2}
+\begin{bmatrix}
+	\eta M - \delta tL_{uu} & -\delta tL_{up} & \phi M & 0 \\
+		-\delta tL_{pu} & -\delta tS & 0 & 0 \\
+	-\frac{\beta^2}{\phi}M & 0 & \eta M - \delta tL_{uu} & -\delta tL_{up} \\
+	0 & 0 & -\delta tL_{pu} & -\delta tS
+	\end{bmatrix}
+	\begin{bmatrix} \hat{\mathbf{k}}_j \\ \hat{\ell}_j \\
+		\hat{\mathbf{k}}_{j+1} \\ \hat{\ell}_{j+1} \end{bmatrix} =
+	\begin{bmatrix} \hat{\mathbf{f}}_j \\ \hat{\mathbf{g}}_j \\
+		\hat{\mathbf{f}}_{j+1} \\ \hat{\mathbf{g}}_{j+1} \end{bmatrix}.
+\end{align}
+%
+There are two ways to think about preconditioning \eqref{eq:R2x2}. In 
+its current form, we have $2\times 2$ diagonal blocks given as the the
+system for a single time step or real eigenvalue, as in \eqref{eq:R1},
+and relatively weak off-diagonal coupling. We could directly apply a
+block triangular preconditioner, or try some better approximation to
+the Schur complement,
+%
+\begin{align*}
+\begin{bmatrix} \eta M - \delta tL_{uu} & -\delta tL_{up} \\ -\delta tL_{pu} & -\delta tS
+		\end{bmatrix} +
+	\beta^2 \begin{bmatrix} M & 0 \\ 0 & 0 \end{bmatrix}
+	\begin{bmatrix} \eta M - \delta tL_{uu} & -\delta tL_{up} \\ -\delta tL_{pu} & -\delta tS
+	\end{bmatrix}^{-1}
+	\begin{bmatrix} M & 0 \\ 0 & 0 \end{bmatrix}
+\end{align*}
+%
+If we just precondition with the diagonal blocks, the preconditioned 
+Schur complement looks like
+%
+\begin{align*}
+I + \frac{\beta^2}{\eta^2} \left(\begin{bmatrix} \eta M - \delta tL_{uu} & -\delta tL_{up} \\
+		-\delta tL_{pu} & -\delta tS \end{bmatrix}^{-1}
+	\begin{bmatrix} \eta M & 0 \\ 0 & 0 \end{bmatrix} \right)^2.
+\end{align*}
+%
+If the spatial operator is symmetric, the error term should have real-valued
+positive eigenvalues. The magnitude is a bit trickier - for the ODE case,
+by virtue of a stable time-propagation scheme, we were able to show that
+the error term is $\leq 1$ in a field-of-values sense, largely on the
+assumption that the spatial operator is negative in a field-of-values
+sense. With the algebraic constraint, the spatial operator is likely
+indefinite, which raises the important question as to the field-of-values
+of $\begin{bmatrix} \eta M - \delta tL_{uu} & -\delta tL_{up} \\
+-\delta tL_{pu} & -\delta tS \end{bmatrix}^{-1}$. If this operator
+has modes $\approx 0$, then the preconditioning is not so good. If we
+can show this is bounded nicely away from 0, we are okay.
+
+Alternatively, we can reorder \eqref{eq:R2x2} to take the form
+%
+\begin{align}\label{eq:R2x2_2}
+\begin{bmatrix}
+	\eta M - \delta tL_{uu} & \phi M & -\delta tL_{up} & 0 \\
+	-\frac{\beta^2}{\phi}M & \eta M - \delta tL_{uu} & 0 & -\delta tL_{up} \\
+	-\delta tL_{pu} & 0 & -\delta tS & 0 \\
+	0 & -\delta tL_{pu} & 0 & -\delta tS \\
+	\end{bmatrix}
+	\begin{bmatrix} \hat{\mathbf{k}}_j \\ \hat{\mathbf{k}}_{j+1} \\ 
+		\hat{\ell}_j \\\hat{\ell}_{j+1} \end{bmatrix} =
+	\begin{bmatrix} \hat{\mathbf{f}}_j \\ \hat{\mathbf{f}}_{j+1} \\
+		 \hat{\mathbf{g}}_j \\ \hat{\mathbf{g}}_{j+1} \end{bmatrix}.
+\end{align}
+%
+The leading $2\times 2$ block is exactly what you get applying a similar
+algorithm to a time-dependent diffusion or advection-diffusion problem.
+We proved that a block-triangular preconditioner guarantees fast convergence
+with Krylov. Thus we have a preconditioner that we know will be effective
+for the (1,1)-block. Then we need to precondition the (2,2) Schur complement,
+%
+\begin{align}\label{eq:blockS}
+\begin{bmatrix} -\delta tS & 0 \\ 0 & -\delta tS\end{bmatrix} 
+	- \begin{bmatrix} \delta tL_{pu} & 0 \\ 0 & \delta tL_{pu}\end{bmatrix}
+	\begin{bmatrix} \eta M - \delta tL_{uu} & \phi M \\
+		-\frac{\beta^2}{\phi}M & \eta M - \delta tL_{uu} \end{bmatrix}^{-1}
+	\begin{bmatrix} \delta tL_{up} & 0 \\ 0 & \delta tL_{up} \end{bmatrix}.
+\end{align}
+%
+\tcb{Check sign on $S$-term, maybe should be positive.} Here we consider
+the approximation
+%
+\begin{align}\label{eq:blockS_approx}
+\begin{bmatrix} -\delta tS & 0 \\ 0 & -\delta tS\end{bmatrix} 
+	- \begin{bmatrix} \delta tL_{pu} & 0 \\ 0 & \delta tL_{pu}\end{bmatrix}
+	\begin{bmatrix} \eta M - \delta tL_{uu} & 0 \\
+		0 & \eta M - \delta tL_{uu} \end{bmatrix}^{-1}
+	\begin{bmatrix} \delta tL_{up} & 0 \\ 0 & \delta tL_{up} \end{bmatrix}.
+\end{align}
+%
+This becomes block-diagonal, where each diagonal block can naturally be
+preconditioned using standard techniques for preconditioning a single
+time step. Theory suggests the approximation in \eqref{eq:blockS_approx}
+is good because
+%
+\begin{align}\label{eq:diag_prec}
+\begin{bmatrix} \eta M - \delta tL_{uu} & 0 \\
+		0 & \eta M - \delta tL_{uu} \end{bmatrix}^{-1}&
+		\begin{bmatrix} \eta M - \delta tL_{uu} & \phi M \\
+		-\frac{\beta^2}{\phi}M & \eta M - \delta tL_{uu} \end{bmatrix} \\
+& = I + \begin{bmatrix} 0 & \phi(\eta M - \delta tL_{uu})^{-1} M \nonumber\\
+		-\frac{\beta^2}{\phi}(\eta M - \delta tL_{uu})^{-1}M & 0 \end{bmatrix} \\
+& = I + \begin{bmatrix} 0 & \frac{\phi}{\eta} \\ -\frac{\beta^2}{\phi\eta} & 0 \end{bmatrix}
+	\otimes \left( M - \tfrac{\delta t}{\eta} L_{uu}\right)^{-1}M \nonumber\\
+& \sim I + \begin{bmatrix} 0 & \frac{\phi}{\eta} \\ -\frac{\beta^2}{\phi\eta} & 0 \end{bmatrix}
+	\otimes M^{1/2}\left( M - \tfrac{\delta t}{\eta} L_{uu}\right)^{-1}M^{1/2} \nonumber\\
+& = I + \begin{bmatrix} 0 & \frac{\phi}{\eta} \\ -\frac{\beta^2}{\phi\eta} & 0 \end{bmatrix}
+	\otimes \left( I - \tfrac{\delta t}{\eta} M^{-1/2}L_{uu}M^{-1/2}\right)^{-1}.\nonumber
+\end{align}
+%
+Suppose that $M^{-1/2}L_{uu}M^{-1/2}$ is symmetric negative definite as in, e.g., Stokes.
+Note that the eigenvalues of the $2\times 2$ scalar matrix above are $\pm\beta^2/\eta^2$.
+Then, by nature of the Kronecker product, the eigenvalues of \eqref{eq:diag_prec} have
+a real part of one and lie on a line in the complex plane between $1\pm\frac{\beta^2}{\eta^2}$.
+
+For problems with nontrivial advection (Navier Stokes/Euler), the eigenvalues
+of $I - \tfrac{\delta t}{\eta} M^{-1/2}L_{uu}M^{-1/2}$ likely have a complex component.
+This is a little trickier to analyze. Let $x + \mathrm{i}y$ be a complex eigenvalue
+of $-M^{-1/2}L_{uu}M^{-1/2}$. Note that $\delta tM^{-1} \approx \delta t/h^2 := C$.
+Eigenvalues are then given as
+%
+\begin{align*}
+1 \pm \mathrm{i}\frac{\beta^2}{\eta^2} \cdot
+	\frac{1}{1 + \frac{C}{\eta}x \pm \mathrm{i}\frac{C}{\eta}y}
+& = 1 \pm \mathrm{i}\frac{\beta^2}{\eta^2} \cdot
+	\frac{1 + \frac{C}{\eta}x \mp \mathrm{i}\frac{C}{\eta}y}{(1 + \frac{C}{\eta}x)^2 +
+		(\frac{C}{\eta}y)^2} \\
+& = 1 \pm \frac{\beta^2}{\eta^2} \cdot
+		\frac{\frac{C}{\eta}y}{(1 + \frac{C}{\eta}x)^2 + (\frac{C}{\eta}y)^2}
+	\pm \mathrm{i}\frac{\beta^2}{\eta^2} \cdot
+	\frac{1 + \frac{C}{\eta}x}{(1 + \frac{C}{\eta}x)^2 +
+		(\frac{C}{\eta}y)^2}
+\end{align*}
+%
+
+% Matlab plot of real part -- want B^2/n^2 times this to be << 1 to stay
+% nicely positive and bounded away from zero in a field-of-values sense
+% If real part >= imaginary part of eigenvalue, then the preconditioned
+% eigenvalues stay nicely bounded positive and away from zero. If there
+% are complex eigenvalues with dominant imaginary part c roughly in
+% [0.3,3], the diagonal approximation may not be as effective.
+%
+% f = @(x,y) y ./ ((1+x).^2 + y.^2);
+% y0 = 0:0.01:5;                       
+% x0 = 0:0.01:5;
+% [X,Y] = meshgrid(x0,y0);
+% surf(X,Y,f(X,Y), 'EdgeColor', 'none')
+% xlabel('Re');
+% ylabel('Im');
+
+
+
+
+
+
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+\newpage
+\section{Preconditioning fully implicit IRK system}
+
+Also, I think we may have stumbled upon a way to precondition the fully time
+dependent system. If we return to \eqref{eq:keq} for $\mathcal{L}_i\neq\mathcal{L}_j$
+and pull out and apply the real Schur decomposition, we have
+\begin{align}\label{eq:keq2}
+Q_0\otimes I\left( R_0^{-1}\otimes M - \delta t (Q_0^T\otimes I)
+	\begin{bmatrix} \mathcal{L}_1  & \\ & \ddots \\ && \mathcal{L}_s\end{bmatrix}
+	(Q_0\otimes I)\right)Q_0^T\otimes I.
+\end{align}
+%
+Recall $Q_0$ is orthogonal, so for $\mathcal{L}_i = \mathcal{L}_j$, the coefficients
+of $Q_0$ work out so that the off-diagonals of the triple product with $\delta t$
+are zero and the diagonals are $\mathcal{L}$. Here instead we have elements with a
+form $\sum_{k=1}^s \zeta_k\mathcal{L}_k$, where $\sum_{k=1}^s \zeta_k$ equals one
+or zero for diagonal and off-diagonal, respectively. We could either ignore the error
+that induces and use a quasiNewton approach inverting \eqref{eq:keq2}, or use
+\eqref{eq:keq2} as a linear preonditioner to solve the true Jacobian each step.
+
+
+
+
+\end{document}
+
