@@ -13,17 +13,17 @@
 using namespace mfem;
 using namespace std;
 
-
-
 // Implicit Runge Kutta type. Enumeration:
 //  First digit: group of schemes
+//  - 1 = A-stable (but NOT L-stable) SDIRK schemes
 //  + 0 = L-stable SDIRK
 //  + 1 = Gauss-Legendre
 //  + 2 = RadauIIA
 //  + 3 = Lobatto IIIC
 //  Second digit: order of scheme
 enum IRKType { 
-    SDIRK1 = 01, SDIRK2 = 02, SDIRK3 = 03, SDIRK4 = 04,
+    ASDIRK4 = -14,
+    LSDIRK1 = 01, LSDIRK2 = 02, LSDIRK3 = 03, LSDIRK4 = 04,
     Gauss2 = 12, Gauss4 = 14, Gauss6 = 16, Gauss8 = 18, Gauss10 = 110,
     RadauIIA3 = 23, RadauIIA5 = 25, RadauIIA7 = 27, RadauIIA9 = 29,
     LobIIIC2 = 32, LobIIIC4 = 34, LobIIIC6 = 36, LobIIIC8 = 38
@@ -115,15 +115,12 @@ public:
 class RKButcherData 
 {
 private:    
-    void SetData();     // Set Butcher tableau coefficients
-    void SizeData();    // Set dimensions of Butcher arrays
-    
-    IRKType RK_ID;
+    void SetData(IRKType RK_ID);// Set Butcher tableau coefficients
+    void SizeData();            // Set dimensions of Butcher arrays
     
 public:
-    
-    RKButcherData(IRKType RK_ID_) : RK_ID{RK_ID_} { 
-        SetData();
+    RKButcherData(IRKType RK_ID) { 
+        SetData(RK_ID);
         invA0 = A0;
         invA0.Invert();
      };

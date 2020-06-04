@@ -8,13 +8,13 @@ c = [];
 %%% ------------------------------------ %%%
 %%% ------ L-stable SDIRK methods ------ %%%
 %%% ------------------------------------ %%%
-if strcmp(ID, 'SDIRK1')
+if strcmp(ID, 'LSDIRK1')
     A = 1;
     b = 1;
     c = 1;
 
 % 2nd-order [Dobrev et al. (2017)]
-elseif strcmp(ID, 'SDIRK2')
+elseif strcmp(ID, 'LSDIRK2')
     gamma   = 1.0 - 1.0 / sqrt(2.0);
     A       = [gamma, 0.0; ...
                2*(1-gamma)-1, gamma];
@@ -22,7 +22,7 @@ elseif strcmp(ID, 'SDIRK2')
     c       = [gamma; 1-gamma];
 
 % 3rd-order. Dobrev et al. (2017). Also see Butcher (2008), p. 262    
-elseif strcmp(ID, 'SDIRK3')
+elseif strcmp(ID, 'LSDIRK3')
     x = 0.43586652150845899942; % Solved for root of cubic with high precision
     p = 0.5*(1+x);
     q = 0.5*(1-x);
@@ -34,10 +34,10 @@ elseif strcmp(ID, 'SDIRK3')
     c = [x;  p;  1];
     b = [y;  z;  x];
 
-% 4th-order
+% 4th-order. L-stable
 % HairerWanner1996, Table IV.6.5
 % also in DuarteDobbinsSmooke2016, Appendix C    
-elseif strcmp(ID, 'SDIRK4')
+elseif strcmp(ID, 'LSDIRK4')
     A   = [0.25, 0.0, 0.0, 0.0, 0.0; ...
            0.5, 0.25, 0.0, 0.0, 0.0; ...
            17.0/50.0, -1.0/25.0, 0.25, 0.0, 0.0; ...
@@ -49,7 +49,26 @@ elseif strcmp(ID, 'SDIRK4')
            11.0/20.0; ...
            0.5; ...
            1.0];
-    
+       
+%%% ------------------------------------ %%%    
+%%% ------ A-stable SDIRK methods ------ %%%   
+%%% ------------------------------------ %%%
+% % 4th-order, 3-stage SDIRK. A-stable. NOT L-stable
+% % See MFEM's ode.hpp/ode.cpp
+elseif strcmp(ID, 'ASDIRK4')
+    alpha = 1/sqrt(3)*cos(pi/18) + 0.5;
+    beta = 1/(6*(2*alpha-1)*(2*alpha-1));
+    A = [alpha, 0.0, 0.0; ...
+         0.5-alpha, alpha, 0.0; ...
+         2*alpha, 1-4*alpha, alpha];
+    b = [beta; ...
+         1-2*beta; ... 
+         beta];
+    c = [alpha; ... 
+         0.5; ...
+         1-alpha];
+
+       
 %%% --------------------------- %%%    
 %%% ------ Radau methods ------ %%%   
 %%% --------------------------- %%%

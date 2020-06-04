@@ -5,13 +5,15 @@ clear
 
 %%% --- Tables --- %%% 
 % UNCOMMENT ONE OF ME AND HIT RUN!
-%ID = 'SDIRK1';
-% ID = 'SDIRK2';
-% ID = 'SDIRK3';
-% ID = 'SDIRK4';
+%ID = 'LSDIRK1';
+% ID = 'LSDIRK2';
+% ID = 'LSDIRK3';
+%ID = 'LSDIRK4';
+
+ID = 'ASDIRK4';
 
 %ID = 'Gauss2';
-ID =  'Gauss4';
+%ID =  'Gauss4';
 %ID =  'Gauss6';
 %ID =  'Gauss8';
 %ID =  'Gauss10';
@@ -69,7 +71,7 @@ d = ((A')\b);
 % for these lower triangular matrices. That is to say, if we compute the
 % eigenvalues/Schur decomposition using schur() then we get horrible
 % results including eigenvalues w/ significant imaginary components
-if strcmp(ID(1:end-1), 'SDIRK')
+if contains(ID, 'SDIRK')
     zeta_size = s;
     zeta = 1/A(1,1)*ones(s, 1);
     eta_size = 0;
@@ -283,6 +285,6 @@ end
 
 % Print function that indents before printing.
 function myfprintf(varargin)
-    fprintf('        ') % Indent 8 spaces
+    fprintf('            ') % Indent 8 spaces
     fprintf(varargin{:})
 end
