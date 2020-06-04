@@ -166,7 +166,13 @@ F(\bm{w}) = ( A_0^{-1} \otimes M ) \bm{w} -
 = 
 0.
 \end{align}
-What's interesting here is that the components of $\bm{w}$ are now only linearly coupled to each other (via the $A_0^{-1} \otimes M$ term), where with the previous formulation the components of $\bm{k}$ were nonlinearly coupled (every equation involves the evaluation the Jacobian of ${\cal N}$ with $(\bm{k}_i)_{i =1}^s$). The Jacobian is
+
+\begin{remark}[Nonlinear decoupling]
+What's interesting here is that the components of $\bm{w}$ are now only linearly coupled to each other (via the $A_0^{-1} \otimes M$ term), where with the previous formulation the components of $\bm{k}$ were nonlinearly coupled (every equation involves ${\cal N}$ being evaluated with $(\bm{k}_i)_{i =1}^s$). 
+This may be useful for a Picard iteration or something, since now the $s$ systems can maybe be solved in parallel. 
+\end{remark}
+
+The Jacobian is
 \begin{align}
 F'(\bm{w}) = A_0^{-1} \otimes M - 
 \delta t
@@ -207,29 +213,28 @@ I \otimes {\cal N}'_s,
 \end{align}
 such that the matrix 
 \[\big[ R_0 \otimes M - (Q_0^\top \otimes  I) (\delta t N')  (Q_0 \otimes I) \big] = 
-\big[ R_0 \otimes M - \delta t N' \big] \] is block upper triangular, and can be inverted via backward substitution. During this solve, we have to invert the diagonal blocks, which take the form (assuming  $M = I$)
+\big[ R_0 \otimes M - \delta t N' \big] \] is block upper triangular, and can be inverted via backward substitution. During this solve, we have to invert the diagonal blocks, which take the form
 \begin{align}
-1 \times 1 \textrm{ systems:} \quad \zeta_j I - \delta t {\cal N}'_s,
+1 \times 1 \textrm{ systems:} \quad \zeta_j M - \delta t {\cal N}'_s,
 \end{align}
 and 
 \begin{align}
 2 \times 2 \textrm{ systems:} \quad
 \begin{bmatrix}
-\eta_jI  - \delta t {\cal N}'_s & \phi I \\
--\tfrac{\beta^2_j}{\phi}I & \eta_jI  - \delta t {\cal N}'_s \\
+\eta_j M  - \delta t {\cal N}'_s & \phi M \\
+-\tfrac{\beta^2_j}{\phi} M & \eta_j M  - \delta t {\cal N}'_s \\
 \end{bmatrix}
 \end{align}
 
-This is done with preconditioned GMRES, where for the $1 \times 1$ system, a single AMG iteration is applied to $\zeta_j I - \delta t {\cal N}'_s$. And for the 
+This is done with preconditioned GMRES, where for the $1 \times 1$ system, a single AMG iteration is applied to $\zeta_j M - \delta t {\cal N}'_s$. And for the 
 $2 \times 2$ systems the preconditioner is 
 \begin{align}
 \begin{bmatrix}
-\eta_jI  - \delta t {\cal N}'_s & 0 \\
--\tfrac{\beta^2_j}{\phi}I & \eta_jI  - \delta t {\cal N}'_s \\
+\eta_j M  - \delta t {\cal N}'_s & 0 \\
+-\tfrac{\beta^2_j}{\phi} M & \eta_j M  - \delta t {\cal N}'_s \\
 \end{bmatrix}^{-1},
 \end{align}
-with the action of $(\eta_jI  - \delta t {\cal N}'_s)^{-1}$ approximated via a single AMG iteration.
-
+with the action of $(\eta_j M  - \delta t {\cal N}'_s)^{-1}$ approximated via a single AMG iteration.
 
 We have some flexibility in terms of updating ${\cal N}'_s$. Some options:
 \begin{enumerate}
@@ -286,13 +291,21 @@ These settings don't really make much sense because they lead to significant ove
 
 \item In terms of work done per accuracy, it seems like Gauss schemes are best, and Radau IIA schemes come in a close second, and that Lobatto IIIC schemes aren't even close. See Figure \ref{fig:iters2D}. But, I'm not quite sure how much to take away from this plot because tolerances are not set up very well...
 
+\item 4th-order SDIRK schemes:
+\begin{itemize}
+\setlength\itemsep{0.5em}
+\item A-stable: 3-stages, the diagonal entries on the upper triangular Schur matrix are $R_{ii} \approx 1.07$ (we solve linear systems like $R_{ii} I - \delta t {\cal N}'$)
+
+\item L-stable: 5-stages, the diagonal entries on the upper triangular Schur matrix are $R(i,i)_{ii} \approx 4$. So the linear systems here have a larger identity perturbation c.f. the A-stable scheme, which is why they are easier to solve (they require fewer AMG iterations). 
+\end{itemize}
+
 \end{itemize}
 
 
 
 \begin{figure}[H]
 \centerline{
-\includegraphics[width = 0.575\textwidth]{figures/SDIRK_d2_ex1}
+\includegraphics[width = 0.575\textwidth]{figures/LSDIRK_d2_ex1}
 \quad
 \includegraphics[width = 0.575\textwidth]{figures/Gauss_d2_ex1}
 }
@@ -309,16 +322,21 @@ These settings don't really make much sense because they lead to significant ove
 
 \begin{figure}[H]
 \centerline{
-\includegraphics[width = 0.575\textwidth]{figures/newton_iters_O4}
+\includegraphics[width = 0.575\textwidth]{figures/newton_iters_O4_dim2}
 \quad
-\includegraphics[width = 0.575\textwidth]{figures/amg_iters_O4}
+\includegraphics[width = 0.575\textwidth]{figures/newton_iters_O7_dim2}
 }
 \centerline{
-\includegraphics[width = 0.575\textwidth]{figures/newton_iters_O7}
+\includegraphics[width = 0.575\textwidth]{figures/amg_iters_O4_dim2}
 \quad
-\includegraphics[width = 0.575\textwidth]{figures/amg_iters_O7}
+\includegraphics[width = 0.575\textwidth]{figures/amg_iters_O7_dim2}
 }
-\caption{Average iterations per time step (data associated with convergence plots in Figure \ref{fig:errors2D}). \textbf{Top:} 4th(ish)-order schemes. \textbf{Bottom:} 8th(ish)-order schemes. \textbf{Left:} Newton. \textbf{Right:} AMG. The systems that AMG is applied to have dimension $n = (16^2, 32^2, 64^2, 128^2)$ for $\delta t = (2^{-2}, 2^{-3}, 2^{-4}, 2^{-5})$. \tcp{Not really sure why so many Newton iterations decrease with resolution... See also Figure \ref{fig:iters1D}.}. In terms of work done per accuracy, it seems  Gauss $<$ Radau IIA $\ll$ Lobatto IIIC.
+\centerline{
+\includegraphics[width = 0.575\textwidth]{figures/errors_O4_dim2}
+\quad
+\includegraphics[width = 0.575\textwidth]{figures/errors_O7_dim2}
+}
+\caption{Average iterations per time step (data associated with convergence plots in Figure \ref{fig:errors2D}). \textbf{Left:} 4th(ish)-order schemes. \textbf{Right:} 8th(ish)-order schemes. \textbf{Top:} Newton iterations. \textbf{Middle:} AMG iterations. \textbf{Bottom:} Discretization errors. The systems that AMG is applied to have dimension $n = (16^2, 32^2, 64^2, 128^2)$ for $\delta t = (2^{-2}, 2^{-3}, 2^{-4}, 2^{-5})$. \tcp{Not really sure why so many Newton iterations decrease with resolution... See also Figure \ref{fig:iters1D}.}. In terms of work done per accuracy, it seems Gauss $<$ Radau IIA $\ll$ Lobatto IIIC. Note also for this particular problem, 4th-order Gauss does significantly better than both L-stable and A-stable 4th-order SDIRK schemes. Notice that the error constant for A-SDIRK(4) is much larger, and convergence appears only $\approx$3rd-order (Figure \ref{fig:iters1D} shows that eventually it does reach 4th-order however).
 \label{fig:iters2D}
 }
 \end{figure}
@@ -326,14 +344,14 @@ These settings don't really make much sense because they lead to significant ove
 
 \begin{figure}[H]
 \centerline{
-\includegraphics[width = 0.575\textwidth]{figures/errors_iters_O4_dim1}
+\includegraphics[width = 0.625\textwidth]{figures/errors_O4_dim1}
 }
 \centerline{
 \includegraphics[width = 0.575\textwidth]{figures/newton_iters_O4_dim1}
 \quad
 \includegraphics[width = 0.575\textwidth]{figures/amg_iters_O4_dim1}
 }
-\caption{Average iterations per time step for 4th(ish)-order discretizations of the \textbf{1D problem}, $u_t + 0.85 u^2_x = 0.3u_{xx} + s(x,t)$. 
+\caption{Average iterations per time step for 4th(ish)-order discretizations of the \textbf{1D problem}, $u_t + 0.85 u^2_x = 0.3u_{xx} + s(x,t)$. Notice that A-SDIRK(4) does appear to eventually achieve 4th-order convergence, but the error is significantly larger than that of the other 4th-order schemes. Thus, Gauss(4) outperforms A-SDIRK(4) in terms of AMG iterations per accuracy.
 \label{fig:iters1D}
 }
 \end{figure}

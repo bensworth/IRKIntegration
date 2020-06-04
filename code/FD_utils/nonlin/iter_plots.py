@@ -16,30 +16,31 @@ import os.path
 import argparse
 
 '''
-Plot Krylov and Newton iterations
+Plot Krylov and Newton iterations and discretization errors
 
 --------- 1D ----------
 --- 4th-order schemes
-python iter_plots.py -dir data_d1/ -d 1 -ex 1 -t 14 34 23 4 -dt_min 2 2 2 2 -dt_max 8 8 8 8 
-
+python iter_plots.py -dir data_1d/ -d 1 -ex 1 -t 14 34 23 -14 4 -dt_min 2 2 2 2 2 -dt_max 8 8 8 8 8 
 
 --------- 2D ----------
 --- 4th-order schemes
-python iter_plots.py -dir data/ -d 2 -ex 1 -t 14 34 23 4 -dt_min 2 2 2 2 -dt_max 5 5 5 5 
+python iter_plots.py -dir data_2d/ -d 2 -ex 1 -t 14 34 23 -14 4 -dt_min 2 2 2 2 2 -dt_max 5 5 5 5 5
 
 --- 8th-order schemes
-python iter_plots.py -dir data/ -d 2 -ex 1 -t 18 38 27 -dt_min 2 2 2 -dt_max 4 4 4 
+python iter_plots.py -dir data_2d/ -d 2 -ex 1 -t 18 38 27 -dt_min 2 2 2 -dt_max 4 4 4 
 
 '''
 
 # IRK types
-IRK_type = {0 : "SDIRK", 
+IRK_type = {-1: "ASDIRK",
+            0 : "LSDIRK", 
             1 : "Gauss",
             2 : "Radau\,IIA",
             3 : "Lobatto\,IIIC"}
 
 # Dictionary holding order of IRK schemes
-IRK_order = {1 : 1,
+IRK_order = { -14 : 4,
+                1 : 1,
                 2 : 2,
                 3 : 3,
                 4 : 4,
@@ -57,10 +58,11 @@ IRK_order = {1 : 1,
                 36 : 6,
                 38 : 8}
                 
-IRK_label = {1 : "SDIRK(1)",
-                2 : "SDIRK(2)",
-                3 : "SDIRK(3)",
-                4 : "SDIRK(4)",
+IRK_label = { -14 : "A\\rm{-}SDIRK(4)",
+                1 : "L\\rm{-}SDIRK(1)",
+                2 : "L\\rm{-}SDIRK(2)",
+                3 : "L\\rm{-}SDIRK(3)",
+                4 : "L\\rm{-}SDIRK(4)",
                 12 : "Gauss(2)",
                 14 : "Gauss(4)",
                 16 : "Gauss(6)",
@@ -94,7 +96,7 @@ fs = {"fontsize": 18}
 
 colours = ["g", "m", "b", "c", "y"]
 markers = ["o", "v", "s", "*", "d"]
-linestyles = ["-", ":", "-.", "--"]
+linestyles = ["-", ":", "-.", "--", "-"]
 
 
 # Only turn on this setting if saving since it makes the script take ages...
@@ -227,10 +229,10 @@ axes.set_ylim(ylims)
 
 plt.legend(fontsize = fs["fontsize"]-2)
 plt.xlabel("$\delta t$", **fs)
-plt.ylabel("$\\Vert \\mathbf{{e}} \\Vert_{{{}}}$".format(norm_str), **fs)
+plt.title("${{{}}} \, \, \\rm{{discretization\\ error}}$".format(norm_str), **fs)
 
 if int(args["save"]):    
-    out = "convergence_plots/errors_iters_O" + str(order) + "_dim" + args["d"] + ".pdf"
+    out = "convergence_plots/errors_O" + str(order) + "_dim" + args["d"] + ".pdf"
     plt.savefig(out, bbox_inches='tight')    
 
 plt.show()

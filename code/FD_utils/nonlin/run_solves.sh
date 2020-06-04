@@ -9,7 +9,7 @@
 
 date
 
-outdir=data1 # Where the data is sent to
+outdir=data_test # Where the data is sent to
 
 np=4        # Number of processes
 # Newton parameters
@@ -23,7 +23,7 @@ krtol=1e-13;
 kmaxit=50; kdim=50
 
 # Problem parameters
-dim=1  # Spatial dimension
+dim=2  # Spatial dimension
 ax=0.85; ay=1.0; mx=0.3; my=0.25 # PDE coefficients
 flux=1 # Flux function
 ex=1   # example problem to be solved
@@ -32,7 +32,10 @@ tf=2   # Final integration time
 
 # IRK == IRK method; space == Order of spatial discretization
 
-### --- SDIRK --- ###
+### --- ASDIRK --- ###
+IRK=-14; space=4  
+
+### --- LSDIRK --- ###
 #IRK=1; space=2  
 #IRK=2; space=2  
 #IRK=3; space=4  
@@ -60,7 +63,7 @@ tf=2   # Final integration time
 
 # dt will go from [2^-dt_min_refine, ..., 2^-dt_max_refine]
 dt_min_refine=2
-dt_max_refine=8
+dt_max_refine=5
 
 save=1 # Save only the text file output from the problem and not the solution
 

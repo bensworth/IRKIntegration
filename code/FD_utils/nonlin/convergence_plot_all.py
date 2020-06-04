@@ -23,20 +23,31 @@ import argparse
 1D problems...
 
 2D problems...
-python convergence_plot_all.py -dir data/ -d 2 -ex 1 -g 0 -t 1 2 3 4 -dt_min 2 2 2 2 -dt_max 5 5 5 5
-python convergence_plot_all.py -dir data/ -d 2 -ex 1 -g 1 -t 12 14 16 18 110 -dt_min 2 2 2 2 2 -dt_max 5 5 5 4 4
-python convergence_plot_all.py -dir data/ -d 2 -ex 1 -g 2 -t 23 25 27 29 -dt_min 2 2 2 2 -dt_max 5 5 4 4
-python convergence_plot_all.py -dir data/ -d 2 -ex 1 -g 3 -t 32 34 36 38 -dt_min 2 2 2 2 -dt_max 5 5 4 4
+python convergence_plot_all.py -dir data_2d/ -d 2 -ex 1 -g -1 -t -14 -dt_min 2 2 2 2 -dt_max 5 5 5 5
+
+python convergence_plot_all.py -dir data_2d/ -d 2 -ex 1 -g 0 -t 1 2 3 4 -dt_min 2 2 2 2 -dt_max 5 5 5 5
+python convergence_plot_all.py -dir data_2d/ -d 2 -ex 1 -g 1 -t 12 14 16 18 110 -dt_min 2 2 2 2 2 -dt_max 5 5 5 4 4
+python convergence_plot_all.py -dir data_2d/ -d 2 -ex 1 -g 2 -t 23 25 27 29 -dt_min 2 2 2 2 -dt_max 5 5 4 4
+python convergence_plot_all.py -dir data_2d/ -d 2 -ex 1 -g 3 -t 32 34 36 38 -dt_min 2 2 2 2 -dt_max 5 5 4 4
 '''
 
 # IRK types
-IRK_type = {0 : "SDIRK", 
+IRK_type = {-1: "ASDIRK",
+            0 : "LSDIRK", 
+            1 : "Gauss",
+            2 : "Radau\,IIA",
+            3 : "Lobatto\,IIIC"}
+
+# IRK types
+IRK_type_labels = {-1 : "A\\rm{-}SDIRK",
+            0 : "L\\rm{-}SDIRK", 
             1 : "Gauss",
             2 : "Radau\,IIA",
             3 : "Lobatto\,IIIC"}
 
 # Dictionary holding order of IRK schemes
-IRK_order = {1 : 1,
+IRK_order = { -14 : 4,
+                1 : 1,
                 2 : 2,
                 3 : 3,
                 4 : 4,
@@ -158,7 +169,7 @@ plt.ylabel("$\\Vert \\mathbf{{e}} \\Vert_{{{}}}$".format(norm_str), **fs)
 
 # Set the title to the common IRK group if one was passed
 if args["IRK_type"] is not None:
-    plt.title("$\\rm{{{}}}$$(p)$".format(IRK_type[int(args["IRK_type"][0])]), **fs)
+    plt.title("$\\rm{{{}}}$$(p)$".format(IRK_type_labels[int(args["IRK_type"][0])]), **fs)
 
 if int(args["save"]):    
     # Generate name to save figure with...
@@ -174,39 +185,5 @@ if int(args["save"]):
 
 
 plt.show()
-
-
-
-
-# 
-# if int(args["pit"]):
-#     title = "Space-time: "
-# else:
-#     title = "Time-stepping: "
-# 
-# title += args["d"] + "D"
-# title += ", " + args["FD"]
-# print(title)
-# plt.title(title, **fs)
-# 
-# if int(args["save"]):    
-#     # Generate name to save figure with...
-#     filenameOUT = "plots/" + params["time"] + "/"
-#     if int(args["pit"]):
-#         filenameOUT += "spaceTime_"
-#     else:
-#         filenameOUT += "timeStepping_"
-# 
-#     if int(params["implicit"]):
-#         filenameOUT += "implicit_"
-#     else:
-#         filenameOUT += "explicit_"    
-# 
-# 
-#     filenameOUT += "d" + args["d"] + "_FD" + args["FD"]
-#     plt.savefig('{}.pdf'.format(filenameOUT), bbox_inches='tight')
-# plt.show()  
-
-
 
 
