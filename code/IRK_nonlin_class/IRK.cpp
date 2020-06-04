@@ -7,8 +7,6 @@
 
 
 /* TODO:
-    -Setup for use with mass matrix
-    
     -I think it might make sense to re-order Schur decompositions so that if 
         there is at least one real eigenvalue, it be put at the bottom of the diagonal of R0.
         (I already have the MATLAB code to do this, but if we want to pull Schur
@@ -18,7 +16,8 @@
         substitution, it would be as if we've solved for this stage using the true Jacobian.
 */
 
-/// y = (A \otimes I) * x for x,y s block vectors and A an s x s matrix
+
+/// Kronecker transform between two block vectors: y <- (A \otimes I)*x
 void KronTransform(const DenseMatrix &A, const BlockVector &x, BlockVector &y)
 {
     for (int block = 0; block < A.Height(); block++) {
@@ -28,16 +27,16 @@ void KronTransform(const DenseMatrix &A, const BlockVector &x, BlockVector &y)
         } else {
             y.GetBlock(block) = 0.;
         }
-        for (int j = 1; j < A.Height(); j++) {
+        for (int j = 1; j < A.Width(); j++) {
             if (fabs(A(block,j)) > 0.) y.GetBlock(block).Add(A(block,j), x.GetBlock(j));
         }
     }
-}
+};
 
-/// y = (A^\top \otimes I) * x for x,y s block vectors and A an s x s matrix
+/// Kronecker transform between two block vectors using A transpose: y <- (A^\top \otimes I)*x
 void KronTransformTranspose(const DenseMatrix &A, const BlockVector &x, BlockVector &y)
 {
-    for (int block = 0; block < A.Height(); block++) {
+    for (int block = 0; block < A.Width(); block++) {
         int i = 0;
         if (fabs(A(i,block)) > 0.) {
             y.GetBlock(block).Set(A(i,block), x.GetBlock(i));
@@ -48,7 +47,7 @@ void KronTransformTranspose(const DenseMatrix &A, const BlockVector &x, BlockVec
             if (fabs(A(i,block)) > 0.) y.GetBlock(block).Add(A(i,block), x.GetBlock(i));
         }
     }
-}
+};
 
 
 IRK::IRK(IRKOperator *IRKOper_, IRKType RK_ID_)
@@ -77,7 +76,7 @@ IRK::IRK(IRKOperator *IRKOper_, IRKType RK_ID_)
     // Stage operator, F(w)
     m_stageOper = new IRKStageOper(m_IRKOper, m_stageOffsets, m_Butcher); 
     
-    
+    // Setup information for recording statistics of solver
     m_avg_newton_iter = 0;
     m_avg_krylov_iter.resize(m_Butcher.s_eff, 0);
     m_system_size.resize(m_Butcher.s_eff);
@@ -149,7 +148,7 @@ void IRK::Init(TimeDependentOperator &F)
 }
 
 
-/* Apply RK update, x = x + (dt*b0^\top \otimes I)*k */
+/* Apply RK update, x = x + (dt*b0^\top \otimes I)*k == x + (dt*d0^\top \otimes I)*w */
 void IRK::Step(Vector &x, double &t, double &dt)
 {
     // Reset iteration counter for Jacobian solve from previous newton iteration
@@ -178,8 +177,6 @@ void IRK::Step(Vector &x, double &t, double &dt)
     for (int system = 0; system < m_avg_krylov_iter.size(); system++) {
         m_avg_krylov_iter[system] += krylov_iters[system];
     }
-    
-    
     
     // Check for convergence 
     if (!m_nonlinear_solver->GetConverged()) {

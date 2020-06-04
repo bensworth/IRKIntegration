@@ -16,7 +16,8 @@ using namespace std;
 test problem...
 
 mpirun -np 4 ./driver_adv_dif -f 1 -d 2 -o 4 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -l 4 -dt -2 -t 14 -save 2 -tf 2 -np 2 -nmaxit 20 -nrtol 1e-10 -natol 1e-10 -krtol 1e-13 -katol 1e-13 -kp 0
-/*
+*/
+
 
 // TODO: Segfault associated w/ freeing HypreBoomerAMG... Currently not being
 // deleted... See associated `TODO` comment...
@@ -46,9 +47,9 @@ mpirun -np 4 ./driver_adv_dif -f 1 -d 2 -o 4 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.
 // Test problems with manufactured solutions are implemented to facillitate 
 // convergence studies.                                     [pass `-ex 1` (OR `-ex 2` for f(u)==u for a different example) to report error]
 //
-// TIME DISCRETIZATION: Both explicit and implicit RK options are available.
+// TIME DISCRETIZATION: Fully implicit RK.
 //
-// SPATIAL DISCRETIZATION: Arbitrarily high-order FD is are available. 
+// SPATIAL DISCRETIZATION: Arbitrarily high-order FD is available. 
 // NOTE: No sophisticated treatment is provided for the discretization of 
 // f(u)=u^2/2, which means that for small diffusivities mu, the discrete solution
 // will become unstable due to the development of sharp gradients (however, the
@@ -174,6 +175,10 @@ public:
     
     /// Set solver parameters fot implicit time-stepping; MUST be called before InitSolvers()
     inline void SetAMGParams(AMG_params params) { AMG = params; };
+    
+    /** Apply action of identity mass matrix, y = M*x. */
+    inline void ImplicitMult(const Vector &x, Vector &y) const { y = x; };
+    
 };
 
 
@@ -687,7 +692,9 @@ ScalarFun GradientFlux(int fluxID) {
 
 AdvDif::AdvDif(FDMesh &Mesh_, int fluxID, Vector alpha_, Vector mu_, 
         int order, FDBias advection_bias) 
-    : IRKOperator(Mesh_.GetComm(), Mesh_.GetLocalSize()),
+    : IRKOperator(Mesh_.GetComm(), Mesh_.GetLocalSize(), 0.0, 
+        TimeDependentOperator::Type::IMPLICIT),
+        //TimeDependentOperator::Type::EXPLICIT),
         op_type{LINEAR},
         Mesh{Mesh_},
         alpha(alpha_), mu(mu_),
