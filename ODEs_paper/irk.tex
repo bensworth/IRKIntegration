@@ -11,6 +11,7 @@
 \usepackage{enumitem}
 	\setlist{nosep} % or \setlist{noitemsep} to leave space around whole list
 \usepackage{color}
+\usepackage{verbatim}
 \usepackage{showlabels}
 \usepackage{adjustbox}
 \usepackage{hyperref}
@@ -19,6 +20,7 @@
 \usepackage{cleveref}
 
 \newsiamremark{remark}{Remark}
+\newsiamremark{assumption}{Assumption}
 
 
 % \newtheorem{lemma}{Lemma}
@@ -36,7 +38,7 @@
 % ------------------------------------------------------------------------------------ %
 % ------------------------------------------------------------------------------------ %
 
-\newcommand{\TheTitle}{Fast solution of fully implict Runge-Kutta\\systems in numerical PDEs}
+\newcommand{\TheTitle}{Fast parallel solution of fully implict\\Runge-Kutta in numerical PDEs}
 \newcommand{\TheAuthors}{B.S. Southworth }
 \headers{IRK!}{\TheAuthors}
 \title{{\TheTitle}\thanks{This research was conducted ...
@@ -71,21 +73,25 @@
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
-\section{Introduction}
+\section{Introduction}\label{sec:intro}
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
-\subsection{Fully implicit Runge-Kutta}
+\subsection{Fully implicit Runge-Kutta}\label{sec:intro:irk}
 
 Consider the method-of-lines approach to the numerical solution of partial differential
-equations (PDEs), where we discretize in space and arrive at a system of ODEs in time,
+equations (PDEs), where we discretize in space and arrive at a system of ordinary
+differential equations (ODEs) in time,
 %
 \begin{align}\label{eq:problem}
 	M\mathbf{u}'(t) =  \mathcal{N}(\mathbf{u},t) \quad\text{in }(0,T], \quad \mathbf{u}(0) = \mathbf{u}_0,
 \end{align}
 %
 where $M$ is a mass matrix and $\mathcal{N}\in\mathbb{R}^{N\times N}$ is a discrete, time-dependent, nonlinear operator depending on $t$ and $\mathbf{u}$ (including potential
-forcing terms). Then, consider time propagation using an $s$-stage Runge-Kutta scheme,
+forcing terms).\footnote{Note, PDEs with an algebraic constraint, for example, the divergence-free
+constraint in Navier Stokes, instead yield a differential algebraic equation (DAE), which
+requires separate careful treatment and will be the subject of a forthcoming paper.}
+Then, consider time propagation using an $s$-stage Runge-Kutta scheme,
 characterized by the Butcher tableaux 
 %
 \begin{align*}
@@ -103,16 +109,18 @@ and quadrature nodes $\mathbf{c}_0 = (c_0, \ldots, c_s)$.
 
 Runge-Kutta methods update the solution using a sum over stage vectors,
 %
-\begin{align*}
+\begin{align}\label{eq:update}
 \mathbf{u}_{n+1} & = \mathbf{u}_n + \delta t \sum_{i=1}^s b_i\mathbf{k}_i, \\
-M\mathbf{k}_i & = \mathcal{N}\left(\mathbf{u}_n + \delta t\sum_{j=1}^s a_{ij}\mathbf{k}_j, t_n+\delta tc_i\right).
-\end{align*}
+M\mathbf{k}_i & = \mathcal{N}\left(\mathbf{u}_n + \delta t\sum_{j=1}^s a_{ij}\mathbf{k}_j, t_n+\delta tc_i\right).\nonumber
+\end{align}
 %
 For nonlinear PDEs, $\mathcal{N}$ is linearized using, for example, a Newton or a Picard
-linearization of the underlying PDE. Let us denote this linearization ${\mathcal{L}}\in\mathbb{R}^{N\times N}$
+linearization of the underlying PDE. Let us denote this linearization
+${\mathcal{L}}\in\mathbb{R}^{N\times N}$
 (or, in the case of a linear PDE, let $\mathcal{L} := \mathcal{N}$).
 Expanding, solving for the stages $\mathbf{k}$ as each step in a nonlinear iteration, or
-as the update to $\mathbf{u}$ for a linear PDE, can then be expressed as a block linear system,
+as the update to $\mathbf{u}$ for a linear PDE, can then be expressed as the
+solution of the block linear system,
 %
 \begin{align}\label{eq:k0}
 \left( \begin{bmatrix} M  & & \mathbf{0} \\ & \ddots \\ \mathbf{0} & & M\end{bmatrix}
@@ -135,6 +143,58 @@ instead yields a large nonsymmetric system with significant block coupling. For
 nonsymmetric systems $\mathcal{L}$ that already have variable coupling, fast iterative
 methods are even less likely to yield acceptable performance in solving \eqref{eq:k0}.
 
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+\subsection{Outline}\label{sec:intro:outline}
+
+This paper develops fast, parallel preconditioning techniques for the solution of
+fully implicit Runge-Kutta methods. 
+First, \Cref{sec:intro:hist} provides background on why IRK methods are desirable
+over the simpler and more commonly used DIRK methods, and also provides a
+historical context for the preconditioners developed in this work.
+\Cref{sec:intro:stab} then briefly discusses stable integration from
+a method-of-lines perspective and introduces two key elements that will be
+used throughout the paper. 
+
+\Cref{sec:solve} introduces an effective method to solve for the IRK update
+\eqref{eq:update} directly for linear operators $\mathcal{L}$ that are independent of time,
+such as those that typically arise in linear PDEs. The new method effectively
+requires the preconditioning of $s$ real-valued matrices along the lines of
+$\eta M - \delta t\mathcal{L}$, for some $\eta > 1$, and is easily implemented
+using existing preconditioners and parallel software libraries. 
+In contrast to other works that have considered the preconditioning of \eqref{eq:kron1},
+the proposed algorithm here (i) is amenable to short-term Krylov recursion (conjugate
+gradient (CG)/MINRES) if $\eta M - \mathcal{L}$ is, and (ii) only operates on the solution,
+thus not requiring the storage of each stage vector. Theory is developed
+that guarantees rapid convergence of GMRES and CG under basic assumptions
+on stability from \Cref{sec:intro:stab}. Numerical results for the
+linear setting are provided in \Cref{sec:numerics_lin}, demonstrating
+up to 10th-order accuracy using Gauss integration with a variety of problems
+and preconditioners. In addition, by using the new method with 2-stage Gauss
+integration, we are able to halve the number of AMG preconditioning iterations
+necessary to obtain 4th-order accuracy compared with standard 4th-order SDIRK
+schemes.
+
+Nonlinear problems are then addressed in \Cref{sec:nonlinear}. First, a
+simplified Newton method is considered in \Cref{sec:nonlinear:simp},
+wherein we develop a method to solve
+\eqref{eq:keq} under the assumption that $\mathcal{L}_i=\mathcal{L}_j$ for all
+$i,j$. The proposed method is based on the real Schur decomposition, a technique
+not new to Runge-Kutta literature \todo{cite}. However, building on theory from
+Section \ref{sec:solve}, we are able to \textit{prove} rapid Krylov convergence
+on \eqref{eq:keq}
+under basic assumptions of stability and having an effective preconditioner for
+systems along the lines of $\eta M - \delta t\mathcal{L}$, exactly as would be
+used for, e.g., SDIRK methods. Extensions are then introduced for applying IRK
+methods with a true Newton or Picard iteration, where $\mathcal{L}_i\neq
+\mathcal{L}_j$, in \Cref{sec:nonlinear:gen}. Numerical results for nonlinear
+problems are provided in \Cref{sec:numerics_nonlin}, \todo{including ...}
+
+
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+\subsection{Why fully implicit and previous work}\label{sec:intro:hist}
+
 \todo{Add citations}
 Although difficult to solve, there are a number of desirable properties of IRK schemes,
 particularly in terms of accuracy and stabillity (\todo{why stability?}).
@@ -143,12 +203,15 @@ diagonally implicit Runge-Kutta (DIRK) methods, where $A_0$ is lower triangular,
 singly implicit Runge Kutta (SIRK) methods, where $A_0$ has exactly one positive real
 eigenvalue. For such schemes, the solution of \eqref{eq:k0} only requires $s$ linear
 solves along the lines of $M - \delta ta_{ii}\mathcal{L}_i$. Unfortunately, SIRK and DIRK
-schemes suffer from stage-order one (stage-order two with one explicit stage), and for
+schemes suffer from stage-order one (stage-order two with one explicit stage; see
+EDIRK methods), and for
 stiff nonlinear PDEs, the observed global order of accuracy in practice can be limited to
 $\approx \min\{ p, q+1\}$, for integration order $p$ and stage-order $q$. Thus, even
-a 6th-order DIRK method may only yield 2nd-order accuracy. For stiff problems, IRK
-methods can achieve high stage order (although not as high as the formal accuracy of
-the method), and thus result in high-order global accuracy. Furthermore, for less stiff
+a 6th-order DIRK method may only yield 2nd-order accuracy. Accuracy is even worse for
+index-2 DAEs, where the algebraic variable is limited to first-order accuracy with
+DIRK methods \todo{cite Hairer} (which will be addressed as a follow-up to this paper). 
+In contrast, IRK methods yield high stage order and, thus, formally high-order accuracy
+on stiff, nonlinear problems, and even index-2 DAEs. Furthermore, for less stiff
 problems, IRK methods can yield accuracy as high as order $2s$ for an $s$ stage method,
 compared with a maximum of $s$ or $s+1$ for SDIRK methods with reasonable stability
 properties \cite[Section IV.6]{hairer96}.
@@ -166,25 +229,6 @@ Kronecker product form,
 \end{align}
 %
 where $\mathcal{L}$ is a fixed real-valued spatial operator or Jacobian.
-Here, we revive some of the older Runge-Kutta work in the light of a changing
-computational landscape, developing a fast, parallel preconditioning technique for
-\eqref{eq:kron1}. The new method effectively requires $s$ real-valued linear solves
-of matrices along the lines of $\eta M - \delta t\mathcal{L}$, for some $\eta > 1$,
-and is easily implemented using existing preconditioners and parallel software libraries.
-In contrast to other works that have considered the preconditioning of \eqref{eq:kron1}
-via some form of splitting, the proposed algorithm here (i) is amenable to short-term
-Krylov recursion (conjugate gradient/MINRES) if $M - \mathcal{L}$ is, and (ii) only
-requires operating on systems of size $N$, an $s\times$ reduction in memory-usage of
-Krylov solvers compared with directly preconditioning the larger system. In addition,
-some of the results generalize to the weaker scenario of commuting spatial operators,
-$\mathcal{L}_i\mathcal{L}_j = \mathcal{L}_j\mathcal{L}_i$, which provides a first step
-towards the fast solution of time-dependent IRK.
-
-\todo{outline sections}
-
-% ------------------------------------------------------------------------------------- %
-% ------------------------------------------------------------------------------------- %
-\subsection{Previous work}\label{sec:intro:prev}
 
 % To avoid complex arithmetic, one can pose each complex
 % system as a real $2\times 2$ block system,
@@ -195,7 +239,7 @@ towards the fast solution of time-dependent IRK.
 % solve the underlying problem of constructing complex solvers/preconditioners in
 % practice. 
 
-Many papers have considered the solution of \eqref{eq:kron1} over the years. In 1976,
+Many papers have considered the solution of \eqref{eq:kron1}. In 1976,
 Butcher \cite{butcher76} used the Jordan normal form, $A_0 = U_0L_0U_0^{-1}$, where
 $L_0$ is lower triangular with eigenvalues of $A_0$ on the diagonal, to transform
 \eqref{eq:kron1} to the problem
@@ -225,18 +269,18 @@ less citations), the polynomial form provides a more natural way to handle compl
 particularly for numerical PDEs in the modern high-performance computing landscape,
 where direct LU inverses are rare and most linear systems are solved via preconditioning
 and/or Krylov methods. We present a similar result in \Cref{lem:inv} and use this to
-develop an effective preconditioning in \Cref{sec:solve:prec}.
+develop an effective preconditioning fir linear problems in \Cref{sec:solve:prec}.
 
 Because significant research has been done on IRK methods, it is worth briefly
 reviewing some of the literature to put this work in context. In the field of time
 integration, SIRK and DIRK methods overcome the difficulty of solving IRK methods
 \cite{alexander1977diagonally,norsett1976runge}.
 In \cite{orel91}, it is shown that in considering RK methods with all real eigenvalues
-(wherein the Butcher transformation \cite{butcher76} remains real-valued), the best
+(wherein the Butcher transformation \cite{butcher76{}} remains real-valued), the best
 approximation to exponential is obtained by having all eigenvalues equal (SIRK
 methods \cite{norsett1976runge}).
 Although SIRK methods offer some advantages over DIRK methods, they generally lack
-the favorable stability and accuracy of IRK methods \cite{orel91}. ESIRK methods
+the favorable stability and accuracy of IRK methods \cite{burrage82,orel91}. ESIRK methods
 use one explicit stage and can offer stage-order two \cite{butcher00} (one higher
 than standard SIRK methods), which provide an improved practical option, but still
 lack the robustness of fully implicit methods.
@@ -247,34 +291,12 @@ lack the robustness of fully implicit methods.
 % Simplified newton scheme uses fixed Jacobian for all stages
 % Single step Newton (Cooper (83/90), Gonzales-Pinto (95/97)
 % ---------------- ODEs and LU ---------------- %
-% Butcher (76), Bickart (77)
-% \begin{itemize}
-% 	\item Uses tensor product structure, gets Jordan normal form of Butcher matrix A. Reformulates
-% 	problem as block subdiagonal, with diagonal blocks $I - h\lambda J$, for Jacobian $J$, time step $h$,
-% 	and eigenvalue $\lambda$ of $A$ (are we sure not $A^{-1}$??).
-% 	\item Must solve for complex eigenvalues. This is not desirable. 
-% 	\item Bickart uses polynomial form, closer to what I look at. Originally based on Tensor product
-% 	result from Jameson (68)
-% \end{itemize}
-
 % Varah (79):
 % \begin{itemize}
 % 	\item Much better description of Butcher's method. Transforms coordinate system of Jacobian tensor.
 % 	Still relies on this tensor structure to do said transformation. 
 % 	\item Transforms Jacobian to Hessenberg form to avoid repeated action computing LU of a shifted 
 % 	Jacobian.
-% \end{itemize}
-
-% Burrage (82):
-% \begin{itemize}
-% 	\item Look at stability of DIRK and SIRK methods, which have one eigenvalue and are more amenable
-% 	to development by Butcher. 
-% \end{itemize}
-
-% Orel (91):
-% \begin{itemize}
-% 	\item Looks at RK methods w/ real eigenvalues. Turns out best approximation to exponential is
-% 	obtained by having all eigenvalues equal (SIRK/SDIRK methods). SIRK methods offer some advantages over SDIRK methods, but lack the favorable stabillity an accuracy of IRK methods. 
 % \end{itemize}
 
 % Cooper:
@@ -292,14 +314,6 @@ lack the robustness of fully implicit methods.
 % 	\item (01) Analysis of single Newton (SOR) w/ simplified Newton for higer order. 
 % \end{itemize}
 
-
-% Butcher (2000):
-% \begin{itemize}
-% 	\item Develops ESDIRK schemes w/ higher stage order and stiff accuracy than traditional
-% 	SIRK/DIRK schemes. Based on using iniital explicit stage, moves RK abscissae.
-% \end{itemize}
-
-
 % Brugano (2014) and Antonana (2018)
 % \begin{itemize}
 % 	\item New splitting and IRK techniques for Hamiltonian problems where conservation is
@@ -308,11 +322,6 @@ lack the robustness of fully implicit methods.
 
 
 % % ---------------- PDEs ---------------- %
-
-% \begin{itemize}
-% 	\item One obvious drawback -- even if spatial operator/Jacobian is SPD, IRK system is
-% 	nonsymmetric.
-% \end{itemize}
 
 % Jay
 % \begin{itemize}
@@ -392,14 +401,13 @@ lack the robustness of fully implicit methods.
 % 	\item One benefit of this method is ability to use PCG or GMRES on smaller system, not full system. 
 % \end{itemize}
 
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+\subsection{A preconditioning framework and stability}\label{sec:intro:stab}
 
-% ------------------------------------------------------------------------------------- %
-% ------------------------------------------------------------------------------------- %
-% ------------------------------------------------------------------------------------- %
-\section{Fast parallel solvers for IRK}\label{sec:solve}
-
-The fully implicit RK stage system in \eqref{eq:k0} can be reformulated by pulling out 
-an $A_0^{-1}$ as \cite{pazner17}
+Throughout the paper, we use the reformulation
+introduced in \cite{pazner17}, where we can pull an $A_0\otimes I$ out of the
+fully implicit system in \eqref{eq:k0}, yielding the equivalent problem
 %
 \begin{align}\label{eq:keq}
 \left( A_0^{-1}\otimes M - \delta t \begin{bmatrix} \mathcal{L}_1  & \\ & \ddots \\ && \mathcal{L}_s\end{bmatrix}\right)
@@ -407,15 +415,95 @@ an $A_0^{-1}$ as \cite{pazner17}
 & = \begin{bmatrix} \mathbf{f}_1 \\ \vdots \\ \mathbf{f}_s \end{bmatrix}.
 \end{align}
 %
-For ease of notation, let us scale both sides of the system by a block-diagonal mass matrix 
-and, excusing the slight abuse of notation, let
+The off-diagonal block coupling in \eqref{eq:keq} now consists of mass matrices
+rather than differential operators, which makes the analysis and solution more
+tractable.\footnote{For some of the methods introduced in this paper (the linear case
+and simplified Newton case), more-or-less equivalent algorithms can be developed
+for \eqref{eq:k0} (that is, without extracting $A_0\otimes I$). However, 
+the derivation and analysis therein is more difficult, and the resulting
+algorithms offer no clear benefits over the presented methods.}
+The algorithms developed here depend on the eigenvalues of $A_0$ and
+$A_0^{-1}$, leading to our first assumption.
+%
+\begin{assumption}\label{ass:eig}
+Assume that all eigenvalues of $A_0$ have positive real part.
+\end{assumption}
+%
+Recall that if an IRK method is A-stable, irreducible, and $A_0$ is invertible
+(which includes Gauss, RadauIIA, and LobattoIIIC integration, among others), 
+then \Cref{ass:eig} holds \cite{hairer96}; that is, this assumption is 
+straightforward to satisfy in practice. 
+
+Stability must be taken into consideration when applying ODE solvers within a
+method-of-lines approach to numerical PDEs. The Dalhquist test problem extends
+naturally to this setting, where we are interested in the stability of the
+linearized operator $\mathcal{L}$, for the ODE(s)
+$\mathbf{u}'(t) = \mathcal{L}\mathbf{u}$, with solution $e^{t\mathcal{L}}\mathbf{u}$.
+A necessary condition for stability is that the eigenvalues of $\mathcal{L}$
+lie within distance $\mathcal{O}(\delta t)$ of the region of stability for 
+the Runge-Kutta scheme of choice (e.g., see \cite{reddy92}). Here we are
+interested in implicit schemes and, because the majority of implciit Runge-Kutta schemes
+used in practice are A- or L-stable, an effectively necessary condition for
+stability is that the eigenvalues of $\mathcal{L}$ be nonpositive. For
+normal operators, this requirement ends up being a necessary and sufficient
+condition for stability, as the eigenvectors form an orthogonal basis. 
+
+For non-normal or non-diagonalizable operators, the analysis is more complicated.
+One of the best known works on the subject is by Reddy and Trefethen \cite{reddy92},
+where necessary and sufficient conditions for stability are derived as the
+$\varepsilon$ pseudo-eigenvalues of $\mathcal{L}$ being within 
+$\mathcal{O}(\varepsilon) + \mathcal{O}(\delta t)$ of the stability region
+as $\varepsilon,\delta t\to 0$. Here we relax this assumption to something
+that is more tractable to work with by noting that the $\varepsilon$
+pseudo-eigenvalues are contained within the field-of-values to
+$\mathcal{O}(\varepsilon)$ \cite[Eq. (17.9)]{trefethen2005spectra},
+where the field of values are defined as
+%
+\begin{align}\label{eq:fov}
+W(\mathcal{L}) := \left\{ \langle \mathcal{L}\mathbf{x},\mathbf{x}\rangle \text{ : }
+	\|\mathbf{x}\| = 1 \right\}.
+\end{align}
+%
+This motivates the following assumption for the analysis done in this paper.
+%
+\begin{assumption}\label{ass:fov}
+Let $\mathcal{L}$ be the linearized spatial operator representing a single
+time step. Assume $W(\mathcal{L}) \leq 0$.
+\end{assumption}
+%
+It should be noted that the field-of-values have an additional connection
+to stability. From \cite[Theorem 17.1]{trefethen2005spectra}, we have that
+$\|e^{t\mathcal{L}}\|\leq 1$ for all $t\geq 0$ i.f.f. $W(\mathcal{L}) \leq 0$.
+This is  analogous to the ``strong stability'' discussed by Leveque 
+\cite[Chapter 9.5]{leveque2007finite}, as opposed to the weaker (but still
+sufficient) condition $\|e^{t\mathcal{L}}\|\leq C$ for all $t\geq 0$ and
+some constant $C$. In practice, \Cref{ass:fov} is likely to hold when
+simulating numerical PDEs, and in \Cref{sec:solve:prec,sec:nonlinear:simp},
+\Cref{ass:eig} and \ref{ass:fov} provide sufficient conditions to guarantee
+fast Krylov convergence of the proposed methods.
+
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+\section{The linear setting}\label{sec:solve}
+
+We start by considering the application of IRK to linear PDEs with fixed
+spatial operator $\mathcal{L}$. For ease of notation, let us scale both sides
+of the \eqref{eq:keq} by a block-diagonal mass matrix inverse and let
 %
 \begin{equation*}
 \widehat{\mathcal{L}}_i := \delta t M^{-1}\mathcal{L}_i,
 \end{equation*}
 %
-for $i=1,..,s$. Note the time step $\delta t$ for the given Runge-Kutta step is now included in $\widehat{\mathcal{L}}_i$. Now let $\alpha_{ij}$ denote the $ij$-element of $A_0^{-1}$ (assuming $A_0$ is
-invertible). Then, solving \eqref{eq:k0} can be effectively reduced to inverting the operator
+for $i=1,..,s$. Note the time step $\delta t$ for the given Runge-Kutta step is now
+included in $\widehat{\mathcal{L}}_i$. Now let $\alpha_{ij}$ denote the $ij$-element
+of $A_0^{-1}$ (assuming $A_0$ is invertible). Then, solving \eqref{eq:k0} can be 
+effectively reduced to inverting the operator\footnote{Note, there are a number of
+methods with one explicit stage preceded or followed by several fully implicit and
+coupled stages. In such cases, $A_0$ is not invertible, but the explicit stage can
+be eliminated from the system (by doing an explicit time step). The remaining operator
+can then be reformulated as in \eqref{eq:keq}, and the inverse that must be applied
+takes the form of \eqref{eq:k1} but based on a principle submatrix of $A_0$.}
 %
 \begin{align}\nonumber
 \mathcal{M}_s & := A_0^{-1}\otimes I - \begin{bmatrix} \widehat{\mathcal{L}}_1  & \\ & \ddots \\ && \widehat{\mathcal{L}}_s\end{bmatrix} \\
@@ -425,12 +513,10 @@ invertible). Then, solving \eqref{eq:k0} can be effectively reduced to inverting
 	\label{eq:k1}
 \end{align}
 %
-
-Note, there are a number of methods with one explicit stage preceded or followed by several
-fully implicit and coupled stages. In such cases, $A_0$ is
-not invertible, but the explicit stage can be eliminated from the system (by doing an explicit
-time step). The remaining operator can then be reformulated as above, and the inverse that
-must be applied takes the form of \eqref{eq:k1} but based on a principle submatrix of $A_0$.
+We proceed by deriving a closed form inverse for this operator, demonstrating
+how the Runge-Kutta update in \eqref{eq:update} can then be performed directly
+(without forming and saving each stage vector), and developing a preconditioning
+strategy to apply this update using existing fast, parallel preconditioners. 
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -508,23 +594,27 @@ block (rather than a block-diagonal matrix). The Runge-Kutta update is then give
 \begin{align}\nonumber
 \mathbf{u}_{n+1} & = \mathbf{u}_n + \delta t\sum_{i=1}^s b_i{\mathbf{k}}_i \\
 & = \mathbf{u}_n + \delta t\textnormal{det}(\mathcal{M}_s)^{-1}
-	(\mathbf{b}_0^TA_0^{-1}\otimes I)\textnormal{adj}(\mathcal{M}_s)\mathbf{f}.\label{eq:update}
+	(\mathbf{b}_0^TA_0^{-1}\otimes I)\textnormal{adj}(\mathcal{M}_s)\mathbf{f}.\label{eq:update2}
 \end{align}
 %
 
-The adjugate simply consists of linear combinations of $I$ and $\widehat{\mathcal{L}}$, and an
-analytical form can be derived for an arbitrary $s\times s$ matrix, where $s\sim\mathcal{O}(1)$.
-Computing this operator analytically is easiest using a computer algebra program
-such as Mathematica. Applying its action will consist of some set of vector summations
+\begin{remark}[Implementation \& complexity]
+The adjugate consists of linear combinations of $I$ and $\widehat{\mathcal{L}}$, and an
+analytical form can be derived for an arbitrary $s\times s$ matrix, where
+$s\sim\mathcal{O}(1)$.
+% Computing this operator analytically is easiest using a computer algebra program
+% such as Mathematica.
+Applying its action requires a set of vector summations
 and matrix-vector multiplications. In particular, the diagonal elements of
-$\textnormal{adj}(\mathcal{M}_s)$ are monic polynomials in $\widehat{\mathcal{L}}$ of degree
-$s-1$ (or linear combinations of comparable degree if $\widehat{\mathcal{L}}_i\neq\widehat{\mathcal{L}}_j$)
+$\textnormal{adj}(\mathcal{M}_s)$ are monic polynomials in $\widehat{\mathcal{L}}$ of
+degree $s-1$ (or linear combinations of comparable degree if
+$\widehat{\mathcal{L}}_i\neq\widehat{\mathcal{L}}_j$)
 and off-diagonal terms are polynomials in $\widehat{\mathcal{L}}$ of degree $s-2$. 
 
-Returning to \eqref{eq:update}, we consider two cases. First, if a given Runge-Kutta
+Returning to \eqref{eq:update2}, we consider two cases. First, if a given Runge-Kutta
 scheme is stiffly accurate (for example, RadauIIA methods),
 then $\mathbf{b}_0^TA_0^{-1} = [0,...,0,1]$. This yields
-the nice simplification that computing the update in \eqref{eq:update} only requires
+the nice simplification that computing the update in \eqref{eq:update2} only requires
 applying the last row of $\textnormal{adj}(\mathcal{M}_s)$ to $\mathbf{f}$ (in a
 dot-product sense) and applying $\textnormal{det}(\mathcal{M}_s)^{-1}$ to the result. From
 the discussion above regarding the adjugate structure, applying the last row of
@@ -539,28 +629,7 @@ this matrix consists of polynomials in $\widehat{\mathcal{L}}$ of degree $s-1$ (
 typically not monic). Compared with stiffly accurate schemes, this now requires 
 $(s-1)s$ matrix-vector multiplications, which is $s-1$ more than for stiffly
 accurate schemes, but still typically of marginal overall computational cost. 
-
-% ------------------------------------------------------------------------------------- %
-% ------------------------------------------------------------------------------------- %
-\subsection{Stability and the method of lines}\label{sec:solve:stab}
-
-{\color{blue}
-\begin{itemize}
-
-\item A necessary condition for stable time-propagation is that eigenvalues of $\widehat{\mathcal{L}}$
-lie in the region of stability for the given RK scheme. For virtually all implicit RK schemes,
-this means that eigenvalues of $\widehat{\mathcal{L}}$ must have negative real part, or real part
-$\gg 0$. It is rare for operators representing a differential discretization to be split
-with a set of negative definite eigenvalues and a set of eigenvalues with real part $\gg 0$,
-so for our purposes assume $\widehat{\mathcal{L}}$ has eigenvalues with negative real part.
-
-\item Just eigenvalues is not strong enough for our analysis or stability. Need to look
-into literature. Would be nice if it was related to numerical range/field of values, because
-that is what our analysis is based on. Ideally, something along the lines of $\widehat{\mathcal{L}}$ 
-has a non-positive field of values for stability? 
-\end{itemize}
-}
-
+\end{remark}
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -613,11 +682,11 @@ the preconditioned operator then takes the form
 \end{align}
 %
 
-It turns out, by reasonable assumptions on $\widehat{\mathcal{L}}$ that yield a stable
-time-propagation scheme \todo{reference?}, the preconditioned operator in \eqref{eq:prec1}
-is very well-conditioned.  \Cref{th:fov} analyzes the field-of-values of $\mathcal{P}_\eta$,
-denoted $W(\mathcal{P}_\eta)$, as a measure of the preconditioning, and \Cref{cor:gmres} extends
-this preconditioning to prove fast convergence of GMRES. 
+It turns out, under assumptions introduced in \Cref{sec:intro:stab}, the preconditioned 
+operator in \eqref{eq:prec1} is very well-conditioned. \Cref{th:fov} analyzes the
+field-of-values of $\mathcal{P}_\eta$, denoted $W(\mathcal{P}_\eta)$ \eqref{cor:fov},
+as a measure of the preconditioning, and \Cref{cor:gmres,cor:cg} extend this 
+reconditioning to prove fast convergence of GMRES and conjugate gradient (CG).
 
 %
 \begin{remark}[Convergence independent of problem size]
@@ -627,20 +696,22 @@ involving $\widehat{\mathcal{L}}$ or $\widehat{\mathcal{L}}^{-1}$ (why $(I -
 \tfrac{1}{\eta}\widehat{\mathcal{L}})^{-2}$ is different will be clear in the proof
 of \Cref{th:fov}). Because of this, the conditioning of $\mathcal{P}_\eta$ is effectively
 independent of the conditioning of $\widehat{\mathcal{L}}$, which ensures convergence
-that is independent of problem size. This is in contrast to most standard matrix-splitting
-or block-preconditioning techniques, where the preconditioned operator has some dependence
-on $\widehat{\mathcal{L}}$, which leads to convergence dependent on the conditioning of
-$\widehat{\mathcal{L}}$ (and, thus indrectly, problem size).
+that is independent of problem size.
+% This is in contrast to most standard matrix-splitting
+% or block-preconditioning techniques, where the preconditioned operator has some dependence
+% on $\widehat{\mathcal{L}}$, which leads to convergence dependent on the conditioning of
+% $\widehat{\mathcal{L}}$ (and, thus indirectly, the problem size).
 \end{remark}
 %
 
 %
 \begin{theorem}[Preconditioned field of values]\label{th:fov}
-Assume that $\eta > 0$ and the symmetric part of $\widehat{\mathcal{L}}$ satisfies
-$(\widehat{\mathcal{L}}+\widehat{\mathcal{L}}^T)/2 \leq 0$. Let $\mathcal{P}_\eta$ denote the preconditioned
-operator, where $((\eta + i\beta)I - \widehat{\mathcal{L}})((\eta - i\beta)I - \widehat{\mathcal{L}})$ is
-preconditioned with $(\eta I - \widehat{\mathcal{L}})^{-2}$. Then $W(\mathcal{P}_\eta)$ is bounded
-by $\Omega$ as shown in \Cref{fig:bound}.
+Assume \Cref{ass:eig} and \Cref{ass:fov} hold, that is, $\eta > 0$
+and $W(\mathcal{L}) \leq 0$ \eqref{cor:fov}. Let $\mathcal{P}_\eta$ denote the
+preconditioned operator, where $((\eta + i\beta)I -
+\widehat{\mathcal{L}})((\eta - i\beta)I - \widehat{\mathcal{L}})$ is
+preconditioned with $(\eta I - \widehat{\mathcal{L}})^{-2}$. Then 
+$W(\mathcal{P}_\eta)$ is bounded by $\Omega$ as shown in \Cref{fig:bound}.
 \begin{figure}[h!]
 \centering
 \includegraphics[width = 0.3\textwidth]{fov.pdf}
@@ -654,9 +725,12 @@ and $\sigma_{\textnormal{max}}(B)$ the minimum and maximum eigenvalues, and $\rh
 the spectral radius. Also, define the symmetric/skew-symmetric splitting
 $B = B_s + B_k$, where $B_s := (B+B^T)/2$ and $B_k := (B - B^T)/2$, and the numerical
 radius as $r(B) = \sup \{ |\lambda| : \lambda \in W(B) \}$. Recall
-the following properties of $W(B)$ \cite{gustafson1997numerical}:
+the following properties of $W(B)$ \cite{gustafson1997numerical,mees1979domains}:
 %
 \begin{enumerate}
+	\item $Bs \leq 0$ in the symmetric negative semi-definite sense
+	if and only if $W(B) \leq 0$.  
+
 	\item $W(B)\subset [\sigma_{\textnormal{min}}(B_s), \sigma_{\textnormal{max}}(B_s)] \times
 	[-\rho(B_k)\mathrm{i}, \rho(B_k)\mathrm{i}]$.
 
@@ -742,7 +816,7 @@ Plugging into \eqref{eq:gmres} completes the proof.\footnote{Note, classical GMR
 results based on $\lambda_{\textnormal{min}}((\mathcal{P}_\eta+\mathcal{P}_\eta^T)/2)$ and
 $\lambda_{\textnormal{max}}(\mathcal{P}_\eta^T\mathcal{P}_\eta)$ can also be applied, yielding
 the bound $\Big(\tfrac{\beta^2/\eta^2}{1 + \beta^2/\eta^2}\Big)^{k/2}$, $2-4\times$
-less tight than \Cref{th:fov}.}
+less slower convergence than \Cref{th:fov}.}
 \end{proof}
 %
 
@@ -880,22 +954,16 @@ preconditioning, where two applications of a preconditioner for $(\eta I -
 $((\eta^2+\beta^2)I - 2\eta \widehat{\mathcal{L}} + \widehat{\mathcal{L}}^2)$.
 This is confirmed in practice for several different examples in \Cref{sec:numerics}. 
 
-It also must be mentioned that if an IRK method is A-stable, irreducible, and
-$A_0$ is invertible (which includes Gauss, RadauIIA, and LobattoIIIC integration),
-then $\eta > 0$ \cite{hairer96}. From the preconditioning perspective this is
-important, as if $\eta > 0$ and $\widehat{\mathcal{L}}$ has negative real part,
-then $(\eta I - \widehat{\mathcal{L}})$ has positive real part bounded nicely
-away from zero, and is thus invertible and amenable to preconditioning. 
 
-% ------------------------------------------------------------------------------------- %
-\subsubsection{Mass matrices}
+% -------------------------- %
+\begin{remark}[Mass matrices]
 
 Recall in the finite element context where mass matrices are involved, we defined
 $\widehat{\mathcal{L}} := \delta t M^{-1}\mathcal{L}$. For a given conjugate pair
-of eigenvalues, the quadratic polynomial can be expressed as
+of eigenvalues, the quadratic polynomial \eqref{eq:imag1} can be expressed as
 %
 \begin{align}\label{eq:scaleM}
-M^{-1}((\eta + i\beta)M - \delta t{\mathcal{L}})M^{-1}((\eta - i\beta)M -
+\mathcal{Q}_\eta = M^{-1}((\eta + i\beta)M - \delta t{\mathcal{L}})M^{-1}((\eta - i\beta)M -
 	\delta t\widehat{\mathcal{L}}).
 \end{align}
 %
@@ -905,10 +973,12 @@ and if $M$ and $\mathcal{L}$ are Hermitian, the resulting quadratic system is SP
 and can be solved using preconditioned conjugate gradient or MINRES, preconditioned
 with one application of a preconditioner, the action of $M$, and a second application
 of the preconditioner.
+\end{remark}
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
+\begin{comment}
 \section{Implementation details:  The time-independent case}
 The basic idea is that we need to do the update
 \begin{align} \label{eq:RK_update}
@@ -972,60 +1042,31 @@ And, so, finally, the vector in \eqref{eq:step1} can be written as the sum
 \bm{z} = \sum \limits_{i = 1}^s X_i({\cal L}) \bm{f}_i.
 \end{align}
 The main task here is going to be computing the action of the degree $s-1$ polynomials $X_i({\cal L})$ of the components of $\bm{f}$; note that we can  easily compute the sets of coefficients $\{ x_{jk} \}_{(j,k)=(1,0)}^{(s,s-1)}$. I think the most efficient way to compute the action of this polynomial is with a Horner-like scheme which is a well-known technique for evaluating scalar polynomials (see \url{https://en.wikipedia.org/wiki/Horner\%27s_method}). Basically, we can compute the action of the $n$th degree polynomial $P_n({\cal L})$ on a vector using: $n$ \texttt{MATVECs} with ${\cal L}$, $n+1$ \texttt{AXPYs} ($\bm{x} \gets \alpha \bm{y} + \beta \bm{z}$), $n$ \texttt{copies} ($n$ lots of copying values from one vector to another, $n \times [\bm{x} \gets \bm{y}]$), and one intermediate/temporary vector. So the main cost in computing \eqref{eq:z_sum} is $s(s-1)$ \texttt{MATVECs} with ${\cal L}$.
-
-
-
+\end{comment}
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
-\section{Numerical results}\label{sec:numerics}
+\section{Numerical results: the linear setting}\label{sec:numerics_lin}
 
 
-% If we compare different SDIRKs, say 2, 3, and 4:
-% srun -n36 ./driver -save 0 -l 9 -d 2 -o 4 -FD 4 -nt 25 -cfl 20
-% --> SDIRK2, 10 GMRES iterations/solve
-% --> SDIRK3, 25 GMRES iterations/solve
-% --> SDIRK4, 7 GMRES iterations/solve
-% srun -n36 ./driver -save 0 -l 9 -d 2 -o 4 -FD 4 -nt 25 -cfl 25
-% --> SDIRK2, 15 GMRES iterations/solve
-% --> SDIRK3, DNC in 250 GMRES iterations
-% --> SDIRK4, 11 GMRES iterations/solve
-% srun -n36 ./driver -save 0 -l 9 -d 2 -o 4 -FD 4 -nt 25 -cfl 35
-% --> SDIRK2, 66-87 GMRES iterations/solve
-% --> SDIRK4, 26 GMRES iterations/solve
-% Iterations correspond w/ size of eigenvalues in inverse. SDIRK4 is 4, SDIRK3 is 2.29, and SDIRK2 is 3.41.
 
 
-% ------------------------------------------------------------------------------------- %
-% ------------------------------------------------------------------------------------- %
-% ------------------------------------------------------------------------------------- %
-\section{The linear time-dependent setting}
 
-{\color{blue}
-Are there any problems with time-dependent components in the differential
-operator that are linear? Since we are integrating in time, I am thinking
-this will become nonlinear inherently. If not, it is possible something like
-this could work. We want to solve $A\mathbf{k} = \mathbf{f}$, and then sum
-over stages $\mathbf{k}$ using the block multiplication
-$(A_0^{-1}\mathbf{b}_0\otimes I)\mathbf{k} = 
-(A_0^{-1}\mathbf{b}_0\otimes I)A^{-1}\mathbf{f}$. 
-
-}
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
 \section{The nonlinear setting}\label{sec:nonlinear}
 
-For linear problems, one of the main benefits of the approach developed in \Cref{sec:solve}
-is that the algorithm can be applied in some sense on the solution level rather than
-solving for all stages simultaneously and then updating the solution by summing over stages.
-This is particularly beneficial from a memory perspective, being able to achieve very
-high order accuracy while only storing the solution and an auxilliary vector, and also allows
-for the use of CG and MINRES, when applicable, to the underlying system.
+For linear problems, the method developed in \Cref{sec:solve} can be applied on the
+solution level, rather than solving for all stages and updating the solution
+by summing over stages.
+This is beneficial from a memory perspective, being able to achieve very
+high order accuracy while only storing the solution and an auxilliary vector, and
+also allows for the use of CG and MINRES when applicable to the spatial operator.
 
-Unfortunately, the time-dependent and nonlinear case is more complicated. Consider
+The time-dependent and nonlinear case is more complicated. Consider
 the simplest cast of a time-independent nonlinear problem and simplified Newton method,
 which only applies the Jacobian based on the current solution. Each
 nonlinear iteration requires the action of the nonlinear operator to compute a residual,
@@ -1038,19 +1079,18 @@ and without time-dependent differential components. Reformulating the algorithm
 from \Cref{sec:solve} to store stage vectors also ends up being impractical --
 applying det$\mathcal{M}_s^{-1}$ requires the solution of $s$ linear systems. To store
 each stage vector requires applying det$\mathcal{M}_s^{-1}$ to each one. This
-requires $s^2$ linear solves, which is too expensive to be appealling in practice. 
+requires $s^2$ linear solves, which is too expensive to be appealling in practice.
+
+
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
 \subsection{Simplified Newton}\label{sec:nonlinear:simp}
 
-It appears that all stage vectors must be stored to perform an implicit
-Runge-Kutta iteration using standard nonlinear methods. To develop an efficient
-approach to solving the linearized systems, let us consider developing a similar
-method as in \Cref{sec:solve}, but which stores all vectors and only requires $s$
-linear solves. Suppose $\mathcal{L}_i = \mathcal{L}_j$ for all $i,j$ (as in a
-simplified Newton method). Returning to \eqref{eq:keq}, the stage updates are
-defined as the solution of the linear system
+Consider developing a similar method as in \Cref{sec:solve}, but which stores all
+vectors and only requires $s$ linear solves. Suppose $\mathcal{L}_i = \mathcal{L}_j$
+for all $i,j$ (as in a simplified Newton method). Returning to \eqref{eq:keq}, the
+stage updates are defined as the solution of the linear system
 %
 \begin{align}\label{eq:keq2}
 \left( A_0^{-1}\otimes I - I\otimes\widehat{\mathcal{L}}\right)
@@ -1063,7 +1103,8 @@ $Q_0$ is real-valued and orthogonal, and $R_0$ is a block
 upper triangular matrix, where each block corresponds to an eigenvalue (pair) of
 $A_0^{-1}$. Real-valued eigenvalues have block size one, and complex eigenvalues
 $\eta\pm i\beta$ are in $2\times 2$ blocks,
-$\begin{bmatrix} \eta & \beta\\-\beta & \eta\end{bmatrix}.$
+$\begin{bmatrix} \eta & \phi \\-\beta^2/\phi & \eta\end{bmatrix}$, for some
+constant $\phi$.
 Pulling out a $Q_0\otimes I$ and $Q_0^T\otimes I$ from the left and right of
 \eqref{eq:keq2} yields the equivalent linear system
 %
@@ -1080,8 +1121,8 @@ texhniques. $2\times 2$ diagonal blocks corresponding to complex eigenvalues
 take the form
 %
 \begin{align}\label{eq:block}
-\begin{bmatrix} \eta I - \widehat{\mathcal{L}} & \beta I\\
--\beta I & \eta I - \widehat{\mathcal{L}}\end{bmatrix}.
+\begin{bmatrix} \eta I - \widehat{\mathcal{L}} & \phi I\\
+-\frac{\beta^2}{\phi} I & \eta I - \widehat{\mathcal{L}}\end{bmatrix}.
 \end{align}
 %
 
@@ -1096,7 +1137,7 @@ S & := \eta I - \widehat{\mathcal{L}} + \beta^2 (\eta I - \widehat{\mathcal{L}})
 and consider a block lower triangular preconditioner for \eqref{eq:block} given by
 %
 \begin{equation}\label{eq:Lprec}
-L_P := \begin{bmatrix} \eta I - \widehat{\mathcal{L}} & \mathbf{0} \\ -\beta I
+L_P := \begin{bmatrix} \eta I - \widehat{\mathcal{L}} & \mathbf{0} \\ -\frac{\beta^2}{\phi} I
 	& \widehat{S}\end{bmatrix}^{-1}.
 \end{equation}
 %
@@ -1111,10 +1152,9 @@ Similar to \Cref{sec:solve:prec}, suppose we precondition $S$ by dropping
 terms corresponding to the complex part of the eigenvalue, $\beta^2$, yielding the
 preconditioned operator
 %
-\begin{align}\nonumber
+\begin{align}
 (\eta I - \widehat{\mathcal{L}})^{-1}S &
-	:= I + \beta^2 (\eta I - \widehat{\mathcal{L}})^{-2}\\
-& = I + \frac{\beta^2}{\eta^2} (I - \tfrac{1}{\eta}\widehat{\mathcal{L}})^{-2}.
+= I + \frac{\beta^2}{\eta^2} (I - \tfrac{1}{\eta}\widehat{\mathcal{L}})^{-2}.
 \label{eq:prec2}
 \end{align}
 %
@@ -1122,110 +1162,34 @@ This is exactly the form we arrived at when analyzing preconditioning using the
 adjugate and determinant in \Cref{sec:solve} and \Cref{th:fov}. Indeed, because
 GMRES convergence of the preconditioned $2\times 2$ operator is defined by GMRES
 convergence on the preconditioned Schur complement, the GMRES bounds presented
-in \Cref{tab:beta} apply here as well. Similar to \Cref{sec:solve}, we do not
+in \Cref{tab:beta} apply here as well.\footnote{Note, for symmetric spatial
+operators, the nonsymmetric matrix in \eqref{eq:block}
+is no longer amenable to CG or MINRES. One option is to scale the second 
+equation in \eqref{eq:block} by $-1$, which yields a symmetric saddle-point
+like operator with definite diagonal blocks. In principle this is amenable
+to MINRES with an SPD preconditioner, but the result is a clustering of
+eigenvalues at $\pm 1$, which typically results in a ``staircasing'' effect
+on convergence and can take roughly twice as many iterations as, e.g.,
+block-triangular preconditioning of the original system \todo{cite}.}
+Similar to \Cref{sec:solve}, we do not
 want to solve $(\eta I - \widehat{\mathcal{L}})^{-1}$ exactly each iteration. It
 is well-known in the block-preconditioning community that a few iterations of
 an effective preconditioner typically yields convergence on the $2\times 2$
 operator just as fast as if performing direct solves in the preconditioning. 
 
-\tcp{
-MATLAB computes the Schur decomposition of $2 \times 2$ matrix as
-\[
-A = \tilde{Q} \tilde{R} \tilde{Q}^\top
-=
-\tilde{Q}
-\begin{bmatrix}
-\eta & \phi \\
-- \frac{\beta^2}{\phi} & \eta
-\end{bmatrix}
-\tilde{Q}^\top \quad (*).
-\]
-But, we want it like,
-\[
-A = Q R Q^\top
-=
-Q
-\begin{bmatrix}
-\eta & \beta \\
--\beta & \eta
-\end{bmatrix}
-Q^\top \quad (**).
-\]
-Now, $\tilde{R}$ and $R$ are of course similar, and, in fact, we have
-\[
-\tilde{R} = P^{-1} R P, \quad 
-P = 
-\begin{bmatrix}
-1 & 0 \\
-0 &  \tfrac{\phi}{\beta}
-\end{bmatrix} \quad (***).
-\]
-So, we can write the similarity transformation $(*)$ as
-\[
-A = \tilde{Q} (P^{-1} R P) \tilde{Q}^\top 
-= (\tilde{Q}P^{-1}) R (\tilde{Q} P^{-1})^{-1}
-\equiv W R W^{-1}. \quad (****)
-\]
-However, $(****)$ is not a Schur decomposition because $P$ is not orthogonal ($P^\top = P \neq P^{-1}$), and so neither is $W = \tilde{Q} P^{-1}$. This says that given the  Schur decomposition $(*)$ that we compute in MATLAB, we cannot transform it into  Schur decomposition $(**)$ that we actually want because $\tilde{R}$ and $R$ are not \textbf{unitarily similar}.}
-
-Furthermore, this says that we cannot do a Schur decomposition of an arbitrary $2 \times 2$ matrix $A$ in the form of $(**)$? Here's a proof by counter example: Take $A = \tilde{R}$, clearly we cannot write $\tilde{R} = Q R Q^\top$ because $\tilde{R}$ and $R$ are not unitarily similar (see non-unitary $P$ in  $(***)$).
-
-So, I think the best we can do for a matrix $A$ is the real, non-unitary similarity transform given by $(****)$; however, I think this is fine because the algebra you did doesn't depend on $Q$ being orthogonal, apart from maybe some of the comments you made about the fully time-dependent case regarding the sums of the coefficients being unity?
-
-\tcp{
-I also note that the Schur complement of $\tilde{R} \otimes I - I \otimes \widehat{\cal L}$ is still $\eta I - \widehat{\mathcal{L}} + \beta^2 (\eta I - \widehat{\mathcal{L}})^{-1}$, so does this even matter?
-}
-
-%
-\begin{remark}[Symmetric operators and three-term recursion]
-For SPD spatial operators, the nonsymmetric matrix in \eqref{eq:block} does
-not appear amenable to use with PCG, even in a modified norm. However, it is
-somewhat amenable to MINRES -- scaling the second equation in \eqref{eq:block}
-by $-1$ yields a new equation
-%
-\begin{align}\label{eq:block_symm}
-\begin{bmatrix} \eta I - \widehat{\mathcal{L}} & \beta I\\
-	\beta I & -(\eta I - \widehat{\mathcal{L}})\end{bmatrix}
-	\begin{bmatrix}\mathbf{k}_i \\\mathbf{k}_{i+1}\end{bmatrix} 
-& = \begin{bmatrix}\mathbf{f}_i \\ -\mathbf{f}_{i+1}\end{bmatrix},
-\end{align}
-%
-where $\mathbf{f}_i$ corresponds to the $i$th block of $(Q_0^T\otimes I)\mathbf{f}$
-in \eqref{eq:keq3}. We now have a symmetric saddle-point like operator with
-definite diagonal blocks. The resulting Schur complement is simply
-\eqref{eq:simpSchur} scaled by $-1$, $S_m := -( \eta I - \widehat{\mathcal{L}} +
-\beta^2 (\eta I - \widehat{\mathcal{L}})^{-1}) = -S$. MINRES requires
-an SPD preconditioner, and natural options are either a block-diagonal or
-block-LDU preconditioner using (SPD) diagonal blocks
-$(\eta I  - \widehat{\mathcal{L}})^{-1}$ (or some SPD preconditioner for
-$(\eta I  - \widehat{\mathcal{L}})$). In this case, block-diagonal
-preconditioning can be expected to take approximately twice as many
-iterations to reach a given tolerance as block-triangular when using
-minimal residual methods \todo{cite}. When $(\eta I  - \widehat{\mathcal{L}})$
-is inverted exactly, block-LDU preconditioning converges to a given
-tolerance in approximately the same number of iterations as block-triangular
-preconditioning, at the cost of an additional linear solve. Approximate
-solves of $(\eta I  - \widehat{\mathcal{L}})$ (such as a few multigrid
-iterations) in each larger iteration on the $2\times 2$ matrix is more
-complicated. Generally, due to the negative definiteness of $S_m$, the
-preconditioned operator ends up with eigenvalues clustered at $\pm 1$, which
-tends to slow down convergence of the Krylov method compared with, say,
-block-triangular preconditioning, where eigenvalues/field-of-values are
-clustered at $1$.
-\end{remark}
-%
-
-In general, we have an algorithm that is similar in essence to that of \Cref{sec:solve},
+Thus, we have an algorithm that is similar in essence to that of \Cref{sec:solve},
 but is able to store all stage vectors and is compatible with a simplified Newton
-iteration. For linear problems, the algorithm from \Cref{sec:solve} is still
-preferable because the nonlinear method presented here requires more memory to
-store all stage vectors, the Krylov method of choice must store two stages instead
-of one for each vector in the Krylov space, and three-term Krylov recursion is
+iteration. Note, for linear problems, the algorithm from \Cref{sec:solve} is still
+preferable because it requires less memory, the Krylov space only needs to store
+ons stage vector, and three-term Krylov recursion can be used when applicable. 
 only feasible in limited scenarios. The method based on a real Schur decomposition
 also gives important insight into a preconditioning for the fully nonlinear
 and time-dependent setting, which is discussed in the following section. 
 
+
+
 %
+\begin{comment}
 \begin{remark}[Closed form Inverse]
 One might note that the two Schur complements of \eqref{eq:block} are the same, and
 \begin{align*}
@@ -1240,7 +1204,6 @@ which doubles the number of linear solves.
 %
 
 
-
 % See "Parallel iterative linear solvers for multistep Runge-Kutta methods"
 %
 %
@@ -1251,40 +1214,34 @@ This is not the first work to consider a real Schur decomposition of $A_0$
 product form \eqref{eq:kron1}, now transforming $A_0$ (instead of $A_0^{-1}$)
 using the real Schur decomposition. Solving for all stage vectors can then 
 be achieved by solving a similar block upper triangular matrix as in
-\eqref{eq:keq3}, but now the $2\times 2$ block linear systems corresponding
-to complex eigenvalues of
-$A_0$, say $\mu + i\zeta$, take the form 
+\eqref{eq:keq3}, but now the $2\times 2$ block linear systems correspond
+to complex eigenvalues of $A_0$, say $\mu + i\zeta$, and take the form 
 \begin{align*}
-\begin{bmatrix} I - \mu\widehat{\mathcal{L}} & \zeta\widehat{\mathcal{L}} \\
-	-\zeta\widehat{\mathcal{L}} & I - \mu\widehat{\mathcal{L}} \end{bmatrix}.
+\begin{bmatrix} I - \mu\widehat{\mathcal{L}} & \phi\widehat{\mathcal{L}} \\
+	-\frac{\zeta^2}{\phi}\widehat{\mathcal{L}} & I - \mu\widehat{\mathcal{L}} \end{bmatrix}.
 \end{align*}
 
-The inversion of a $2\times 2$ block matrix, via direct methods or preconditioning,
-is essentially defined by inverting the Schur complement, in this case given by 
+An analogous approach as used with the $A_0^{-1}$ transformation
+can be applied here. If we precondition the Schur complement
+$S_0 = (I - \mu \widehat{\mathcal{L}}) +
+\zeta^2(I - \mu \widehat{\mathcal{L}})^{-1}\widehat{\mathcal{L}}^2$ with the
+term associated with the real-valued eigenvalue, $(I - \mu \widehat{\mathcal{L}})$,
+the preconditioned Schur complement is given by
+%
 \begin{align*}
-S_0 & = (I - \mu \widehat{\mathcal{L}}) +
-	\zeta^2(I - \mu \widehat{\mathcal{L}})^{-1}\widehat{\mathcal{L}}^2.
+(I - \mu \widehat{\mathcal{L}})^{-1}S_0
+	& = I -  \frac{\zeta^2}{\mu^2}(I - \tfrac{1}{\mu} \widehat{\mathcal{L}}^{-1})^{-2}.
 \end{align*}
-Interestingly, an analogous approach as used with the $A_0^{-1}$ transformation
-can be applied here. Suppose we precondition $S_0 = (I - \mu \widehat{\mathcal{L}}) +
-\zeta^2(I - \mu \widehat{\mathcal{L}})^{-1}\widehat{\mathcal{L}}^2$ with the term
-associated with the real-valued eigenvalue, $(I - \mu \widehat{\mathcal{L}})$.
-The preconditioned operator takes the form
-\begin{align*}
-(I - \mu \widehat{\mathcal{L}})^{-1}S_0 & = I + 
-	\zeta^2(I - \mu \widehat{\mathcal{L}})^{-2}\widehat{\mathcal{L}}^2 \\
-& = I + \frac{\zeta^2}{\mu^2}(\mu I - \widehat{\mathcal{L}}^{-1})^{-2}.
-\end{align*}
-
+%
 Note that this closely resembles the preconditioned operator from \eqref{eq:prec1}
 and \eqref{eq:prec2}, but here with a $\widehat{\mathcal{L}}^{-1}$ inside of the
 inverse term, as opposed to a $\widehat{\mathcal{L}}$ in \eqref{eq:prec1}
 and \eqref{eq:prec2}. In \Cref{th:fov}, we assumed that $\widehat{\mathcal{L}}$
 is negative in a field of values sense, equivalent to saying that
 $(\widehat{\mathcal{L}} + \widehat{\mathcal{L}}^T)$ is negative semi-definite.
-Noting that if $(\widehat{\mathcal{L}} + \widehat{\mathcal{L}}^T)$ is
+However, it holds that if $(\widehat{\mathcal{L}} + \widehat{\mathcal{L}}^T)$ is
 negative semi-definite, then $(\widehat{\mathcal{L}}^{-1} +
-\widehat{\mathcal{L}}^{-T})$ is also negative semi-definite, we have the
+\widehat{\mathcal{L}}^{-T})$ is also negative semi-definite, which yields the
 following corollary.
 \end{remark}
 %
@@ -1297,13 +1254,18 @@ $\mathcal{P}_\mu$ denote the preconditioned operator, where
 $(I - \mu \widehat{\mathcal{L}}) +
 	\zeta^2(I - \mu \widehat{\mathcal{L}})^{-1}\widehat{\mathcal{L}}^2$ is
 preconditioned with $(\mu I - \widehat{\mathcal{L}})^{-1}$. Then 
-$W(\mathcal{P}_\mu)$ is bounded by $\Omega$ as shown in \Cref{fig:bound}.
+$W(\mathcal{P}_\mu)$ is contained within a region analogous to $\Omega$ 
+in \Cref{fig:bound}, but with radius $\zeta^2/\mu^2$ (based on the eigenvalues
+of $A_0$) rather than $\beta^2/\eta^2$. 
 \end{corollary}
 \begin{proof}
-The proof follows analogous to that of \Cref{th:fov}.
+The proof follows from the above discussion and analagous derivations to the
+proof of \Cref{th:fov}.
 \end{proof}
 %
 
+\todo{rewrite, comment on $\beta^2/\eta^2$ and $\zeta^2/\mu^2$ being the same
+for all Gauss and RadauIIA methods.}
 \Cref{cor:fov} suggests the $A_0^{-1}$ transformation is not necessary -- one
 can apply the real Schur decomposition to the traditional Kronecker product form 
 \eqref{eq:kron1} and use a similar block preconditioning as introduced in 
@@ -1314,6 +1276,8 @@ approach as it \textit{is} necessary for the linear algorithm developed in
 \Cref{sec:solve}, and also more naturally suggests an extension to the
 general nonlinear setting (for example, full Newton as opposed to simplified
 Newton) in the following section.
+\end{comment}
+
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -1387,6 +1351,96 @@ $\sum_{k=1}^s d_k \widehat{\mathcal{L}}_k$, where $\sum_{k=1}^s d_k = 0$.
 }
 
 
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+\subsection{Real Schur decomposition applied to general operators}
+
+Here we write out $(Q_0^T\otimes I)\boldsymbol{\mathcal{L}}(Q_0\otimes I)$
+in bracket notation, where, e.g., $\{a_1,a_2,a_3\}\mapsto a_1\mathcal{L}_1 + a_2\mathcal{L}_2 + 
+a_3\mathcal{L}_3$. Note in the matrices below, the constants in diagonal brackets always
+sum to one and off-diagonal sum to zero, wherein if $\mathcal{L}_i = \mathcal{L}_j$ for
+all $i,j$, each of the following operators is the identity.
+
+% ------------------------------------------------------------------------------------- %
+\subsubsection{Gauss}
+
+%
+\textbf{2-stage:}
+\begin{align*}
+\begin{bmatrix}
+\{1,0\} & \{0,0\} \\
+ \{0,0\} & \{0,1\} \\
+\end{bmatrix}
+\end{align*}
+%
+\textbf{3,-stage:}
+\begin{align*}
+\begin{bmatrix}
+\{0.002,0.565,0.432\} & \{-0.038,-0.245,0.284\} & \{0.024,-0.430,0.405\}\\
+\{-0.038,-0.245,0.284\} & \{0.705,0.107,0.187\} & \{-0.453,0.187,0.266\}\\
+\{0.024,-0.430,0.405\} & \{-0.453,0.187,0.266\} & \{0.291,0.327,0.380\}\\
+\end{bmatrix}
+\end{align*}
+%
+\textbf{4,-stage:}
+\begin{align*}
+\begin{bmatrix}
+\{0.002,0.014,0.012,0.970\} & \{0.001,-0.011,-0.110,0.120\} & \{-0.016,-0.113,0.010,0.119\} & \{-0.045,0.041,-0.005,0.009\}\\
+\{0.001,-0.011,-0.110,0.120\} & \{0.000,0.008,0.975,0.014\} & \{-0.007,0.085,-0.093,0.014\} & \{-0.021,-0.031,0.051,0.001\}\\
+\{-0.016,-0.113,0.010,0.119\} & \{-0.007,0.085,-0.093,0.014\} & \{0.113,0.863,0.008,0.014\} & \{0.316,-0.312,-0.004,0.001\}\\
+\{-0.045,0.041,-0.005,0.009\} & \{-0.021,-0.031,0.051,0.001\} & \{0.316,-0.312,-0.004,0.001\} & \{0.883,0.113,0.002,0.000\}\\
+\end{bmatrix}
+\end{align*}
+
+
+%,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-%
+\subsubsection{RadauIIA}
+
+%
+\textbf{2,-stage:}
+\begin{align*}
+\begin{bmatrix}
+\{0.985,0.014\} & \{0.121,-0.121\}\\
+\{0.121,-0.121\} & \{0.014,0.985\}\\
+\end{bmatrix}
+\end{align*}
+%
+\textbf{3,-stage:}
+\begin{align*}
+\begin{bmatrix}
+\{0.019,0.052,0.928\} & \{0.006,0.222,-0.229\} & \{0.137,-0.017,-0.119\}\\
+\{0.006,0.222,-0.229\} & \{0.002,0.941,0.056\} & \{0.045,-0.075,0.029\}\\
+\{0.137,-0.017,-0.119\} & \{0.045,-0.075,0.029\} & \{0.978,0.006,0.015\}\\
+\end{bmatrix}
+\end{align*}
+%
+\textbf{4,-stage:}
+\begin{align*}
+\begin{bmatrix}
+\{0.002,0.031,0.103,0.862\} & \{0.006,0.022,-0.301,0.272\} & \{0.052,-0.049,0.025,-0.028\} & \{-0.014,-0.166,-0.029,0.209\}\\
+\{0.006,0.022,-0.301,0.272\} & \{0.015,0.016,0.882,0.085\} & \{0.120,-0.035,-0.075,-0.009\} & \{-0.032,-0.118,0.084,0.066\}\\
+\{0.052,-0.049,0.025,-0.028\} & \{0.120,-0.035,-0.075,-0.009\} & \{0.915,0.077,0.006,0.000\} & \{-0.245,0.260,-0.007,-0.006\}\\
+\{-0.014,-0.166,-0.029,0.209\} & \{-0.032,-0.118,0.084,0.066\} & \{-0.245,0.260,-0.007,-0.006\} & \{0.066,0.874,0.008,0.050\}\\
+\end{bmatrix}
+\end{align*}
+
+
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+\section{Numerical results: the nonlinear setting}\label{sec:numerics_nonlin}
+
+
+
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+\section{Conclusions}\label{sec:conc}
+
+This paper introduced a theoretical and algorithmic framework for the fast, parallel
+solution of fully implicit Runge-Kutta methods in numerical PDEs (without algebraic
+constraints). A field-of-values analysis is derived to guarantees rapid Krylov
+convergence...\todo{finish}
 
 
 
