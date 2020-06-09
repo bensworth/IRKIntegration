@@ -7,8 +7,6 @@
 
 
 /* TODO:
- - Neaten up FD code...
- - Probable memory leak w/ J in FDadvection. Search TODO[seg] in FDadvection.cpp.
  
 OK questions for BS (and general thoughts):
     - Do we want to add other Butcher tableaux than are already there?
@@ -35,7 +33,7 @@ OK questions for BS (and general thoughts):
         our paper purposes, we have everything we need. 
         
     - The coefficients of the polynomials defined by (d0 \otimes I) * adj(M_s)
-    are very lengthy for moderate s (e.g., see how long they are for s = 5 in IRK::SetXCoeffs()).
+    are very lengthy for moderate s (e.g., see how long they are for s = 5 in IRK::SetWeightedAdjCoeffs()).
     I don't really know if this is an issue or not, e.g., I doubt it actually
     takes much time to execute these expressions (which is done once only once at the 
     start of the run), but depending on what direction you want to move in, there's 
@@ -67,14 +65,10 @@ OK questions for BS (and general thoughts):
 
 
 IRK::IRK(IRKOperator *IRKOper_, RKData::Type RK_ID_)
-        : m_IRKOper(IRKOper_), 
-        m_Butcher(RK_ID_),
-        m_CharPolyPrec(*IRKOper_), 
-        m_CharPolyOps(),
-        m_krylov(NULL),
-        m_comm{IRKOper_->GetComm()}
+        : m_IRKOper(IRKOper_), m_Butcher(RK_ID_),
+        m_CharPolyPrec(*IRKOper_), m_CharPolyOps(), 
+        m_krylov(NULL), m_comm{IRKOper_->GetComm()}
 {
-
     // Get proc IDs
     MPI_Comm_rank(m_comm, &m_rank);
     MPI_Comm_size(m_comm, &m_numProcess);
@@ -83,76 +77,73 @@ IRK::IRK(IRKOperator *IRKOper_, RKData::Type RK_ID_)
     if (m_rank > 0) mfem::out.Disable();
     
     // Set coefficients of polynomials {X_j}
-    SetXCoeffs();      
+    SetWeightedAdjCoeffs();      
     
-    /* --- Construct object for every REAL factor in char. poly --- */
+    // Create object for every char. poly. factor to be inverted
     m_CharPolyOps.SetSize(m_Butcher.s_eff); 
     
-    // Initialize data the user might retrieve later
+    // Initialize solver statistics the user might retrieve later
     m_avg_iter.resize(m_CharPolyOps.Size(), 0);
-    m_type.resize(m_CharPolyOps.Size());
+    m_degree.resize(m_CharPolyOps.Size());
     m_eig_ratio.resize(m_CharPolyOps.Size(), 0.0);
     
-    // Linear factors. I.e., those of type 1
+    // Linear factors (degree 1)
     double dt_dummy = -1.0; // Use dummy dt, will be set properly before inverting factor.
     int count = 0;
     for (int i = 0; i < m_Butcher.zeta.Size(); i++) {
         m_CharPolyOps[count] = new CharPolyOp(dt_dummy, m_Butcher.zeta(i), *m_IRKOper);
-        m_type[count] = 1;
+        m_degree[count] = 1;
         count++;
     }
-    // Quadratic factors. I.e., those of type 2
+    // Quadratic factors (degree 2)
     for (int i = 0; i < m_Butcher.eta.Size(); i++) {
         m_CharPolyOps[count] = new CharPolyOp(dt_dummy, m_Butcher.eta(i), m_Butcher.beta(i), *m_IRKOper);
-        m_type[count] = 2;
+        m_degree[count] = 2;
         m_eig_ratio[count] = m_Butcher.beta(i)/m_Butcher.eta(i);
         count++;
     } 
-    
-    
 }
 
 IRK::~IRK() {
-    for (int i = 0; i < m_CharPolyOps.Size(); i++) delete m_CharPolyOps[i];    
+    for (int i = 0; i < m_CharPolyOps.Size(); i++) {
+        delete m_CharPolyOps[i];    
+        m_CharPolyOps[i] = NULL;
+    }
+    m_CharPolyOps.SetSize(0);
+    
+    if (m_krylov) delete m_krylov;
 }
 
 
-void IRK::SetSolve(IRK::KrylovMethod solveID, double reltol, int maxiter,
-                   double abstol, int kdim, int printlevel)
+/** Build Krylov solver */
+void IRK::SetKrylovSolver()
 {
-    m_krylov_print = printlevel;
+    switch (m_krylov_params.solver) {
+        case KrylovMethod::CG:
+            m_krylov = new CGSolver(m_comm);
+            break;
+        case KrylovMethod::MINRES:
+            m_krylov = new MINRESSolver(m_comm);
+            break;
+        case KrylovMethod::GMRES:
+            m_krylov = new GMRESSolver(m_comm);
+            static_cast<GMRESSolver*>(m_krylov)->SetKDim(m_krylov_params.kdim);
+            break;
+        case KrylovMethod::BICGSTAB:
+            m_krylov = new BiCGSTABSolver(m_comm);
+            break;
+        case KrylovMethod::FGMRES:
+            m_krylov = new FGMRESSolver(m_comm);
+            static_cast<FGMRESSolver*>(m_krylov)->SetKDim(m_krylov_params.kdim);
+            break;
+        default:
+            mfem_error("IRK::Invalid KrylovMethod.\n");   
+    }
     
-    m_solveID = static_cast<int>(solveID);
-    // CG
-    if (m_solveID == 0) {
-        m_krylov = new CGSolver(m_comm);
-    }
-    // MINRES
-    else if (m_solveID == 1) {
-        m_krylov = new MINRESSolver(m_comm);
-    }
-    // GMRES
-    else if (m_solveID == 2) {
-        m_krylov = new GMRESSolver(m_comm);
-        static_cast<GMRESSolver*>(m_krylov)->SetKDim(kdim);
-    }
-    // BiCGStab
-    else if (m_solveID == 3) { 
-        m_krylov = new BiCGSTABSolver(m_comm);
-    }
-    // GGMRES
-    else if (m_solveID == 4) {
-        m_krylov = new FGMRESSolver(m_comm);
-        static_cast<FGMRESSolver*>(m_krylov)->SetKDim(kdim);
-    }
-    else {
-        mfem_error("IRK::Invalid solve type.\n");   
-    }
-
-    m_krylov->SetRelTol(reltol);
-    m_krylov->SetAbsTol(abstol);
-    m_krylov->SetMaxIter(maxiter);
-    m_krylov->SetPrintLevel(printlevel);
+    m_krylov->SetRelTol(m_krylov_params.reltol);
+    m_krylov->SetAbsTol(m_krylov_params.abstol);
+    m_krylov->SetMaxIter(m_krylov_params.maxiter);
+    m_krylov->SetPrintLevel(m_krylov_params.printlevel);
     m_krylov->iterative_mode = false;
 }
 
@@ -180,10 +171,10 @@ void IRK::Step(Vector &x, double &t, double &dt)
     /* Sequentially invert factors in characteristic polynomial */
     for (int i = 0; i < m_CharPolyOps.Size(); i++) {
         // Print info about system being solved
-        if (m_krylov_print > 0) {
+        if (m_krylov_params.printlevel > 0) {
             mfem::out << "  System " << i+1 << " of " << m_CharPolyOps.Size() 
             << " (degree=" << m_CharPolyOps[i]->Degree() << "):  ";
-            if (m_krylov_print != 2) mfem::out << '\n';
+            if (m_krylov_params.printlevel != 2) mfem::out << '\n';
         }
         
         // Ensure that correct time step is used in factored polynomial
@@ -228,8 +219,8 @@ void IRK::Step(Vector &x, double &t, double &dt)
 
 void IRK::Run(Vector &x, double &t, double &dt, double tf) 
 {    
-    // Set Krylov settings if not already set
-    if (!m_krylov) SetSolve();
+    // Build Krylov solver
+    if (!m_krylov) SetKrylovSolver();
 
     /* Main time-stepping loop */
     int step = 0;
@@ -249,7 +240,7 @@ void IRK::Run(Vector &x, double &t, double &dt, double tf)
 
 
 /** Construct right-hand side vector for IRK integration, including applying
- the block Adjugate and Butcher inverse */
+the block Adjugate and Butcher inverse */
 void IRK::ConstructRHS(const Vector &x, double t, double dt, Vector &rhs) {
     
     rhs = 0.0;
@@ -259,7 +250,7 @@ void IRK::ConstructRHS(const Vector &x, double t, double dt, Vector &rhs) {
         m_IRKOper->Mult(x, m_temp1); 
         
         // Add temp2 <- X_i(dt*M^{-1}*L)*m_temp1 to rhs
-        m_IRKOper->PolynomialMult(m_XCoeffs[i], dt, m_temp1, m_temp2); 
+        m_IRKOper->PolynomialMult(m_weightedAdjCoeffs[i], dt, m_temp1, m_temp2); 
         rhs += m_temp2;
     }
 }
@@ -1732,16 +1723,16 @@ void RKData::SetData() {
     }    
 }
 
-/* Given the precomputed vector m_Butcher.d0, and the matrix m_invA0, compute and 
-    store coefficients of the polynomials {X_j}_{j=1}^s */
-void IRK::SetXCoeffs() {
+/* Given the precomputed vector m_Butcher.d0, and the matrix m_Butcher.invA0, 
+compute and store coefficients of the polynomials {X_j}_{j=1}^s */
+void IRK::SetWeightedAdjCoeffs() {
         
     // Size data. There are s degree s-1 polynomials X_j (they each have s coefficients)
-    m_XCoeffs.resize(m_Butcher.s, Vector(m_Butcher.s));
+    m_weightedAdjCoeffs.resize(m_Butcher.s, Vector(m_Butcher.s));
     
-    // TODO: If using MFEM::Array rather than std::vector for m_XCoeffs (which is what I'd rather use), 
+    // TODO: If using MFEM::Array rather than std::vector for m_weightedAdjCoeffs (which is what I'd rather use), 
     // this should be the following, but it gives compiler warning that i cannot seem to get rid of (the code still works tho)...
-    //m_XCoeffs.SetSize(m_Butcher.s, Vector(m_Butcher.s));
+    //m_weightedAdjCoeffs.SetSize(m_Butcher.s, Vector(m_Butcher.s));
         
     /* Shallow copy inv(A0) and d0 so the following formulae appear shorter */
     DenseMatrix Y = m_Butcher.invA0;
@@ -1749,98 +1740,98 @@ void IRK::SetXCoeffs() {
     
     if (m_Butcher.s == 1) {
         /* s=1: Coefficients for polynomial X_{1}(z) */
-        m_XCoeffs[0][0] = +z(0);    
+        m_weightedAdjCoeffs[0][0] = +z(0);    
     }
     else if (m_Butcher.s == 2) {
         /* s=2: Coefficients for polynomial X_{1}(z) */
-        m_XCoeffs[0][0] = +Y(1,1)*z(0)-Y(1,0)*z(1);
-        m_XCoeffs[0][1] = -z(0);
+        m_weightedAdjCoeffs[0][0] = +Y(1,1)*z(0)-Y(1,0)*z(1);
+        m_weightedAdjCoeffs[0][1] = -z(0);
         
         /* s=2: Coefficients for polynomial X_{2}(z) */
-        m_XCoeffs[1][0] = +Y(0,0)*z(1)-Y(0,1)*z(0);
-        m_XCoeffs[1][1] = -z(1);
+        m_weightedAdjCoeffs[1][0] = +Y(0,0)*z(1)-Y(0,1)*z(0);
+        m_weightedAdjCoeffs[1][1] = -z(1);
     }
     else if (m_Butcher.s == 3) {    
         /* s=3: Coefficients for polynomial X_{1}(z) */
-        m_XCoeffs[0][0] = +z(2)*(Y(1,0)*Y(2,1)-Y(1,1)*Y(2,0))-z(1)*(Y(1,0)*Y(2,2)
+        m_weightedAdjCoeffs[0][0] = +z(2)*(Y(1,0)*Y(2,1)-Y(1,1)*Y(2,0))-z(1)*(Y(1,0)*Y(2,2)
                             -Y(1,2)*Y(2,0))+z(0)*(Y(1,1)*Y(2,2)-Y(1,2)*Y(2,1));
-        m_XCoeffs[0][1] = +Y(1,0)*z(1)+Y(2,0)*z(2)-z(0)*(Y(1,1)+Y(2,2));
-        m_XCoeffs[0][2] = +z(0);
+        m_weightedAdjCoeffs[0][1] = +Y(1,0)*z(1)+Y(2,0)*z(2)-z(0)*(Y(1,1)+Y(2,2));
+        m_weightedAdjCoeffs[0][2] = +z(0);
         
         /* s=3: Coefficients for polynomial X_{2}(z) */
-        m_XCoeffs[1][0] = +z(1)*(Y(0,0)*Y(2,2)-Y(0,2)*Y(2,0))-z(2)*(Y(0,0)*Y(2,1)
+        m_weightedAdjCoeffs[1][0] = +z(1)*(Y(0,0)*Y(2,2)-Y(0,2)*Y(2,0))-z(2)*(Y(0,0)*Y(2,1)
                             -Y(0,1)*Y(2,0))-z(0)*(Y(0,1)*Y(2,2)-Y(0,2)*Y(2,1));
-        m_XCoeffs[1][1] = +Y(0,1)*z(0)+Y(2,1)*z(2)-z(1)*(Y(0,0)+Y(2,2));
-        m_XCoeffs[1][2] = +z(1);
+        m_weightedAdjCoeffs[1][1] = +Y(0,1)*z(0)+Y(2,1)*z(2)-z(1)*(Y(0,0)+Y(2,2));
+        m_weightedAdjCoeffs[1][2] = +z(1);
         
         /* s=3: Coefficients for polynomial X_{3}(z) */
-        m_XCoeffs[2][0] = +z(2)*(Y(0,0)*Y(1,1)-Y(0,1)*Y(1,0))-z(1)*(Y(0,0)*Y(1,2)
+        m_weightedAdjCoeffs[2][0] = +z(2)*(Y(0,0)*Y(1,1)-Y(0,1)*Y(1,0))-z(1)*(Y(0,0)*Y(1,2)
                             -Y(0,2)*Y(1,0))+z(0)*(Y(0,1)*Y(1,2)-Y(0,2)*Y(1,1));
-        m_XCoeffs[2][1] = +Y(0,2)*z(0)+Y(1,2)*z(1)-z(2)*(Y(0,0)+Y(1,1));
-        m_XCoeffs[2][2] = +z(2);    
+        m_weightedAdjCoeffs[2][1] = +Y(0,2)*z(0)+Y(1,2)*z(1)-z(2)*(Y(0,0)+Y(1,1));
+        m_weightedAdjCoeffs[2][2] = +z(2);    
     }
     else if (m_Butcher.s == 4) {    
         /* s=4: Coefficients for polynomial X_{1}(z) */
-        m_XCoeffs[0][0] = +z(2)*(Y(1,0)*Y(2,1)*Y(3,3)-Y(1,0)*Y(2,3)*Y(3,1)-Y(1,1)*Y(2,0)*Y(3,3)+Y(1,1)*Y(2,3)*Y(3,0)
+        m_weightedAdjCoeffs[0][0] = +z(2)*(Y(1,0)*Y(2,1)*Y(3,3)-Y(1,0)*Y(2,3)*Y(3,1)-Y(1,1)*Y(2,0)*Y(3,3)+Y(1,1)*Y(2,3)*Y(3,0)
                             +Y(1,3)*Y(2,0)*Y(3,1)-Y(1,3)*Y(2,1)*Y(3,0))-z(3)*(Y(1,0)*Y(2,1)*Y(3,2)-Y(1,0)*Y(2,2)
                             *Y(3,1)-Y(1,1)*Y(2,0)*Y(3,2)+Y(1,1)*Y(2,2)*Y(3,0)+Y(1,2)*Y(2,0)*Y(3,1)-Y(1,2)*Y(2,1)
                             *Y(3,0))-z(1)*(Y(1,0)*Y(2,2)*Y(3,3)-Y(1,0)*Y(2,3)*Y(3,2)-Y(1,2)*Y(2,0)*Y(3,3)+Y(1,2)
                             *Y(2,3)*Y(3,0)+Y(1,3)*Y(2,0)*Y(3,2)-Y(1,3)*Y(2,2)*Y(3,0))+z(0)*(Y(1,1)*Y(2,2)*Y(3,3)
                             -Y(1,1)*Y(2,3)*Y(3,2)-Y(1,2)*Y(2,1)*Y(3,3)+Y(1,2)*Y(2,3)*Y(3,1)+Y(1,3)*Y(2,1)*Y(3,2)
                             -Y(1,3)*Y(2,2)*Y(3,1));
-        m_XCoeffs[0][1] = +z(1)*(Y(1,0)*Y(2,2)-Y(1,2)*Y(2,0)+Y(1,0)*Y(3,3)-Y(1,3)*Y(3,0))-z(0)*(Y(1,1)*Y(2,2)
+        m_weightedAdjCoeffs[0][1] = +z(1)*(Y(1,0)*Y(2,2)-Y(1,2)*Y(2,0)+Y(1,0)*Y(3,3)-Y(1,3)*Y(3,0))-z(0)*(Y(1,1)*Y(2,2)
                             -Y(1,2)*Y(2,1)+Y(1,1)*Y(3,3)-Y(1,3)*Y(3,1)+Y(2,2)*Y(3,3)-Y(2,3)*Y(3,2))-z(2)
                             *(Y(1,0)*Y(2,1)-Y(1,1)*Y(2,0)-Y(2,0)*Y(3,3)+Y(2,3)*Y(3,0))-z(3)*(Y(1,0)*Y(3,1)
                             -Y(1,1)*Y(3,0)+Y(2,0)*Y(3,2)-Y(2,2)*Y(3,0));
-        m_XCoeffs[0][2] = +z(0)*(Y(1,1)+Y(2,2)+Y(3,3))-Y(2,0)*z(2)-Y(3,0)*z(3)-Y(1,0)*z(1);
-        m_XCoeffs[0][3] = -z(0);
+        m_weightedAdjCoeffs[0][2] = +z(0)*(Y(1,1)+Y(2,2)+Y(3,3))-Y(2,0)*z(2)-Y(3,0)*z(3)-Y(1,0)*z(1);
+        m_weightedAdjCoeffs[0][3] = -z(0);
         
         /* s=4: Coefficients for polynomial X_{2}(z) */
-        m_XCoeffs[1][0] = +z(3)*(Y(0,0)*Y(2,1)*Y(3,2)-Y(0,0)*Y(2,2)*Y(3,1)-Y(0,1)*Y(2,0)*Y(3,2)+Y(0,1)*Y(2,2)*Y(3,0)
+        m_weightedAdjCoeffs[1][0] = +z(3)*(Y(0,0)*Y(2,1)*Y(3,2)-Y(0,0)*Y(2,2)*Y(3,1)-Y(0,1)*Y(2,0)*Y(3,2)+Y(0,1)*Y(2,2)*Y(3,0)
                             +Y(0,2)*Y(2,0)*Y(3,1)-Y(0,2)*Y(2,1)*Y(3,0))-z(2)*(Y(0,0)*Y(2,1)*Y(3,3)-Y(0,0)*Y(2,3)
                             *Y(3,1)-Y(0,1)*Y(2,0)*Y(3,3)+Y(0,1)*Y(2,3)*Y(3,0)+Y(0,3)*Y(2,0)*Y(3,1)-Y(0,3)*Y(2,1)
                             *Y(3,0))+z(1)*(Y(0,0)*Y(2,2)*Y(3,3)-Y(0,0)*Y(2,3)*Y(3,2)-Y(0,2)*Y(2,0)*Y(3,3)+Y(0,2)
                             *Y(2,3)*Y(3,0)+Y(0,3)*Y(2,0)*Y(3,2)-Y(0,3)*Y(2,2)*Y(3,0))-z(0)*(Y(0,1)*Y(2,2)*Y(3,3)
                             -Y(0,1)*Y(2,3)*Y(3,2)-Y(0,2)*Y(2,1)*Y(3,3)+Y(0,2)*Y(2,3)*Y(3,1)+Y(0,3)*Y(2,1)*Y(3,2)
                             -Y(0,3)*Y(2,2)*Y(3,1));
-        m_XCoeffs[1][1] = +z(0)*(Y(0,1)*Y(2,2)-Y(0,2)*Y(2,1)+Y(0,1)*Y(3,3)-Y(0,3)*Y(3,1))-z(1)*(Y(0,0)*Y(2,2)
+        m_weightedAdjCoeffs[1][1] = +z(0)*(Y(0,1)*Y(2,2)-Y(0,2)*Y(2,1)+Y(0,1)*Y(3,3)-Y(0,3)*Y(3,1))-z(1)*(Y(0,0)*Y(2,2)
                             -Y(0,2)*Y(2,0)+Y(0,0)*Y(3,3)-Y(0,3)*Y(3,0)+Y(2,2)*Y(3,3)-Y(2,3)*Y(3,2))+z(2)
                             *(Y(0,0)*Y(2,1)-Y(0,1)*Y(2,0)+Y(2,1)*Y(3,3)-Y(2,3)*Y(3,1))+z(3)*(Y(0,0)*Y(3,1)
                             -Y(0,1)*Y(3,0)-Y(2,1)*Y(3,2)+Y(2,2)*Y(3,1));
-        m_XCoeffs[1][2] = +z(1)*(Y(0,0)+Y(2,2)+Y(3,3))-Y(2,1)*z(2)-Y(3,1)*z(3)-Y(0,1)*z(0);
-        m_XCoeffs[1][3] = -z(1);
+        m_weightedAdjCoeffs[1][2] = +z(1)*(Y(0,0)+Y(2,2)+Y(3,3))-Y(2,1)*z(2)-Y(3,1)*z(3)-Y(0,1)*z(0);
+        m_weightedAdjCoeffs[1][3] = -z(1);
         
         /* s=4: Coefficients for polynomial X_{3}(z) */
-        m_XCoeffs[2][0] = +z(2)*(Y(0,0)*Y(1,1)*Y(3,3)-Y(0,0)*Y(1,3)*Y(3,1)-Y(0,1)*Y(1,0)*Y(3,3)+Y(0,1)*Y(1,3)*Y(3,0)
+        m_weightedAdjCoeffs[2][0] = +z(2)*(Y(0,0)*Y(1,1)*Y(3,3)-Y(0,0)*Y(1,3)*Y(3,1)-Y(0,1)*Y(1,0)*Y(3,3)+Y(0,1)*Y(1,3)*Y(3,0)
                             +Y(0,3)*Y(1,0)*Y(3,1)-Y(0,3)*Y(1,1)*Y(3,0))-z(3)*(Y(0,0)*Y(1,1)*Y(3,2)-Y(0,0)*Y(1,2)
                             *Y(3,1)-Y(0,1)*Y(1,0)*Y(3,2)+Y(0,1)*Y(1,2)*Y(3,0)+Y(0,2)*Y(1,0)*Y(3,1)-Y(0,2)*Y(1,1)
                             *Y(3,0))-z(1)*(Y(0,0)*Y(1,2)*Y(3,3)-Y(0,0)*Y(1,3)*Y(3,2)-Y(0,2)*Y(1,0)*Y(3,3)+Y(0,2)
                             *Y(1,3)*Y(3,0)+Y(0,3)*Y(1,0)*Y(3,2)-Y(0,3)*Y(1,2)*Y(3,0))+z(0)*(Y(0,1)*Y(1,2)*Y(3,3)
                             -Y(0,1)*Y(1,3)*Y(3,2)-Y(0,2)*Y(1,1)*Y(3,3)+Y(0,2)*Y(1,3)*Y(3,1)+Y(0,3)*Y(1,1)*Y(3,2)
                             -Y(0,3)*Y(1,2)*Y(3,1));
-        m_XCoeffs[2][1] = +z(1)*(Y(0,0)*Y(1,2)-Y(0,2)*Y(1,0)+Y(1,2)*Y(3,3)-Y(1,3)*Y(3,2))-z(0)*(Y(0,1)*Y(1,2)-Y(0,2)*Y(1,1)
+        m_weightedAdjCoeffs[2][1] = +z(1)*(Y(0,0)*Y(1,2)-Y(0,2)*Y(1,0)+Y(1,2)*Y(3,3)-Y(1,3)*Y(3,2))-z(0)*(Y(0,1)*Y(1,2)-Y(0,2)*Y(1,1)
                             -Y(0,2)*Y(3,3)+Y(0,3)*Y(3,2))-z(2)*(Y(0,0)*Y(1,1)-Y(0,1)*Y(1,0)+Y(0,0)*Y(3,3)-Y(0,3)*Y(3,0)
                             +Y(1,1)*Y(3,3)-Y(1,3)*Y(3,1))+z(3)*(Y(0,0)*Y(3,2)-Y(0,2)*Y(3,0)+Y(1,1)*Y(3,2)-Y(1,2)*Y(3,1));
-        m_XCoeffs[2][2] = +z(2)*(Y(0,0)+Y(1,1)+Y(3,3))-Y(1,2)*z(1)-Y(3,2)*z(3)-Y(0,2)*z(0);
-        m_XCoeffs[2][3] = -z(2);
+        m_weightedAdjCoeffs[2][2] = +z(2)*(Y(0,0)+Y(1,1)+Y(3,3))-Y(1,2)*z(1)-Y(3,2)*z(3)-Y(0,2)*z(0);
+        m_weightedAdjCoeffs[2][3] = -z(2);
         
         /* s=4: Coefficients for polynomial X_{4}(z) */
-        m_XCoeffs[3][0] = +z(3)*(Y(0,0)*Y(1,1)*Y(2,2)-Y(0,0)*Y(1,2)*Y(2,1)-Y(0,1)*Y(1,0)*Y(2,2)+Y(0,1)*Y(1,2)*Y(2,0)
+        m_weightedAdjCoeffs[3][0] = +z(3)*(Y(0,0)*Y(1,1)*Y(2,2)-Y(0,0)*Y(1,2)*Y(2,1)-Y(0,1)*Y(1,0)*Y(2,2)+Y(0,1)*Y(1,2)*Y(2,0)
                             +Y(0,2)*Y(1,0)*Y(2,1)-Y(0,2)*Y(1,1)*Y(2,0))-z(2)*(Y(0,0)*Y(1,1)*Y(2,3)-Y(0,0)*Y(1,3)
                             *Y(2,1)-Y(0,1)*Y(1,0)*Y(2,3)+Y(0,1)*Y(1,3)*Y(2,0)+Y(0,3)*Y(1,0)*Y(2,1)-Y(0,3)*Y(1,1)
                             *Y(2,0))+z(1)*(Y(0,0)*Y(1,2)*Y(2,3)-Y(0,0)*Y(1,3)*Y(2,2)-Y(0,2)*Y(1,0)*Y(2,3)+Y(0,2)
                             *Y(1,3)*Y(2,0)+Y(0,3)*Y(1,0)*Y(2,2)-Y(0,3)*Y(1,2)*Y(2,0))-z(0)*(Y(0,1)*Y(1,2)*Y(2,3)
                             -Y(0,1)*Y(1,3)*Y(2,2)-Y(0,2)*Y(1,1)*Y(2,3)+Y(0,2)*Y(1,3)*Y(2,1)+Y(0,3)*Y(1,1)*Y(2,2)
                             -Y(0,3)*Y(1,2)*Y(2,1));
-        m_XCoeffs[3][1] = +z(1)*(Y(0,0)*Y(1,3)-Y(0,3)*Y(1,0)-Y(1,2)*Y(2,3)+Y(1,3)*Y(2,2))-z(0)*(Y(0,1)*Y(1,3)-Y(0,3)*Y(1,1)
+        m_weightedAdjCoeffs[3][1] = +z(1)*(Y(0,0)*Y(1,3)-Y(0,3)*Y(1,0)-Y(1,2)*Y(2,3)+Y(1,3)*Y(2,2))-z(0)*(Y(0,1)*Y(1,3)-Y(0,3)*Y(1,1)
                             +Y(0,2)*Y(2,3)-Y(0,3)*Y(2,2))-z(3)*(Y(0,0)*Y(1,1)-Y(0,1)*Y(1,0)+Y(0,0)*Y(2,2)-Y(0,2)*Y(2,0)
                             +Y(1,1)*Y(2,2)-Y(1,2)*Y(2,1))+z(2)*(Y(0,0)*Y(2,3)-Y(0,3)*Y(2,0)+Y(1,1)*Y(2,3)-Y(1,3)*Y(2,1));
-        m_XCoeffs[3][2] = +z(3)*(Y(0,0)+Y(1,1)+Y(2,2))-Y(1,3)*z(1)-Y(2,3)*z(2)-Y(0,3)*z(0);
-        m_XCoeffs[3][3] = -z(3);   
+        m_weightedAdjCoeffs[3][2] = +z(3)*(Y(0,0)+Y(1,1)+Y(2,2))-Y(1,3)*z(1)-Y(2,3)*z(2)-Y(0,3)*z(0);
+        m_weightedAdjCoeffs[3][3] = -z(3);   
     }
     else if (m_Butcher.s == 5) {    
         /* s=5: Coefficients for polynomial X_{1}(z) */
-        m_XCoeffs[0][0] = +z(4)*(Y(1,0)*Y(2,1)*Y(3,2)*Y(4,3)-Y(1,0)*Y(2,1)*Y(3,3)*Y(4,2)-Y(1,0)*Y(2,2)*Y(3,1)*Y(4,3)
+        m_weightedAdjCoeffs[0][0] = +z(4)*(Y(1,0)*Y(2,1)*Y(3,2)*Y(4,3)-Y(1,0)*Y(2,1)*Y(3,3)*Y(4,2)-Y(1,0)*Y(2,2)*Y(3,1)*Y(4,3)
                             +Y(1,0)*Y(2,2)*Y(3,3)*Y(4,1)+Y(1,0)*Y(2,3)*Y(3,1)*Y(4,2)-Y(1,0)*Y(2,3)*Y(3,2)*Y(4,1)-Y(1,1)
                             *Y(2,0)*Y(3,2)*Y(4,3)+Y(1,1)*Y(2,0)*Y(3,3)*Y(4,2)+Y(1,1)*Y(2,2)*Y(3,0)*Y(4,3)-Y(1,1)*Y(2,2)
                             *Y(3,3)*Y(4,0)-Y(1,1)*Y(2,3)*Y(3,0)*Y(4,2)+Y(1,1)*Y(2,3)*Y(3,2)*Y(4,0)+Y(1,2)*Y(2,0)*Y(3,1)
@@ -1878,7 +1869,7 @@ void IRK::SetXCoeffs() {
                             *Y(3,1)*Y(4,2)-Y(1,3)*Y(2,4)*Y(3,2)*Y(4,1)-Y(1,4)*Y(2,1)*Y(3,2)*Y(4,3)+Y(1,4)*Y(2,1)*Y(3,3)
                             *Y(4,2)+Y(1,4)*Y(2,2)*Y(3,1)*Y(4,3)-Y(1,4)*Y(2,2)*Y(3,3)*Y(4,1)-Y(1,4)*Y(2,3)*Y(3,1)*Y(4,2)
                             +Y(1,4)*Y(2,3)*Y(3,2)*Y(4,1));
-        m_XCoeffs[0][1] = +z(1)*(Y(1,0)*Y(2,2)*Y(3,3)-Y(1,0)*Y(2,3)*Y(3,2)-Y(1,2)*Y(2,0)*Y(3,3)+Y(1,2)*Y(2,3)*Y(3,0)
+        m_weightedAdjCoeffs[0][1] = +z(1)*(Y(1,0)*Y(2,2)*Y(3,3)-Y(1,0)*Y(2,3)*Y(3,2)-Y(1,2)*Y(2,0)*Y(3,3)+Y(1,2)*Y(2,3)*Y(3,0)
                             +Y(1,3)*Y(2,0)*Y(3,2)-Y(1,3)*Y(2,2)*Y(3,0)+Y(1,0)*Y(2,2)*Y(4,4)-Y(1,0)*Y(2,4)*Y(4,2)-Y(1,2)
                             *Y(2,0)*Y(4,4)+Y(1,2)*Y(2,4)*Y(4,0)+Y(1,4)*Y(2,0)*Y(4,2)-Y(1,4)*Y(2,2)*Y(4,0)+Y(1,0)*Y(3,3)
                             *Y(4,4)-Y(1,0)*Y(3,4)*Y(4,3)-Y(1,3)*Y(3,0)*Y(4,4)+Y(1,3)*Y(3,4)*Y(4,0)+Y(1,4)*Y(3,0)*Y(4,3)
@@ -1901,17 +1892,17 @@ void IRK::SetXCoeffs() {
                             -Y(1,0)*Y(3,3)*Y(4,1)-Y(1,1)*Y(3,0)*Y(4,3)+Y(1,1)*Y(3,3)*Y(4,0)+Y(1,3)*Y(3,0)*Y(4,1)-Y(1,3)
                             *Y(3,1)*Y(4,0)+Y(2,0)*Y(3,2)*Y(4,3)-Y(2,0)*Y(3,3)*Y(4,2)-Y(2,2)*Y(3,0)*Y(4,3)+Y(2,2)*Y(3,3)
                             *Y(4,0)+Y(2,3)*Y(3,0)*Y(4,2)-Y(2,3)*Y(3,2)*Y(4,0));
-        m_XCoeffs[0][2] = +z(2)*(Y(1,0)*Y(2,1)-Y(1,1)*Y(2,0)-Y(2,0)*Y(3,3)+Y(2,3)*Y(3,0)-Y(2,0)*Y(4,4)+Y(2,4)*Y(4,0))-z(1)
+        m_weightedAdjCoeffs[0][2] = +z(2)*(Y(1,0)*Y(2,1)-Y(1,1)*Y(2,0)-Y(2,0)*Y(3,3)+Y(2,3)*Y(3,0)-Y(2,0)*Y(4,4)+Y(2,4)*Y(4,0))-z(1)
                             *(Y(1,0)*Y(2,2)-Y(1,2)*Y(2,0)+Y(1,0)*Y(3,3)-Y(1,3)*Y(3,0)+Y(1,0)*Y(4,4)-Y(1,4)*Y(4,0))+z(3)
                             *(Y(1,0)*Y(3,1)-Y(1,1)*Y(3,0)+Y(2,0)*Y(3,2)-Y(2,2)*Y(3,0)-Y(3,0)*Y(4,4)+Y(3,4)*Y(4,0))+z(4)
                             *(Y(1,0)*Y(4,1)-Y(1,1)*Y(4,0)+Y(2,0)*Y(4,2)-Y(2,2)*Y(4,0)+Y(3,0)*Y(4,3)-Y(3,3)*Y(4,0))+z(0)
                             *(Y(1,1)*Y(2,2)-Y(1,2)*Y(2,1)+Y(1,1)*Y(3,3)-Y(1,3)*Y(3,1)+Y(1,1)*Y(4,4)-Y(1,4)*Y(4,1)+Y(2,2)
                             *Y(3,3)-Y(2,3)*Y(3,2)+Y(2,2)*Y(4,4)-Y(2,4)*Y(4,2)+Y(3,3)*Y(4,4)-Y(3,4)*Y(4,3));
-        m_XCoeffs[0][3] = +Y(1,0)*z(1)+Y(2,0)*z(2)+Y(3,0)*z(3)+Y(4,0)*z(4)-z(0)*(Y(1,1)+Y(2,2)+Y(3,3)+Y(4,4));
-        m_XCoeffs[0][4] = +z(0);
+        m_weightedAdjCoeffs[0][3] = +Y(1,0)*z(1)+Y(2,0)*z(2)+Y(3,0)*z(3)+Y(4,0)*z(4)-z(0)*(Y(1,1)+Y(2,2)+Y(3,3)+Y(4,4));
+        m_weightedAdjCoeffs[0][4] = +z(0);
         
         /* s=5: Coefficients for polynomial X_{2}(z) */
-        m_XCoeffs[1][0] = +z(3)*(Y(0,0)*Y(2,1)*Y(3,2)*Y(4,4)-Y(0,0)*Y(2,1)*Y(3,4)*Y(4,2)-Y(0,0)*Y(2,2)*Y(3,1)*Y(4,4)+
+        m_weightedAdjCoeffs[1][0] = +z(3)*(Y(0,0)*Y(2,1)*Y(3,2)*Y(4,4)-Y(0,0)*Y(2,1)*Y(3,4)*Y(4,2)-Y(0,0)*Y(2,2)*Y(3,1)*Y(4,4)+
                             Y(0,0)*Y(2,2)*Y(3,4)*Y(4,1)+Y(0,0)*Y(2,4)*Y(3,1)*Y(4,2)-Y(0,0)*Y(2,4)*Y(3,2)*Y(4,1)-Y(0,1)
                             *Y(2,0)*Y(3,2)*Y(4,4)+Y(0,1)*Y(2,0)*Y(3,4)*Y(4,2)+Y(0,1)*Y(2,2)*Y(3,0)*Y(4,4)-Y(0,1)*Y(2,2)
                             *Y(3,4)*Y(4,0)-Y(0,1)*Y(2,4)*Y(3,0)*Y(4,2)+Y(0,1)*Y(2,4)*Y(3,2)*Y(4,0)+Y(0,2)*Y(2,0)*Y(3,1)
@@ -1949,7 +1940,7 @@ void IRK::SetXCoeffs() {
                             *Y(3,1)*Y(4,2)-Y(0,3)*Y(2,4)*Y(3,2)*Y(4,1)-Y(0,4)*Y(2,1)*Y(3,2)*Y(4,3)+Y(0,4)*Y(2,1)*Y(3,3)
                             *Y(4,2)+Y(0,4)*Y(2,2)*Y(3,1)*Y(4,3)-Y(0,4)*Y(2,2)*Y(3,3)*Y(4,1)-Y(0,4)*Y(2,3)*Y(3,1)*Y(4,2)
                             +Y(0,4)*Y(2,3)*Y(3,2)*Y(4,1));
-        m_XCoeffs[1][1] = +z(0)*(Y(0,1)*Y(2,2)*Y(3,3)-Y(0,1)*Y(2,3)*Y(3,2)-Y(0,2)*Y(2,1)*Y(3,3)+Y(0,2)*Y(2,3)*Y(3,1)
+        m_weightedAdjCoeffs[1][1] = +z(0)*(Y(0,1)*Y(2,2)*Y(3,3)-Y(0,1)*Y(2,3)*Y(3,2)-Y(0,2)*Y(2,1)*Y(3,3)+Y(0,2)*Y(2,3)*Y(3,1)
                             +Y(0,3)*Y(2,1)*Y(3,2)-Y(0,3)*Y(2,2)*Y(3,1)+Y(0,1)*Y(2,2)*Y(4,4)-Y(0,1)*Y(2,4)*Y(4,2)-Y(0,2)
                             *Y(2,1)*Y(4,4)+Y(0,2)*Y(2,4)*Y(4,1)+Y(0,4)*Y(2,1)*Y(4,2)-Y(0,4)*Y(2,2)*Y(4,1)+Y(0,1)*Y(3,3)
                             *Y(4,4)-Y(0,1)*Y(3,4)*Y(4,3)-Y(0,3)*Y(3,1)*Y(4,4)+Y(0,3)*Y(3,4)*Y(4,1)+Y(0,4)*Y(3,1)*Y(4,3)
@@ -1972,17 +1963,17 @@ void IRK::SetXCoeffs() {
                             -Y(0,0)*Y(3,3)*Y(4,1)-Y(0,1)*Y(3,0)*Y(4,3)+Y(0,1)*Y(3,3)*Y(4,0)+Y(0,3)*Y(3,0)*Y(4,1)-Y(0,3)
                             *Y(3,1)*Y(4,0)-Y(2,1)*Y(3,2)*Y(4,3)+Y(2,1)*Y(3,3)*Y(4,2)+Y(2,2)*Y(3,1)*Y(4,3)-Y(2,2)*Y(3,3)
                             *Y(4,1)-Y(2,3)*Y(3,1)*Y(4,2)+Y(2,3)*Y(3,2)*Y(4,1));
-        m_XCoeffs[1][2] = +z(1)*(Y(0,0)*Y(2,2)-Y(0,2)*Y(2,0)+Y(0,0)*Y(3,3)-Y(0,3)*Y(3,0)+Y(0,0)*Y(4,4)-Y(0,4)*Y(4,0)
+        m_weightedAdjCoeffs[1][2] = +z(1)*(Y(0,0)*Y(2,2)-Y(0,2)*Y(2,0)+Y(0,0)*Y(3,3)-Y(0,3)*Y(3,0)+Y(0,0)*Y(4,4)-Y(0,4)*Y(4,0)
                             +Y(2,2)*Y(3,3)-Y(2,3)*Y(3,2)+Y(2,2)*Y(4,4)-Y(2,4)*Y(4,2)+Y(3,3)*Y(4,4)-Y(3,4)*Y(4,3))-z(2)
                             *(Y(0,0)*Y(2,1)-Y(0,1)*Y(2,0)+Y(2,1)*Y(3,3)-Y(2,3)*Y(3,1)+Y(2,1)*Y(4,4)-Y(2,4)*Y(4,1))-z(3)
                             *(Y(0,0)*Y(3,1)-Y(0,1)*Y(3,0)-Y(2,1)*Y(3,2)+Y(2,2)*Y(3,1)+Y(3,1)*Y(4,4)-Y(3,4)*Y(4,1))-z(4)
                             *(Y(0,0)*Y(4,1)-Y(0,1)*Y(4,0)-Y(2,1)*Y(4,2)+Y(2,2)*Y(4,1)-Y(3,1)*Y(4,3)+Y(3,3)*Y(4,1))-z(0)
                             *(Y(0,1)*Y(2,2)-Y(0,2)*Y(2,1)+Y(0,1)*Y(3,3)-Y(0,3)*Y(3,1)+Y(0,1)*Y(4,4)-Y(0,4)*Y(4,1));
-        m_XCoeffs[1][3] = +Y(0,1)*z(0)+Y(2,1)*z(2)+Y(3,1)*z(3)+Y(4,1)*z(4)-z(1)*(Y(0,0)+Y(2,2)+Y(3,3)+Y(4,4));
-        m_XCoeffs[1][4] = +z(1);
+        m_weightedAdjCoeffs[1][3] = +Y(0,1)*z(0)+Y(2,1)*z(2)+Y(3,1)*z(3)+Y(4,1)*z(4)-z(1)*(Y(0,0)+Y(2,2)+Y(3,3)+Y(4,4));
+        m_weightedAdjCoeffs[1][4] = +z(1);
         
         /* s=5: Coefficients for polynomial X_{3}(z) */
-        m_XCoeffs[2][0] = +z(4)*(Y(0,0)*Y(1,1)*Y(3,2)*Y(4,3)-Y(0,0)*Y(1,1)*Y(3,3)*Y(4,2)-Y(0,0)*Y(1,2)*Y(3,1)*Y(4,3)
+        m_weightedAdjCoeffs[2][0] = +z(4)*(Y(0,0)*Y(1,1)*Y(3,2)*Y(4,3)-Y(0,0)*Y(1,1)*Y(3,3)*Y(4,2)-Y(0,0)*Y(1,2)*Y(3,1)*Y(4,3)
                             +Y(0,0)*Y(1,2)*Y(3,3)*Y(4,1)+Y(0,0)*Y(1,3)*Y(3,1)*Y(4,2)-Y(0,0)*Y(1,3)*Y(3,2)*Y(4,1)-Y(0,1)
                             *Y(1,0)*Y(3,2)*Y(4,3)+Y(0,1)*Y(1,0)*Y(3,3)*Y(4,2)+Y(0,1)*Y(1,2)*Y(3,0)*Y(4,3)-Y(0,1)*Y(1,2)
                             *Y(3,3)*Y(4,0)-Y(0,1)*Y(1,3)*Y(3,0)*Y(4,2)+Y(0,1)*Y(1,3)*Y(3,2)*Y(4,0)+Y(0,2)*Y(1,0)*Y(3,1)
@@ -2020,7 +2011,7 @@ void IRK::SetXCoeffs() {
                             *Y(3,1)*Y(4,2)-Y(0,3)*Y(1,4)*Y(3,2)*Y(4,1)-Y(0,4)*Y(1,1)*Y(3,2)*Y(4,3)+Y(0,4)*Y(1,1)*Y(3,3)
                             *Y(4,2)+Y(0,4)*Y(1,2)*Y(3,1)*Y(4,3)-Y(0,4)*Y(1,2)*Y(3,3)*Y(4,1)-Y(0,4)*Y(1,3)*Y(3,1)*Y(4,2)
                             +Y(0,4)*Y(1,3)*Y(3,2)*Y(4,1));
-        m_XCoeffs[2][1] = +z(1)*(Y(0,0)*Y(1,2)*Y(3,3)-Y(0,0)*Y(1,3)*Y(3,2)-Y(0,2)*Y(1,0)*Y(3,3)+Y(0,2)*Y(1,3)*Y(3,0)
+        m_weightedAdjCoeffs[2][1] = +z(1)*(Y(0,0)*Y(1,2)*Y(3,3)-Y(0,0)*Y(1,3)*Y(3,2)-Y(0,2)*Y(1,0)*Y(3,3)+Y(0,2)*Y(1,3)*Y(3,0)
                             +Y(0,3)*Y(1,0)*Y(3,2)-Y(0,3)*Y(1,2)*Y(3,0)+Y(0,0)*Y(1,2)*Y(4,4)-Y(0,0)*Y(1,4)*Y(4,2)-Y(0,2)
                             *Y(1,0)*Y(4,4)+Y(0,2)*Y(1,4)*Y(4,0)+Y(0,4)*Y(1,0)*Y(4,2)-Y(0,4)*Y(1,2)*Y(4,0)+Y(1,2)*Y(3,3)
                             *Y(4,4)-Y(1,2)*Y(3,4)*Y(4,3)-Y(1,3)*Y(3,2)*Y(4,4)+Y(1,3)*Y(3,4)*Y(4,2)+Y(1,4)*Y(3,2)*Y(4,3)
@@ -2043,17 +2034,17 @@ void IRK::SetXCoeffs() {
                             +Y(0,0)*Y(3,3)*Y(4,2)+Y(0,2)*Y(3,0)*Y(4,3)-Y(0,2)*Y(3,3)*Y(4,0)-Y(0,3)*Y(3,0)*Y(4,2)+Y(0,3)
                             *Y(3,2)*Y(4,0)-Y(1,1)*Y(3,2)*Y(4,3)+Y(1,1)*Y(3,3)*Y(4,2)+Y(1,2)*Y(3,1)*Y(4,3)-Y(1,2)*Y(3,3)
                             *Y(4,1)-Y(1,3)*Y(3,1)*Y(4,2)+Y(1,3)*Y(3,2)*Y(4,1));
-        m_XCoeffs[2][2] = +z(0)*(Y(0,1)*Y(1,2)-Y(0,2)*Y(1,1)-Y(0,2)*Y(3,3)+Y(0,3)*Y(3,2)-Y(0,2)*Y(4,4)+Y(0,4)*Y(4,2))
+        m_weightedAdjCoeffs[2][2] = +z(0)*(Y(0,1)*Y(1,2)-Y(0,2)*Y(1,1)-Y(0,2)*Y(3,3)+Y(0,3)*Y(3,2)-Y(0,2)*Y(4,4)+Y(0,4)*Y(4,2))
                             -z(1)*(Y(0,0)*Y(1,2)-Y(0,2)*Y(1,0)+Y(1,2)*Y(3,3)-Y(1,3)*Y(3,2)+Y(1,2)*Y(4,4)-Y(1,4)*Y(4,2))
                             -z(3)*(Y(0,0)*Y(3,2)-Y(0,2)*Y(3,0)+Y(1,1)*Y(3,2)-Y(1,2)*Y(3,1)+Y(3,2)*Y(4,4)-Y(3,4)*Y(4,2))
                             -z(4)*(Y(0,0)*Y(4,2)-Y(0,2)*Y(4,0)+Y(1,1)*Y(4,2)-Y(1,2)*Y(4,1)-Y(3,2)*Y(4,3)+Y(3,3)*Y(4,2))
                             +z(2)*(Y(0,0)*Y(1,1)-Y(0,1)*Y(1,0)+Y(0,0)*Y(3,3)-Y(0,3)*Y(3,0)+Y(0,0)*Y(4,4)-Y(0,4)*Y(4,0)
                             +Y(1,1)*Y(3,3)-Y(1,3)*Y(3,1)+Y(1,1)*Y(4,4)-Y(1,4)*Y(4,1)+Y(3,3)*Y(4,4)-Y(3,4)*Y(4,3));
-        m_XCoeffs[2][3] = +Y(0,2)*z(0)+Y(1,2)*z(1)+Y(3,2)*z(3)+Y(4,2)*z(4)-z(2)*(Y(0,0)+Y(1,1)+Y(3,3)+Y(4,4));
-        m_XCoeffs[2][4] = +z(2);
+        m_weightedAdjCoeffs[2][3] = +Y(0,2)*z(0)+Y(1,2)*z(1)+Y(3,2)*z(3)+Y(4,2)*z(4)-z(2)*(Y(0,0)+Y(1,1)+Y(3,3)+Y(4,4));
+        m_weightedAdjCoeffs[2][4] = +z(2);
         
         /* s=5: Coefficients for polynomial X_{4}(z) */
-        m_XCoeffs[3][0] = +z(3)*(Y(0,0)*Y(1,1)*Y(2,2)*Y(4,4)-Y(0,0)*Y(1,1)*Y(2,4)*Y(4,2)-Y(0,0)*Y(1,2)*Y(2,1)*Y(4,4)
+        m_weightedAdjCoeffs[3][0] = +z(3)*(Y(0,0)*Y(1,1)*Y(2,2)*Y(4,4)-Y(0,0)*Y(1,1)*Y(2,4)*Y(4,2)-Y(0,0)*Y(1,2)*Y(2,1)*Y(4,4)
                             +Y(0,0)*Y(1,2)*Y(2,4)*Y(4,1)+Y(0,0)*Y(1,4)*Y(2,1)*Y(4,2)-Y(0,0)*Y(1,4)*Y(2,2)*Y(4,1)-Y(0,1)
                             *Y(1,0)*Y(2,2)*Y(4,4)+Y(0,1)*Y(1,0)*Y(2,4)*Y(4,2)+Y(0,1)*Y(1,2)*Y(2,0)*Y(4,4)-Y(0,1)*Y(1,2)
                             *Y(2,4)*Y(4,0)-Y(0,1)*Y(1,4)*Y(2,0)*Y(4,2)+Y(0,1)*Y(1,4)*Y(2,2)*Y(4,0)+Y(0,2)*Y(1,0)*Y(2,1)
@@ -2091,7 +2082,7 @@ void IRK::SetXCoeffs() {
                             *Y(2,1)*Y(4,2)-Y(0,3)*Y(1,4)*Y(2,2)*Y(4,1)-Y(0,4)*Y(1,1)*Y(2,2)*Y(4,3)+Y(0,4)*Y(1,1)*Y(2,3)
                             *Y(4,2)+Y(0,4)*Y(1,2)*Y(2,1)*Y(4,3)-Y(0,4)*Y(1,2)*Y(2,3)*Y(4,1)-Y(0,4)*Y(1,3)*Y(2,1)*Y(4,2)
                             +Y(0,4)*Y(1,3)*Y(2,2)*Y(4,1));
-        m_XCoeffs[3][1] = +z(0)*(Y(0,1)*Y(1,2)*Y(2,3)-Y(0,1)*Y(1,3)*Y(2,2)-Y(0,2)*Y(1,1)*Y(2,3)+Y(0,2)*Y(1,3)*Y(2,1)
+        m_weightedAdjCoeffs[3][1] = +z(0)*(Y(0,1)*Y(1,2)*Y(2,3)-Y(0,1)*Y(1,3)*Y(2,2)-Y(0,2)*Y(1,1)*Y(2,3)+Y(0,2)*Y(1,3)*Y(2,1)
                             +Y(0,3)*Y(1,1)*Y(2,2)-Y(0,3)*Y(1,2)*Y(2,1)-Y(0,1)*Y(1,3)*Y(4,4)+Y(0,1)*Y(1,4)*Y(4,3)+Y(0,3)
                             *Y(1,1)*Y(4,4)-Y(0,3)*Y(1,4)*Y(4,1)-Y(0,4)*Y(1,1)*Y(4,3)+Y(0,4)*Y(1,3)*Y(4,1)-Y(0,2)*Y(2,3)
                             *Y(4,4)+Y(0,2)*Y(2,4)*Y(4,3)+Y(0,3)*Y(2,2)*Y(4,4)-Y(0,3)*Y(2,4)*Y(4,2)-Y(0,4)*Y(2,2)*Y(4,3)
@@ -2114,17 +2105,17 @@ void IRK::SetXCoeffs() {
                             -Y(0,0)*Y(2,3)*Y(4,2)-Y(0,2)*Y(2,0)*Y(4,3)+Y(0,2)*Y(2,3)*Y(4,0)+Y(0,3)*Y(2,0)*Y(4,2)-Y(0,3)
                             *Y(2,2)*Y(4,0)+Y(1,1)*Y(2,2)*Y(4,3)-Y(1,1)*Y(2,3)*Y(4,2)-Y(1,2)*Y(2,1)*Y(4,3)+Y(1,2)*Y(2,3)
                             *Y(4,1)+Y(1,3)*Y(2,1)*Y(4,2)-Y(1,3)*Y(2,2)*Y(4,1));
-        m_XCoeffs[3][2] = +z(0)*(Y(0,1)*Y(1,3)-Y(0,3)*Y(1,1)+Y(0,2)*Y(2,3)-Y(0,3)*Y(2,2)-Y(0,3)*Y(4,4)+Y(0,4)*Y(4,3))
+        m_weightedAdjCoeffs[3][2] = +z(0)*(Y(0,1)*Y(1,3)-Y(0,3)*Y(1,1)+Y(0,2)*Y(2,3)-Y(0,3)*Y(2,2)-Y(0,3)*Y(4,4)+Y(0,4)*Y(4,3))
                             -z(1)*(Y(0,0)*Y(1,3)-Y(0,3)*Y(1,0)-Y(1,2)*Y(2,3)+Y(1,3)*Y(2,2)+Y(1,3)*Y(4,4)-Y(1,4)*Y(4,3))
                             -z(2)*(Y(0,0)*Y(2,3)-Y(0,3)*Y(2,0)+Y(1,1)*Y(2,3)-Y(1,3)*Y(2,1)+Y(2,3)*Y(4,4)-Y(2,4)*Y(4,3))
                             -z(4)*(Y(0,0)*Y(4,3)-Y(0,3)*Y(4,0)+Y(1,1)*Y(4,3)-Y(1,3)*Y(4,1)+Y(2,2)*Y(4,3)-Y(2,3)*Y(4,2))
                             +z(3)*(Y(0,0)*Y(1,1)-Y(0,1)*Y(1,0)+Y(0,0)*Y(2,2)-Y(0,2)*Y(2,0)+Y(1,1)*Y(2,2)-Y(1,2)*Y(2,1)
                             +Y(0,0)*Y(4,4)-Y(0,4)*Y(4,0)+Y(1,1)*Y(4,4)-Y(1,4)*Y(4,1)+Y(2,2)*Y(4,4)-Y(2,4)*Y(4,2));
-        m_XCoeffs[3][3] = +Y(0,3)*z(0)+Y(1,3)*z(1)+Y(2,3)*z(2)+Y(4,3)*z(4)-z(3)*(Y(0,0)+Y(1,1)+Y(2,2)+Y(4,4));
-        m_XCoeffs[3][4] = +z(3);
+        m_weightedAdjCoeffs[3][3] = +Y(0,3)*z(0)+Y(1,3)*z(1)+Y(2,3)*z(2)+Y(4,3)*z(4)-z(3)*(Y(0,0)+Y(1,1)+Y(2,2)+Y(4,4));
+        m_weightedAdjCoeffs[3][4] = +z(3);
         
         /* s=5: Coefficients for polynomial X_{5}(z) */
-        m_XCoeffs[4][0] = +z(4)*(Y(0,0)*Y(1,1)*Y(2,2)*Y(3,3)-Y(0,0)*Y(1,1)*Y(2,3)*Y(3,2)-Y(0,0)*Y(1,2)*Y(2,1)*Y(3,3)
+        m_weightedAdjCoeffs[4][0] = +z(4)*(Y(0,0)*Y(1,1)*Y(2,2)*Y(3,3)-Y(0,0)*Y(1,1)*Y(2,3)*Y(3,2)-Y(0,0)*Y(1,2)*Y(2,1)*Y(3,3)
                             +Y(0,0)*Y(1,2)*Y(2,3)*Y(3,1)+Y(0,0)*Y(1,3)*Y(2,1)*Y(3,2)-Y(0,0)*Y(1,3)*Y(2,2)*Y(3,1)-Y(0,1)
                             *Y(1,0)*Y(2,2)*Y(3,3)+Y(0,1)*Y(1,0)*Y(2,3)*Y(3,2)+Y(0,1)*Y(1,2)*Y(2,0)*Y(3,3)-Y(0,1)*Y(1,2)
                             *Y(2,3)*Y(3,0)-Y(0,1)*Y(1,3)*Y(2,0)*Y(3,2)+Y(0,1)*Y(1,3)*Y(2,2)*Y(3,0)+Y(0,2)*Y(1,0)*Y(2,1)
@@ -2162,7 +2153,7 @@ void IRK::SetXCoeffs() {
                             *Y(2,1)*Y(3,2)-Y(0,3)*Y(1,4)*Y(2,2)*Y(3,1)-Y(0,4)*Y(1,1)*Y(2,2)*Y(3,3)+Y(0,4)*Y(1,1)*Y(2,3)
                             *Y(3,2)+Y(0,4)*Y(1,2)*Y(2,1)*Y(3,3)-Y(0,4)*Y(1,2)*Y(2,3)*Y(3,1)-Y(0,4)*Y(1,3)*Y(2,1)*Y(3,2)
                             +Y(0,4)*Y(1,3)*Y(2,2)*Y(3,1));
-        m_XCoeffs[4][1] = +z(0)*(Y(0,1)*Y(1,2)*Y(2,4)-Y(0,1)*Y(1,4)*Y(2,2)-Y(0,2)*Y(1,1)*Y(2,4)+Y(0,2)*Y(1,4)*Y(2,1)
+        m_weightedAdjCoeffs[4][1] = +z(0)*(Y(0,1)*Y(1,2)*Y(2,4)-Y(0,1)*Y(1,4)*Y(2,2)-Y(0,2)*Y(1,1)*Y(2,4)+Y(0,2)*Y(1,4)*Y(2,1)
                             +Y(0,4)*Y(1,1)*Y(2,2)-Y(0,4)*Y(1,2)*Y(2,1)+Y(0,1)*Y(1,3)*Y(3,4)-Y(0,1)*Y(1,4)*Y(3,3)-Y(0,3)
                             *Y(1,1)*Y(3,4)+Y(0,3)*Y(1,4)*Y(3,1)+Y(0,4)*Y(1,1)*Y(3,3)-Y(0,4)*Y(1,3)*Y(3,1)+Y(0,2)*Y(2,3)
                             *Y(3,4)-Y(0,2)*Y(2,4)*Y(3,3)-Y(0,3)*Y(2,2)*Y(3,4)+Y(0,3)*Y(2,4)*Y(3,2)+Y(0,4)*Y(2,2)*Y(3,3)
@@ -2185,14 +2176,14 @@ void IRK::SetXCoeffs() {
                             -Y(0,0)*Y(2,4)*Y(3,2)-Y(0,2)*Y(2,0)*Y(3,4)+Y(0,2)*Y(2,4)*Y(3,0)+Y(0,4)*Y(2,0)*Y(3,2)-Y(0,4)
                             *Y(2,2)*Y(3,0)+Y(1,1)*Y(2,2)*Y(3,4)-Y(1,1)*Y(2,4)*Y(3,2)-Y(1,2)*Y(2,1)*Y(3,4)+Y(1,2)*Y(2,4)
                             *Y(3,1)+Y(1,4)*Y(2,1)*Y(3,2)-Y(1,4)*Y(2,2)*Y(3,1));
-        m_XCoeffs[4][2] = +z(0)*(Y(0,1)*Y(1,4)-Y(0,4)*Y(1,1)+Y(0,2)*Y(2,4)-Y(0,4)*Y(2,2)+Y(0,3)*Y(3,4)-Y(0,4)*Y(3,3))
+        m_weightedAdjCoeffs[4][2] = +z(0)*(Y(0,1)*Y(1,4)-Y(0,4)*Y(1,1)+Y(0,2)*Y(2,4)-Y(0,4)*Y(2,2)+Y(0,3)*Y(3,4)-Y(0,4)*Y(3,3))
                             -z(1)*(Y(0,0)*Y(1,4)-Y(0,4)*Y(1,0)-Y(1,2)*Y(2,4)+Y(1,4)*Y(2,2)-Y(1,3)*Y(3,4)+Y(1,4)*Y(3,3))
                             -z(2)*(Y(0,0)*Y(2,4)-Y(0,4)*Y(2,0)+Y(1,1)*Y(2,4)-Y(1,4)*Y(2,1)-Y(2,3)*Y(3,4)+Y(2,4)*Y(3,3))
                             -z(3)*(Y(0,0)*Y(3,4)-Y(0,4)*Y(3,0)+Y(1,1)*Y(3,4)-Y(1,4)*Y(3,1)+Y(2,2)*Y(3,4)-Y(2,4)*Y(3,2))
                             +z(4)*(Y(0,0)*Y(1,1)-Y(0,1)*Y(1,0)+Y(0,0)*Y(2,2)-Y(0,2)*Y(2,0)+Y(0,0)*Y(3,3)-Y(0,3)*Y(3,0)
                             +Y(1,1)*Y(2,2)-Y(1,2)*Y(2,1)+Y(1,1)*Y(3,3)-Y(1,3)*Y(3,1)+Y(2,2)*Y(3,3)-Y(2,3)*Y(3,2));
-        m_XCoeffs[4][3] = +Y(0,4)*z(0)+Y(1,4)*z(1)+Y(2,4)*z(2)+Y(3,4)*z(3)-z(4)*(Y(0,0)+Y(1,1)+Y(2,2)+Y(3,3));
-        m_XCoeffs[4][4] = +z(4);               
+        m_weightedAdjCoeffs[4][3] = +Y(0,4)*z(0)+Y(1,4)*z(1)+Y(2,4)*z(2)+Y(3,4)*z(3)-z(4)*(Y(0,0)+Y(1,1)+Y(2,2)+Y(3,3));
+        m_weightedAdjCoeffs[4][4] = +z(4);               
         
     }
     else {
@@ -2218,5 +2209,5 @@ void IRK::StiffAccSimplify() {
     if (m_Butcher.d0(m_Butcher.s-1) != 1.0) return; 
     
     // Truncate last entry from coefficient Vectors of first s-1 polynomials
-    for (int i = 0; i < m_Butcher.s-1; i++) m_XCoeffs[i].SetSize(m_Butcher.s-1);
+    for (int i = 0; i < m_Butcher.s-1; i++) m_weightedAdjCoeffs[i].SetSize(m_Butcher.s-1);
 }

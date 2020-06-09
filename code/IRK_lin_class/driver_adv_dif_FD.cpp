@@ -15,8 +15,12 @@ using namespace std;
 
 // Sample runs:
 //      *** Solve 2D in space problem w/ 4th-order discretizations in space & time ***
-//      >> mpirun -np 4 ./driver_adv_dif_FD -d 2 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -l 4 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2
-// 
+//      >> mpirun -np 4 ./driver_adv_dif_FD -d 2 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2
+//      
+//      ** Diffusion-only problem using GMRES solver
+//      >> mpirun -np 4 ./driver_adv_dif_FD -d 2 -ex 1 -ax 0 -ay 0 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 -ksol 2
+//      ** Diffusion-only problem using CG solver
+//      >> mpirun -np 4 ./driver_adv_dif_FD -d 2 -ex 1 -ax 0 -ay 0 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 -ksol 0
 // 
 // Solve scalar linear advection-diffusion equation,
 //     u_t + alpha.grad(u) = div( mu \odot grad(u) ) + s(x,t),
@@ -51,7 +55,7 @@ double Source(const Vector &x, double t);
 double PDESolution(const Vector &x, double t);
 
 
-struct AMG_params {
+struct AMGParams {
     bool use_AIR = !true; 
     double distance = 1.5;
     string prerelax = "";
@@ -89,7 +93,7 @@ private:
     // Preconditioners for systems of the form B = gamma*I-dt*Jacobian
     Array<HypreBoomerAMG *> B_prec; // 
     Array<HypreParMatrix *> B_mats; // Seem's like it's only safe to free matrix once preconditioner is finished with it, so need to save these...
-    AMG_params AMG;                 // AMG solver params
+    AMGParams AMG;                  // AMG solver params
     int B_index;
     
     // Compatible identity matrix
@@ -142,7 +146,7 @@ public:
     void SetSystem(int index, double t, double dt, double gamma, int type);
     
     /// Set solver parameters fot implicit time-stepping; MUST be called before InitSolvers()
-    inline void SetAMGParams(AMG_params params) { AMG = params; };
+    inline void SetAMGParams(AMGParams params) { AMG = params; };
     
     
     /// Apply action of identity mass matrix, y = M*x.
@@ -191,9 +195,10 @@ int main(int argc, char *argv[])
     int npy       = -1; // # procs in y-direction
     
     // Solver parameters
-    AMG_params AMG;
-    Krylov_params KRYLOV;
+    AMGParams AMG;
     int use_AIR_temp = (int) AMG.use_AIR;
+    IRK::KrylovParams KRYLOV;
+    int krylov_solver = static_cast<int>(KRYLOV.solver);
     
     // Output paramaters
     int save         = 0;  // Save solution vector
@@ -236,11 +241,12 @@ int main(int argc, char *argv[])
     /* AMG parameters */
     args.AddOption(&use_AIR_temp, "-air", "--use-air", "0==standard AMG, 1==AIR");
     /* Krylov parameters */
-    args.AddOption(&KRYLOV.reltol, "-krtol", "--gmres-rel-tol", "KRYLOV: Relative stopping tolerance");
-    args.AddOption(&KRYLOV.abstol, "-katol", "--gmres-abs-tol", "KRYLOV: Absolute stopping tolerance");
-    args.AddOption(&KRYLOV.maxiter, "-kmaxit", "--gmres-max-iterations", "KRYLOV: Maximum iterations");
-    args.AddOption(&KRYLOV.kdim, "-kdim", "--gmres-dimension", "KRYLOV: Maximum subspace dimension");
-    args.AddOption(&KRYLOV.printlevel, "-kp", "--gmres-print", "KRYLOV: Print level");
+    args.AddOption(&krylov_solver, "-ksol", "--krylov-method", "KRYLOV: Method (see IRK::KrylovMethod)");
+    args.AddOption(&KRYLOV.reltol, "-krtol", "--krylov-rel-tol", "KRYLOV: Relative stopping tolerance");
+    args.AddOption(&KRYLOV.abstol, "-katol", "--krylov-abs-tol", "KRYLOV: Absolute stopping tolerance");
+    args.AddOption(&KRYLOV.maxiter, "-kmaxit", "--krylov-max-iterations", "KRYLOV: Maximum iterations");
+    args.AddOption(&KRYLOV.kdim, "-kdim", "--krylov-dimension", "KRYLOV: Maximum subspace dimension");
+    args.AddOption(&KRYLOV.printlevel, "-kp", "--krylov-print", "KRYLOV: Print level");
 
     /* --- Text output of solution etc --- */              
     args.AddOption(&out, "-out", "--out-directory", "Name of output file."); 
@@ -253,6 +259,7 @@ int main(int argc, char *argv[])
     // Set final forms of remaing params
     advection_bias = static_cast<FDBias>(advection_bias_temp);
     AMG.use_AIR = (bool) use_AIR_temp;
+    KRYLOV.solver = static_cast<IRK::KrylovMethod>(krylov_solver);
     std::vector<int> np = {};
     if (npx != -1) {
         if (dim >= 1) np.push_back(npx);
@@ -310,8 +317,8 @@ int main(int argc, char *argv[])
     // Initialize IRK time-stepping solver
     MyIRK.Init(SpaceDisc);
     
-    // Set GMRES settings
-    MyIRK.SetSolve(IRK::KrylovMethod::GMRES, KRYLOV.reltol, KRYLOV.maxiter, KRYLOV.abstol, KRYLOV.kdim, KRYLOV.printlevel);
+    // Set Krylov solver settings
+    MyIRK.SetKrylovParams(KRYLOV);
 
     
     // Time step 
