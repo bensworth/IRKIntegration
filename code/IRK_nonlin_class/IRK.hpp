@@ -58,16 +58,13 @@ void KronTransform(const DenseMatrix &A, const BlockVector &x, BlockVector &y);
 /// Kronecker transform between two block vectors using A transpose: y <- (A^\top \otimes I)*x
 void KronTransformTranspose(const DenseMatrix &A, const BlockVector &x, BlockVector &y);
 
-/* Abstract base class for spatial discretizations of a PDE resulting in the 
+
+/** Abstract base class for spatial discretizations of a PDE resulting in the 
 time-dependent, nonlinear ODEs
-    M*du/dt = L(u,t)    _OR_    du/dt = L(u,t)
+    M*du/dt = L(u,t)    _OR_    du/dt = L(u,t) [if no mass matrix exists]
 
 If a mass matrix M exists, the following virtual function must be implemented:
-    ImplicitMult(x,y): y <- M*x
-
-TODO: rework comments below once we've finalized what we're doing
-    
-*/
+    ImplicitMult(x,y): y <- M*x */
 class IRKOperator : public TimeDependentOperator
 {    
 protected:
@@ -82,7 +79,7 @@ public:
 
     MPI_Comm GetComm() { return m_globComm; };
 
-    /** Apply action of M*du/dt _OR_ du/dt, y <- L(x,y) */
+    /** Apply action of M*du/dt, y <- L(x,y) */
     virtual void ExplicitMult(const Vector &x, Vector &y) const = 0;
     
     /** Gradient of L(u, t) w.r.t u evaluated at x */
@@ -95,11 +92,11 @@ public:
         mfem_error("IRKOperator::ImplicitMult() is not overridden!");
     }
     
-    /** Precondition (\gamma*M - dt*L') _OR_ (\gamma*I - dt*L') */
+    /** Precondition (\gamma*M - dt*L') */
     virtual void ImplicitPrec(const Vector &x, Vector &y) const = 0;
     
     
-    // Function to ensure that ImplicitPrec preconditions (\gamma*M - dt*L') OR (\gamma*I - dt*L')
+    // Function to ensure that ImplicitPrec preconditions (\gamma*M - dt*L')
     // with gamma and dt as passed to this function.
     //      + index -> index of system, [0,s_eff)
     //      + type -> eigenvalue type, 1 = real, 2 = complex pair
@@ -128,7 +125,7 @@ public:
     ~RKButcherData() {};
     
     int s;            // Number of stages
-    int s_eff;        // Number of eigenvalues of A once complex conjugates have been combined
+    int s_eff;        // Number of eigenvalues of A0 once complex conjugates have been combined
     DenseMatrix A0;   // The Butcher matrix
     DenseMatrix invA0;// Inverse of Buthcer matrix
     DenseMatrix Q0;   // Orthogonal matrix in Schur decomposition of A0^-1

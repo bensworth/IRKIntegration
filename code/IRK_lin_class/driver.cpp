@@ -201,7 +201,7 @@ int main(int argc, char *argv[])
     }
 
     // Build IRK object using spatial discretization 
-    IRK MyIRK(&SpaceDisc, static_cast<IRK::Type>(IRK_ID), MPI_COMM_WORLD);        
+    IRK MyIRK(&SpaceDisc, static_cast<RKData::Type>(IRK_ID));        
     
     // Initialize solver
     MyIRK.Init(SpaceDisc);
