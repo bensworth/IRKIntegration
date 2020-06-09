@@ -117,7 +117,7 @@ IRK::~IRK() {
 }
 
 
-void IRK::SetSolve(IRK::Solve solveID, double reltol, int maxiter,
+void IRK::SetSolve(IRK::KrylovMethod solveID, double reltol, int maxiter,
                    double abstol, int kdim, int printlevel)
 {
     m_krylov_print = printlevel;

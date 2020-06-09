@@ -28,9 +28,9 @@ LDLIBS   = -lmfem -lHYPRE -lmetis
 # Files to compile
 #	TODO : Maybe should put class files in subdirectory so can use wildcard.
 # SOURCE_FILES  = $(wildcard *.cpp)
-SOURCE_FILES  = IRK.cpp FDadvection.cpp $(wildcard ./src/*.cpp)
+SOURCE_FILES  = IRK.cpp FDSpaceDisc.cpp $(wildcard ./src/*.cpp)
 OBJECT_FILES  = $(SOURCE_FILES:.cpp=.o)
-EXEC_FILES    = driver
+EXEC_FILES    = driver_adv_dif_FD
 
 .PHONY: all clean clean-build clean-exec
 

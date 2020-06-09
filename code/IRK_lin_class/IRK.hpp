@@ -307,6 +307,7 @@ public:
 };
 
 
+
 /** Class implementing conjugate-pair preconditioned solution of fully implicit 
 RK schemes for the linear ODE system M*du/dt = L*u + g(t), as implemented in 
 IRKOperator */
@@ -314,10 +315,10 @@ class IRK : public ODESolver
 {
 public:
     // Krylov solve type for IRK system
-    enum Solve {
+    enum KrylovMethod {
         CG = 0, MINRES = 1, GMRES = 2, BICGSTAB = 3, FGMRES = 4
     };    
-    
+
 private:    
     MPI_Comm m_comm;          
     int m_numProcess;
@@ -365,7 +366,7 @@ public:
     
     void Step(Vector &x, double &t, double &dt);
 
-    void SetSolve(IRK::Solve solveID=IRK::GMRES, double reltol=1e-6,
+    void SetSolve(IRK::KrylovMethod solveID=IRK::KrylovMethod::GMRES, double reltol=1e-6,
                   int maxiter=250, double abstol=1e-6, int kdim=15,
                   int printlevel=2);
 
@@ -376,6 +377,16 @@ public:
                                     type      =  m_type;
                                     eig_ratio =  m_eig_ratio;
                                 }
+};
+
+// Parameters for Krylov solver
+struct Krylov_params {
+    double abstol = 1e-10;
+    double reltol = 1e-10;
+    int maxiter = 100;
+    int printlevel = 0;
+    int kdim = 30;
+    IRK::KrylovMethod solver = IRK::KrylovMethod::GMRES;
 };
 
 #endif
