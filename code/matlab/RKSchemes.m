@@ -3,6 +3,7 @@ function schemes = RKSchemes()
 % List of all the IRK schemes (and their descriptions) we consider 
 schemes = {
 % A-stable SDIRK
+{'ASDIRK3'; '2-stage 3rd-order A-stable SDIRK'};
 {'ASDIRK4'; '3-stage 4th-order A-stable SDIRK'};
 % L-stable SDIRK
 {'LSDIRK1'; '1-stage 1st-order L-stable SDIRK'};

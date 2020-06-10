@@ -53,8 +53,20 @@ elseif strcmp(ID, 'LSDIRK4')
 %%% ------------------------------------ %%%    
 %%% ------ A-stable SDIRK methods ------ %%%   
 %%% ------------------------------------ %%%
-% % 4th-order, 3-stage SDIRK. A-stable. NOT L-stable
-% % See MFEM's ode.hpp/ode.cpp
+% 2-stage, 3rd-order A-stable SDIRK
+% See SDIRK23(1) in MFEM's ode.hpp/ode.cpp
+elseif strcmp(ID, 'ASDIRK3')
+    gamma = (3 + sqrt(3))/6;
+    A = [gamma,  0; ...
+         1-2*gamma, gamma];
+    b = [0.5; ...
+         0.5];
+    c = [gamma; ...
+         1-gamma];
+    
+
+% 4th-order, 3-stage SDIRK. A-stable. NOT L-stable
+% See SDIRK34 in MFEM's ode.hpp/ode.cpp
 elseif strcmp(ID, 'ASDIRK4')
     alpha = 1/sqrt(3)*cos(pi/18) + 0.5;
     beta = 1/(6*(2*alpha-1)*(2*alpha-1));

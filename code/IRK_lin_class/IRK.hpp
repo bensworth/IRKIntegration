@@ -137,7 +137,7 @@ public:
     //  + 3 = Lobatto IIIC
     //  Second digit: order of scheme
     enum Type { 
-        ASDIRK4 = -14,
+        ASDIRK3 = -13, ASDIRK4 = -14,
         LSDIRK1 = 01, LSDIRK2 = 02, LSDIRK3 = 03, LSDIRK4 = 04,
         Gauss2 = 12, Gauss4 = 14, Gauss6 = 16, Gauss8 = 18, Gauss10 = 110,
         RadauIIA3 = 23, RadauIIA5 = 25, RadauIIA7 = 27, RadauIIA9 = 29,
