@@ -64,9 +64,10 @@ OK questions for BS (and general thoughts):
 */
 
 
+/// Constructor
 IRK::IRK(IRKOperator *IRKOper_, RKData::Type RK_ID_)
         : m_IRKOper(IRKOper_), m_Butcher(RK_ID_),
-        m_CharPolyPrec(*IRKOper_), m_CharPolyOps(), 
+        m_CharPolyPrec(*IRKOper_), m_CharPolyOper(), 
         m_krylov(NULL), m_comm{IRKOper_->GetComm()}
 {
     // Get proc IDs
@@ -79,44 +80,45 @@ IRK::IRK(IRKOperator *IRKOper_, RKData::Type RK_ID_)
     // Set coefficients of polynomials {X_j}
     SetWeightedAdjCoeffs();      
     
-    // Create object for every char. poly. factor to be inverted
-    m_CharPolyOps.SetSize(m_Butcher.s_eff); 
+    // Create object for every characteristic polynomial factor to be inverted
+    m_CharPolyOper.SetSize(m_Butcher.s_eff); 
     
     // Initialize solver statistics the user might retrieve later
-    m_avg_iter.resize(m_CharPolyOps.Size(), 0);
-    m_degree.resize(m_CharPolyOps.Size());
-    m_eig_ratio.resize(m_CharPolyOps.Size(), 0.0);
+    m_avg_iter.resize(m_CharPolyOper.Size(), 0);
+    m_degree.resize(m_CharPolyOper.Size());
+    m_eig_ratio.resize(m_CharPolyOper.Size(), 0.0);
     
     // Linear factors (degree 1)
     double dt_dummy = -1.0; // Use dummy dt, will be set properly before inverting factor.
     int count = 0;
     for (int i = 0; i < m_Butcher.zeta.Size(); i++) {
-        m_CharPolyOps[count] = new CharPolyOp(dt_dummy, m_Butcher.zeta(i), *m_IRKOper);
+        m_CharPolyOper[count] = new CharPolyFactor(dt_dummy, m_Butcher.zeta(i), *m_IRKOper);
         m_degree[count] = 1;
         count++;
     }
     // Quadratic factors (degree 2)
     for (int i = 0; i < m_Butcher.eta.Size(); i++) {
-        m_CharPolyOps[count] = new CharPolyOp(dt_dummy, m_Butcher.eta(i), m_Butcher.beta(i), *m_IRKOper);
+        m_CharPolyOper[count] = new CharPolyFactor(dt_dummy, m_Butcher.eta(i), m_Butcher.beta(i), *m_IRKOper);
         m_degree[count] = 2;
         m_eig_ratio[count] = m_Butcher.beta(i)/m_Butcher.eta(i);
         count++;
     } 
 }
 
+/// Destructor
 IRK::~IRK() {
-    for (int i = 0; i < m_CharPolyOps.Size(); i++) {
-        delete m_CharPolyOps[i];    
-        m_CharPolyOps[i] = NULL;
+    for (int i = 0; i < m_CharPolyOper.Size(); i++) {
+        delete m_CharPolyOper[i];    
+        m_CharPolyOper[i] = NULL;
     }
-    m_CharPolyOps.SetSize(0);
+    m_CharPolyOper.SetSize(0);
     
     if (m_krylov) delete m_krylov;
 }
 
 
-/** Build Krylov solver */
-void IRK::SetKrylovSolver()
+/// Build linear solver
+void IRK::SetSolver()
 {
     switch (m_krylov_params.solver) {
         case KrylovMethod::CG:
@@ -148,7 +150,7 @@ void IRK::SetKrylovSolver()
 }
 
 
-// Call base class' init and size member vectors
+/// Call base class' init and size member vectors
 void IRK::Init(TimeDependentOperator &F)
 {    
     ODESolver::Init(F);
@@ -158,51 +160,55 @@ void IRK::Init(TimeDependentOperator &F)
     m_temp2.SetSize(F.Height(), mem_type);
 }
 
+/** Apply RK update to take x from t to t+dt,
+        x = x + (dt*b0^\top \otimes I)*k
+          = x + dt*sol */
 void IRK::Step(Vector &x, double &t, double &dt)
 {
     // Set RHS vector, m_rhs 
     ConstructRHS(x, t, dt, m_rhs); 
-    // Scale RHS of system by M
+    // Scale RHS of system by mass matrix M
     if (m_IRKOper->isImplicit()) {
         m_IRKOper->ImplicitMult(m_rhs, m_temp1);
         m_rhs = m_temp1;
     }   
     
     /* Sequentially invert factors in characteristic polynomial */
-    for (int i = 0; i < m_CharPolyOps.Size(); i++) {
+    for (int factor = 0; factor < m_CharPolyOper.Size(); factor++) {
         // Print info about system being solved
         if (m_krylov_params.printlevel > 0) {
-            mfem::out << "  System " << i+1 << " of " << m_CharPolyOps.Size() 
-            << " (degree=" << m_CharPolyOps[i]->Degree() << "):  ";
+            mfem::out << "  System " << factor+1 << " of " << m_CharPolyOper.Size() 
+                      << " (degree=" << m_CharPolyOper[factor]->Degree() << "):  ";
             if (m_krylov_params.printlevel != 2) mfem::out << '\n';
         }
         
-        // Ensure that correct time step is used in factored polynomial
-        m_CharPolyOps[i]->Setdt(dt);
+        // Ensure current factor uses correct time step
+        m_CharPolyOper[factor]->SetTimeStep(dt);
 
-        // Set operator and preconditioner for ith polynomial term
-        m_CharPolyPrec.SetDegree(m_CharPolyOps[i]->Degree());
-        m_IRKOper->SetSystem(i, t, dt, m_CharPolyOps[i]->Gamma(), m_CharPolyOps[i]->Degree());
+        // Set operator and preconditioner for current factor
+        m_CharPolyPrec.SetDegree(m_CharPolyOper[factor]->Degree());
+        m_IRKOper->SetSystem(factor, dt, m_CharPolyOper[factor]->Gamma(), 
+                                m_CharPolyOper[factor]->Degree());
         m_krylov->SetPreconditioner(m_CharPolyPrec);
-        m_krylov->SetOperator(*(m_CharPolyOps[i]));    
+        m_krylov->SetOperator(*(m_CharPolyOper[factor]));    
                 
-        // Invert ith factor in polynomial, m_sol <- FACTOR(i)^{-1} * m_rhs
+        // Invert current factor, m_sol <- factor^{-1} * m_rhs
         m_krylov->Mult(m_rhs, m_sol); 
         
         // Check for convergence 
         if (!m_krylov->GetConverged()) {
             string msg = "IRK::Step() Krylov solver at t=" + to_string(t) 
                             + " not converged [system " 
-                            + to_string(i+1) + "/" + to_string(m_CharPolyOps.Size()) 
-                            + " (degree=" + to_string(m_CharPolyOps[i]->Degree()) + ")\n";
+                            + to_string(factor+1) + "/" + to_string(m_CharPolyOper.Size()) 
+                            + " (degree=" + to_string(m_CharPolyOper[factor]->Degree()) + ")\n";
             mfem_error(msg.c_str());
         }
         
         // Record number of iterations
-        m_avg_iter[i] += m_krylov->GetNumIterations();
+        m_avg_iter[factor] += m_krylov->GetNumIterations();
         
         // Solution becomes the RHS for the next factor
-        if (i < m_CharPolyOps.Size()-1) {
+        if (factor < m_CharPolyOper.Size()-1) {
             // Scale RHS of new system by M        
             if (m_IRKOper->isImplicit()) {
                 m_IRKOper->ImplicitMult(m_sol, m_rhs);
@@ -217,17 +223,18 @@ void IRK::Step(Vector &x, double &t, double &dt)
     t += dt;         // Time that current x is evaulated at
 }
 
+/// Time step 
 void IRK::Run(Vector &x, double &t, double &dt, double tf) 
 {    
     // Build Krylov solver
-    if (!m_krylov) SetKrylovSolver();
+    if (!m_krylov) SetSolver();
 
     /* Main time-stepping loop */
     int step = 0;
     int numsteps = ceil((tf-t)/dt);
     while (t < tf) {
         step++;
-        mfem::out << "Time-step " << step << " of " << numsteps << '\n';
+        mfem::out << "Time-step " << step << " of " << numsteps << " (t=" << t << "-->t=" << t+dt << ")\n";
 
         // Step from t to t+dt
         Step(x, t, dt);
@@ -240,12 +247,12 @@ void IRK::Run(Vector &x, double &t, double &dt, double tf)
 
 
 /** Construct right-hand side vector for IRK integration, including applying
-the block Adjugate and Butcher inverse */
+    the block Adjugate and Butcher inverse */
 void IRK::ConstructRHS(const Vector &x, double t, double dt, Vector &rhs) {
     
     rhs = 0.0;
     for (int i = 0; i < m_Butcher.s; i++) {
-        // Compute m_temp1 <- M^{-1}*[L*x + g(t)]
+        // Compute m_temp1 <- M^{-1}*[L*x + g(t+c(i)*dt)]
         m_IRKOper->SetTime(t + dt*m_Butcher.c0(i)); 
         m_IRKOper->Mult(x, m_temp1); 
         
@@ -279,7 +286,7 @@ void RKData::SizeData() {
 }
 
 
-/** Set data required by solvers */
+/// Set data required by solvers
 void RKData::SetData() {
     switch(ID) {
         // 3-stage 4th-order A-stable SDIRK

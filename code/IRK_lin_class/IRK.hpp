@@ -13,18 +13,23 @@
 using namespace mfem;
 using namespace std;
 
-/** Abstract base class for spatial discretizations of a PDE resulting in the 
-quasi-time-dependent, linear ODEs
-    M*du/dt = L*u + g(t)    [_OR_ du/dt = L*u + g(t) if no mass matrix exists]
+/** Class for spatial discretizations of a PDE resulting in the 
+    quasi-time-dependent, linear ODEs
+        M*du/dt = L*u + g(t)    [_OR_ du/dt = L*u + g(t) if no mass matrix exists]
 
-This class uses TimeDependentOperator::EvalMode w.r.t. the ODE system:
-    -EvalMode::NORMAL corresponds to the ODEs above,
-    -EvalMode::ADDITIVE_TERM_1 corresponds to the ODEs
-        M*du/dt = L*u   [_OR_ du/dt = L*u if no mass matrix exists]
+    If a mass matrix M exists, the following virtual functions must be implemented:
+        ImplicitMult(x,y): y <- M*x
+        ApplyMInv(x,y): y <- M^{-1}*x */
 
-If a mass matrix M exists, the following virtual functions must be implemented:
-    ImplicitMult(x,y): y <- M*x
-    ApplyMInv(x,y): y <- M^{-1}*x */
+// Hmm????        
+// This class uses TimeDependentOperator::EvalMode w.r.t. the ODE system:
+//     -EvalMode::NORMAL corresponds to the ODEs above,
+//     -EvalMode::ADDITIVE_TERM_1 corresponds to the ODEs
+//         M*du/dt = L*u   [_OR_ du/dt = L*u if no mass matrix exists]        
+//
+//
+// Maybe  to be consistent with  the NONLINEAR case, should call this ExplicitGradientMult and GradientMult
+// since L is just the gradient of L*u w.r.t. u.
 class IRKOperator : public TimeDependentOperator
 {    
 protected:
@@ -42,15 +47,15 @@ public:
 
     MPI_Comm GetComm() { return m_globComm; };
 
-    /** Apply action of du/dt, y <- M^{-1}*[L*x + g(t)] */
+    /// Apply action of du/dt, y <- M^{-1}*[L*x + g(t)]
     virtual void Mult(const Vector &x, Vector &y) const = 0;
     
-    /** Apply action of M*du/dt, y <- [L*x + g(t)] */
+    /// Apply action of M*du/dt, y <- [L*x + g(t)] 
     //virtual void ExplicitMult(const Vector &x, Vector &y) const = 0;
     
     
     /** Apply action mass matrix, y = M*x. 
-    If not re-implemented, this method simply generates an error. */
+        If not re-implemented, this method simply generates an error. */
     virtual void ImplicitMult(const Vector &x, Vector &y) const
     {
         mfem_error("IRKOperator::ImplicitMult() is not overridden!");
@@ -73,25 +78,22 @@ public:
     }
     
     // TODO: Remove in favour of EvalMode
-    /** Apply action of L, y = L*x. */
+    /// Apply action of L, y = L*x. 
     virtual void ApplyL(const Vector &x, Vector &y) const = 0;
     
-    /** Precondition (\gamma*M - dt*L) */
+    /// Precondition (\gamma*M - dt*L) 
     virtual void ImplicitPrec(const Vector &x, Vector &y) const = 0;
     
-    
-    // Function to ensure that ImplicitPrec preconditions (\gamma*M - dt*L) OR (\gamma*I - dt*L)
-    // with gamma and dt as passed to this function.
-    //      + index -> index of real char poly factor, [0,#number of real factors)
-    //      + type -> eigenvalue type, 1 = real, 2 = complex pair
-    //      + t -> time.
-    // These additional parameters are to provide ways to track when
-    // (\gamma*M - dt*L) or (\gamma*I - dt*L) must be reconstructed or not to minimize setup.
-    virtual void SetSystem(int index, double t, double dt,
-                           double gamma, int type) = 0;
+    /** Ensures that this->ImplicitPrec() preconditions (\gamma*M - dt*L) 
+            + index: index of system to solve, [0,s_eff)
+            + dt:    time step size
+            + type:  eigenvalue type, 1 = real, 2 = complex pair
+        These additional parameters are to provide ways to track when
+        (\gamma*M - dt*L) must be reconstructed or not to minimize setup. */
+    virtual void SetSystem(int index, double dt, double gamma, int type) = 0;
     
     
-    /* Get y <- P(alpha*M^{-1}*L)*x for P a polynomial defined by coefficients, c:
+    /** Get y <- P(alpha*M^{-1}*L)*x for P a polynomial defined by coefficients, c:
             P(x) := c(0)*x^0 + c(1)*x^1 + ... + c(q)*x^q.
         Coefficients must be provided for all monomial terms, even if they're 0. */
     inline void PolynomialMult(Vector c, double alpha, const Vector &x, Vector &y) const
@@ -122,7 +124,7 @@ public:
 
 
 /** Class holding RK Butcher tableau, and associated data, required by both 
-LINEAR and NONLINEAR IRK solvers */
+    LINEAR and NONLINEAR IRK solvers */
 class RKData 
 {
 public:
@@ -145,9 +147,9 @@ public:
 private:    
     Type ID;
     
-    /** Set data required by solvers */
+    /// Set data required by solvers 
     void SetData();     
-    /** Set dimensions of data structures */
+    /// Set dimensions of data structures 
     void SizeData();    
     
 public:
@@ -176,12 +178,12 @@ public:
 };
 
 
-/** Preconditioner for factors in char. poly 
-    Degree 1: [gamma*M - dt*L] 
-    Degree 2: [gamma*M - dt*L]M^{-1}[gamma*M - dt*L]  
+/** Preconditioner for characteristic polynomial factors
+        Degree 1: [gamma*M - dt*L], 
+        Degree 2: [gamma*M - dt*L]M^{-1}[gamma*M - dt*L],
 
-where [gamma*M - dt*L] is preconditioned using IRKOperator.ImplicitPrec(). */
-class CharPolyPrecon : public Solver
+    where [gamma*M - dt*L] is preconditioned using IRKOperator.ImplicitPrec(). */
+class CharPolyFactorPrec : public Solver
 {
 
 private:
@@ -192,11 +194,11 @@ private:
     
 public:
 
-    CharPolyPrecon(const IRKOperator &IRKOper_)
+    CharPolyFactorPrec(const IRKOperator &IRKOper_)
         : Solver(IRKOper_.Height(), false), 
         m_IRKOper(IRKOper_), m_temp(IRKOper_.Height()), m_degree(-1) { };
 
-    ~CharPolyPrecon() { };
+    ~CharPolyFactorPrec() { };
 
     void SetDegree(int degree_) { m_degree = degree_; };
 
@@ -218,7 +220,7 @@ public:
                 m_IRKOper.ImplicitPrec(m_temp, y);// Precondition [gamma*I - dt*L]
             }
         } else {
-            mfem_error("CharPolyPrecon::Must set polynomial degree to 1 or 2!\n");
+            mfem_error("CharPolyFactorPrec::Must set polynomial degree to 1 or 2!\n");
         }
     };
 
@@ -226,13 +228,14 @@ public:
     virtual void SetOperator(const Operator &op) {  };
 };
 
-/** Char. poly factor after being scaled by mass matrix M:
-    Degree 1: [zeta*M - dt*L]
-    Degree 2: [(eta^2+beta^2)*M - 2*eta*dt*L + dt^2*L*M^{-1}*L], 
+
+/** Characteristic polynomial factor after being scaled by mass matrix M:
+        Degree 1: [zeta*M - dt*L],
+        Degree 2: [(eta^2+beta^2)*M - 2*eta*dt*L + dt^2*L*M^{-1}*L].
     
-Or, more generally,
-    [c(0)*M + c(1)*dt*L + c(2)*dt^2*L*M^{-1}*L] */
-class CharPolyOp : public Operator
+    Or, more generally,
+        [c(0)*M + c(1)*dt*L + c(2)*dt^2*L*M^{-1}*L] */
+class CharPolyFactor : public Operator
 {
 private:
 
@@ -246,7 +249,7 @@ private:
 public:
 
     /// Constructor for degree 1 factor 
-    CharPolyOp(double dt_, double zeta_, IRKOperator &IRKOper_) 
+    CharPolyFactor(double dt_, double zeta_, IRKOperator &IRKOper_) 
         : Operator(IRKOper_.Height()), 
             m_degree(1), m_c(2), m_gamma(zeta_),
              m_dt{dt_}, m_IRKOper{IRKOper_}, m_temp(IRKOper_.Height())
@@ -256,7 +259,7 @@ public:
     };
 
     /// Constructor for degree 2 factor
-    CharPolyOp(double dt_, double eta_, double beta_, IRKOperator &IRKOper_) 
+    CharPolyFactor(double dt_, double eta_, double beta_, IRKOperator &IRKOper_) 
         : Operator(IRKOper_.Height()), 
             m_degree(2), m_c(3), m_gamma(eta_),
             m_dt{dt_}, m_IRKOper{IRKOper_}, m_temp(IRKOper_.Height())
@@ -271,7 +274,7 @@ public:
     inline double Gamma() {return m_gamma; };
     inline double dt() {return m_dt; };
     /// Set time step
-    inline void Setdt(double dt_) { m_dt = dt_; };
+    inline void SetTimeStep(double dt_) { m_dt = dt_; };
 
     /// Apply action of operator, y <- (char. poly factor)*x 
     inline void Mult(const Vector &x, Vector &y) const 
@@ -302,18 +305,19 @@ public:
             m_IRKOper.PolynomialMult(m_c, m_dt, x, y); 
         }
     }
-    ~CharPolyOp() { };
+    ~CharPolyFactor() { };
 };
 
 
 
 /** Class implementing conjugate-pair preconditioned solution of fully implicit 
-RK schemes for the linear ODE system M*du/dt = L*u + g(t), as implemented in 
-IRKOperator */
+    RK schemes for the quasi-time-dependent, linear ODE system 
+        M*du/dt = L*u + g(t), 
+    as implemented as an IRKOperator */
 class IRK : public ODESolver
 {
 public:
-    // Krylov solve type for IRK system
+    // Krylov solve type for IRK systems
     enum KrylovMethod {
         CG = 0, MINRES = 1, GMRES = 2, BICGSTAB = 3, FGMRES = 4
     };   
@@ -333,37 +337,42 @@ private:
     int m_numProcess;
     int m_rank;
     
-    RKData m_Butcher;       // Runge-Kutta Butcher tableau and associated data
+    RKData m_Butcher;           // Runge-Kutta Butcher tableau and associated data
     
-    IRKOperator * m_IRKOper;// Spatial discretization
-    Vector m_sol, m_rhs;    // Solution and RHS of linear systems
-    Vector m_temp1, m_temp2;// Auxillary vectors
+    IRKOperator * m_IRKOper;    // Spatial discretization
+    Vector m_sol, m_rhs;        // Solution and RHS of linear systems
+    Vector m_temp1, m_temp2;    // Auxillary vectors
 
-    // Char. poly factors and preconditioner wrapper
-    Array<CharPolyOp  *> m_CharPolyOps; // Char. poly. factors
-    CharPolyPrecon  m_CharPolyPrec;     // preconditioner for above factors
-    IterativeSolver * m_krylov;         // Solver for inverting above factors
-    KrylovParams m_krylov_params;       // Parameters for above solver
+    /* Characteristic polynomial factors and preconditioner */
+    Array<CharPolyFactor *> m_CharPolyOper; // Factored characteristic polynomial
+    CharPolyFactorPrec  m_CharPolyPrec;     // Preconditioner for above factors
+    IterativeSolver * m_krylov;             // Solver for inverting above factors
+    KrylovParams m_krylov_params;           // Parameters for above solver
   
     vector<Vector> m_weightedAdjCoeffs; // Vectors for the coefficients of polynomials {X_j}_{j=1}^s
     // TODO: if I use MFEM::Array<Vector> rather than std::vector<Vector> I get compiler warnings whenever I size the MFEM::Array...
     
-    /* --- Statistics on solution of linear systems --- */
+    /* Statistics on solution of linear systems */
     vector<int> m_avg_iter;         // Across whole integration, avg number of Krylov iters for each system
     vector<int> m_degree;           // Degree of system as polynomial in L
     vector<double> m_eig_ratio;     // The ratio beta/eta
 
     
-    void SetWeightedAdjCoeffs();    // Set coefficients of polynomials X_j
-    void StiffAccSimplify();        // Modify XCoeffs in instance of stiffly accurate IRK scheme
-    void PolyAction();              // Compute action of a polynomial on a vector
-
-    /** Construct right-hand side vector z for IRK integration, including applying
+    /// Build linear solver
+    void SetSolver();
+    
+    /// Set coefficients of polynomials X_j         
+    void SetWeightedAdjCoeffs();
+    
+    /// Modify XCoeffs in instance of stiffly accurate IRK scheme    
+    void StiffAccSimplify();        
+    
+    /// Compute action of matrix polynomial on a vector
+    void PolyAction();              
+    
+    /** Construct right-hand side vector for IRK integration, including applying
      the block Adjugate and Butcher inverse */
     void ConstructRHS(const Vector &x, double t, double dt, Vector &rhs);
-
-    /** Build Krylov solver */
-    void SetKrylovSolver();
 
 public:
     IRK(IRKOperator *IRKOper_, RKData::Type RK_ID_);

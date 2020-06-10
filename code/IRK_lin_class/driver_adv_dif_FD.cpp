@@ -135,17 +135,16 @@ public:
         B_prec[B_index]->Mult(x, y);
     }
     
+    /** Ensures that this->ImplicitPrec() preconditions (\gamma*M - dt*L) 
+            + index -> index of system to solve, [0,s_eff)
+            + dt    -> time step size
+            + type  -> eigenvalue type, 1 = real, 2 = complex pair
+         These additional parameters are to provide ways to track when
+         (\gamma*M - dt*L) must be reconstructed or not to minimize setup. */
+    void SetSystem(int index, double dt, double gamma, int type);
     
-    // Function to ensure that ImplicitPrec preconditions (\gamma*I - dt*L)
-    // with gamma and dt as passed to this function.
-    //      + index -> index of system, [0,s_eff)
-    //      + type -> eigenvalue type, 1 = real, 2 = complex pair
-    //      + t -> time.
-    // These additional parameters are to provide ways to track when
-    // (\gamma*I - dt*L) must be reconstructed or not to minimize setup.
-    void SetSystem(int index, double t, double dt, double gamma, int type);
-    
-    /// Set solver parameters fot implicit time-stepping; MUST be called before InitSolvers()
+    /** Set solver parameters fot implicit time-stepping.
+        MUST be called before InitSolvers() */
     inline void SetAMGParams(AMGParams params) { AMG = params; };
     
     
@@ -407,7 +406,7 @@ int main(int argc, char *argv[])
 
 
 
-/* Initial condition of PDE */
+/// Initial condition of PDE 
 double InitialCondition(const Vector &x) {
     switch (x.Size()) {
         case 1:
@@ -420,7 +419,7 @@ double InitialCondition(const Vector &x) {
 }
 
 
-/* Solution-independent source term in PDE */
+/// Solution-independent source term in PDE 
 double Source(const Vector &x, double t) {
     switch (problem) {
         // Source is chosen for manufactured solution
@@ -454,7 +453,7 @@ double Source(const Vector &x, double t) {
 }
 
 
-/* Manufactured PDE solution */
+/// Manufactured PDE solution
 double PDESolution(const Vector &x, double t)
 {    
     switch (problem) {
@@ -531,7 +530,7 @@ AdvDif::AdvDif(FDMesh &Mesh_, Vector alpha_, Vector mu_,
 };
 
 
-/* Evaluate RHS of ODEs: du_dt = -A*u + D*u + s(t) */
+/// Evaluate RHS of ODEs: du_dt = -A*u + D*u + s(t) 
 void AdvDif::Mult(const Vector &u, Vector &du_dt) const
 {
     if (D && A) {
@@ -549,7 +548,7 @@ void AdvDif::Mult(const Vector &u, Vector &du_dt) const
     du_dt += source;
 }
 
-/* Evaluate RHS of ODEs: du_dt = -A*u + D*u */
+/// Evaluate RHS of ODEs without source: du_dt = -A*u + D*u 
 void AdvDif::ApplyL(const Vector &u, Vector &du_dt) const
 {
     if (D && A) {
@@ -565,8 +564,7 @@ void AdvDif::ApplyL(const Vector &u, Vector &du_dt) const
 }
 
 
-
-/** Gradient of L*u w.r.t u evaluated (i.e., L == -A + D) */
+/// Gradient of L*u w.r.t u evaluated (i.e., L == -A + D) 
 HypreParMatrix &AdvDif::GetExplicitGradient() const {
     if (Jacobian) delete Jacobian;
 
@@ -581,7 +579,7 @@ HypreParMatrix &AdvDif::GetExplicitGradient() const {
     return *Jacobian;
 }
 
-void AdvDif::SetSystem(int index, double t, double dt, double gamma, int type) {
+void AdvDif::SetSystem(int index, double dt, double gamma, int type) {
     
     // Explicitly assemble L == Jacobian if not done previously
     if (!Jacobian) { GetExplicitGradient(); };
@@ -629,7 +627,8 @@ void AdvDif::SetSystem(int index, double t, double dt, double gamma, int type) {
     }
 }
 
-/* Get error against exact PDE solution if available. Also output if num solution is output */
+/** Get error against exact PDE solution if available. Also output if num 
+    solution is output */
 bool AdvDif::GetError(int save, const char * out, double t, const Vector &u, double &eL1, double &eL2, double &eLinf) {
     int myid;
     MPI_Comm_rank(MPI_COMM_WORLD, &myid);

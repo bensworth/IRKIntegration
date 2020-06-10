@@ -30,7 +30,7 @@ LDLIBS   = -lmfem -lHYPRE -lmetis
 # SOURCE_FILES  = $(wildcard *.cpp)
 SOURCE_FILES  = IRK.cpp FDSpaceDisc.cpp $(wildcard ./src/*.cpp)
 OBJECT_FILES  = $(SOURCE_FILES:.cpp=.o)
-EXEC_FILES    = driver_adv_dif
+EXEC_FILES    = driver_adv_dif_FD
 
 .PHONY: all clean clean-build clean-exec
 

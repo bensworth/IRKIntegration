@@ -9,28 +9,13 @@ using namespace std;
 
 #define PI 3.14159265358979323846
 
-// mpirun -np 4 ./driver_adv_dif -f 1 -d 1 -o 10 -ex 1 -mx 0.1 -my 0.1 -l 6 -dt -5 -t 110 -save 2 -tf 1 -np 2 -nmaxit 20 -kp 2 -nrtol 1e-8 -nktol 1e-12
-
-/*
-
-test problem...
-
-mpirun -np 4 ./driver_adv_dif -f 1 -d 2 -o 4 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -l 4 -dt -2 -t 14 -save 2 -tf 2 -np 2 -nmaxit 20 -nrtol 1e-10 -natol 1e-10 -krtol 1e-13 -katol 1e-13 -kp 0
-*/
-
-
 // TODO: Segfault associated w/ freeing HypreBoomerAMG... Currently not being
 // deleted... See associated `TODO` comment...
 
 // Sample runs:
 //      *** Solve 2D in space problem w/ 4th-order discretizations in space & time ***
-//      --- linear problem ---
-//      mpirun -np 4 ./driver -f 0 -gf 0 -d 2 -t 14 -o 4 -ex 1 -mx 0.075 -my 0.075 -dt -2 -l 5 
-//      --- linear problem solved with Newton's method ---
-//      mpirun -np 4 ./driver -f 0 -gf 1 -d 2 -t 14 -o 4 -ex 1 -mx 0.075 -my 0.075 -dt -2 -l 5 
-//      --- nonlinear problem ---
-//      mpirun -np 4 ./driver -f 1 -d 2 -t 14 -o 4 -ex 1 -mx 0.075 -my 0.075 -dt -2 -l 5 
-// 
+//      >> mpirun -np 4 ./driver_adv_dif_FD -f 1 -d 2 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -np 2 -nmaxit 20 -nrtol 1e-10 -natol 1e-10 -krtol 1e-13 -katol 1e-13 -kp 0
+//
 // 
 // Solve scalar advection-diffusion equation,
 //     u_t + alpha.grad(f(u)) = div( mu \odot grad(u) ) + s(x,t),
@@ -66,11 +51,6 @@ public:
 // Problem parameters global functions depend on
 Vector alpha, mu;
 int dim, problem, fluxID;
-bool GENERAL_FLUX;
-
-enum Linearity { LINEAR = 0, NONLINEAR = 1 };
-class BEOper;
-class JacPrec;
 
 /* Functions definining some parts of PDE */
 double InitialCondition(const Vector &x);
@@ -102,15 +82,14 @@ struct AMG_params {
 class AdvDif : public IRKOperator
 {
 private:    
-    Linearity op_type;          // (assumed) Linearity of flux function
-    
+
     int dim;                    // Spatial dimension
     FDMesh &Mesh;               // Mesh on which the PDE is discretized
     
     Vector alpha;               // Advection coefficients
     Vector mu;                  // Diffusion coefficients
-    FDLinearOp * D;             // Diffusion operator
     FDNonlinearOp * A;          // Nonlinear advection operator
+    FDLinearOp * D;             // Diffusion operator
         
     mutable Vector source, temp;// Solution independent source term & auxillary vector
 
@@ -118,7 +97,7 @@ private:
     Array<HypreBoomerAMG *> B_prec; // 
     Array<HypreParMatrix *> B_mats; // Seem's like it's only safe to free matrix once preconditioner is finished with it, so need to save these...
     AMG_params AMG;                 // AMG solver params
-    mutable bool JacobianUpdated; // Jacobian updated since any calls to SetSystem()
+    mutable bool JacobianUpdated;   // Jacobian updated since any calls to SetSystem()
     int B_index;
     
     // Compatible identity matrix
@@ -145,7 +124,7 @@ public:
     /// Compute the right-hand side of the ODE system. (Some applications require this operator too)
     void ExplicitMult(const Vector &u, Vector &du_dt) const { Mult(u, du_dt); };
     
-    /** Gradient of L(u, t) w.r.t u evaluated at x */
+    /// Gradient of L(u, t) w.r.t u evaluated at x 
     HypreParMatrix &GetExplicitGradient(const Vector &x) const;
     
     
@@ -154,7 +133,7 @@ public:
                     double &eL1, double &eL2, double &eLinf);
     
 
-    /** Precondition B*x=y <==> (\gamma*I - dt*L')*x=y */
+    /// Precondition B*x=y <==> (\gamma*I - dt*L')*x=y 
     inline void ImplicitPrec(const Vector &x, Vector &y) const {
         MFEM_ASSERT(B_prec[B_index], 
             "AdvDif::ImplicitPrec() Must first set system! See SetSystem()");
@@ -162,104 +141,22 @@ public:
     }
     
     
-    // Function to ensure that ImplicitPrec preconditions (\gamma*M - dt*L') OR (\gamma*I - dt*L')
-    // with gamma and dt as passed to this function.
-    //      + index -> index of system, [0,s_eff)
-    //      + type -> eigenvalue type, 1 = real, 2 = complex pair
-    //      + t -> time.
-    // These additional parameters are to provide ways to track when
-    // (\gamma*M - dt*L') _OR_ (\gamma*I - dt*L') must be reconstructed or not to minimize setup.
-    // NOTE: Must use the Operator that a reference is returned to via calling
-    // GetExplicitGradient().
-    void SetSystem(int index, double dt, double gamma, int type);
+    /** Ensures that this->ImplicitPrec() preconditions (\gamma*M - dt*L') 
+            + index: index of system to solve, [0,s_eff)
+            + dt:    time step size
+            + type:  eigenvalue type, 1 = real, 2 = complex pair
+        These additional parameters are to provide ways to track when
+        (\gamma*M - dt*L') must be reconstructed or not to minimize setup. */
+    void SetSystem(int index, double dt, double gamma, int type);    
     
-    /// Set solver parameters fot implicit time-stepping; MUST be called before InitSolvers()
+    /** Set solver parameters fot implicit time-stepping.
+        MUST be called before InitSolvers() */
     inline void SetAMGParams(AMG_params params) { AMG = params; };
     
-    /** Apply action of identity mass matrix, y = M*x. */
+    /// Apply action of identity mass matrix, y = M*x. 
     inline void ImplicitMult(const Vector &x, Vector &y) const { y = x; };
     
 };
-
-
-/** Gradient of L(u, t) w.r.t u evaluated at x, dL/du(x) = -dA/du(x) + D */
-// TODO:  deal with memory leaks here... who owns the jacobian, and who owns
-// the components that are added
-HypreParMatrix &AdvDif::GetExplicitGradient(const Vector &x) const {
-    if (Jacobian) delete Jacobian;
-
-    JacobianUpdated = true;
-
-    if (A && D) {
-        Jacobian = HypreParMatrixAdd(-1., A->GetGradient(x), 1., D->Get()); 
-    } else if (A) {
-        Jacobian = &(A->GetGradient(x));
-        *Jacobian *= -1.;
-    } else if (D) {
-        Jacobian = &(D->Get());
-    }
-    return *Jacobian;
-}
-
-void AdvDif::SetSystem(int index, double dt, double gamma, int type) {
-    MFEM_ASSERT(Jacobian, "AdvDif::SetSystem() Jacobian not yet set!");
-    
-    B_index = index;
-    
-    // If Jacobian has been updated since last call to this function, delete all
-    // existing preconditioners used existing Jacobian.
-    if (JacobianUpdated) {
-        for (int i = 0; i < B_prec.Size(); i++) {
-            delete B_prec[i]; 
-            B_prec[i] = NULL;
-            delete B_mats[i];
-            B_mats[i] = NULL;
-        }
-        JacobianUpdated = false;
-    }
-    
-    // Make space for new preconditioner to be built 
-    if (index >= B_prec.Size()) {
-        B_prec.Append(NULL);
-        B_mats.Append(NULL);
-    }
-    
-    // Build a new preconditioner 
-    if (!B_prec[index]) {
-        
-        // Assemble identity matrix 
-        if (!identity) identity = (A) ? A->GetHypreParIdentityMatrix() : D->GetHypreParIdentityMatrix();
-        
-        // B = gamma*I - dt*Jacobian
-        HypreParMatrix * B = HypreParMatrixAdd(-dt, *Jacobian, gamma, *identity); 
-        
-        /* Build AMG preconditioner for B */
-        HypreBoomerAMG * amg_solver = new HypreBoomerAMG(*B);
-        
-        amg_solver->SetPrintLevel(0); 
-        amg_solver->SetMaxIter(1); 
-        amg_solver->SetTol(0.0);
-        amg_solver->SetMaxLevels(50); 
-        //amg_solver->iterative_mode = false;
-        if (AMG.use_AIR) {                        
-            amg_solver->SetLAIROptions(AMG.distance, 
-                                        AMG.prerelax, AMG.postrelax,
-                                        AMG.strength_tolC, AMG.strength_tolR, 
-                                        AMG.filter_tolR, AMG.interp_type, 
-                                        AMG.relax_type, AMG.filterA_tol,
-                                        AMG.coarsening);                                       
-        } else {
-            amg_solver->SetInterpolation(0);
-            amg_solver->SetCoarsening(AMG.coarsening);
-            amg_solver->SetAggressiveCoarsening(1);
-        } 
-        
-        B_prec[index] = amg_solver;
-        B_mats[index] = B;
-    }
-}
-
-
 
 
 /* NOTES:
@@ -281,8 +178,6 @@ int main(int argc, char *argv[])
     /* ------------------------------------------------------ */
     /* PDE */
     problem = 1; // Problem ID: responsible for generating source and exact solution
-    GENERAL_FLUX = false; // Setting GENERAL_FLUX==TRUE allows for the "nonlinear treatment" of linear problem. 
-    int GENERAL_FLUX_temp = 0;
     FDBias advection_bias = CENTRAL;
     int advection_bias_temp = static_cast<int>(advection_bias);
     double ax=1.0, ay=1.0; // Advection coefficients
@@ -303,9 +198,10 @@ int main(int argc, char *argv[])
     
     // Solver parameters
     AMG_params AMG;
-    Krylov_params KRYLOV;
-    NEWTON_params NEWTON;
     int use_AIR_temp = (int) AMG.use_AIR;
+    IRK::KrylovParams KRYLOV;
+    int krylov_solver = static_cast<int>(KRYLOV.solver);
+    IRK::NewtonParams NEWTON;
     
     // Output paramaters
     int save         = 0;  // Save solution vector
@@ -314,8 +210,6 @@ int main(int argc, char *argv[])
     OptionsParser args(argc, argv);
     args.AddOption(&fluxID, "-f", "--flux-function",
                   "0==Linear==u, 1==Nonlinear==u^2.");
-    args.AddOption(&GENERAL_FLUX_temp, "-gf", "--general-flux-function",
-                  "1==Ignores linearity of flux if it's linear.");              
     args.AddOption(&problem, "-ex", "--example-problem",
                   "1 (and 2 for linear problem)."); 
     args.AddOption(&ax, "-ax", "--alpha-x",
@@ -352,11 +246,12 @@ int main(int argc, char *argv[])
     /* AMG parameters */
     args.AddOption(&use_AIR_temp, "-air", "--use-air", "0==standard AMG, 1==AIR");
     /* Krylov parameters */
-    args.AddOption(&KRYLOV.reltol, "-krtol", "--gmres-rel-tol", "KRYLOV: Relative stopping tolerance");
-    args.AddOption(&KRYLOV.abstol, "-katol", "--gmres-abs-tol", "KRYLOV: Absolute stopping tolerance");
-    args.AddOption(&KRYLOV.maxiter, "-kmaxit", "--gmres-max-iterations", "KRYLOV: Maximum iterations");
-    args.AddOption(&KRYLOV.kdim, "-kdim", "--gmres-dimension", "KRYLOV: Maximum subspace dimension");
-    args.AddOption(&KRYLOV.printlevel, "-kp", "--gmres-print", "KRYLOV: Print level");
+    args.AddOption(&krylov_solver, "-ksol", "--krylov-method", "KRYLOV: Method (see IRK::KrylovMethod)");
+    args.AddOption(&KRYLOV.reltol, "-krtol", "--krylov-rel-tol", "KRYLOV: Relative stopping tolerance");
+    args.AddOption(&KRYLOV.abstol, "-katol", "--krylov-abs-tol", "KRYLOV: Absolute stopping tolerance");
+    args.AddOption(&KRYLOV.maxiter, "-kmaxit", "--krylov-max-iterations", "KRYLOV: Maximum iterations");
+    args.AddOption(&KRYLOV.kdim, "-kdim", "--krylov-dimension", "KRYLOV: Maximum subspace dimension");
+    args.AddOption(&KRYLOV.printlevel, "-kp", "--krylov-print", "KRYLOV: Print level");
     /* Newton parameters */
     args.AddOption(&NEWTON.reltol, "-nrtol", "--newton-rel-tol", "Newton: Relative stopping tolerance");
     args.AddOption(&NEWTON.abstol, "-natol", "--newton-abs-tol", "Newton: Absolute stopping tolerance");
@@ -372,9 +267,9 @@ int main(int argc, char *argv[])
         args.PrintOptions(std::cout); 
     }
     // Set final forms of remaing params
-    GENERAL_FLUX = (bool) GENERAL_FLUX_temp;
     advection_bias = static_cast<FDBias>(advection_bias_temp);
     AMG.use_AIR = (bool) use_AIR_temp;
+    KRYLOV.solver = static_cast<IRK::KrylovMethod>(krylov_solver);
     std::vector<int> np = {};
     if (npx != -1) {
         if (dim >= 1) np.push_back(npx);
@@ -427,14 +322,12 @@ int main(int argc, char *argv[])
     
     
     // Build IRK object using spatial discretization 
-    IRK MyIRK(&SpaceDisc, static_cast<IRKType>(RK_ID));        
+    IRK MyIRK(&SpaceDisc, static_cast<RKData::Type>(RK_ID));        
 
     // Initialize IRK time-stepping solver
     MyIRK.Init(SpaceDisc);
-    // Krylov_params KRYLOV2;
-    // KRYLOV2.solver = KrylovMethod::GMRES;
-    // KRYLOV2.printlevel = KRYLOV.printlevel;
-    // MyIRK.SetKrylovParams(KRYLOV, KRYLOV2);
+    
+    // Set solver settings 
     MyIRK.SetKrylovParams(KRYLOV);
     MyIRK.SetNewtonParams(NEWTON);
     
@@ -486,7 +379,6 @@ int main(int argc, char *argv[])
             solinfo.Print("problemID", problem); 
             
             /* Nonlinear and linear system/solve statistics */
-            
             int avg_newton_iter;
             std::vector<int> avg_krylov_iter;
             std::vector<int> system_size;
@@ -522,9 +414,7 @@ int main(int argc, char *argv[])
             solinfo.close();
         }
     }
-    //delete ode_solver;
     delete u;
-
     MPI_Finalize();
     return 0;
 }
@@ -532,7 +422,7 @@ int main(int argc, char *argv[])
 
 
 
-/* Initial condition of PDE */
+/// Initial condition of PDE 
 double InitialCondition(const Vector &x) {
     switch (x.Size()) {
         case 1:
@@ -545,7 +435,7 @@ double InitialCondition(const Vector &x) {
 }
 
 
-/* Solution-independent source term in PDE */
+/// Solution-independent source term in PDE
 double Source(const Vector &x, double t) {
     switch (problem) {
         // Source is chosen for manufactured solution
@@ -609,7 +499,7 @@ double Source(const Vector &x, double t) {
 }
 
 
-/* Manufactured PDE solution */
+/// Manufactured PDE solution 
 double PDESolution(const Vector &x, double t)
 {    
     switch (problem) {
@@ -659,13 +549,13 @@ double PDESolution(const Vector &x, double t)
 }
 
 
-/* f(u) = u; fluxID == 0 */
+/// f(u) = u; fluxID == 0 
 double LinearFlux(double u) { return u; }; 
 double GradientLinearFlux(double u) { return 1.0; };
-/* f(u) = u^2; fluxID == 1 */
+/// f(u) = u^2; fluxID == 1 
 double NonlinearFlux(double u) { return u*u; }; 
 double GradientNonlinearFlux(double u) { return 2.*u; };
-// Return pointer to flux function
+/// Return pointer to flux function
 typedef double (*ScalarFun)(double);
 ScalarFun Flux(int fluxID) {
     switch (fluxID) {
@@ -677,7 +567,7 @@ ScalarFun Flux(int fluxID) {
             return NULL;
     }
 }
-// Return pointer to gradient of flux function
+/// Return pointer to gradient of flux function
 ScalarFun GradientFlux(int fluxID) {
     switch (fluxID) {
         case 0:
@@ -695,7 +585,6 @@ AdvDif::AdvDif(FDMesh &Mesh_, int fluxID, Vector alpha_, Vector mu_,
     : IRKOperator(Mesh_.GetComm(), Mesh_.GetLocalSize(), 0.0, 
         TimeDependentOperator::Type::IMPLICIT),
         //TimeDependentOperator::Type::EXPLICIT),
-        op_type{LINEAR},
         Mesh{Mesh_},
         alpha(alpha_), mu(mu_),
         dim(Mesh_.m_dim),
@@ -719,7 +608,7 @@ AdvDif::AdvDif(FDMesh &Mesh_, int fluxID, Vector alpha_, Vector mu_,
 };
 
 
-/* Evaluate RHS of ODEs: du_dt = -A(u) + D*u + s(t) */
+/// Evaluate RHS of ODEs: du_dt = -A(u) + D*u + s(t) 
 void AdvDif::Mult(const Vector &u, Vector &du_dt) const
 {
     if (D && A) {
@@ -737,6 +626,90 @@ void AdvDif::Mult(const Vector &u, Vector &du_dt) const
     du_dt += source;
 }
 
+
+/** Gradient of L(u, t) w.r.t u evaluated at x, dL/du(x) = -dA/du(x) + D */
+// TODO:  deal with memory leaks here... who owns the jacobian, and who owns
+// the components that are added
+HypreParMatrix &AdvDif::GetExplicitGradient(const Vector &x) const {
+    if (Jacobian) delete Jacobian;
+
+    JacobianUpdated = true;
+
+    if (A && D) {
+        Jacobian = HypreParMatrixAdd(-1., A->GetGradient(x), 1., D->Get()); 
+    } else if (A) {
+        Jacobian = &(A->GetGradient(x));
+        *Jacobian *= -1.;
+    } else if (D) {
+        Jacobian = &(D->Get());
+    }
+    return *Jacobian;
+}
+
+
+/** Ensures that this->ImplicitPrec() preconditions (\gamma*M - dt*L') 
+        + index: index of system to solve, [0,s_eff)
+        + dt:    time step size
+        + type:  eigenvalue type, 1 = real, 2 = complex pair
+    These additional parameters are to provide ways to track when
+    (\gamma*M - dt*L') must be reconstructed or not to minimize setup. */
+void AdvDif::SetSystem(int index, double dt, double gamma, int type) {
+    MFEM_ASSERT(Jacobian, "AdvDif::SetSystem() Jacobian not yet set!");
+    
+    B_index = index;
+    
+    // If Jacobian has been updated since last call to this function, delete all
+    // existing preconditioners used existing Jacobian.
+    if (JacobianUpdated) {
+        for (int i = 0; i < B_prec.Size(); i++) {
+            delete B_prec[i]; 
+            B_prec[i] = NULL;
+            delete B_mats[i];
+            B_mats[i] = NULL;
+        }
+        JacobianUpdated = false;
+    }
+    
+    // Make space for new preconditioner to be built 
+    if (index >= B_prec.Size()) {
+        B_prec.Append(NULL);
+        B_mats.Append(NULL);
+    }
+    
+    // Build a new preconditioner 
+    if (!B_prec[index]) {
+        
+        // Assemble identity matrix 
+        if (!identity) identity = (A) ? A->GetHypreParIdentityMatrix() : D->GetHypreParIdentityMatrix();
+        
+        // B = gamma*I - dt*Jacobian
+        HypreParMatrix * B = HypreParMatrixAdd(-dt, *Jacobian, gamma, *identity); 
+        
+        /* Build AMG preconditioner for B */
+        HypreBoomerAMG * amg_solver = new HypreBoomerAMG(*B);
+        
+        amg_solver->SetPrintLevel(0); 
+        amg_solver->SetMaxIter(1); 
+        amg_solver->SetTol(0.0);
+        amg_solver->SetMaxLevels(50); 
+        //amg_solver->iterative_mode = false;
+        if (AMG.use_AIR) {                        
+            amg_solver->SetLAIROptions(AMG.distance, 
+                                        AMG.prerelax, AMG.postrelax,
+                                        AMG.strength_tolC, AMG.strength_tolR, 
+                                        AMG.filter_tolR, AMG.interp_type, 
+                                        AMG.relax_type, AMG.filterA_tol,
+                                        AMG.coarsening);                                       
+        } else {
+            amg_solver->SetInterpolation(0);
+            amg_solver->SetCoarsening(AMG.coarsening);
+            amg_solver->SetAggressiveCoarsening(1);
+        } 
+        
+        B_prec[index] = amg_solver;
+        B_mats[index] = B;
+    }
+}
 
 /* Get error against exact PDE solution if available. Also output if num solution is output */
 bool AdvDif::GetError(int save, const char * out, double t, const Vector &u, double &eL1, double &eL2, double &eLinf) {
