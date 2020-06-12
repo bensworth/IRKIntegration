@@ -1,4 +1,5 @@
 
+import IRK_info
 import numpy as np
 
 import matplotlib
@@ -16,67 +17,23 @@ import os.path
 import argparse
 
 '''
-Plot Krylov and Newton iterations and discretization errors
+Plot AMG & Newton, iterations, and discretization errors
 
---------- 1D ----------
---- 4th-order schemes
-python iter_plots.py -dir data_1d/ -d 1 -ex 1 -t 14 34 23 -14 4 -dt_min 2 2 2 2 2 -dt_max 8 8 8 8 8 
 
---------- 2D ----------
---- 4th-order schemes
-python iter_plots.py -dir data_2d/ -d 2 -ex 1 -t 14 34 23 -14 4 -dt_min 2 2 2 2 2 -dt_max 5 5 5 5 5
+------ Linear ------ 
+    --- 1D ---
+        -- 4th-order schemes --
+python iter_plots.py -dir linear/example1/ -d 1 -ex 1 -t 14 34 23 -14 4 -dt_min 2 2 2 2 2 -dt_max 8 8 8 8 8 
 
---- 8th-order schemes
-python iter_plots.py -dir data_2d/ -d 2 -ex 1 -t 18 38 27 -dt_min 2 2 2 -dt_max 4 4 4 
+    --- 2D ---
+        -- 4th-order schemes
+python iter_plots.py -dir linear/example1/data/ -d 2 -ex 1 -t 14 -14 4 23 -dt_min 2 2 2 2 -dt_max 5 5 5 5
+
+        -- 8th-order schemes
+python iter_plots.py -dir linear/example1/data/ -d 2 -ex 1 -t 18 38 27 -dt_min 2 2 2 -dt_max 5 5 5 
 
 '''
-
-# IRK types
-IRK_type = {-1: "ASDIRK",
-            0 : "LSDIRK", 
-            1 : "Gauss",
-            2 : "Radau\,IIA",
-            3 : "Lobatto\,IIIC"}
-
-# Dictionary holding order of IRK schemes
-IRK_order = { -14 : 4,
-                1 : 1,
-                2 : 2,
-                3 : 3,
-                4 : 4,
-                12 : 2,
-                14 : 4,
-                16 : 6,
-                18 : 8,
-                110 : 10,
-                23 : 3,
-                25 : 5,
-                27 : 7,
-                29 : 9,
-                32 : 2,
-                34 : 4,
-                36 : 6,
-                38 : 8}
-                
-IRK_label = { -14 : "A\\rm{-}SDIRK(4)",
-                1 : "L\\rm{-}SDIRK(1)",
-                2 : "L\\rm{-}SDIRK(2)",
-                3 : "L\\rm{-}SDIRK(3)",
-                4 : "L\\rm{-}SDIRK(4)",
-                12 : "Gauss(2)",
-                14 : "Gauss(4)",
-                16 : "Gauss(6)",
-                18 : "Gauss(8)",
-                110 : "Gauss(10)",
-                23 : "Radau\, IIA(3)",
-                25 : "Radau\, IIA(5)",
-                27 : "Radau\, IIA(7)",
-                29 : "Radau\, IIA(9)",
-                32 : "Lobatto\, IIIC(2)",
-                34 : "Lobatto\, IIIC(4)",
-                36 : "Lobatto\, IIIC(6)",
-                38 : "Lobatto\, IIIC(8)"}                
-
+               
 parser = argparse.ArgumentParser(description='Description of your program')
 parser.add_argument('-dir','--dir', help = 'Directory of data', required = True)
 parser.add_argument('-t','--IRK', nargs = "+", help = 'IDs of IRK methods', required = True)
@@ -89,6 +46,10 @@ parser.add_argument('-s','--save', help = 'Save figure', required = False, defau
 args = vars(parser.parse_args())
 
 print(args)
+
+# Get IRK information
+IRKOrder = IRK_info.Orders()
+IRKIndividualLabel = IRK_info.IndividualLabels()
 
 xlims = [None, None]
 ylims = [None, None]
@@ -139,7 +100,10 @@ for scheme, t in enumerate(args["IRK"]):
         eL1.append(float(params["eL1"]))
         eL2.append(float(params["eL2"]))
         eLinf.append(float(params["eLinf"]))
-        newton_iters.append(int(params["newton_iters"]))
+        
+        # Extract Newton iterations if they exist
+        if "newton_iters" in params:
+            newton_iters.append(int(params["newton_iters"]))
     
         nsys = int(params["nsys"])
         solves = 0
@@ -152,7 +116,7 @@ for scheme, t in enumerate(args["IRK"]):
                 solves += 2*int(params["sys" + str(system + 1) + "_iters"])
         amg_iters.append(solves)
 
-        order = IRK_order[int(args["IRK"][scheme])]
+        order = IRKOrder[int(args["IRK"][scheme])]
 
 
 #### Finished with current IRK scheme ###
@@ -165,12 +129,14 @@ for scheme, t in enumerate(args["IRK"]):
     newton_iters = np.array(newton_iters)
     amg_iters = np.array(amg_iters)
 
-    scheme_label = "$\\rm{{{}}}$".format(IRK_label[int(args["IRK"][scheme])])
+    scheme_label = "$\\rm{{{}}}$".format(IRKIndividualLabel[int(args["IRK"][scheme])])
 
-    plt.figure(1)
-    plt.semilogx(dt, newton_iters, label = scheme_label, marker = markers[scheme], 
-                    color = colours[scheme], linestyle = linestyles[scheme], basex = 2)
-        
+    # Plot Newton iterations if they exist
+    if (newton_iters.size > 0):
+        plt.figure(1)
+        plt.semilogx(dt, newton_iters, label = scheme_label, marker = markers[scheme], 
+                        color = colours[scheme], linestyle = linestyles[scheme], basex = 2)
+            
     plt.figure(2)
     plt.semilogx(dt, amg_iters, label = scheme_label, marker = markers[scheme], 
                     color = colours[scheme], linestyle = linestyles[scheme], basex = 2)
@@ -183,8 +149,9 @@ for scheme, t in enumerate(args["IRK"]):
     elif args["norm"] == "inf":    
         e = eLinf; norm_str = "L_{{\\infty}}"
     
+    
     plt.figure(3)
-    order = IRK_order[int(args["IRK"][scheme])]
+    order = IRKOrder[int(args["IRK"][scheme])]
     if (order not in orders_plotted):
         orders_plotted.append(order)
         # Plot errors for given solves and line indicating expected asymptotic convergence rate
@@ -194,31 +161,38 @@ for scheme, t in enumerate(args["IRK"]):
                     color = colours[scheme], linestyle = linestyles[scheme], basex = 2)
 
 
-plt.figure(1)
-axes = plt.gca()
-axes.set_xlim(xlims)
-axes.set_ylim(ylims)
+if int(args["save"]):
+    schemes_label = "_".join(args["IRK"])
 
-plt.legend(fontsize = fs["fontsize"]-2)
-plt.xlabel("$\delta t$", **fs)
-plt.title("$\\rm{Newton\, iterations\, per\, time\, step}$", **fs)
+# Update figure for Newton iterations if they exist
+if (newton_iters.size > 0):
+    plt.figure(1)
+    axes = plt.gca()
+    axes.set_xlim(xlims)
+    axes.set_ylim(ylims)
+    axes.yaxis.set_major_locator(MaxNLocator(integer=True))
 
-if int(args["save"]):    
-    out = "convergence_plots/newton_iters_O" + str(order) + "_dim" + args["d"] + ".pdf"
-    plt.savefig(out, bbox_inches='tight')
+    plt.legend(fontsize = fs["fontsize"]-2)
+    plt.xlabel("$\delta t$", **fs)
+    plt.title("$\\rm{Newton\, iterations\, per\, time\, step}$", **fs)
+
+    if int(args["save"]):    
+        out = args["dir"].replace("data/", "") + "/newton_iters_" + schemes_label + "_d" + args["d"] + "_ex" + args["ex"] + ".pdf"
+        plt.savefig(out, bbox_inches='tight')
 
 
 plt.figure(2)
 axes = plt.gca()
 axes.set_xlim(xlims)
 axes.set_ylim(ylims)
+axes.yaxis.set_major_locator(MaxNLocator(integer=True))
 
 plt.legend(fontsize = fs["fontsize"]-2)
 plt.xlabel("$\delta t$", **fs)
 plt.title("$\\rm{AMG\, iterations\, per\, time\, step}$", **fs)
 
 if int(args["save"]):    
-    out = "convergence_plots/amg_iters_O" + str(order) + "_dim" + args["d"] + ".pdf"
+    out = args["dir"].replace("data/", "") + "/amg_iters_" + schemes_label + "_d" + args["d"] + "_ex" + args["ex"] + ".pdf"
     plt.savefig(out, bbox_inches='tight')
     
     
@@ -232,7 +206,7 @@ plt.xlabel("$\delta t$", **fs)
 plt.title("${{{}}} \, \, \\rm{{discretization\\ error}}$".format(norm_str), **fs)
 
 if int(args["save"]):    
-    out = "convergence_plots/errors_O" + str(order) + "_dim" + args["d"] + ".pdf"
+    out = args["dir"].replace("data/", "") + "/errors_iters_" + schemes_label + "_d" + args["d"] + "_ex" + args["ex"] + ".pdf"
     plt.savefig(out, bbox_inches='tight')    
 
 plt.show()

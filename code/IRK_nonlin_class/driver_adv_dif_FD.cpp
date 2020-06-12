@@ -50,7 +50,7 @@ public:
 
 // Problem parameters global functions depend on
 Vector alpha, mu;
-int dim, problem, fluxID;
+int dim, example, fluxID;
 
 /* Functions definining some parts of PDE */
 double InitialCondition(const Vector &x);
@@ -59,7 +59,7 @@ double PDESolution(const Vector &x, double t);
 
 
 struct AMG_params {
-    bool use_AIR = !true; 
+    bool use_AIR = false; 
     double distance = 1.5;
     string prerelax = "";
     string postrelax = "FFC";
@@ -70,6 +70,8 @@ struct AMG_params {
     int relax_type = 0;
     double filterA_tol = 0.e-4;
     int coarsening = 6;
+    int agg_coarsening = 0; // Number of levels of aggressive coarsening
+    int printlevel = 0;
 };
 
 /** Provides the time-dependent RHS of the ODEs after spatially discretizing the 
@@ -177,7 +179,7 @@ int main(int argc, char *argv[])
     /* --- Set default values for command-line parameters --- */
     /* ------------------------------------------------------ */
     /* PDE */
-    problem = 1; // Problem ID: responsible for generating source and exact solution
+    example = 1; // example ID: responsible for generating source and exact solution
     FDBias advection_bias = CENTRAL;
     int advection_bias_temp = static_cast<int>(advection_bias);
     double ax=1.0, ay=1.0; // Advection coefficients
@@ -210,7 +212,7 @@ int main(int argc, char *argv[])
     OptionsParser args(argc, argv);
     args.AddOption(&fluxID, "-f", "--flux-function",
                   "0==Linear==u, 1==Nonlinear==u^2.");
-    args.AddOption(&problem, "-ex", "--example-problem",
+    args.AddOption(&example, "-ex", "--example-problem",
                   "1 (and 2 for linear problem)."); 
     args.AddOption(&ax, "-ax", "--alpha-x",
                   "Advection in x-direction."); 
@@ -244,7 +246,10 @@ int main(int argc, char *argv[])
      
     /// --- Solver parameters --- ///   
     /* AMG parameters */
-    args.AddOption(&use_AIR_temp, "-air", "--use-air", "0==standard AMG, 1==AIR");
+    args.AddOption(&use_AIR_temp, "-air", "--AMG-use-air", "AMG: 0=standard (default), 1=AIR");
+    args.AddOption(&AMG.printlevel, "-ap", "--AMG-print", "AMG: Print level");
+    args.AddOption(&AMG.agg_coarsening, "-agg", "--AMG-aggressive-coarseing", "AMG: Levels of aggressive coarsening");
+    
     /* Krylov parameters */
     args.AddOption(&krylov_solver, "-ksol", "--krylov-method", "KRYLOV: Method (see IRK::KrylovMethod)");
     args.AddOption(&KRYLOV.reltol, "-krtol", "--krylov-rel-tol", "KRYLOV: Relative stopping tolerance");
@@ -376,7 +381,7 @@ int main(int argc, char *argv[])
             solinfo.Print("nx", nx);
             solinfo.Print("space_dim", dim);
             solinfo.Print("space_refine", refLevels);
-            solinfo.Print("problemID", problem); 
+            solinfo.Print("exampleID", example); 
             
             /* Nonlinear and linear system/solve statistics */
             int avg_newton_iter;
@@ -437,7 +442,7 @@ double InitialCondition(const Vector &x) {
 
 /// Solution-independent source term in PDE
 double Source(const Vector &x, double t) {
-    switch (problem) {
+    switch (example) {
         // Source is chosen for manufactured solution
         case 1:
             switch (fluxID) {
@@ -502,7 +507,7 @@ double Source(const Vector &x, double t) {
 /// Manufactured PDE solution 
 double PDESolution(const Vector &x, double t)
 {    
-    switch (problem) {
+    switch (example) {
         // Test problem where the initial condition is propagated with wave-speed alpha and dissipated with diffusivity mu
         case 1:
             switch (x.Size()) {
@@ -517,7 +522,7 @@ double PDESolution(const Vector &x, double t)
             break;
         // 2nd test problem for linear-advection-diffusion that's more realistic (no forcing).
         case 2:
-            if (fluxID == 1) cout <<  "PDESolution not implemented for NONLINEAR problem " << problem << "\n";
+            if (fluxID == 1) cout <<  "PDESolution not implemented for NONLINEAR example " << example << "\n";
             switch (x.Size()) {
                 case 1:
                 {   
@@ -543,7 +548,7 @@ double PDESolution(const Vector &x, double t)
                     return 0.0;
             }
         default:
-            cout <<  "PDESolution:: not implemented for problem " << problem << "\n";
+            cout <<  "PDESolution:: not implemented for example " << example << "\n";
             return 0.0;
     }
 }
@@ -688,11 +693,11 @@ void AdvDif::SetSystem(int index, double dt, double gamma, int type) {
         /* Build AMG preconditioner for B */
         HypreBoomerAMG * amg_solver = new HypreBoomerAMG(*B);
         
-        amg_solver->SetPrintLevel(0); 
         amg_solver->SetMaxIter(1); 
         amg_solver->SetTol(0.0);
         amg_solver->SetMaxLevels(50); 
-        //amg_solver->iterative_mode = false;
+        amg_solver->SetPrintLevel(AMG.printlevel); 
+        amg_solver->iterative_mode = false;
         if (AMG.use_AIR) {                        
             amg_solver->SetLAIROptions(AMG.distance, 
                                         AMG.prerelax, AMG.postrelax,
@@ -703,8 +708,8 @@ void AdvDif::SetSystem(int index, double dt, double gamma, int type) {
         } else {
             amg_solver->SetInterpolation(0);
             amg_solver->SetCoarsening(AMG.coarsening);
-            amg_solver->SetAggressiveCoarsening(1);
-        } 
+            amg_solver->SetAggressiveCoarsening(AMG.agg_coarsening); 
+        }  
         
         B_prec[index] = amg_solver;
         B_mats[index] = B;
@@ -718,12 +723,12 @@ bool AdvDif::GetError(int save, const char * out, double t, const Vector &u, dou
     
     bool soln_implemented = false;
     Vector * u_exact = NULL;
-    if (problem == 1 || (problem == 2 && fluxID == 0)) {
-        if (myid == 0) std::cout << "PDE solution IS implemented for this problem." << '\n';
+    if (example == 1 || (example == 2 && fluxID == 0)) {
+        if (myid == 0) std::cout << "PDE solution IS implemented for this example." << '\n';
         soln_implemented = true;
         Mesh.EvalFunction(&PDESolution, t, u_exact); 
     } else {
-        if (myid == 0) std::cout << "PDE solution is NOT implemented for this problem." << '\n';
+        if (myid == 0) std::cout << "PDE solution is NOT implemented for this example." << '\n';
     }
     
     if (soln_implemented) {

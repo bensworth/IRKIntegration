@@ -72,7 +72,7 @@ with open(U_filename) as f:
 params["P"]               = int(params["P"])
 params["nt"]              = int(params["nt"])
 params["dt"]              = float(params["dt"])
-params["problemID"]       = int(params["problemID"])
+params["exampleID"]       = int(params["exampleID"])
 params["nx"]              = int(params["nx"])
 params["dx"]              = float(params["dx"])
 params["space_dim"]       = int(params["space_dim"])

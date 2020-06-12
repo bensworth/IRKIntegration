@@ -10,8 +10,30 @@ using namespace std;
 #define PI 3.14159265358979323846
 
 
-// TODO: Segfault associated w/ freeing HypreBoomerAMG... Currently not being
-// deleted... See associated `TODO` comment...
+/*  TODO: 
+    -Segfault associated w/ freeing HypreBoomerAMG... Currently not being
+        deleted... See associated `TODO` comment...
+    -Scalability of IRK solver in terms of number of AMG iterations seems quite sensitive
+        to the effecicency of the AMG preconditioner. E.g., if move from 0 to 1
+        level of aggressive coarseing, I lose scalability  in terms of number of AMG iterations 
+        as I refine the space-time mesh. Because HYPRE doesn't store statistics about the solver
+        it's a bit hard to see what's happening, but going from 0 to 1 level of agressive coarsening
+        decreases the grid complexity from ~1.7 to ~1.25 (and these numbers seem like they're roughly
+        constant as the space-time mesh is refined). So I'm not sure if such a large grid complexity
+        is acceptable. Probably should set up the AMG preconditioner to do a bit better job, but not 
+        too sure what the right settings are.
+        
+        E.g., just doing 1 time step, 0 and 1 levels of aggressive coarsening 
+        gives ~16 and ~40 GMRES iters and grid complexities of ~1.7 and ~1.2
+            mpirun -np 4 ./driver_adv_dif_FD -d 2 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -o 4 -dt -2 -t 14 -save 2 -tf 0.00001 -krtol 1e-13 -katol 1e-13 -kp 2 -ap 2 -l 8 -agg 0
+            mpirun -np 4 ./driver_adv_dif_FD -d 2 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -o 4 -dt -2 -t 14 -save 2 -tf 0.00001 -krtol 1e-13 -katol 1e-13 -kp 2 -ap 2 -l 8 -agg 1
+            
+        And, for example, taking a time step of dt=10*dx (-dt -10) rather than dt=2*dx (-dt -2) 
+        as in the above example, the grid complexities of the two solvers remain the same as 
+        above, yet 0 levels of aggressive coarsening only requires ~17 GMRES iters, 
+        while 1 level of aggressive coarsening takes ~137 GMRES iters.
+*/
+
 
 // Sample runs:
 //      *** Solve 2D in space problem w/ 4th-order discretizations in space & time ***
@@ -22,6 +44,7 @@ using namespace std;
 //      ** Diffusion-only problem using CG solver
 //      >> mpirun -np 4 ./driver_adv_dif_FD -d 2 -ex 1 -ax 0 -ay 0 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 -ksol 0
 // 
+//
 // Solve scalar linear advection-diffusion equation,
 //     u_t + alpha.grad(u) = div( mu \odot grad(u) ) + s(x,t),
 // for constant vectors alpha, and mu.
@@ -47,7 +70,7 @@ public:
 
 // Problem parameters global functions depend on
 Vector alpha, mu;
-int dim, problem;
+int dim, example;
 
 /* Functions definining some parts of PDE */
 double InitialCondition(const Vector &x);
@@ -56,7 +79,7 @@ double PDESolution(const Vector &x, double t);
 
 
 struct AMGParams {
-    bool use_AIR = !true; 
+    bool use_AIR = false; // TODO: AIR seems not to work so great. 
     double distance = 1.5;
     string prerelax = "";
     string postrelax = "FFC";
@@ -67,6 +90,8 @@ struct AMGParams {
     int relax_type = 0;
     double filterA_tol = 0.e-4;
     int coarsening = 6;
+    int agg_coarsening = 0; // Number of levels of aggressive coarsening
+    int printlevel = 0;
 };
 
 /** Provides the time-dependent RHS of the ODEs after spatially discretizing the 
@@ -174,7 +199,7 @@ int main(int argc, char *argv[])
     /* --- Set default values for command-line parameters --- */
     /* ------------------------------------------------------ */
     /* PDE */
-    problem = 1; // Problem ID: responsible for generating source and exact solution
+    example = 1; // example ID: responsible for generating source and exact solution
     FDBias advection_bias = CENTRAL;
     int advection_bias_temp = static_cast<int>(advection_bias);
     double ax=1.0, ay=1.0; // Advection coefficients
@@ -204,8 +229,8 @@ int main(int argc, char *argv[])
     const char * out = "data/U"; // Filename of data to be saved...
     
     OptionsParser args(argc, argv);            
-    args.AddOption(&problem, "-ex", "--example-problem",
-                  "1 (and 2 for linear problem)."); 
+    args.AddOption(&example, "-ex", "--example-problem",
+                  "1 or 2."); 
     args.AddOption(&ax, "-ax", "--alpha-x",
                   "Advection in x-direction."); 
     args.AddOption(&ay, "-ay", "--alpha-y",
@@ -238,7 +263,10 @@ int main(int argc, char *argv[])
      
     /// --- Solver parameters --- ///   
     /* AMG parameters */
-    args.AddOption(&use_AIR_temp, "-air", "--use-air", "0==standard AMG, 1==AIR");
+    args.AddOption(&use_AIR_temp, "-air", "--AMG-use-air", "AMG: 0=standard (default), 1=AIR");
+    args.AddOption(&AMG.printlevel, "-ap", "--AMG-print", "AMG: Print level");
+    args.AddOption(&AMG.agg_coarsening, "-agg", "--AMG-aggressive-coarseing", "AMG: Levels of aggressive coarsening");
+    
     /* Krylov parameters */
     args.AddOption(&krylov_solver, "-ksol", "--krylov-method", "KRYLOV: Method (see IRK::KrylovMethod)");
     args.AddOption(&KRYLOV.reltol, "-krtol", "--krylov-rel-tol", "KRYLOV: Relative stopping tolerance");
@@ -364,7 +392,7 @@ int main(int argc, char *argv[])
             solinfo.Print("nx", nx);
             solinfo.Print("space_dim", dim);
             solinfo.Print("space_refine", refLevels);
-            solinfo.Print("problemID", problem); 
+            solinfo.Print("exampleID", example); 
             
             /* Linear system/solve statistics */
             std::vector<int> avg_krylov_iter;
@@ -421,7 +449,7 @@ double InitialCondition(const Vector &x) {
 
 /// Solution-independent source term in PDE 
 double Source(const Vector &x, double t) {
-    switch (problem) {
+    switch (example) {
         // Source is chosen for manufactured solution
         case 1:
             switch (x.Size()) {
@@ -456,8 +484,8 @@ double Source(const Vector &x, double t) {
 /// Manufactured PDE solution
 double PDESolution(const Vector &x, double t)
 {    
-    switch (problem) {
-        // Test problem where the initial condition is propagated with wave-speed alpha and dissipated with diffusivity mu
+    switch (example) {
+        // Test example where the initial condition is propagated with wave-speed alpha and dissipated with diffusivity mu
         case 1:
             switch (x.Size()) {
                 case 1:
@@ -469,7 +497,7 @@ double PDESolution(const Vector &x, double t)
                     return 0.0;
             }
             break;
-        // 2nd test problem for linear-advection-diffusion that's more realistic (no forcing).
+        // 2nd test example for linear-advection-diffusion that's more realistic (no forcing).
         case 2:
             switch (x.Size()) {
                 case 1:
@@ -496,7 +524,7 @@ double PDESolution(const Vector &x, double t)
                     return 0.0;
             }
         default:
-            cout <<  "PDESolution:: not implemented for problem " << problem << "\n";
+            cout <<  "PDESolution:: not implemented for example " << example << "\n";
             return 0.0;
     }
 }
@@ -604,11 +632,11 @@ void AdvDif::SetSystem(int index, double dt, double gamma, int type) {
         /* Build AMG preconditioner for B */
         HypreBoomerAMG * amg_solver = new HypreBoomerAMG(*B);
         
-        amg_solver->SetPrintLevel(0); 
         amg_solver->SetMaxIter(1); 
         amg_solver->SetTol(0.0);
         amg_solver->SetMaxLevels(50); 
-        //amg_solver->iterative_mode = false;
+        amg_solver->SetPrintLevel(AMG.printlevel); 
+        amg_solver->iterative_mode = false;
         if (AMG.use_AIR) {                        
             amg_solver->SetLAIROptions(AMG.distance, 
                                         AMG.prerelax, AMG.postrelax,
@@ -619,7 +647,7 @@ void AdvDif::SetSystem(int index, double dt, double gamma, int type) {
         } else {
             amg_solver->SetInterpolation(0);
             amg_solver->SetCoarsening(AMG.coarsening);
-            amg_solver->SetAggressiveCoarsening(1);
+            amg_solver->SetAggressiveCoarsening(AMG.agg_coarsening); 
         } 
         
         B_prec[index] = amg_solver;
@@ -635,12 +663,12 @@ bool AdvDif::GetError(int save, const char * out, double t, const Vector &u, dou
     
     bool soln_implemented = false;
     Vector * u_exact = NULL;
-    if (problem == 1 || problem == 2) {
-        if (myid == 0) std::cout << "PDE solution IS implemented for this problem." << '\n';
+    if (example == 1 || example == 2) {
+        if (myid == 0) std::cout << "PDE solution IS implemented for this example." << '\n';
         soln_implemented = true;
         Mesh.EvalFunction(&PDESolution, t, u_exact); 
     } else {
-        if (myid == 0) std::cout << "PDE solution is NOT implemented for this problem." << '\n';
+        if (myid == 0) std::cout << "PDE solution is NOT implemented for this example." << '\n';
     }
     
     if (soln_implemented) {
