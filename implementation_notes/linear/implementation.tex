@@ -10,7 +10,7 @@
 \usepackage{enumitem}
 	\setlist{nosep} % or \setlist{noitemsep} to leave space around whole list
 \usepackage{color}
-\usepackage{showlabels}
+%\usepackage{showlabels}
 \usepackage{adjustbox}
 \usepackage{hyperref}
 \hypersetup{
@@ -280,128 +280,65 @@ actually gain very little improvement in convergence by applying more iterations
 \newpage
 \section{Numerical results}
 
-We numerically approximate the solution of the advection problem,
+Numerically approximate the solution of the 2D, constant-coefficient advection-diffusion problem,
 \begin{align}
-u_t  + \nabla \cdot (\bm{\alpha}(\bm{x}) u) = s(\bm{x},t), \quad  \bm{x} \in (-1, 1)^d, \quad t \in (0, t_{\rm f}].
+u_t + 0.85 u_x + 1.0 u_y = 0.3 u_{xx} + 0.25 u_{yy}  + s(x,y,t),
+\quad (x,y,t) \in  (-1,1)^2 \times (0, 2)
 \end{align}
 Some remarks:
 \begin{itemize}
-\item Periodic spatial boundaries
+\setlength\itemsep{0.5em}
+\item Periodic spatial boundaries. All tests use 4 processors.
 
-\item $t_{\rm f} \approx 2$
+\item A $p$th-order IRK scheme is coupled with $p$th-order central finite differences in space (or $p$+1st-order if $p$ is odd, as for Radau IIA and some SDIRK schemes).
 
-\item A $p$th-order IRK scheme is coupled with $p$th-order upwind finite differences in space.
+\item Set $\delta t = 2 \delta x$
 
-\item A CFL number of $c \approx 2$ is used (not practical in terms of cost of solves per accuracy obtained, but good for testing implementation since don't have to worry about solvers not coping well with difficult systems)
+\item Tests in Figure \ref{fig:errors2D} indicate that the code is implemented and working properly since theoretically predicated convergence rates are obtained in all cases.
 
-\item Tests indicate that the code is implemented and working properly since theoretically predicated convergence rates are obtained in all cases.
+\item GMRES: \texttt{abs tol=rel tol=1e-13}
+
+\item From Figure \ref{fig:errors2D}, Gauss and Radau appear scalable with respect to problem size. Noting that the grid complexities for all of the AMG solves seem comparable (for the 4th-order schemes they're around 1.7), Gauss certainly seems like it requires the least amount of work.
+
+\item \tcp{Note that obtaining these kind of scalable iteration counts for the non-SDIRK schemes is dependent on the AMG preconditioner doing a good enough job. I've made some comments in the top of \texttt{IRK\_lin\_class/driver\_adv\_dif\_FD.cpp} about this. But essentially with the current setup, adding a single level of aggressive coarsening destroys this scalability, and we instead see GMRES/AMG iteration counts increase significantly Gauss, Radau, Lobatto. However, with even with aggressive coarsening, GMRES/AMG iterations remain fixed for SDIRK iteration... So I'm not really sure that the results in Figure \ref{fig:iters2D} are a fair comparison given that the  AMG solvers for SDIRK can be made significantly cheaper...}
+
 \end{itemize}
 
-\textbf{One dimension:} See Figure \ref{fig:errors1D}. Choose $s(x,t)$ such that
-\begin{align}
-\alpha(x) &= \tfrac{1}{2} \big[1 + \cos^2(\pi x) \big],
-\\
-u(x,t) &= \cos(\pi(x - t)) \exp(\cos(2\pi t) - 1).
-\end{align}
-
-\textbf{Two dimensions:} See Figure \ref{fig:errors2D}. Choose $s(x,y,t)$ such that
-\begin{align}
-\alpha(x,y) &= \left(
-\tfrac{1}{4} \big[1 + \cos^2(\pi x) \big] \big[ 1 + \sin^2(\pi y) \big],
-\tfrac{1}{4} \big[1 + \sin^2(\pi x) \big] \big[1 + \cos^2(\pi y) \big] 
-\right), 
-\\
-u(x,y,t) &= \cos(\pi(x - t)) \cos(\pi(y - t)) \exp(\cos(2\pi t) - 1).
-\end{align}
-
 
 \begin{figure}[H]
 \centerline{
-\includegraphics[width = 0.55\textwidth]{figures/SDIRK_d1_FD4}
+\includegraphics[width = 0.55\textwidth]{figures/LSDIRK_d2_ex1}
 \quad
-\includegraphics[width = 0.55\textwidth]{figures/Gauss_d1_FD4}
+\includegraphics[width = 0.55\textwidth]{figures/Gauss_d2_ex1}
 }
 \centerline{
-\includegraphics[width = 0.55\textwidth]{figures/RadauIIA_d1_FD4}
+\includegraphics[width = 0.55\textwidth]{figures/RadauIIA_d2_ex1}
 \quad
-\includegraphics[width = 0.55\textwidth]{figures/LobattoIIIC_d1_FD4}
+\includegraphics[width = 0.55\textwidth]{figures/LobattoIIIC_d2_ex1}
 }
-\caption{\textbf{One dimension:} $L_{\infty}$ errors measured at $t \approx 2$. Theoretically predicted convergence rates of ${\cal O}(p)$ are shown as dashed black lines.
-\label{fig:errors1D}
-}
-\end{figure}
-
-\begin{figure}[H]
-\centerline{
-\includegraphics[width = 0.55\textwidth]{figures/SDIRK_d2_FD4}
-\quad
-\includegraphics[width = 0.55\textwidth]{figures/Gauss_d2_FD4}
-}
-\centerline{
-\includegraphics[width = 0.55\textwidth]{figures/RadauIIA_d2_FD4}
-\quad
-\includegraphics[width = 0.55\textwidth]{figures/LobattoIIIC_d2_FD4}
-}
-\caption{\textbf{Two dimensions:} $L_{\infty}$ errors measured at $t \approx 2$. Theoretically predicted convergence rates of ${\cal O}(p)$ are shown as dashed black lines. \tcp{Note SDIRK and Radau IIA are a bit messy... Not so sure why. Convergence seemed a bit better in $L_1$ and $L_2$. Note in particular that SDIRK3 is quite large at the coarsest resolution (the numerical solution grows, not sure why... Doesn't happen for constant coefficient... Note it's the same spatial disc. that causes issues for Radau IIA(3))}
+\caption{$L_{\infty}$ errors measured at $t \approx 2$. Theoretically predicted convergence rates of ${\cal O}(p)$ are shown as dashed black lines.
 \label{fig:errors2D}
 }
 \end{figure}
 
 
-% ------------------------------------------------------------------------------------ %
-% ------------------------------------------------------------------------------------ %
-% ------------------------------------------------------------------------------------ 
-\newpage
-\newpage
-\section{Numerical results II: Scalability of solvers}
-
-\begin{itemize}
-\setlength\itemsep{0.5em}
-
-\item Kind of hard to decide what  to look at, there are many different parameters...
-
-\item Solve 1D in space, variable-coefficient advection problem. \todo{Conduct same study for diffusion problem...}
-
-\item Both absolute and relative GMRES tolerances are set to $1e-15$ for all problems (realistically, we should tighten as we refine the mesh to reach discretization error)
-
-\item Pair $p$th-order IRK with  $p$th-order FD in space
-
-\item Look at 4th-order examples in Figure \ref{fig:4th-order_solves}.
-\begin{enumerate}
-\item SDIRK4: Need to invert 5 linear factors (i.e., $\beta/\eta=0$ for all). Each GMRES iteration is preconditioned by one AMG iteration. 
-
-\item Gauss4: Need to invert 1 quadratic factor ($\beta/\eta=0.58$). Each GMRES iteration is preconditioned by two applications of AMG. 
-
-\item Lobatto4: Need to invert 1 quadratic factor ($\beta/\eta=1.49$), and one linear factor ($\beta/\eta=0$). Again, for the quadratic factor, each GMRES iteration is preconditioned by two applications of AMG. 
-
-\end{enumerate}
-
-\item Assuming the AMG preconditioners for each scheme have similar cycle complexities, per discretization error, the Gauss4 solve is cheaper than SDIRK4. The total work per time step for SDIRK4 is 5 GMRES solves (recalling there are 5 stages), and each of these GMRES solves is roughly half the cost of the single quadratic GMRES solve required by Gauss4 per time step.
-
-\item Lobatto4 seems like it's not at all competitive in terms of cost due to the solution of its quadratic factor requiring so many iterations (kind of expected, since we know the quality of the preconditioner degrades with increasing $\beta/\eta$).
-
-\end{itemize}
 
 \begin{figure}[H]
 \centerline{
-\includegraphics[width = 0.5\textwidth]{figures/solver_convergence/SDIRK4_convergence}
+\includegraphics[width = 0.575\textwidth]{{{figures/amg_iters_14_34_23_-14_4_d2_ex1}}}
 \quad
-\includegraphics[width = 0.5\textwidth]{figures/solver_convergence/SDIRK4_gmres}
+\includegraphics[width = 0.575\textwidth]{{{figures/amg_iters_18_38_27_d2_ex1}}}
 }
 \centerline{
-\includegraphics[width = 0.5\textwidth]{figures/solver_convergence/Gauss4_convergence}
+\includegraphics[width = 0.575\textwidth]{{{figures/errors_iters_14_34_23_-14_4_d2_ex1}}}
 \quad
-\includegraphics[width = 0.5\textwidth]{figures/solver_convergence/Gauss4_gmres}
+\includegraphics[width = 0.575\textwidth]{{{figures/errors_iters_18_38_27_d2_ex1}}}
 }
-\centerline{
-\includegraphics[width = 0.5\textwidth]{figures/solver_convergence/Lobatto4_convergence}
-\quad
-\includegraphics[width = 0.5\textwidth]{figures/solver_convergence/Lobatto4_gmres}
-}
-\caption{Convergence of discrete solution \textbf{(left)}, and average number of GMRES iterations per time step for each linear system solved \textbf{(right)} as a function of $\delta t$ and CFL $\sim \delta t / \delta x$; note that increasing $\delta t/\delta x$ corresponds to decreasing $\delta x$ and increasing the size of the spatial problem. \textbf{Top:} SDIRK4+U4 (iterations may vary slighlty for the 5 linear systems due to them having different RHS), \textbf{Middle:} Gauss4+U4, \textbf{Bottom:} Lobatto4+U4.
-\label{fig:4th-order_solves}
+\caption{Average iterations per time step (data associated with convergence plots in Figure \ref{fig:errors2D}). \textbf{Left:} 4th(ish)-order schemes. \textbf{Right:} 8th(ish)-order schemes. \textbf{Top:} AMG iterations. \textbf{Bottom:} Discretization errors. The systems that AMG is applied to have dimension $n = (16^2, 32^2, 64^2, 128^2)$ for $\delta t = (2^{-2}, 2^{-3}, 2^{-4}, 2^{-5})$. In terms of work done per accuracy, it seems Gauss $<$ Radau IIA $\ll$ Lobatto IIIC. Notice that the error constant for A-SDIRK(4) is much larger that the other 4th-order schemes (bottom left), and convergence appears only $\approx$3rd-order; however, continuing to refine the mesh shows that 4th-order accuracy is obtained eventually (not shown here).
+\label{fig:iters2D}
 }
 \end{figure}
+
 
 
 

@@ -27,7 +27,7 @@ python iter_plots.py -dir linear/example1/ -d 1 -ex 1 -t 14 34 23 -14 4 -dt_min 
 
     --- 2D ---
         -- 4th-order schemes
-python iter_plots.py -dir linear/example1/data/ -d 2 -ex 1 -t 14 -14 4 23 -dt_min 2 2 2 2 -dt_max 5 5 5 5
+python iter_plots.py -dir linear/example1/data/ -d 2 -ex 1 -t 14 34 23 -14 4 -dt_min 2 2 2 2 2 -dt_max 5 5 5 5 5
 
         -- 8th-order schemes
 python iter_plots.py -dir linear/example1/data/ -d 2 -ex 1 -t 18 38 27 -dt_min 2 2 2 -dt_max 5 5 5 
