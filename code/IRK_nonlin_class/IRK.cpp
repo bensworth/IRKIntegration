@@ -55,7 +55,8 @@ IRK::IRK(IRKOperator *IRKOper_, RKData::Type RK_ID_)
         : m_IRKOper(IRKOper_), m_Butcher(RK_ID_), 
         m_stageOper(NULL),
         m_nonlinear_solver(NULL),
-        m_jacobian_solver(NULL),
+        m_kron_jac_solver(NULL),
+        m_tri_jac_solver(NULL),
         m_solversInit(false),
         m_krylov2(false),
         m_comm{IRKOper_->GetComm()}
@@ -103,7 +104,8 @@ IRK::IRK(IRKOperator *IRKOper_, RKData::Type RK_ID_)
 
 /// Destructor
 IRK::~IRK() {
-    if (m_jacobian_solver) delete m_jacobian_solver;
+    if (m_kron_jac_solver) delete m_kron_jac_solver;
+    if (m_tri_jac_solver) delete m_tri_jac_solver;
     if (m_nonlinear_solver) delete m_nonlinear_solver;
     if (m_stageOper) delete m_stageOper;
 }
@@ -115,21 +117,6 @@ void IRK::SetSolvers()
     if (m_solversInit) return;
     m_solversInit = true;
     
-    // Create solver for approximate Kronecker-product Jacobian system
-    // TODO: Setup option for user to determine these parameters
-    int N_jac_update_rate = 0;  // Update once only at start of each time step
-    int N_jac_lin = m_Butcher.s;// Linearize so that Jacobian is evaluated correct for last stage
-    
-    // User requested different Krylov solvers for 1x1 and 2x2 blocks
-    if (m_krylov2) {
-        m_jacobian_solver = new KronJacSolver(*m_stageOper, m_krylov_params, m_krylov_params2, 
-                                                N_jac_lin, N_jac_update_rate);
-    // Use same Krylov solvers for 1x1 and 2x2 blocks
-    } else {
-        m_jacobian_solver = new KronJacSolver(*m_stageOper, m_krylov_params, 
-                                                N_jac_lin, N_jac_update_rate);
-    }
-    
     // Setup Newton solver
     m_nonlinear_solver = new NewtonSolver(m_comm);
     m_nonlinear_solver->iterative_mode = false;
@@ -137,7 +124,56 @@ void IRK::SetSolvers()
     m_nonlinear_solver->SetRelTol(m_newton_params.reltol);
     m_nonlinear_solver->SetPrintLevel(m_newton_params.printlevel);    
     if (m_newton_params.printlevel == 2) m_nonlinear_solver->SetPrintLevel(-1);
-    m_nonlinear_solver->SetSolver(*m_jacobian_solver); // The linear solver for the Newton method
+    
+    
+    // Create Jacobian solver
+    switch (m_newton_params.solver) {
+        
+        // Newton with Kronecker-product Jacobian
+        case IRK::NewtonMethod::KRONECKER:
+        {
+            // Create solver for approximate Kronecker-product Jacobian system
+            
+            // TODO: Setup option for user to determine these parameters
+            int N_jac_update_rate = 0;  // Update once only at start of each time step
+            int N_jac_lin = m_Butcher.s;// Linearize so that Jacobian is evaluated correct for last stage
+            
+            // User requested different Krylov solvers for 1x1 and 2x2 blocks
+            if (m_krylov2) {
+                m_kron_jac_solver = new KronJacSolver(*m_stageOper, m_krylov_params, m_krylov_params2, 
+                                                        N_jac_lin, N_jac_update_rate);
+            // Use same Krylov solvers for 1x1 and 2x2 blocks
+            } else {
+                m_kron_jac_solver = new KronJacSolver(*m_stageOper, m_krylov_params, 
+                                                        N_jac_lin, N_jac_update_rate);
+            }
+            
+            m_nonlinear_solver->SetSolver(*m_kron_jac_solver);
+            //m_nonlinear_solver->SetSolver(*m_jacobian_solver); // The linear solver for the Newton method
+            break;
+        }
+        // Quasi-Newton method    
+        case IRK::NewtonMethod::QUASI:
+            
+            // User requested different Krylov solvers for 1x1 and 2x2 blocks
+            if (m_krylov2) {
+                m_tri_jac_solver = new TriJacSolver(*m_stageOper, m_krylov_params, m_krylov_params2);
+            // Use same Krylov solvers for 1x1 and 2x2 blocks
+            } else {
+                m_tri_jac_solver = new TriJacSolver(*m_stageOper, m_krylov_params);
+            }
+        
+            m_nonlinear_solver->SetSolver(*m_tri_jac_solver);
+            break;
+        
+        // Full-Newton method    
+        case IRK::NewtonMethod::FULL:
+            mfem_error("IRK::Full Newton solver not implemented");
+            break;
+            
+        default:
+            mfem_error("IRK::NewtonParams.solver not recognised");
+    }    
 }
 
 
@@ -154,8 +190,18 @@ void IRK::Init(TimeDependentOperator &F)
           = x + (dt*d0^\top \otimes I)*w */
 void IRK::Step(Vector &x, double &t, double &dt)
 {
-    // Reset iteration counter for Jacobian solve from previous newton iteration
-    m_jacobian_solver->ResetNumIterations();
+    // Reset iteration counter for Jacobian solve from previous Newton iteration
+    switch (m_newton_params.solver) {
+        case NewtonMethod::KRONECKER:
+            m_kron_jac_solver->ResetNumIterations();
+            break;
+        case NewtonMethod::QUASI:
+            m_tri_jac_solver->ResetNumIterations();
+            break;
+        default:
+            break;
+    }
+    
     
     // Pass current values of dt and x to stage operator
     m_stageOper->SetParameters(&x, t, dt); 
@@ -176,7 +222,7 @@ void IRK::Step(Vector &x, double &t, double &dt)
     
     // Add iteration counts from this solve to existing counts
     m_avg_newton_iter += m_nonlinear_solver->GetNumIterations();
-    vector<int> krylov_iters = m_jacobian_solver->GetNumIterations();
+    vector<int> krylov_iters = (m_tri_jac_solver) ? m_tri_jac_solver->GetNumIterations() : m_kron_jac_solver->GetNumIterations();
     for (int system = 0; system < m_avg_krylov_iter.size(); system++) {
         m_avg_krylov_iter[system] += krylov_iters[system];
     }

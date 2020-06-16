@@ -102,6 +102,11 @@ private:
     mutable bool JacobianUpdated;   // Jacobian updated since any calls to SetSystem()
     int B_index;
     
+    /* Quasi-Newton */
+    Array<HypreParMatrix *> Gradients; //
+    mutable bool GradientsUpdated;
+    
+    
     // Compatible identity matrix
     HypreParMatrix * identity;
     
@@ -128,7 +133,6 @@ public:
     
     /// Gradient of L(u, t) w.r.t u evaluated at x 
     HypreParMatrix &GetExplicitGradient(const Vector &x) const;
-    
     
     /// Get error w.r.t. exact PDE solution (if available)
     bool GetError(int save, const char * out, double t, const Vector &u, 
@@ -158,7 +162,57 @@ public:
     /// Apply action of identity mass matrix, y = M*x. 
     inline void ImplicitMult(const Vector &x, Vector &y) const { y = x; };
     
+    
+    
+
+    /* ----------- Quasi-Newton implementation ----------- */
+    /// Gradient of L(u, t) w.r.t u evaluated at x, dL/du(x) = -dA/du(x) + D
+    HypreParMatrix * GetGradient2(const Vector &x) const;
+
+    
+    /// Set explicit gradients N'(x[block], t + c[block]), block=0,...,s-1
+    void SetExplicitGradients(const BlockVector &x, Vector c);
+
+    /// Compute action of `index`-th gradient operator above
+    inline void ExplicitGradientMult(int index, const Vector &x, Vector &y) const { 
+        MFEM_ASSERT(Gradients.Size() > 0, 
+            "AdvDif::ExplicitGradientMult() Gradients not yet set!");
+        Gradients[index]->Mult(x, y);
+    }
+    
+    void SetSystem(int index, double dt, double gamma, Vector weights);
+    
+    inline void ImplicitPrec(int index_offset, const Vector &x, Vector &y) const {
+        MFEM_ASSERT(B_prec[B_index + index_offset], 
+            "AdvDif::ImplicitPrec() Must first set system! See SetSystem()");
+        B_prec[B_index + index_offset]->Mult(x, y);
+    }
 };
+
+
+/// Populate Gradients Array 
+void AdvDif::SetExplicitGradients(const BlockVector &x, Vector c) {
+    GradientsUpdated = true;
+    
+    int s = c.Size();
+    // Free existing gradients
+    if (Gradients.Size() > 0) {
+        for (int i = 0; i < s; i++) {
+            if (Gradients[i]) delete Gradients[i];
+            Gradients[i] = NULL;
+        }
+    // Size array for the first time    
+    } else {
+        Gradients.SetSize(s);
+    }
+    
+    double t0 = this->GetTime();
+    for (int i = 0; i < s; i++) {
+        this->SetTime(t0 + c(i));
+        Gradients[i] = GetGradient2(x.GetBlock(i));
+    }
+    this->SetTime(t0);
+}
 
 
 /* NOTES:
@@ -204,6 +258,7 @@ int main(int argc, char *argv[])
     IRK::KrylovParams KRYLOV;
     int krylov_solver = static_cast<int>(KRYLOV.solver);
     IRK::NewtonParams NEWTON;
+    int newton_solver = static_cast<int>(NEWTON.solver);
     
     // Output paramaters
     int save         = 0;  // Save solution vector
@@ -258,10 +313,11 @@ int main(int argc, char *argv[])
     args.AddOption(&KRYLOV.kdim, "-kdim", "--krylov-dimension", "KRYLOV: Maximum subspace dimension");
     args.AddOption(&KRYLOV.printlevel, "-kp", "--krylov-print", "KRYLOV: Print level");
     /* Newton parameters */
-    args.AddOption(&NEWTON.reltol, "-nrtol", "--newton-rel-tol", "Newton: Relative stopping tolerance");
-    args.AddOption(&NEWTON.abstol, "-natol", "--newton-abs-tol", "Newton: Absolute stopping tolerance");
-    args.AddOption(&NEWTON.maxiter, "-nmaxit", "--newton-max-iterations", "Newton: Maximum iterations");
-    args.AddOption(&NEWTON.printlevel, "-np", "--newton-print", "Newton: Print level");
+    args.AddOption(&newton_solver, "-nsol", "--newton-method", "NEWTON: Method (see IRK::NewtonMethod)");
+    args.AddOption(&NEWTON.reltol, "-nrtol", "--newton-rel-tol", "NEWTON: Relative stopping tolerance");
+    args.AddOption(&NEWTON.abstol, "-natol", "--newton-abs-tol", "NEWTON: Absolute stopping tolerance");
+    args.AddOption(&NEWTON.maxiter, "-nmaxit", "--newton-max-iterations", "NEWTON: Maximum iterations");
+    args.AddOption(&NEWTON.printlevel, "-np", "--newton-print", "NEWTON: Print level");
     
     /* --- Text output of solution etc --- */              
     args.AddOption(&out, "-out", "--out-directory", "Name of output file."); 
@@ -275,6 +331,7 @@ int main(int argc, char *argv[])
     advection_bias = static_cast<FDBias>(advection_bias_temp);
     AMG.use_AIR = (bool) use_AIR_temp;
     KRYLOV.solver = static_cast<IRK::KrylovMethod>(krylov_solver);
+    NEWTON.solver = static_cast<IRK::NewtonMethod>(newton_solver);
     std::vector<int> np = {};
     if (npx != -1) {
         if (dim >= 1) np.push_back(npx);
@@ -595,6 +652,7 @@ AdvDif::AdvDif(FDMesh &Mesh_, int fluxID, Vector alpha_, Vector mu_,
         dim(Mesh_.m_dim),
         D(NULL), A(NULL),
         B_prec(), B_mats(), B_index{0}, AMG(), 
+        Gradients(), GradientsUpdated(false),
         Jacobian(NULL), identity(NULL), JacobianUpdated(false),
         source(Mesh_.GetLocalSize()), temp(Mesh_.GetLocalSize())
 {
@@ -637,18 +695,25 @@ void AdvDif::Mult(const Vector &u, Vector &du_dt) const
 // the components that are added
 HypreParMatrix &AdvDif::GetExplicitGradient(const Vector &x) const {
     if (Jacobian) delete Jacobian;
-
     JacobianUpdated = true;
-
-    if (A && D) {
-        Jacobian = HypreParMatrixAdd(-1., A->GetGradient(x), 1., D->Get()); 
-    } else if (A) {
-        Jacobian = &(A->GetGradient(x));
-        *Jacobian *= -1.;
-    } else if (D) {
-        Jacobian = &(D->Get());
-    }
+    Jacobian = GetGradient2(x);
     return *Jacobian;
+}
+
+
+/// Gradient of L(u, t) w.r.t u evaluated at x, dL/du(x) = -dA/du(x) + D 
+HypreParMatrix * AdvDif::GetGradient2(const Vector &x) const {
+    HypreParMatrix * J;
+    
+    if (A && D) {
+        J = HypreParMatrixAdd(-1., A->GetGradient(x), 1., D->Get()); 
+    } else if (A) {
+        J = &(A->GetGradient(x));
+        *J *= -1.;
+    } else if (D) {
+        J = &(D->Get());
+    }
+    return J;
 }
 
 
@@ -715,6 +780,74 @@ void AdvDif::SetSystem(int index, double dt, double gamma, int type) {
         B_mats[index] = B;
     }
 }
+
+
+/** Ensures that this->ImplicitPrec() preconditions (\gamma*M - dt*{weights}*{N'}) */
+void AdvDif::SetSystem(int index, double dt, double gamma, Vector weights) {
+    MFEM_ASSERT(Gradients.Size() > 0, 
+        "AdvDif::ExplicitGradientMult() Gradients not yet set!");
+
+    B_index = index;
+
+    // If Jacobian has been updated since last call to this function, delete all
+    // existing preconditioners used existing Jacobian.
+    if (GradientsUpdated) {
+        for (int i = 0; i < B_prec.Size(); i++) {
+            delete B_prec[i]; 
+            B_prec[i] = NULL;
+            delete B_mats[i];
+            B_mats[i] = NULL;
+        }
+        GradientsUpdated = false;
+    }
+
+    // Make space for new preconditioner to be built 
+    if (index >= B_prec.Size()) {
+        B_prec.Append(NULL);
+        B_mats.Append(NULL);
+    }
+
+    // Build a new preconditioner 
+    if (!B_prec[index]) {
+
+        // Assemble identity matrix 
+        if (!identity) identity = (A) ? A->GetHypreParIdentityMatrix() : D->GetHypreParIdentityMatrix();
+
+        // B = gamma*I - dt*{weights}*{Gradients}
+        HypreParMatrix * B = new HypreParMatrix(*Gradients[0]);
+        *B *= -dt*weights(0);
+        for (int i = 1; i < weights.Size(); i++) {
+            B->Add(-dt*weights(i), *Gradients[i]);
+        }
+        B->Add(gamma, *identity);
+
+        /* Build AMG preconditioner for B */
+        HypreBoomerAMG * amg_solver = new HypreBoomerAMG(*B);
+
+        amg_solver->SetMaxIter(1); 
+        amg_solver->SetTol(0.0);
+        amg_solver->SetMaxLevels(50); 
+        amg_solver->SetPrintLevel(AMG.printlevel); 
+        amg_solver->iterative_mode = false;
+        if (AMG.use_AIR) {                        
+            amg_solver->SetLAIROptions(AMG.distance, 
+                                        AMG.prerelax, AMG.postrelax,
+                                        AMG.strength_tolC, AMG.strength_tolR, 
+                                        AMG.filter_tolR, AMG.interp_type, 
+                                        AMG.relax_type, AMG.filterA_tol,
+                                        AMG.coarsening);                                       
+        } else {
+            amg_solver->SetInterpolation(0);
+            amg_solver->SetCoarsening(AMG.coarsening);
+            amg_solver->SetAggressiveCoarsening(AMG.agg_coarsening); 
+        }  
+
+        B_prec[index] = amg_solver;
+        B_mats[index] = B;
+    }    
+}
+
+
 
 /* Get error against exact PDE solution if available. Also output if num solution is output */
 bool AdvDif::GetError(int save, const char * out, double t, const Vector &u, double &eL1, double &eL2, double &eLinf) {
