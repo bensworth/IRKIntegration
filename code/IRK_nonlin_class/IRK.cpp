@@ -51,12 +51,14 @@ void KronTransformTranspose(const DenseMatrix &A, const BlockVector &x, BlockVec
 
 
 /// Constructor
-IRK::IRK(IRKOperator *IRKOper_, RKData::Type RK_ID_)
-        : m_IRKOper(IRKOper_), m_Butcher(RK_ID_), 
+IRK::IRK(IRKOperator *IRKOper_, const RKData &ButcherTableau)
+        : m_IRKOper(IRKOper_), m_Butcher{ButcherTableau}, 
         m_stageOper(NULL),
         m_nonlinear_solver(NULL),
         m_kron_jac_solver(NULL),
         m_tri_jac_solver(NULL),
+        m_jac_solverSparsity(ButcherTableau.Q0),
+        m_jac_precSparsity(ButcherTableau.Q0),
         m_solversInit(false),
         m_krylov2(false),
         m_comm{IRKOper_->GetComm()}
@@ -155,12 +157,19 @@ void IRK::SetSolvers()
         // Quasi-Newton method    
         case IRK::NewtonMethod::QUASI:
             
+            m_jac_solverSparsity.Sparsify(static_cast<int>(m_newton_params.j_solverSparsity));
+            m_jac_precSparsity.Sparsify(static_cast<int>(m_newton_params.j_precSparsity));
+            
             // User requested different Krylov solvers for 1x1 and 2x2 blocks
             if (m_krylov2) {
-                m_tri_jac_solver = new TriJacSolver(*m_stageOper, m_krylov_params, m_krylov_params2);
+                m_tri_jac_solver = new TriJacSolver(*m_stageOper, 
+                                        m_krylov_params, m_krylov_params2, 
+                                        m_jac_solverSparsity, m_jac_precSparsity);
             // Use same Krylov solvers for 1x1 and 2x2 blocks
             } else {
-                m_tri_jac_solver = new TriJacSolver(*m_stageOper, m_krylov_params);
+                m_tri_jac_solver = new TriJacSolver(*m_stageOper, 
+                                            m_krylov_params, 
+                                            m_jac_solverSparsity, m_jac_precSparsity);
             }
         
             m_nonlinear_solver->SetSolver(*m_tri_jac_solver);

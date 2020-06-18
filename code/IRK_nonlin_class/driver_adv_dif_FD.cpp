@@ -227,6 +227,7 @@ void AdvDif::SetExplicitGradients(const Vector &u, double dt, const BlockVector 
         Gradients.SetSize(s);
     }
     
+    for (int i = 0; i < B_params.Size(); i++) B_params[i].JacUpToDate = false;
     
     double t0 = this->GetTime();
     
@@ -285,9 +286,11 @@ int main(int argc, char *argv[])
     int krylov_solver = static_cast<int>(KRYLOV.solver);
     IRK::NewtonParams NEWTON;
     int newton_solver = static_cast<int>(NEWTON.solver);
+    int newton_jacs = static_cast<int>(NEWTON.j_solverSparsity);
+    int newton_jacp = static_cast<int>(NEWTON.j_precSparsity);
     
     // Output paramaters
-    int save         = 0;  // Save solution vector
+    int save         = 0;       // Save solution vector
     const char * out = "data/U"; // Filename of data to be saved...
     
     OptionsParser args(argc, argv);
@@ -339,11 +342,13 @@ int main(int argc, char *argv[])
     args.AddOption(&KRYLOV.kdim, "-kdim", "--krylov-dimension", "KRYLOV: Maximum subspace dimension");
     args.AddOption(&KRYLOV.printlevel, "-kp", "--krylov-print", "KRYLOV: Print level");
     /* Newton parameters */
-    args.AddOption(&newton_solver, "-nsol", "--newton-method", "NEWTON: Method (see IRK::NewtonMethod)");
     args.AddOption(&NEWTON.reltol, "-nrtol", "--newton-rel-tol", "NEWTON: Relative stopping tolerance");
     args.AddOption(&NEWTON.abstol, "-natol", "--newton-abs-tol", "NEWTON: Absolute stopping tolerance");
     args.AddOption(&NEWTON.maxiter, "-nmaxit", "--newton-max-iterations", "NEWTON: Maximum iterations");
     args.AddOption(&NEWTON.printlevel, "-np", "--newton-print", "NEWTON: Print level");
+    args.AddOption(&newton_solver, "-nsol", "--newton-method", "NEWTON: Method (see IRK::NewtonMethod)");
+    args.AddOption(&newton_jacs, "-njacs", "--newton-jac-solver-sparsity", "NEWTON: Jacobian solver sparsity (see IRK::NewtonParams)");
+    args.AddOption(&newton_jacp, "-njacp", "--newton-jac-prec-sparsity", "NEWTON: Jacobian preconditioner sparsity (see IRK::NewtonParams)");
     
     /* --- Text output of solution etc --- */              
     args.AddOption(&out, "-out", "--out-directory", "Name of output file."); 
@@ -358,6 +363,8 @@ int main(int argc, char *argv[])
     AMG.use_AIR = (bool) use_AIR_temp;
     KRYLOV.solver = static_cast<IRK::KrylovMethod>(krylov_solver);
     NEWTON.solver = static_cast<IRK::NewtonMethod>(newton_solver);
+    NEWTON.j_solverSparsity = static_cast<IRK::JacSparsity>(newton_jacs);
+    NEWTON.j_precSparsity = static_cast<IRK::JacSparsity>(newton_jacp);
     std::vector<int> np = {};
     if (npx != -1) {
         if (dim >= 1) np.push_back(npx);
@@ -381,6 +388,9 @@ int main(int argc, char *argv[])
     /////////////////////////////////
     // Set up spatial discretization.
     /////////////////////////////////
+    double dx = Mesh.Get_dx();
+    //for (int i = 0; i < mu.Size(); i++) mu(i) *= dx;
+    
     AdvDif SpaceDisc(Mesh, fluxID, alpha, mu, order, advection_bias);
     SpaceDisc.SetAMGParams(AMG);
         
@@ -389,7 +399,7 @@ int main(int argc, char *argv[])
     SpaceDisc.GetU0(u);
     
     // Get mesh info
-    double dx = Mesh.Get_dx();
+    //double dx = Mesh.Get_dx();
     int    nx = Mesh.Get_nx();
     
     
@@ -409,8 +419,9 @@ int main(int argc, char *argv[])
     }
     
     
-    // Build IRK object using spatial discretization 
-    IRK MyIRK(&SpaceDisc, static_cast<RKData::Type>(RK_ID));        
+    // Build IRK object using spatial discretization
+    RKData ButcherTableau(static_cast<RKData::Type>(RK_ID)); 
+    IRK MyIRK(&SpaceDisc, ButcherTableau);        
 
     // Initialize IRK time-stepping solver
     MyIRK.Init(SpaceDisc);
@@ -433,6 +444,14 @@ int main(int argc, char *argv[])
     /* ----------------------- */
     /* --- Save solve data --- */
     /* ----------------------- */
+    
+    // std::cout << "save = " << save << '\n';
+    // std::cout << "out = " << out << '\n';
+    // 
+    // out = out + to_string(RK_ID);
+    // 
+    // std::cout << "out = " << out << '\n';
+    
     if (save > 0) {
         if (save > 1) {
             ostringstream outt;
@@ -472,6 +491,9 @@ int main(int argc, char *argv[])
             std::vector<int> system_size;
             std::vector<double> eig_ratio;
             MyIRK.GetSolveStats(avg_newton_iter, avg_krylov_iter, system_size, eig_ratio);
+            solinfo.Print("newton_solver", static_cast<int>(NEWTON.solver));
+            solinfo.Print("newton_j_solverSparsity", static_cast<int>(NEWTON.j_solverSparsity));
+            solinfo.Print("newton_j_precSparsity", static_cast<int>(NEWTON.j_precSparsity));
             solinfo.Print("nrtol", NEWTON.reltol);
             solinfo.Print("natol", NEWTON.abstol);
             solinfo.Print("newton_iters", avg_newton_iter);
@@ -693,6 +715,11 @@ AdvDif::AdvDif(FDMesh &Mesh_, int fluxID, Vector alpha_, Vector mu_,
         A = new FDNonlinearOp(Mesh, 1, alpha, Flux(fluxID), GradientFlux(fluxID), 
                                 order, advection_bias);
     }
+    
+    // std::cout << "alpha/dx = " << alpha(0)/Mesh.Get_dx() << '\n';
+    // std::cout << "mu/dx^2 = " << mu(0)/(Mesh.Get_dx()*Mesh.Get_dx()) << '\n';
+    
+    
     if (!A && !D) mfem_error("AdvDif::AdvDif() Require at least one non-zero PDE coefficient.");
 };
 
@@ -721,7 +748,6 @@ void AdvDif::Mult(const Vector &u, Vector &du_dt) const
 // the components that are added
 HypreParMatrix &AdvDif::GetExplicitGradient(const Vector &x) const {
     if (Jacobian) delete Jacobian;
-    for (int i = 0; i < B_params.Size(); i++) B_params[i].JacUpToDate = false;
     Jacobian = GetGradient2(x);
     return *Jacobian;
 }
@@ -839,11 +865,14 @@ void AdvDif::SetPreconditioner(int index, double dt, double gamma, Vector weight
             B_prec[B_hash[index]] = NULL;
             delete B_mats[B_hash[index]];
             B_mats[B_hash[index]] = NULL;
+            //std::cout << "rebuilding..." << '\n';
         }
         
     /*  No preconditioner previously built with this index. Create space for a 
         new one. */
     } else {
+        
+        //std::cout << "first building..." << '\n';
         B_prec.Append(NULL);
         B_mats.Append(NULL);
         B_hash[index] = B_prec.Size()-1;
@@ -862,12 +891,24 @@ void AdvDif::SetPreconditioner(int index, double dt, double gamma, Vector weight
         if (!identity) identity = (A) ? A->GetHypreParIdentityMatrix() : D->GetHypreParIdentityMatrix();
 
         // B = gamma*I - dt*{weights}*{Gradients}
-        HypreParMatrix * B = new HypreParMatrix(*Gradients[0]);
-        *B *= -dt*weights(0);
-        for (int i = 1; i < weights.Size(); i++) {
-            B->Add(-dt*weights(i), *Gradients[i]);
+        HypreParMatrix * B = NULL;
+        for (int i = 0; i < weights.Size(); i++) {
+            if (fabs(dt*weights(i)) > 0.) {
+                if (B) {
+                    B->Add(-dt*weights(i), *Gradients[i]);
+                } else {
+                    B = new HypreParMatrix(*Gradients[i]);
+                    *B *= -dt*weights(i);
+                }
+            }
         }
-        B->Add(gamma, *identity);
+        if (B) {
+            B->Add(gamma, *identity);
+        } else {
+            B = new HypreParMatrix(*identity);
+            *B *= gamma;
+        }
+        
 
         /* Build AMG preconditioner for B */
         HypreBoomerAMG * amg_solver = new HypreBoomerAMG(*B);

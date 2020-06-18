@@ -67,15 +67,7 @@ public:
     virtual void SetPreconditioner(int index, double dt, double gamma, int type) = 0;
     
     
-    
-    
-    
-    
     /* ----------- Quasi-Newton implementation ----------- */
-    // /// Set the current stage index
-    // inline void SetStageIndex(const int _stage_index) const { stage_index = _stage_index; };
-    // /// Read the currently set stage index
-    // inline int GetStageIndex() const { return stage_index; };
     
     /** Assemble preconditioner for gamma*M - dt*{weights,N'} that's applied by
         by calling: 
@@ -109,20 +101,15 @@ public:
         MFEM_ASSERT(weights.Size() > 0, 
             "IRKOperator::AddExplicitGradientMultInnerProduct() not defined for empty weights");
             
-        //int offset = this->GetStageIndex();        
         for (int i = 0; i < weights.Size(); i++) {
             if (fabs(c*weights(i)) > 0.) {
-                //this->SetStageIndex(i+offset);
-                //SetStageIndex(i);
                 ExplicitGradientMult(i, x, temp);
                 y.Add(c*weights(i), temp);
             }
         }
-        
-        //this->SetStageIndex(offset);
     }
     
-    /// Compute y1 <- c1*{weights1,ExplicitGradients+stage_index}x, y2 <- c2*{weights2,ExplicitGradients+stage_index}x
+    /// Compute y1 <- c1*{weights1,ExplicitGradients}x, y2 <- c2*{weights2,ExplicitGradients}x
     inline void AddExplicitGradientMultInnerProduct(double c1, const Vector &weights1, 
                                                     double c2, const Vector &weights2, 
                                                     const Vector &x, 
@@ -136,15 +123,11 @@ public:
         //int offset = this->GetStageIndex();    
         for (int i = 0; i < weights1.Size(); i++) {
             if (fabs(c1*weights1(i)) > 0. || fabs(c2*weights2(i)) > 0.) {
-                //this->SetStageIndex(i+offset);
-                //SetStageIndex(i);
                 ExplicitGradientMult(i, x, temp);
                 if (fabs(c1*weights1(i)) > 0.) y1.Add(c1*weights1(i), temp);
                 if (fabs(c2*weights2(i)) > 0.) y2.Add(c2*weights2(i), temp);
             }
         }
-        
-        //this->SetStageIndex(offset);
     }
 };
 
@@ -210,16 +193,16 @@ class TriJacSolver;
 /* Operator F defining the s stage equations. They satisfy F(w) = 0, 
     where w = (A0 \otimes I)*k, and
         
-                [F1(w)]                         [N(u+dt*w1)]
-                [ ... ]                         [   ....   ]
-        F(w) =  [ ... ] = (inv(A0) \otimes M) - [   ....   ]
-                [ ... ]                         [   ....   ]
-                [Fs(w)]                         [N(u+dt*ws)] */
+                       [ F1 ]                         [N(u+dt*w1,t+c1*dt)]
+                       [ .. ]                         [        ....      ]
+        F(w;u,t,dt) =  [ .. ] = (inv(A0) \otimes M) - [        ....      ]
+                       [ .. ]                         [        ....      ]
+                       [ Fs ]                         [N(u+dt*ws,t+cs*dt)] */
 class IRKStageOper : public BlockOperator
 {
         
 private:
-    // Approximate Jacobian solvers needs access
+    // Approximate Jacobian solvers need access
     friend class KronJacSolver;     
     friend class TriJacSolver;     
     
@@ -270,8 +253,8 @@ public:
         getGradientCalls = 0; // Reset counter
     };
 
-    inline double GetTimeStep() {return dt;};
-    inline double GetTime() {return t;};
+    inline double GetTimeStep() { return dt; };
+    inline double GetTime() { return t; };
     
     /// Return reference to current iterate
     inline const BlockVector &GetCurrentIterate() { return current_iterate; };
@@ -324,6 +307,100 @@ public:
     }
 };
 
+/** Class describing the operator that's formed by taking the "quasi" product of
+    an orthogonal matrix Q with itself */
+class QuasiMatrixProduct : public Array2D<Vector> {
+    
+private:
+    int height;
+
+public: 
+    QuasiMatrixProduct(DenseMatrix Q) 
+        : Array2D<Vector>(Q.Height(), Q.Height()), height{Q.Height()} 
+    {
+        MFEM_ASSERT(Q.Height() == Q.Width(), "QuasiMatrixProduct:: Matrix must be square");
+        
+        // Create Vectors of coefficients
+        for (int row = 0; row < height; row++) {
+            for (int col = 0; col < height; col++) {
+                (*this)(row, col) = Vector(height);
+                for (int i = 0; i < height; i++) {
+                    (*this)(row, col)[i] = Q(i,row)*Q(i,col); 
+                }
+            }
+        }
+    };
+    
+    inline void Sparsify(int sparsity) {
+        // Sparsify if need be
+        switch (sparsity) {
+            case 0:
+                this->Lump();
+                break;
+            case 1:
+                this->TruncateOffDiags();
+                break;
+            default:
+                break;
+        }        
+    }
+    
+    inline void Print() const {
+        for (int row = 0; row < height; row++) {
+            for (int col = 0; col < height; col++) {
+                mfem::out << "(" << row << "," << col << "): ";
+                (*this)(row, col).Print();
+            }
+        }
+    }
+    
+    /** Lump elements in Vectors to the |largest| entry. Note by orthogonality 
+        of Q, diagonal entries lump to 1, and off diagonal entries lump to 0 */
+    inline void Lump() {
+        for (int row = 0; row < height; row++) {
+            for (int col = 0; col < height; col++) {
+                // Set all off diagonal entries to zero
+                if (row != col) {
+                    for (int i = 0; i < height; i++) {
+                        (*this)(row, col)[i] = 0.; 
+                    }
+                // Handle diagonal entries    
+                } else {
+                    for (int i = 0; i < height; i++) {
+                        (*this)(row, col)[i] = fabs((*this)(row, col)[i]);
+                    }
+                    double current = (*this)(row, col)[0], max = current;
+                    int maxidx = 0;
+                    for (int i = 1; i < height; i++) {
+                        current = (*this)(row, col)[i];
+                        if (current > max) {
+                            (*this)(row, col)[maxidx] = 0.;
+                            max = current;
+                            maxidx = i;
+                        } else {
+                            (*this)(row, col)[i] = 0.;
+                        }
+                    }
+                    (*this)(row,col)[maxidx] = 1.;
+                }
+            }
+        }
+    }
+    
+    /// Set all Vectors not on diagonal equal to zero
+    inline void TruncateOffDiags() {
+        for (int row = 0; row < height; row++) {
+            for (int col = 0; col < height; col++) {
+                if (row != col) {
+                    for (int i = 0; i < height; i++) {
+                        (*this)(row, col)[i] = 0.; 
+                    }
+                }
+            }            
+        }
+    }
+};
+
 
 /** Class implementing conjugate-pair preconditioned solution of fully implicit 
     RK schemes for the nonlinear ODE system 
@@ -354,6 +431,12 @@ public:
         FULL = 2       // Full Jacobian
     }; 
     
+    /** Sparsity pattern of (Q^\top \otimes I) diag(N1',...,Ns') (Q \otimes I)
+        to be used in block-upper-triangular Quasi-Newton method */
+    enum JacSparsity {
+        LUMPED = 0, DIAGONAL = 1, DENSE = 2
+    };
+    
     /// Parameters for Newton solver
     struct NewtonParams {
         double reltol = 1e-6;
@@ -361,6 +444,9 @@ public:
         int maxiter = 10;
         int printlevel = 2; 
         NewtonMethod solver = NewtonMethod::KRONECKER;
+        
+        JacSparsity j_solverSparsity = JacSparsity::DENSE;
+        JacSparsity j_precSparsity  = JacSparsity::DIAGONAL;
     }; 
 
 private:    
@@ -368,7 +454,7 @@ private:
     int m_numProcess;
     int m_rank;
     
-    RKData m_Butcher;           // Runge-Kutta Butcher tableau and associated data
+    const RKData &m_Butcher;    // Runge-Kutta Butcher tableau and associated data
 
     IRKOperator * m_IRKOper;    // Spatial discretization. 
     BlockVector m_w;            // The stage vectors
@@ -381,9 +467,9 @@ private:
     
     // Linear solver for inverting (approximate) Jacobian
     TriJacSolver * m_tri_jac_solver;
+    QuasiMatrixProduct m_jac_solverSparsity;
+    QuasiMatrixProduct m_jac_precSparsity;
     KronJacSolver * m_kron_jac_solver;  
-    
-    
     
     NewtonParams m_newton_params;       // Parameters for Newton solver
     KrylovParams m_krylov_params;       // Parameters for Krylov solver.
@@ -400,7 +486,7 @@ private:
     void SetSolvers();
     
 public:
-    IRK(IRKOperator *IRKOper_, RKData::Type RK_ID_);
+    IRK(IRKOperator *IRKOper_, const RKData &ButcherTableau);
     ~IRK();
  
     void Init(TimeDependentOperator &F);
@@ -441,6 +527,9 @@ public:
                                     eig_ratio       =  m_eig_ratio;
                                 }
 };
+
+
+
 
 
 /** Defines diagonal blocks appearing in the Kronecker product Jacobian. 
@@ -849,8 +938,8 @@ public:
         we need to update our Jacobian, N_jac. */
     void SetOperator (const Operator &op) { 
     
-        double dt = StageOper.dt;
-        double t = StageOper.t;
+        double dt = StageOper.GetTimeStep();
+        double t = StageOper.GetTime();
     
         // Update N_jac if necessary (1st Newton iteration, or all Newton iterations)
         if (StageOper.getGradientCalls == 1 || N_jac_update_rate == 1) {
@@ -917,11 +1006,11 @@ public:
             if (printlevel > 0) mfem::out << "    Block solve " << s_eff-diagBlock << " of " << s_eff;
             
             // Update parameters for the diag block to be inverted
-            JacDiagBlock[diagBlock]->SetParameters(StageOper.dt, N_jac);
+            JacDiagBlock[diagBlock]->SetParameters(StageOper.GetTimeStep(), N_jac);
             
             // Ensure correct preconditioner is set up for R(idx, idx)*M - dt*N'.
             int system_idx = s_eff-diagBlock-1; // Note the reverse ordering...
-            StageOper.IRKOper->SetPreconditioner(system_idx, StageOper.dt, R(idx, idx), 
+            StageOper.IRKOper->SetPreconditioner(system_idx, StageOper.GetTimeStep(), R(idx, idx), 
                                         StageOper.Butcher.R0_block_sizes[diagBlock]);
             
             // Invert 1x1 diagonal block
@@ -1061,6 +1150,9 @@ public:
 
 
 
+
+
+
 /** Defines diagonal blocks appearing in block triangular approximate Jacobian. 
     These take the form 1x1 or 2x2 blocks.
 
@@ -1072,8 +1164,8 @@ public:
          [R(1,0)*M-dt*{Z(1,0),N'}   R(1,1)*M-dt*{Z(1,1),N'}]
 
     NOTE: 
-        Z(.,.) defines a list of s coefficients, and {Z(i,j),N'} means to take 
-        the inner product between those coefficies and the s gradient
+        Z(.,.) defines a Vector of s coefficients, and {Z(.,.),N'} means to take 
+        the inner product between those coefficients and the s gradient
         operators {N'} == (N'(u+dt*w1),...,N'(u+dt*ws)).
 
     TODO:
@@ -1084,7 +1176,6 @@ class TriJacDiagBlock : public BlockOperator
 private:
     
     int size;                   // Block size
-    IRKOperator &IRKOper;       // Class defining mass matrix M, and N'
     const Array<int> &offsets;  // Block offsets for operator
     mutable double dt;          // Current time step 
     mutable Vector temp_scalar; // Auxillary vector
@@ -1099,9 +1190,11 @@ private:
     mutable BlockVector x_block, y_block;
     
 public:
-
+    
+    const IRKOperator &IRKOper; // Class defining mass matrix M, and N'
+    
     /// 1x1 block
-    TriJacDiagBlock(const Array<int> &offsets_, IRKOperator &IRKOper_, 
+    TriJacDiagBlock(const Array<int> &offsets_, const IRKOperator &IRKOper_, 
         double R00_, Vector Z00_) 
         : BlockOperator(offsets_),
         size{1}, IRKOper{IRKOper_}, offsets{offsets_}, dt{0.0}, temp_scalar(IRKOper_.Height()),
@@ -1109,7 +1202,7 @@ public:
         {};
 
     /// 2x2 block
-    TriJacDiagBlock(const Array<int> &offsets_, IRKOperator &IRKOper_, 
+    TriJacDiagBlock(const Array<int> &offsets_, const IRKOperator &IRKOper_, 
         double R00_, double R01_, double R10_, double R11_, 
         Vector Z00_, Vector Z01_, Vector Z10_, Vector Z11_) 
         : BlockOperator(offsets_),
@@ -1118,14 +1211,17 @@ public:
         Z00{Z00_}, Z01{Z01_}, Z10{Z10_}, Z11{Z11_} 
         {};
 
-    /// Update parameters required to compute action
-    inline void SetParameters(double dt_) const { dt = dt_; };
+    inline void SetTimeStep(double dt_) const { dt = dt_; };
+    inline double GetTimeStep() const { return dt; };
+    inline int Size() const { return size; };
+    inline const Array<int> &Offsets() const { return offsets; };
+    
         
     /// Compute action of diagonal block    
     inline void Mult(const Vector &x, Vector &y) const 
     {    
-        MFEM_ASSERT(x.Size() == this->Height(), "KronJacDiagBlock::Mult() incorrect input Vector size");
-        MFEM_ASSERT(y.Size() == this->Height(), "KronJacDiagBlock::Mult() incorrect output Vector size");
+        MFEM_ASSERT(x.Size() == this->Height(), "TriJacDiagBlock::Mult() incorrect input Vector size");
+        MFEM_ASSERT(y.Size() == this->Height(), "TriJacDiagBlock::Mult() incorrect output Vector size");
         
         /** 1x1 operator, 
                 y = [R(0,0)*M-dt*{z(0,0),N'}]*x */
@@ -1189,70 +1285,65 @@ public:
 };
 
 
-
-
 /** Preconditioner for diagonal block appearing in block triangular approximate 
     Jacobian, i.e. a TriJacDiagBlock.
     1x1: 
-         [R(0,0)*M-dt*{Z(0,0),N']
+        [R(0,0)*M-dt*{Z(0,0),N']
+    Which is preconditioned by  
+        [R(0,0)*M-dt*{Y(0,0),N']      
 
     2x2:
-         [R(0,0)*M-dt*{Z(0,0),N'}  R(1,0)*M-dt*{Z(1,0),N'}]
-         [R(1,0)*M-dt*{Z(1,0),N'}  R(0,0)*M-dt*{Z(1,1),N'}]
-
-    The 2x2 operator is preconditioned by the INVERSE of
-         [R(0,0)*M-dt*{Z(0,0),N'}              0          ]
-         [R(1,0)*M-dt*{Z(1,0),N'}  R(0,0)*M-dt*{Z(1,1),N'}]
+        [R(0,0)*M-dt*{Z(0,0),N'}  R(1,0)*M-dt*{Z(1,0),N'}]
+        [R(1,0)*M-dt*{Z(1,0),N'}  R(0,0)*M-dt*{Z(1,1),N'}]
+    Which is preconditioned by 
+         [R(0,0)*M-dt*{Y(0,0),N'}              0          ]
+         [R(1,0)*M-dt*{Y(1,0),N'}  R(0,0)*M-dt*{Y(1,1),N'}]
 
     Where, in all cases, IRKOper.ImplicitPrec(i,x,y) is used to approximately 
     solve 
-         [R(i,i)*M-dt*{Z(i,i),N'}]*y=x 
+         [R(i,i)*M-dt*{Y(i,i),N'}]*y=x 
     
-    
-    TODO: Make this a friend of TriJacDiagBlock and then it can just access All
-        of the required data from there rather than it being passed to here...
+    NOTE: 
+        -In general, one can choose Y == Z, but there is the option to use a 
+        different vector (this is why this class doesn't just take this data 
+        straight from TriJacDiagBlock).
     */
 class TriJacDiagBlockPrec : public Solver
 {
 private:
-    const IRKOperator &IRKOper;
-    int size;                   // Block size
-    const Array<int> &offsets;  // Offsets describing operators
+    const TriJacDiagBlock &BlockOper;
     mutable Vector temp_scalar; // Auxillary vector
     bool identity;              // Use identity preconditioner. Useful as a comparison.
     
+    
     // Extra data required for 2x2 blocks
-    mutable double dt;          // Current time step
-    int prec00_idx;             // IRKOper.ImplicitPrec(prec00_idx,.,.) preconditions for R(0,0)*M-dt*{Z(0,0),N'}
-    int prec11_idx;             // IRKOper.ImplicitPrec(prec11_idx,.,.) preconditions R(1,1)*M-dt*{Z(1,1),N'}
+    int prec00_idx;             // BlockOper.IRKOper.ImplicitPrec(prec00_idx,.,.) preconditions for R(0,0)*M-dt*{Z(0,0),N'}
+    int prec11_idx;             // BlockOper.IRKOper.ImplicitPrec(prec11_idx,.,.) preconditions R(1,1)*M-dt*{Z(1,1),N'}
     double R10;                 
-    Vector Z10;                 
+    Vector Y10;                 
     mutable BlockVector x_block, y_block;
         
 public:
     /// 1x1 block
-    TriJacDiagBlockPrec(const Array<int> &offsets_, const IRKOperator &IRKOper_, 
+    TriJacDiagBlockPrec(const TriJacDiagBlock &BlockOper_, 
         bool identity_=false) 
-        : Solver(offsets_[1]), IRKOper(IRKOper_), size{1}, offsets{offsets_}, 
+        : Solver(BlockOper_.Height()), BlockOper{BlockOper_}, 
         identity(identity_) 
         {};
 
     /// 2x2 block
-    TriJacDiagBlockPrec(const Array<int> &offsets_, const IRKOperator &IRKOper_, 
-        double R10_, Vector Z10_, 
+    TriJacDiagBlockPrec(const TriJacDiagBlock &BlockOper_, 
+        double R10_, Vector Y10_, 
         int prec00_idx_, int prec11_idx_, 
         bool identity_=false) 
-        : Solver(offsets_[2]), IRKOper(IRKOper_), size{2}, offsets(offsets_), 
-            dt{0.0}, identity(identity_),
-            R10{R10_}, Z10{Z10_}, 
+        : Solver(BlockOper_.Height()), BlockOper{BlockOper_}, 
+            identity(identity_),
+            R10{R10_}, Y10{Y10_}, 
             prec00_idx{prec00_idx_}, prec11_idx{prec11_idx_}, 
-            temp_scalar(IRKOper_.Height()) 
+            temp_scalar(BlockOper_.Offsets()[1]) 
         {};
     
     ~TriJacDiagBlockPrec() {};
-    
-    /// Set the current time step
-    inline void SetParameters(double dt_) const { dt = dt_; };
     
     /// Apply action of preconditioner
     inline void Mult(const Vector &x_scalar, Vector &y_scalar) const {
@@ -1263,35 +1354,36 @@ public:
         // Use a proper preconditioner    
         } else {
             // 1x1 system
-            if (size == 1) {
-                IRKOper.ImplicitPrec(x_scalar, y_scalar);
+            if (BlockOper.Size() == 1) {
+                BlockOper.IRKOper.ImplicitPrec(x_scalar, y_scalar);
             }
             
             /* 2x2 system uses 2x2 block lower triangular preconditioner,
                 [A 0][y0] = x0  =>  y0 = A^{-1}*x0
-                [C D][y1] = x1  =>  y1 = D^{-1}*(x1 - C*y0), C == R(1,0)*M-dt*{Z(1,0),N'} */
-            else if (size == 2) {
+                [C D][y1] = x1  =>  y1 = D^{-1}*(x1 - C*y0), C == R(1,0)*M-dt*{Y(1,0),N'} */
+            else if (BlockOper.Size() == 2) {
                 // Wrap scalar Vectors with BlockVectors
-                x_block.Update(x_scalar.GetData(), offsets);
-                y_block.Update(y_scalar.GetData(), offsets);
+                x_block.Update(x_scalar.GetData(), BlockOper.Offsets());
+                y_block.Update(y_scalar.GetData(), BlockOper.Offsets());
                 
                 // Approximately invert (0,0) block 
-                IRKOper.ImplicitPrec(prec00_idx, x_block.GetBlock(0), y_block.GetBlock(0));
+                BlockOper.IRKOper.ImplicitPrec(prec00_idx, x_block.GetBlock(0), y_block.GetBlock(0));
                 
                 // Form RHS of next system, temp <- x(1) - C*y(0)
                 temp_scalar = x_block.GetBlock(1);
                 // MASS MATRIX
-                if (IRKOper.isImplicit()) {
-                    IRKOper.ImplicitMult(y_block.GetBlock(0), y_block.GetBlock(1));
+                if (BlockOper.IRKOper.isImplicit()) {
+                    BlockOper.IRKOper.ImplicitMult(y_block.GetBlock(0), y_block.GetBlock(1));
                     temp_scalar.Add(-R10, y_block.GetBlock(1));
                 // NO MASS MATRIX    
                 } else {
                     temp_scalar.Add(-R10, y_block.GetBlock(0));
                 }    
-                IRKOper.AddExplicitGradientMultInnerProduct(-dt, Z10, y_block.GetBlock(0), temp_scalar);
+                BlockOper.IRKOper.AddExplicitGradientMultInnerProduct(-BlockOper.GetTimeStep(), Y10, 
+                                                            y_block.GetBlock(0), temp_scalar);
                 
                 // Approximately invert (1,1) block
-                IRKOper.ImplicitPrec(prec11_idx, temp_scalar, y_block.GetBlock(1));
+                BlockOper.IRKOper.ImplicitPrec(prec11_idx, temp_scalar, y_block.GetBlock(1));
             }
         }
     }
@@ -1300,15 +1392,37 @@ public:
     virtual void SetOperator(const Operator &op) {  };
 };
 
+
+
 /** Jacobian is approximated to be block upper triangular. The operator
         P = (Q0^\top \otimes I) * diag[N'(u+dt*w1),...,N'(u+dt*ws)] * (Q0 \otimes I)
-    is approximated to by the block upper triangular matrix \tilde{P}, such that 
-    the approximate Jacobian
-        M \otimes R0 - \tilde{P}
-    is inverted "exactly" via backward substitution.    
+    is approximated by the block upper triangular matrix \tilde{P}, and the 
+    corresponding approximate Jacobian
+        R0 \otimes M  - \tilde{P}
+    is inverted "exactly" via backward substitution.  
+    
+    The sparsity pattern of \tilde{P} is set by `Z_solver`, and the sparsity
+    pattern of \tilde{P} that the preconditioners used to invert the diagonal 
+    blocks are assembled on is set by `Z_prec`. 
+    For example,
+        -if Z_solver.Sparsity == LUMPED, then \tilde{P} is a block diagonal matrix,
+            with each block being one of {N'(u+dt*w1),...,N'(u+dt*ws)} (the exact 
+            one is the index of the |largest| weight in Z_solver before being 
+            sparsified)
+        
+        -if Z_solver.Sparsity == DIAGONAL, then \tillde{P} is a block diagonal matrix,
+            with each block a linear combination of {N'(u+dt*w1),...,N'(u+dt*ws)}
+
+        -if Z_solver.Sparsity == DENSE, then \tillde{P} is the block upper triangular
+            matrix formed by truncating P into the block sparsity pattern of R0 \otimes M
+
+    For example, if the ith diagonal block is 1x1, then it is preconditioned by
+    applying IRKOper.SetSystem applied to
+        R0(i,i)*M - dt*{Z_prec(i,i),N'}.
+        
 
     The two types of approximation employed are:
-        1. Stage- and time-dependence is ignored, such that P is block diagonal with constant blocks
+        1. TODO: Stage- and time-dependence is ignored, such that P is block diagonal with constant blocks
         2. A block triangular approximation of P is used */
 class TriJacSolver : public Solver
 {
@@ -1317,6 +1431,10 @@ private:
     int printlevel;
     
     IRKStageOper &StageOper;
+    
+    // Sparsity pattern of \tilde{P}
+    const QuasiMatrixProduct &Z_solver;    // For solver
+    const QuasiMatrixProduct &Z_prec;      // For diagonal preconditioners
     
     Array<int> &offsets;    // Offsets for vectors with s blocks
     Array<int> offsets_1;   // Offsets for vectors with 1 block
@@ -1343,83 +1461,29 @@ private:
     // Preconditioners to assist with inversion of diagonal blocks
     Array<TriJacDiagBlockPrec *> JacDiagBlockPrec;
     
-    Array2D<Vector> Z; // Coefficients from taking outer-like product of Q^\top and Q
 public:
 
     /** General constructor, where 1x1 and 2x2 systems can use different Krylov 
         solvers.
         NOTE: To use only a single solver, requires &solver_params1==&solver_params2 */
     TriJacSolver(IRKStageOper &StageOper_, 
-                    const IRK::KrylovParams &solver_params1, const IRK::KrylovParams &solver_params2) 
+                    const IRK::KrylovParams &solver_params1, const IRK::KrylovParams &solver_params2,
+                    const QuasiMatrixProduct &Z_solver_, const QuasiMatrixProduct &Z_prec_) 
         : Solver(StageOper_.Height()),
-        printlevel(solver_params1.printlevel),
         StageOper(StageOper_),
+        Z_solver(Z_solver_), Z_prec(Z_prec_), 
+        printlevel(solver_params1.printlevel),
         offsets(StageOper_.RowOffsets()), offsets_2(0),
         x_block(StageOper_.RowOffsets()), b_block(StageOper_.RowOffsets()), 
         b_block_temp(StageOper_.RowOffsets()), x_block_temp(StageOper_.RowOffsets()), 
         y_2block(), z_2block(),
         temp_scalar1(StageOper_.RowOffsets()[1]), temp_scalar2(StageOper_.RowOffsets()[1]),
-        krylov_solver1(NULL), krylov_solver2(NULL), multiple_krylov(false),
-        Z(StageOper_.Butcher.s, StageOper_.Butcher.s)
-    {    
+        krylov_solver1(NULL), krylov_solver2(NULL), multiple_krylov(false)
+    {        
         
-        // Populate Z with Vectors of coefficients
-        for (int row = 0; row < StageOper.Butcher.s; row++) {
-            for (int col = 0; col < StageOper.Butcher.s; col++) {
-                Z(row, col) = Vector(StageOper.Butcher.s);
-                for (int i = 0; i < StageOper.Butcher.s; i++) {
-                    Z(row, col)[i] = StageOper.Butcher.Q0(i, row)*StageOper_.Butcher.Q0(i, col); 
-                }
-                //Z(row, col).Print();
-            }
-        }
-        
-        
-        /** TODO: Set up some kind of strategy here to sparsify Z. We probably
-            want to truncate the lower triangular entries, and maybe we truncate 
-            the upper triangular parts too */
-        
-        
-        //// Set's all but diagonal entries equal to zero
-        for (int row = 0; row < StageOper.Butcher.s; row++) {
-            for (int col = 0; col < StageOper.Butcher.s; col++) {
-                if (row != col) {
-                    for (int i = 0; i < StageOper.Butcher.s; i++) {
-                        Z(row, col)[i] = 0.; 
-                    }
-                }
-            }            
-        } 
-        
-        //// Set's all but largest diagonal entry to zero, and replaces it with unity 
-        // for (int row = 0; row < StageOper.Butcher.s; row++) {
-        //     for (int col = 0; col < StageOper.Butcher.s; col++) {
-        //         //Z(row,col).Print();
-        //         if (row != col) {
-        //             for (int i = 0; i < StageOper.Butcher.s; i++) {
-        //                 Z(row, col)[i] = 0.; 
-        //             }
-        //         } else {
-        //             for (int i = 0; i < StageOper.Butcher.s; i++) {
-        //                 Z(row, col)[i] = fabs(Z(row, col)[i]);
-        //             }
-        //             int maxidx = 0;
-        //             double max = Z(row, col)[0];
-        //             for (int i = 1; i < StageOper.Butcher.s; i++) {
-        //                 if (Z(row, col)[i] > max) {
-        //                     Z(row, col)[maxidx] = 0.;
-        //                     maxidx = i;
-        //                 } else {
-        //                     Z(row, col)[i] = 0.;
-        //                 }
-        //             }
-        //             Z(row,col)[maxidx] = 1.;
-        //         }
-        //         //Z(row,col).Print();
-        //         //std::cout << '\n';
-        //     }
-        // }   
-            
+        // Z_solver.Print();
+        // mfem::out << "\n\n";
+        // Z_prec.Print();
         
         // Create offset arrays for 1x1 and 2x2 operators
         offsets.GetSubArray(0, 2, offsets_1);
@@ -1444,8 +1508,8 @@ public:
             if (size[block] == 1) {
                 size1_solves = true;
                 R00 = StageOper.Butcher.R0(row,row);
-                JacDiagBlock[block]     = new TriJacDiagBlock(offsets_1, *(StageOper.IRKOper), R00, Z(row,row));    
-                JacDiagBlockPrec[block] = new TriJacDiagBlockPrec(offsets_1, *(StageOper.IRKOper), identity);
+                JacDiagBlock[block]     = new TriJacDiagBlock(offsets_1, *(StageOper.IRKOper), R00, Z_solver(row,row));    
+                JacDiagBlockPrec[block] = new TriJacDiagBlockPrec(*(JacDiagBlock[block]), identity);
             
             // 2x2 diagonal block spanning rows=(row,row+1),cols=(row,row+1)
             } else if (size[block] == 2) {
@@ -1456,10 +1520,10 @@ public:
                 R11 = StageOper.Butcher.R0(row+1,row+1);
                 JacDiagBlock[block]     = new TriJacDiagBlock(offsets_2, *(StageOper.IRKOper), 
                                                 R00, R01, R10, R11, 
-                                                Z(row,row), Z(row,row+1), Z(row+1,row), Z(row+1,row+1));
-                JacDiagBlockPrec[block] = new TriJacDiagBlockPrec(offsets_2, *(StageOper.IRKOper),
+                                                Z_solver(row,row), Z_solver(row,row+1), Z_solver(row+1,row), Z_solver(row+1,row+1));
+                JacDiagBlockPrec[block] = new TriJacDiagBlockPrec(*(JacDiagBlock[block]),
                                                 R10, 
-                                                Z(row+1,row), 
+                                                Z_prec(row+1,row), 
                                                 row,  // Precondition (row,row) block with IRKOper.ImplicitPrec(row,.,.)
                                                 row+1,// Precondition (row+1,row+1) block with IRKOper.ImplicitPrec(row+1,.,.)
                                                 identity);
@@ -1494,8 +1558,9 @@ public:
     };
     
     /// Constructor for when 1x1 and 2x2 systems use same solver
-    TriJacSolver(IRKStageOper &StageOper_, const IRK::KrylovParams &solver_params)   
-                  : TriJacSolver(StageOper_, solver_params, solver_params) {};
+    TriJacSolver(IRKStageOper &StageOper_, const IRK::KrylovParams &solver_params,
+                    const QuasiMatrixProduct &Z_solver, const QuasiMatrixProduct &Z_prec)   
+                  : TriJacSolver(StageOper_, solver_params, solver_params, Z_solver, Z_prec) {};
     
     ~TriJacSolver()
     {
@@ -1545,7 +1610,7 @@ public:
         /** Set the explicit gradients 
                 {N'} = {N'(u + dt*x[i], this->GetTime() + dt*c[i])}, i=0,...,s-1.
             Or some approximation to them */
-        StageOper.IRKOper->SetExplicitGradients(*(StageOper.u), StageOper.dt, 
+        StageOper.IRKOper->SetExplicitGradients(*(StageOper.u), StageOper.GetTimeStep(), 
                                 StageOper.GetCurrentIterate(), StageOper.Butcher.c0);
     };
     
@@ -1587,6 +1652,7 @@ public:
         Array<int> size = StageOper.Butcher.R0_block_sizes;
         bool krylov_converged;
         
+        double dt = StageOper.GetTimeStep();
         
         /** Backward substitution: Invert diagonal blocks, which are:
             -1x1 systems for y(row), or 
@@ -1601,16 +1667,15 @@ public:
             row -= size[diagBlock];
             
             // Update parameters for diagonal blocks
-            JacDiagBlock[diagBlock]->SetParameters(StageOper.dt);
-            JacDiagBlockPrec[diagBlock]->SetParameters(StageOper.dt);
+            JacDiagBlock[diagBlock]->SetTimeStep(StageOper.GetTimeStep());
             
-            // Assemble preconditioner for R(row,row)*M-dt*{Z(row,row),N'} 
-            StageOper.IRKOper->SetPreconditioner(row, StageOper.dt, R(row,row), Z(row,row));
+            // Assemble preconditioner for R(row,row)*M-dt*{Z_prec(row,row),N'} 
+            StageOper.IRKOper->SetPreconditioner(row, dt, R(row,row), Z_prec(row,row));
 
             /* Inverting 2x2 block: Assemble a 2nd preconditioner for 
-                R(row+1,row+1)*M-dt*{Z(row+1,row+1),N'} */                          
+                R(row+1,row+1)*M-dt*{Z_prec(row+1,row+1),N'} */                          
             if (size[diagBlock] == 2) {
-                StageOper.IRKOper->SetPreconditioner(row+1, StageOper.dt, R(row+1,row+1), Z(row+1,row+1));
+                StageOper.IRKOper->SetPreconditioner(row+1, dt, R(row+1,row+1), Z_prec(row+1,row+1));
             }    
             
             // Invert 1x1 diagonal block
@@ -1623,6 +1688,7 @@ public:
                 // --- Form RHS vector (this overrides z_block(row)) --- //
                 // Subtract out known information from LHS of equations
                 if (row+1 < s) {
+                    /// R0 component
                     // MASS MATRIX
                     if (StageOper.IRKOper->isImplicit()) {
                         temp_scalar1.Set(-R(row,row+1), y_block.GetBlock(row+1));
@@ -1638,6 +1704,11 @@ public:
                             z_block.GetBlock(row).Add(-R(row,j), y_block.GetBlock(j));
                         }
                     }
+                    /// N' component
+                    for (int j = row+1; j < s; j++) {
+                        StageOper.IRKOper->AddExplicitGradientMultInnerProduct(
+                                                dt, Z_solver(row,j), y_block.GetBlock(j), z_block.GetBlock(row));
+                    }                        
                 }
                 
                 /* --- Solve 1x1 system --- 
@@ -1666,6 +1737,7 @@ public:
                 
                 // Subtract out known information from LHS of equations
                 if (row+2 < s) {
+                    /// R0 component
                     // MASS MATRIX
                     if (StageOper.IRKOper->isImplicit()) {
                         // First component
@@ -1687,8 +1759,17 @@ public:
                     } else {
                         for (int j = row+2; j < s; j++) {
                             z_2block.GetBlock(0).Add(-R(row,j), y_block.GetBlock(j)); // First component
-                            z_2block.GetBlock(1).Add(-R(row+1, j), y_block.GetBlock(j)); // Second component
+                            z_2block.GetBlock(1).Add(-R(row+1,j), y_block.GetBlock(j)); // Second component
                         }
+                    }
+                    
+                    /// N' component
+                    for (int j = row+2; j < s; j++) {                
+                        StageOper.IRKOper->AddExplicitGradientMultInnerProduct(
+                                                dt, Z_solver(row,j), 
+                                                dt, Z_solver(row+1,j), 
+                                                y_block.GetBlock(j), 
+                                                z_2block.GetBlock(0), z_2block.GetBlock(1));
                     }
                 }
                 
