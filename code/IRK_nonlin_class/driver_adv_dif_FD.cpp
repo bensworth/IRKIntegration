@@ -85,6 +85,8 @@ class AdvDif : public IRKOperator
 {
 private:    
 
+
+
     int dim;                    // Spatial dimension
     FDMesh &Mesh;               // Mesh on which the PDE is discretized
     
@@ -96,11 +98,19 @@ private:
     mutable Vector source, temp;// Solution independent source term & auxillary vector
 
     // Preconditioners for systems of the form B = gamma*I-dt*Jacobian
+    // Parameters used to assemble B and its preconditioner
+    struct Prec_params {
+        double gamma = 0.;
+        double dt = 0.;
+        bool JacUpToDate = false;   // Have member Jacobian/Gradients been updated since preconditioner was built?
+    };
+    mutable Array<struct Prec_params> B_params;       
     Array<HypreBoomerAMG *> B_prec; // 
     Array<HypreParMatrix *> B_mats; // Seem's like it's only safe to free matrix once preconditioner is finished with it, so need to save these...
+    map<int, int> B_hash;           // Hash table for mapping index passed with SetPreconditioner() or ImplicitPrec() to correct entries in array above
+    int B_index;                    // Index that was set with previous call to SetPreconditioner()
     AMG_params AMG;                 // AMG solver params
-    mutable bool JacobianUpdated;   // Jacobian updated since any calls to SetSystem()
-    int B_index;
+    
     
     /* Quasi-Newton */
     Array<HypreParMatrix *> Gradients; //
@@ -141,9 +151,9 @@ public:
 
     /// Precondition B*x=y <==> (\gamma*I - dt*L')*x=y 
     inline void ImplicitPrec(const Vector &x, Vector &y) const {
-        MFEM_ASSERT(B_prec[B_index], 
-            "AdvDif::ImplicitPrec() Must first set system! See SetSystem()");
-        B_prec[B_index]->Mult(x, y);
+        MFEM_ASSERT(B_prec[B_hash.at(B_index)], 
+            "AdvDif::ImplicitPrec() Must first set system! See SetPreconditioner()");
+        B_prec[B_hash.at(B_index)]->Mult(x, y);
     }
     
     
@@ -153,7 +163,7 @@ public:
             + type:  eigenvalue type, 1 = real, 2 = complex pair
         These additional parameters are to provide ways to track when
         (\gamma*M - dt*L') must be reconstructed or not to minimize setup. */
-    void SetSystem(int index, double dt, double gamma, int type);    
+    void SetPreconditioner(int index, double dt, double gamma, int type);    
     
     /** Set solver parameters fot implicit time-stepping.
         MUST be called before InitSolvers() */
@@ -170,32 +180,43 @@ public:
     HypreParMatrix * GetGradient2(const Vector &x) const;
 
     
-    /// Set explicit gradients N'(x[block], t + c[block]), block=0,...,s-1
-    void SetExplicitGradients(const BlockVector &x, Vector c);
+    /** Set the explicit gradients 
+            {N'} = {N'(u + dt*x[i], this->GetTime() + dt*c[i])}, i=0,...,s-1.
+        Or some approximation to them */
+    void SetExplicitGradients(const Vector &u, double dt, const BlockVector &x, const Vector &c);
 
     /// Compute action of `index`-th gradient operator above
     inline void ExplicitGradientMult(int index, const Vector &x, Vector &y) const { 
         MFEM_ASSERT(Gradients.Size() > 0, 
             "AdvDif::ExplicitGradientMult() Gradients not yet set!");
+        MFEM_ASSERT(index < Gradients.Size(), 
+            "AdvDif::ExplicitGradientMult() index exceeds length of Gradients array!");    
         Gradients[index]->Mult(x, y);
     }
     
-    void SetSystem(int index, double dt, double gamma, Vector weights);
+    /** Assemble preconditioner for gamma*M - dt*{weights,N'} that's applied by
+        by calling: 
+            1. ImplicitPrec(.,.) if no further calls to SetPreconditioner() are made
+            2. ImplicitPrec(index,.,.) */
+    void SetPreconditioner(int index, double dt, double gamma, Vector weights);
     
-    inline void ImplicitPrec(int index_offset, const Vector &x, Vector &y) const {
-        MFEM_ASSERT(B_prec[B_index + index_offset], 
-            "AdvDif::ImplicitPrec() Must first set system! See SetSystem()");
-        B_prec[B_index + index_offset]->Mult(x, y);
+    /// Precondition (\gamma*M - dt*{weights,N'}) with given index
+    inline void ImplicitPrec(int index, const Vector &x, Vector &y) const {
+        MFEM_ASSERT(B_prec[B_hash.at(index)], 
+            "AdvDif::ImplicitPrec() Must first set system! See SetPreconditioner()");
+        B_prec[B_hash.at(index)]->Mult(x, y);
     }
 };
 
 
-/// Populate Gradients Array 
-void AdvDif::SetExplicitGradients(const BlockVector &x, Vector c) {
-    GradientsUpdated = true;
+/** Set the explicit gradients 
+        {N'} = {N'(u + dt*x[i], this->GetTime() + dt*c[i])}, i=0,...,s-1.
+    Or some approximation to them */
+void AdvDif::SetExplicitGradients(const Vector &u, double dt, const BlockVector &x, const Vector &c) {
     
     int s = c.Size();
-    // Free existing gradients
+    
+    // Free existing gradient operators
     if (Gradients.Size() > 0) {
         for (int i = 0; i < s; i++) {
             if (Gradients[i]) delete Gradients[i];
@@ -206,11 +227,16 @@ void AdvDif::SetExplicitGradients(const BlockVector &x, Vector c) {
         Gradients.SetSize(s);
     }
     
+    
     double t0 = this->GetTime();
+    
     for (int i = 0; i < s; i++) {
-        this->SetTime(t0 + c(i));
-        Gradients[i] = GetGradient2(x.GetBlock(i));
+        this->SetTime(t0 + dt*c(i));
+        add(u, dt, x.GetBlock(i), temp); // temp <- u + dt*x(i)
+        Gradients[i] = GetGradient2(temp);
     }
+    
+    // Reset self to my original time
     this->SetTime(t0);
 }
 
@@ -651,9 +677,9 @@ AdvDif::AdvDif(FDMesh &Mesh_, int fluxID, Vector alpha_, Vector mu_,
         alpha(alpha_), mu(mu_),
         dim(Mesh_.m_dim),
         D(NULL), A(NULL),
-        B_prec(), B_mats(), B_index{0}, AMG(), 
+        B_params(), B_prec(), B_mats(), B_index{0}, AMG(), 
         Gradients(), GradientsUpdated(false),
-        Jacobian(NULL), identity(NULL), JacobianUpdated(false),
+        Jacobian(NULL), identity(NULL),
         source(Mesh_.GetLocalSize()), temp(Mesh_.GetLocalSize())
 {
     // Assemble diffusion operator if non-zero
@@ -695,7 +721,7 @@ void AdvDif::Mult(const Vector &u, Vector &du_dt) const
 // the components that are added
 HypreParMatrix &AdvDif::GetExplicitGradient(const Vector &x) const {
     if (Jacobian) delete Jacobian;
-    JacobianUpdated = true;
+    for (int i = 0; i < B_params.Size(); i++) B_params[i].JacUpToDate = false;
     Jacobian = GetGradient2(x);
     return *Jacobian;
 }
@@ -723,31 +749,41 @@ HypreParMatrix * AdvDif::GetGradient2(const Vector &x) const {
         + type:  eigenvalue type, 1 = real, 2 = complex pair
     These additional parameters are to provide ways to track when
     (\gamma*M - dt*L') must be reconstructed or not to minimize setup. */
-void AdvDif::SetSystem(int index, double dt, double gamma, int type) {
-    MFEM_ASSERT(Jacobian, "AdvDif::SetSystem() Jacobian not yet set!");
-    
+void AdvDif::SetPreconditioner(int index, double dt, double gamma, int type) {
+    MFEM_ASSERT(Jacobian, "AdvDif::SetPreconditioner() Jacobian not yet set!");
+
+    // Update B_index
     B_index = index;
+
+    // Preconditioner previously created with this index. Free it.
+    if (B_hash.count(index) > 0) {
     
-    // If Jacobian has been updated since last call to this function, delete all
-    // existing preconditioners used existing Jacobian.
-    if (JacobianUpdated) {
-        for (int i = 0; i < B_prec.Size(); i++) {
-            delete B_prec[i]; 
-            B_prec[i] = NULL;
-            delete B_mats[i];
-            B_mats[i] = NULL;
-        }
-        JacobianUpdated = false;
-    }
-    
-    // Make space for new preconditioner to be built 
-    if (index >= B_prec.Size()) {
+        // Only remove if: dt, gamma have changed, or if Jacobian has been updated
+        if (B_params[B_hash[index]].dt != dt || 
+            B_params[B_hash[index]].gamma != gamma ||
+            !B_params[B_hash[index]].JacUpToDate) { 
+            delete B_prec[B_hash[index]];
+            B_prec[B_hash[index]] = NULL;
+            delete B_mats[B_hash[index]];
+            B_mats[B_hash[index]] = NULL;
+        }    
+        
+    /*  No preconditioner previously built with this index. Create space for a 
+        new one. */
+    } else {
         B_prec.Append(NULL);
         B_mats.Append(NULL);
-    }
+        B_hash[index] = B_prec.Size()-1;
+        B_params.Append(Prec_params()); 
+    }    
     
     // Build a new preconditioner 
-    if (!B_prec[index]) {
+    if (!B_prec[B_hash[index]]) {
+        
+        // Update parameters struct
+        B_params[B_hash[index]].dt = dt;
+        B_params[B_hash[index]].gamma = gamma;
+        B_params[B_hash[index]].JacUpToDate = true;
         
         // Assemble identity matrix 
         if (!identity) identity = (A) ? A->GetHypreParIdentityMatrix() : D->GetHypreParIdentityMatrix();
@@ -776,40 +812,52 @@ void AdvDif::SetSystem(int index, double dt, double gamma, int type) {
             amg_solver->SetAggressiveCoarsening(AMG.agg_coarsening); 
         }  
         
-        B_prec[index] = amg_solver;
-        B_mats[index] = B;
+        // Store pointers for AMG solver and matrix in Arrays
+        B_prec[B_hash[index]] = amg_solver;
+        B_mats[B_hash[index]] = B;
     }
 }
 
 
-/** Ensures that this->ImplicitPrec() preconditions (\gamma*M - dt*{weights}*{N'}) */
-void AdvDif::SetSystem(int index, double dt, double gamma, Vector weights) {
+/** Assemble preconditioner for (\gamma*I - dt*{weights}*{N'}) 
+    and set B_index = index */
+void AdvDif::SetPreconditioner(int index, double dt, double gamma, Vector weights) {
     MFEM_ASSERT(Gradients.Size() > 0, 
-        "AdvDif::ExplicitGradientMult() Gradients not yet set!");
+        "AdvDif::SetPreconditioner() Gradients not yet set!");
 
+    // Update B_index
     B_index = index;
 
-    // If Jacobian has been updated since last call to this function, delete all
-    // existing preconditioners used existing Jacobian.
-    if (GradientsUpdated) {
-        for (int i = 0; i < B_prec.Size(); i++) {
-            delete B_prec[i]; 
-            B_prec[i] = NULL;
-            delete B_mats[i];
-            B_mats[i] = NULL;
+    // Preconditioner previously created with this index. Free it.
+    if (B_hash.count(index) > 0) {
+        
+        // Only remove if: dt, gamma have changed, or if Gradients have been updated
+        if (B_params[B_hash[index]].dt != dt || 
+            B_params[B_hash[index]].gamma != gamma ||
+            !B_params[B_hash[index]].JacUpToDate) { 
+            delete B_prec[B_hash[index]];
+            B_prec[B_hash[index]] = NULL;
+            delete B_mats[B_hash[index]];
+            B_mats[B_hash[index]] = NULL;
         }
-        GradientsUpdated = false;
-    }
-
-    // Make space for new preconditioner to be built 
-    if (index >= B_prec.Size()) {
+        
+    /*  No preconditioner previously built with this index. Create space for a 
+        new one. */
+    } else {
         B_prec.Append(NULL);
         B_mats.Append(NULL);
-    }
-
+        B_hash[index] = B_prec.Size()-1;
+        B_params.Append(Prec_params()); 
+    }   
+    
+    
     // Build a new preconditioner 
-    if (!B_prec[index]) {
-
+    if (!B_prec[B_hash[index]]) {
+        // Update parameters struct
+        B_params[B_hash[index]].dt = dt;
+        B_params[B_hash[index]].gamma = gamma;
+        B_params[B_hash[index]].JacUpToDate = true;
+            
         // Assemble identity matrix 
         if (!identity) identity = (A) ? A->GetHypreParIdentityMatrix() : D->GetHypreParIdentityMatrix();
 
@@ -842,8 +890,9 @@ void AdvDif::SetSystem(int index, double dt, double gamma, Vector weights) {
             amg_solver->SetAggressiveCoarsening(AMG.agg_coarsening); 
         }  
 
-        B_prec[index] = amg_solver;
-        B_mats[index] = B;
+        // Store pointers for AMG solver and matrix in Arrays
+        B_prec[B_hash[index]] = amg_solver;
+        B_mats[B_hash[index]] = B;
     }    
 }
 
