@@ -120,6 +120,8 @@ IRK::~IRK() {
 /// Build linear solver
 void IRK::SetSolver()
 {
+    if (m_krylov) return;
+
     switch (m_krylov_params.solver) {
         case KrylovMethod::CG:
             m_krylov = new CGSolver(m_comm);
@@ -158,6 +160,8 @@ void IRK::Init(TimeDependentOperator &F)
     m_rhs.SetSize(F.Height(), mem_type);
     m_temp1.SetSize(F.Height(), mem_type);
     m_temp2.SetSize(F.Height(), mem_type);
+
+    SetSolver();
 }
 
 /** Apply RK update to take x from t to t+dt,
