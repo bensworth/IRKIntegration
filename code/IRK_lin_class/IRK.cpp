@@ -2,18 +2,18 @@
 #include <iostream>
 #include <fstream>
 #include <map>
-#include <iomanip> 
-#include <cmath> 
+#include <iomanip>
+#include <cmath>
 
 
 /* TODO:
- 
+
 OK questions for BS (and general thoughts):
     - Do we want to add other Butcher tableaux than are already there?
         + I think we have plenty right now, Gauss and Radau were the important
         ones, and L-stable SDIRK to compare.
 
-    - You mentioned previously computing the eigenvalues of A using 
+    - You mentioned previously computing the eigenvalues of A using
     MFEM, but Will said this would require compiling MFEM with LAPACK enabled.
     Did you still want to move in this direction, or just do what we have at the
     moment? I'm just wondering because at the moment we've implemented A0
@@ -30,14 +30,14 @@ OK questions for BS (and general thoughts):
         done. I'm finding right now with a PR for AIR to MFEM they are kind
         of picky and also seem to prefer having stuff builtin rather than too
         many options for the user, so probably easiest to wait on that. For
-        our paper purposes, we have everything we need. 
-        
+        our paper purposes, we have everything we need.
+
     - The coefficients of the polynomials defined by (d0 \otimes I) * adj(M_s)
     are very lengthy for moderate s (e.g., see how long they are for s = 5 in IRK::SetWeightedAdjCoeffs()).
     I don't really know if this is an issue or not, e.g., I doubt it actually
-    takes much time to execute these expressions (which is done once only once at the 
-    start of the run), but depending on what direction you want to move in, there's 
-    the option of precomputing and storing these for each method (then we don't have 
+    takes much time to execute these expressions (which is done once only once at the
+    start of the run), but depending on what direction you want to move in, there's
+    the option of precomputing and storing these for each method (then we don't have
     to store A, A^{-1} and d0)
         + It's an interesting idea. The computation is of fairly trivial expense and
         memory use, so it's not really a big deal. It might be more accurate if we
@@ -46,48 +46,48 @@ OK questions for BS (and general thoughts):
         could be provided an arbitrary tableaux (here) and the other half uses
         built in precomputed values (storing A0 and d). I am thinking we should keep
         the analytic form somewhere (e.g., in a branch), but maybe supply the
-        coefficientes precomputed in our main development? 
-        
-    - Just a thought relating to the above in terms of the direction of/generalizing the code. 
-    It'd be nice if we have a bunch of Butcher tableaux implemented, but also  
+        coefficientes precomputed in our main development?
+
+    - Just a thought relating to the above in terms of the direction of/generalizing the code.
+    It'd be nice if we have a bunch of Butcher tableaux implemented, but also
     allow the user to provide their own, so maybe we can just have a Python script
-    (or MATLAB, but maybe not since it's not open source), where the user can provide 
-    their own tableau, then the script computes the relevant data from it 
+    (or MATLAB, but maybe not since it's not open source), where the user can provide
+    their own tableau, then the script computes the relevant data from it
     (eigenvalues and coefficients of {X_j}), then we just read this into the C++
     code at run time?
         + Yea, I think that's a good idea. Easy to add a funciton that just takes
         those coefficients. Wonder if we can compute in very high precision in python?
         As I mentioned before, I think for high order schemes, we want inverses and
-        eigenvalues as accurate as possible. I would say put this lower on the 
+        eigenvalues as accurate as possible. I would say put this lower on the
         priority list though, more of something to provide w/ a paper when we
-        get to seriously writing.  
+        get to seriously writing.
 */
 
 
 /// Constructor
 IRK::IRK(IRKOperator *IRKOper_, RKData::Type RK_ID_)
         : m_IRKOper(IRKOper_), m_Butcher(RK_ID_),
-        m_CharPolyPrec(*IRKOper_), m_CharPolyOper(), 
+        m_CharPolyPrec(*IRKOper_), m_CharPolyOper(),
         m_krylov(NULL), m_comm{IRKOper_->GetComm()}
 {
     // Get proc IDs
     MPI_Comm_rank(m_comm, &m_rank);
     MPI_Comm_size(m_comm, &m_numProcess);
-    
+
     // This stream will only print from process 0
     if (m_rank > 0) mfem::out.Disable();
-    
+
     // Set coefficients of polynomials {X_j}
-    SetWeightedAdjCoeffs();      
-    
+    SetWeightedAdjCoeffs();
+
     // Create object for every characteristic polynomial factor to be inverted
-    m_CharPolyOper.SetSize(m_Butcher.s_eff); 
-    
+    m_CharPolyOper.SetSize(m_Butcher.s_eff);
+
     // Initialize solver statistics the user might retrieve later
     m_avg_iter.resize(m_CharPolyOper.Size(), 0);
     m_degree.resize(m_CharPolyOper.Size());
     m_eig_ratio.resize(m_CharPolyOper.Size(), 0.0);
-    
+
     // Linear factors (degree 1)
     double dt_dummy = -1.0; // Use dummy dt, will be set properly before inverting factor.
     int count = 0;
@@ -102,17 +102,17 @@ IRK::IRK(IRKOperator *IRKOper_, RKData::Type RK_ID_)
         m_degree[count] = 2;
         m_eig_ratio[count] = m_Butcher.beta(i)/m_Butcher.eta(i);
         count++;
-    } 
+    }
 }
 
 /// Destructor
 IRK::~IRK() {
     for (int i = 0; i < m_CharPolyOper.Size(); i++) {
-        delete m_CharPolyOper[i];    
+        delete m_CharPolyOper[i];
         m_CharPolyOper[i] = NULL;
     }
     m_CharPolyOper.SetSize(0);
-    
+
     if (m_krylov) delete m_krylov;
 }
 
@@ -141,9 +141,9 @@ void IRK::SetSolver()
             static_cast<FGMRESSolver*>(m_krylov)->SetKDim(m_krylov_params.kdim);
             break;
         default:
-            mfem_error("IRK::Invalid KrylovMethod.\n");   
+            mfem_error("IRK::Invalid KrylovMethod.\n");
     }
-    
+
     m_krylov->SetRelTol(m_krylov_params.reltol);
     m_krylov->SetAbsTol(m_krylov_params.abstol);
     m_krylov->SetMaxIter(m_krylov_params.maxiter);
@@ -154,7 +154,7 @@ void IRK::SetSolver()
 
 /// Call base class' init and size member vectors
 void IRK::Init(TimeDependentOperator &F)
-{    
+{
     ODESolver::Init(F);
     m_sol.SetSize(F.Height(), mem_type);
     m_rhs.SetSize(F.Height(), mem_type);
@@ -169,67 +169,67 @@ void IRK::Init(TimeDependentOperator &F)
           = x + dt*sol */
 void IRK::Step(Vector &x, double &t, double &dt)
 {
-    // Set RHS vector, m_rhs 
-    ConstructRHS(x, t, dt, m_rhs); 
+    // Set RHS vector, m_rhs
+    ConstructRHS(x, t, dt, m_rhs);
     // Scale RHS of system by mass matrix M
     if (m_IRKOper->isImplicit()) {
         m_IRKOper->ImplicitMult(m_rhs, m_temp1);
         m_rhs = m_temp1;
-    }   
-    
+    }
+
     /* Sequentially invert factors in characteristic polynomial */
     for (int factor = 0; factor < m_CharPolyOper.Size(); factor++) {
         // Print info about system being solved
         if (m_krylov_params.printlevel > 0) {
-            mfem::out << "  System " << factor+1 << " of " << m_CharPolyOper.Size() 
+            mfem::out << "  System " << factor+1 << " of " << m_CharPolyOper.Size()
                       << " (degree=" << m_CharPolyOper[factor]->Degree() << "):  ";
             if (m_krylov_params.printlevel != 2) mfem::out << '\n';
         }
-        
+
         // Ensure current factor uses correct time step
         m_CharPolyOper[factor]->SetTimeStep(dt);
 
         // Set operator and preconditioner for current factor
         m_CharPolyPrec.SetDegree(m_CharPolyOper[factor]->Degree());
-        m_IRKOper->SetSystem(factor, dt, m_CharPolyOper[factor]->Gamma(), 
+        m_IRKOper->SetSystem(factor, dt, m_CharPolyOper[factor]->Gamma(),
                                 m_CharPolyOper[factor]->Degree());
         m_krylov->SetPreconditioner(m_CharPolyPrec);
-        m_krylov->SetOperator(*(m_CharPolyOper[factor]));    
-                
+        m_krylov->SetOperator(*(m_CharPolyOper[factor]));
+
         // Invert current factor, m_sol <- factor^{-1} * m_rhs
-        m_krylov->Mult(m_rhs, m_sol); 
-        
-        // Check for convergence 
+        m_krylov->Mult(m_rhs, m_sol);
+
+        // Check for convergence
         if (!m_krylov->GetConverged()) {
-            string msg = "IRK::Step() Krylov solver at t=" + to_string(t) 
-                            + " not converged [system " 
-                            + to_string(factor+1) + "/" + to_string(m_CharPolyOper.Size()) 
+            string msg = "IRK::Step() Krylov solver at t=" + to_string(t)
+                            + " not converged [system "
+                            + to_string(factor+1) + "/" + to_string(m_CharPolyOper.Size())
                             + " (degree=" + to_string(m_CharPolyOper[factor]->Degree()) + ")\n";
             mfem_error(msg.c_str());
         }
-        
+
         // Record number of iterations
         m_avg_iter[factor] += m_krylov->GetNumIterations();
-        
+
         // Solution becomes the RHS for the next factor
         if (factor < m_CharPolyOper.Size()-1) {
-            // Scale RHS of new system by M        
+            // Scale RHS of new system by M
             if (m_IRKOper->isImplicit()) {
                 m_IRKOper->ImplicitMult(m_sol, m_rhs);
             } else {
-                m_rhs = m_sol; 
+                m_rhs = m_sol;
             }
         }
     }
 
-    // Update solution vector with weighted sum of stage vectors        
+    // Update solution vector with weighted sum of stage vectors
     x.Add(dt, m_sol);// x <- x + dt*m_sol
     t += dt;         // Time that current x is evaulated at
 }
 
-/// Time step 
-void IRK::Run(Vector &x, double &t, double &dt, double tf) 
-{    
+/// Time step
+void IRK::Run(Vector &x, double &t, double &dt, double tf)
+{
     // Build Krylov solver
     if (!m_krylov) SetSolver();
 
@@ -243,7 +243,7 @@ void IRK::Run(Vector &x, double &t, double &dt, double tf)
         // Step from t to t+dt
         Step(x, t, dt);
     }
-    
+
     // Average out number of Krylov iters over whole of time stepping
     for (int i = 0; i < m_avg_iter.size(); i++) m_avg_iter[i] = round(m_avg_iter[i] / double(numsteps));
 }
@@ -253,40 +253,40 @@ void IRK::Run(Vector &x, double &t, double &dt, double tf)
 /** Construct right-hand side vector for IRK integration, including applying
     the block Adjugate and Butcher inverse */
 void IRK::ConstructRHS(const Vector &x, double t, double dt, Vector &rhs) {
-    
+
     rhs = 0.0;
     for (int i = 0; i < m_Butcher.s; i++) {
         // Compute m_temp1 <- M^{-1}*[L*x + g(t+c(i)*dt)]
-        m_IRKOper->SetTime(t + dt*m_Butcher.c0(i)); 
-        m_IRKOper->Mult(x, m_temp1); 
-        
+        m_IRKOper->SetTime(t + dt*m_Butcher.c0(i));
+        m_IRKOper->Mult(x, m_temp1);
+
         // Add temp2 <- X_i(dt*M^{-1}*L)*m_temp1 to rhs
-        m_IRKOper->PolynomialMult(m_weightedAdjCoeffs[i], dt, m_temp1, m_temp2); 
+        m_IRKOper->PolynomialMult(m_weightedAdjCoeffs[i], dt, m_temp1, m_temp2);
         rhs += m_temp2;
     }
 }
 
 /** Set dimensions of data structures */
 void RKData::SizeData() {
-    
+
     // Basic `Butcher Tableau` data
     A0.SetSize(s);
     invA0.SetSize(s);
     b0.SetSize(s);
     c0.SetSize(s);
-    d0.SetSize(s); 
-    
+    d0.SetSize(s);
+
     // NOTE:
     //     s := 2*n(cc_eig_pairs) + n(r_eigs)
     // s_eff := n(cc_eig_pairs) + n(r_eigs)
     // ==>  n(cc_eig_pairs) = s - s_eff
-    // ==>  n(r_eigs) = 2*s_eff - s    
+    // ==>  n(r_eigs) = 2*s_eff - s
     zeta.SetSize(2*s_eff-s);
     beta.SetSize(s-s_eff);
     eta.SetSize(s-s_eff);
-    Q0.SetSize(s);  
-    R0.SetSize(s);  
-    R0_block_sizes.SetSize(s_eff); 
+    Q0.SetSize(s);
+    R0.SetSize(s);
+    R0_block_sizes.SetSize(s_eff);
 }
 
 
@@ -334,7 +334,7 @@ void RKData::SetData() {
             R0(1, 1) = +1.267949192431123;
             /* --- R block sizes --- */
             R0_block_sizes[0] = 1;
-            R0_block_sizes[1] = 1;        
+            R0_block_sizes[1] = 1;
         // 3-stage 4th-order A-stable SDIRK
         case Type::ASDIRK4:
             s = 3;
@@ -1466,7 +1466,7 @@ void RKData::SetData() {
             s = 3;
             s_eff = 2;
             SizeData();
-            
+
             /* --- A --- */
             A0(0, 0) = +0.166666666666667;
             A0(0, 1) = -0.333333333333333;
@@ -1773,57 +1773,57 @@ void RKData::SetData() {
 
         default:
             mfem_error("RKData:: Invalid Runge Kutta type.\n");
-    }    
+    }
 }
 
-/* Given the precomputed vector m_Butcher.d0, and the matrix m_Butcher.invA0, 
+/* Given the precomputed vector m_Butcher.d0, and the matrix m_Butcher.invA0,
 compute and store coefficients of the polynomials {X_j}_{j=1}^s */
 void IRK::SetWeightedAdjCoeffs() {
-        
+
     // Size data. There are s degree s-1 polynomials X_j (they each have s coefficients)
     m_weightedAdjCoeffs.resize(m_Butcher.s, Vector(m_Butcher.s));
-    
-    // TODO: If using MFEM::Array rather than std::vector for m_weightedAdjCoeffs (which is what I'd rather use), 
+
+    // TODO: If using MFEM::Array rather than std::vector for m_weightedAdjCoeffs (which is what I'd rather use),
     // this should be the following, but it gives compiler warning that i cannot seem to get rid of (the code still works tho)...
     //m_weightedAdjCoeffs.SetSize(m_Butcher.s, Vector(m_Butcher.s));
-        
+
     /* Shallow copy inv(A0) and d0 so the following formulae appear shorter */
     DenseMatrix Y = m_Butcher.invA0;
     Vector      z = m_Butcher.d0;
-    
+
     if (m_Butcher.s == 1) {
         /* s=1: Coefficients for polynomial X_{1}(z) */
-        m_weightedAdjCoeffs[0][0] = +z(0);    
+        m_weightedAdjCoeffs[0][0] = +z(0);
     }
     else if (m_Butcher.s == 2) {
         /* s=2: Coefficients for polynomial X_{1}(z) */
         m_weightedAdjCoeffs[0][0] = +Y(1,1)*z(0)-Y(1,0)*z(1);
         m_weightedAdjCoeffs[0][1] = -z(0);
-        
+
         /* s=2: Coefficients for polynomial X_{2}(z) */
         m_weightedAdjCoeffs[1][0] = +Y(0,0)*z(1)-Y(0,1)*z(0);
         m_weightedAdjCoeffs[1][1] = -z(1);
     }
-    else if (m_Butcher.s == 3) {    
+    else if (m_Butcher.s == 3) {
         /* s=3: Coefficients for polynomial X_{1}(z) */
         m_weightedAdjCoeffs[0][0] = +z(2)*(Y(1,0)*Y(2,1)-Y(1,1)*Y(2,0))-z(1)*(Y(1,0)*Y(2,2)
                             -Y(1,2)*Y(2,0))+z(0)*(Y(1,1)*Y(2,2)-Y(1,2)*Y(2,1));
         m_weightedAdjCoeffs[0][1] = +Y(1,0)*z(1)+Y(2,0)*z(2)-z(0)*(Y(1,1)+Y(2,2));
         m_weightedAdjCoeffs[0][2] = +z(0);
-        
+
         /* s=3: Coefficients for polynomial X_{2}(z) */
         m_weightedAdjCoeffs[1][0] = +z(1)*(Y(0,0)*Y(2,2)-Y(0,2)*Y(2,0))-z(2)*(Y(0,0)*Y(2,1)
                             -Y(0,1)*Y(2,0))-z(0)*(Y(0,1)*Y(2,2)-Y(0,2)*Y(2,1));
         m_weightedAdjCoeffs[1][1] = +Y(0,1)*z(0)+Y(2,1)*z(2)-z(1)*(Y(0,0)+Y(2,2));
         m_weightedAdjCoeffs[1][2] = +z(1);
-        
+
         /* s=3: Coefficients for polynomial X_{3}(z) */
         m_weightedAdjCoeffs[2][0] = +z(2)*(Y(0,0)*Y(1,1)-Y(0,1)*Y(1,0))-z(1)*(Y(0,0)*Y(1,2)
                             -Y(0,2)*Y(1,0))+z(0)*(Y(0,1)*Y(1,2)-Y(0,2)*Y(1,1));
         m_weightedAdjCoeffs[2][1] = +Y(0,2)*z(0)+Y(1,2)*z(1)-z(2)*(Y(0,0)+Y(1,1));
-        m_weightedAdjCoeffs[2][2] = +z(2);    
+        m_weightedAdjCoeffs[2][2] = +z(2);
     }
-    else if (m_Butcher.s == 4) {    
+    else if (m_Butcher.s == 4) {
         /* s=4: Coefficients for polynomial X_{1}(z) */
         m_weightedAdjCoeffs[0][0] = +z(2)*(Y(1,0)*Y(2,1)*Y(3,3)-Y(1,0)*Y(2,3)*Y(3,1)-Y(1,1)*Y(2,0)*Y(3,3)+Y(1,1)*Y(2,3)*Y(3,0)
                             +Y(1,3)*Y(2,0)*Y(3,1)-Y(1,3)*Y(2,1)*Y(3,0))-z(3)*(Y(1,0)*Y(2,1)*Y(3,2)-Y(1,0)*Y(2,2)
@@ -1838,7 +1838,7 @@ void IRK::SetWeightedAdjCoeffs() {
                             -Y(1,1)*Y(3,0)+Y(2,0)*Y(3,2)-Y(2,2)*Y(3,0));
         m_weightedAdjCoeffs[0][2] = +z(0)*(Y(1,1)+Y(2,2)+Y(3,3))-Y(2,0)*z(2)-Y(3,0)*z(3)-Y(1,0)*z(1);
         m_weightedAdjCoeffs[0][3] = -z(0);
-        
+
         /* s=4: Coefficients for polynomial X_{2}(z) */
         m_weightedAdjCoeffs[1][0] = +z(3)*(Y(0,0)*Y(2,1)*Y(3,2)-Y(0,0)*Y(2,2)*Y(3,1)-Y(0,1)*Y(2,0)*Y(3,2)+Y(0,1)*Y(2,2)*Y(3,0)
                             +Y(0,2)*Y(2,0)*Y(3,1)-Y(0,2)*Y(2,1)*Y(3,0))-z(2)*(Y(0,0)*Y(2,1)*Y(3,3)-Y(0,0)*Y(2,3)
@@ -1853,7 +1853,7 @@ void IRK::SetWeightedAdjCoeffs() {
                             -Y(0,1)*Y(3,0)-Y(2,1)*Y(3,2)+Y(2,2)*Y(3,1));
         m_weightedAdjCoeffs[1][2] = +z(1)*(Y(0,0)+Y(2,2)+Y(3,3))-Y(2,1)*z(2)-Y(3,1)*z(3)-Y(0,1)*z(0);
         m_weightedAdjCoeffs[1][3] = -z(1);
-        
+
         /* s=4: Coefficients for polynomial X_{3}(z) */
         m_weightedAdjCoeffs[2][0] = +z(2)*(Y(0,0)*Y(1,1)*Y(3,3)-Y(0,0)*Y(1,3)*Y(3,1)-Y(0,1)*Y(1,0)*Y(3,3)+Y(0,1)*Y(1,3)*Y(3,0)
                             +Y(0,3)*Y(1,0)*Y(3,1)-Y(0,3)*Y(1,1)*Y(3,0))-z(3)*(Y(0,0)*Y(1,1)*Y(3,2)-Y(0,0)*Y(1,2)
@@ -1867,7 +1867,7 @@ void IRK::SetWeightedAdjCoeffs() {
                             +Y(1,1)*Y(3,3)-Y(1,3)*Y(3,1))+z(3)*(Y(0,0)*Y(3,2)-Y(0,2)*Y(3,0)+Y(1,1)*Y(3,2)-Y(1,2)*Y(3,1));
         m_weightedAdjCoeffs[2][2] = +z(2)*(Y(0,0)+Y(1,1)+Y(3,3))-Y(1,2)*z(1)-Y(3,2)*z(3)-Y(0,2)*z(0);
         m_weightedAdjCoeffs[2][3] = -z(2);
-        
+
         /* s=4: Coefficients for polynomial X_{4}(z) */
         m_weightedAdjCoeffs[3][0] = +z(3)*(Y(0,0)*Y(1,1)*Y(2,2)-Y(0,0)*Y(1,2)*Y(2,1)-Y(0,1)*Y(1,0)*Y(2,2)+Y(0,1)*Y(1,2)*Y(2,0)
                             +Y(0,2)*Y(1,0)*Y(2,1)-Y(0,2)*Y(1,1)*Y(2,0))-z(2)*(Y(0,0)*Y(1,1)*Y(2,3)-Y(0,0)*Y(1,3)
@@ -1880,9 +1880,9 @@ void IRK::SetWeightedAdjCoeffs() {
                             +Y(0,2)*Y(2,3)-Y(0,3)*Y(2,2))-z(3)*(Y(0,0)*Y(1,1)-Y(0,1)*Y(1,0)+Y(0,0)*Y(2,2)-Y(0,2)*Y(2,0)
                             +Y(1,1)*Y(2,2)-Y(1,2)*Y(2,1))+z(2)*(Y(0,0)*Y(2,3)-Y(0,3)*Y(2,0)+Y(1,1)*Y(2,3)-Y(1,3)*Y(2,1));
         m_weightedAdjCoeffs[3][2] = +z(3)*(Y(0,0)+Y(1,1)+Y(2,2))-Y(1,3)*z(1)-Y(2,3)*z(2)-Y(0,3)*z(0);
-        m_weightedAdjCoeffs[3][3] = -z(3);   
+        m_weightedAdjCoeffs[3][3] = -z(3);
     }
-    else if (m_Butcher.s == 5) {    
+    else if (m_Butcher.s == 5) {
         /* s=5: Coefficients for polynomial X_{1}(z) */
         m_weightedAdjCoeffs[0][0] = +z(4)*(Y(1,0)*Y(2,1)*Y(3,2)*Y(4,3)-Y(1,0)*Y(2,1)*Y(3,3)*Y(4,2)-Y(1,0)*Y(2,2)*Y(3,1)*Y(4,3)
                             +Y(1,0)*Y(2,2)*Y(3,3)*Y(4,1)+Y(1,0)*Y(2,3)*Y(3,1)*Y(4,2)-Y(1,0)*Y(2,3)*Y(3,2)*Y(4,1)-Y(1,1)
@@ -1953,7 +1953,7 @@ void IRK::SetWeightedAdjCoeffs() {
                             *Y(3,3)-Y(2,3)*Y(3,2)+Y(2,2)*Y(4,4)-Y(2,4)*Y(4,2)+Y(3,3)*Y(4,4)-Y(3,4)*Y(4,3));
         m_weightedAdjCoeffs[0][3] = +Y(1,0)*z(1)+Y(2,0)*z(2)+Y(3,0)*z(3)+Y(4,0)*z(4)-z(0)*(Y(1,1)+Y(2,2)+Y(3,3)+Y(4,4));
         m_weightedAdjCoeffs[0][4] = +z(0);
-        
+
         /* s=5: Coefficients for polynomial X_{2}(z) */
         m_weightedAdjCoeffs[1][0] = +z(3)*(Y(0,0)*Y(2,1)*Y(3,2)*Y(4,4)-Y(0,0)*Y(2,1)*Y(3,4)*Y(4,2)-Y(0,0)*Y(2,2)*Y(3,1)*Y(4,4)+
                             Y(0,0)*Y(2,2)*Y(3,4)*Y(4,1)+Y(0,0)*Y(2,4)*Y(3,1)*Y(4,2)-Y(0,0)*Y(2,4)*Y(3,2)*Y(4,1)-Y(0,1)
@@ -2024,7 +2024,7 @@ void IRK::SetWeightedAdjCoeffs() {
                             *(Y(0,1)*Y(2,2)-Y(0,2)*Y(2,1)+Y(0,1)*Y(3,3)-Y(0,3)*Y(3,1)+Y(0,1)*Y(4,4)-Y(0,4)*Y(4,1));
         m_weightedAdjCoeffs[1][3] = +Y(0,1)*z(0)+Y(2,1)*z(2)+Y(3,1)*z(3)+Y(4,1)*z(4)-z(1)*(Y(0,0)+Y(2,2)+Y(3,3)+Y(4,4));
         m_weightedAdjCoeffs[1][4] = +z(1);
-        
+
         /* s=5: Coefficients for polynomial X_{3}(z) */
         m_weightedAdjCoeffs[2][0] = +z(4)*(Y(0,0)*Y(1,1)*Y(3,2)*Y(4,3)-Y(0,0)*Y(1,1)*Y(3,3)*Y(4,2)-Y(0,0)*Y(1,2)*Y(3,1)*Y(4,3)
                             +Y(0,0)*Y(1,2)*Y(3,3)*Y(4,1)+Y(0,0)*Y(1,3)*Y(3,1)*Y(4,2)-Y(0,0)*Y(1,3)*Y(3,2)*Y(4,1)-Y(0,1)
@@ -2095,7 +2095,7 @@ void IRK::SetWeightedAdjCoeffs() {
                             +Y(1,1)*Y(3,3)-Y(1,3)*Y(3,1)+Y(1,1)*Y(4,4)-Y(1,4)*Y(4,1)+Y(3,3)*Y(4,4)-Y(3,4)*Y(4,3));
         m_weightedAdjCoeffs[2][3] = +Y(0,2)*z(0)+Y(1,2)*z(1)+Y(3,2)*z(3)+Y(4,2)*z(4)-z(2)*(Y(0,0)+Y(1,1)+Y(3,3)+Y(4,4));
         m_weightedAdjCoeffs[2][4] = +z(2);
-        
+
         /* s=5: Coefficients for polynomial X_{4}(z) */
         m_weightedAdjCoeffs[3][0] = +z(3)*(Y(0,0)*Y(1,1)*Y(2,2)*Y(4,4)-Y(0,0)*Y(1,1)*Y(2,4)*Y(4,2)-Y(0,0)*Y(1,2)*Y(2,1)*Y(4,4)
                             +Y(0,0)*Y(1,2)*Y(2,4)*Y(4,1)+Y(0,0)*Y(1,4)*Y(2,1)*Y(4,2)-Y(0,0)*Y(1,4)*Y(2,2)*Y(4,1)-Y(0,1)
@@ -2166,7 +2166,7 @@ void IRK::SetWeightedAdjCoeffs() {
                             +Y(0,0)*Y(4,4)-Y(0,4)*Y(4,0)+Y(1,1)*Y(4,4)-Y(1,4)*Y(4,1)+Y(2,2)*Y(4,4)-Y(2,4)*Y(4,2));
         m_weightedAdjCoeffs[3][3] = +Y(0,3)*z(0)+Y(1,3)*z(1)+Y(2,3)*z(2)+Y(4,3)*z(4)-z(3)*(Y(0,0)+Y(1,1)+Y(2,2)+Y(4,4));
         m_weightedAdjCoeffs[3][4] = +z(3);
-        
+
         /* s=5: Coefficients for polynomial X_{5}(z) */
         m_weightedAdjCoeffs[4][0] = +z(4)*(Y(0,0)*Y(1,1)*Y(2,2)*Y(3,3)-Y(0,0)*Y(1,1)*Y(2,3)*Y(3,2)-Y(0,0)*Y(1,2)*Y(2,1)*Y(3,3)
                             +Y(0,0)*Y(1,2)*Y(2,3)*Y(3,1)+Y(0,0)*Y(1,3)*Y(2,1)*Y(3,2)-Y(0,0)*Y(1,3)*Y(2,2)*Y(3,1)-Y(0,1)
@@ -2236,14 +2236,14 @@ void IRK::SetWeightedAdjCoeffs() {
                             +z(4)*(Y(0,0)*Y(1,1)-Y(0,1)*Y(1,0)+Y(0,0)*Y(2,2)-Y(0,2)*Y(2,0)+Y(0,0)*Y(3,3)-Y(0,3)*Y(3,0)
                             +Y(1,1)*Y(2,2)-Y(1,2)*Y(2,1)+Y(1,1)*Y(3,3)-Y(1,3)*Y(3,1)+Y(2,2)*Y(3,3)-Y(2,3)*Y(3,2));
         m_weightedAdjCoeffs[4][3] = +Y(0,4)*z(0)+Y(1,4)*z(1)+Y(2,4)*z(2)+Y(3,4)*z(3)-z(4)*(Y(0,0)+Y(1,1)+Y(2,2)+Y(3,3));
-        m_weightedAdjCoeffs[4][4] = +z(4);               
-        
+        m_weightedAdjCoeffs[4][4] = +z(4);
+
     }
     else {
         string msg = "IRK::SetButcherData() Coefficients of polynomials {X_j} not implemented for s = " + to_string(m_Butcher.s) + "\n";
         mfem_error(msg.c_str());
     }
-    
+
     // Remove zero coefficients that occur if using stiffly accurate IRK scheme
     StiffAccSimplify();
 }
@@ -2251,16 +2251,16 @@ void IRK::SetWeightedAdjCoeffs() {
 
 /* Modify XCoeffs in instance of a stiffly accurate IRK scheme.
 
-This implementation relies on m_Butcher.d0 == (0.0,0.0,...,1.0) for stiffly accurate 
+This implementation relies on m_Butcher.d0 == (0.0,0.0,...,1.0) for stiffly accurate
 schemes, so there can be no rounding errors in m_Butcher.d0!
 */
 void IRK::StiffAccSimplify() {
     // Leave if first s-1 entries are not 0.0
-    for (int i = 0; i < m_Butcher.s-1; i++) if (m_Butcher.d0(i) != 0.0) return; 
-        
+    for (int i = 0; i < m_Butcher.s-1; i++) if (m_Butcher.d0(i) != 0.0) return;
+
     // Leave if last entry is not 1.0
-    if (m_Butcher.d0(m_Butcher.s-1) != 1.0) return; 
-    
+    if (m_Butcher.d0(m_Butcher.s-1) != 1.0) return;
+
     // Truncate last entry from coefficient Vectors of first s-1 polynomials
     for (int i = 0; i < m_Butcher.s-1; i++) m_weightedAdjCoeffs[i].SetSize(m_Butcher.s-1);
 }
