@@ -21,4 +21,5 @@ driver
 implementation.pdf
 irk.pdf
 code/FDadv_dif/convergence/tex/results.pdf
-code/FD_utils/*.pdf
+code/FD_utils/**/*.pdf
+code/FD_utils/**/__pycache__/
