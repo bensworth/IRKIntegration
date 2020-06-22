@@ -157,6 +157,9 @@ public:
     
     ~RKData() {};
     
+    /// Is the scheme SDIRK? Assumes SDIRK schemes have Type's < 10...
+    inline bool isSDIRK() const { return (static_cast<int>(ID) < 10); };
+    
     // Standard data required by all solvers
     int s;              // Number of stages
     int s_eff;          // Number of eigenvalues of A0 once complex conjugates have been combined

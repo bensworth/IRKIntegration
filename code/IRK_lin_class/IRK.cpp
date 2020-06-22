@@ -187,8 +187,18 @@ void IRK::Step(Vector &x, double &t, double &dt)
 
         // Set operator and preconditioner for current factor
         m_CharPolyPrec.SetDegree(m_CharPolyOper[factor]->Degree());
-        m_IRKOper->SetSystem(factor, dt, m_CharPolyOper[factor]->Gamma(), 
-                                m_CharPolyOper[factor]->Degree());
+        
+        // Ensure SetSystem is always called with the same index if SDIRK scheme
+        if (m_Butcher.isSDIRK()) {
+            // Additionally, only call it once per time step
+            if (factor == 0) { 
+                m_IRKOper->SetSystem(0, dt, m_CharPolyOper[factor]->Gamma(), 
+                                        m_CharPolyOper[factor]->Degree());
+            }                            
+        } else {
+            m_IRKOper->SetSystem(factor, dt, m_CharPolyOper[factor]->Gamma(), 
+                                    m_CharPolyOper[factor]->Degree());                                                    
+        }                        
         m_krylov->SetPreconditioner(m_CharPolyPrec);
         m_krylov->SetOperator(*(m_CharPolyOper[factor]));    
                 

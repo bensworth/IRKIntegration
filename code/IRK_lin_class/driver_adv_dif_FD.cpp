@@ -25,8 +25,8 @@ using namespace std;
         
         E.g., just doing 1 time step, 0 and 1 levels of aggressive coarsening 
         gives ~16 and ~40 GMRES iters and grid complexities of ~1.7 and ~1.2
-            mpirun -np 4 ./driver_adv_dif_FD -d 2 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -o 4 -dt -2 -t 14 -save 2 -tf 0.00001 -krtol 1e-13 -katol 1e-13 -kp 2 -ap 2 -l 8 -agg 0
-            mpirun -np 4 ./driver_adv_dif_FD -d 2 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -o 4 -dt -2 -t 14 -save 2 -tf 0.00001 -krtol 1e-13 -katol 1e-13 -kp 2 -ap 2 -l 8 -agg 1
+            mpirun -np 4 ./driver_adv_dif_FD -d 2 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -o 4 -dt -2 -t 14 -save 2 -tf 0.00001 -krtol 1e-13 -katol 1e-13 -kp 2 -ap 2 -l 8 -ag 0
+            mpirun -np 4 ./driver_adv_dif_FD -d 2 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -o 4 -dt -2 -t 14 -save 2 -tf 0.00001 -krtol 1e-13 -katol 1e-13 -kp 2 -ap 2 -l 8 -ag 1
             
         And, for example, taking a time step of dt=10*dx (-dt -10) rather than dt=2*dx (-dt -2) 
         as in the above example, the grid complexities of the two solvers remain the same as 
@@ -78,21 +78,35 @@ double Source(const Vector &x, double t);
 double PDESolution(const Vector &x, double t);
 
 
-struct AMGParams {
-    bool use_AIR = false; // TODO: AIR seems not to work so great. 
+struct AMGParams {    
+    // AIR parameters
+    bool use_AIR = false; 
     double distance = 1.5;
     string prerelax = "";
     string postrelax = "FFC";
     double strength_tolC = 0.1;
     double strength_tolR = 0.01;
     double filter_tolR = 0.0;
-    int interp_type = 100;
-    int relax_type = 0;
     double filterA_tol = 0.e-4;
-    int coarsening = 6;
-    int agg_coarsening = 0; // Number of levels of aggressive coarsening
-    int printlevel = 0;
+    // Maybe these interp. and relax are better for AIR than those below for standard AMG?
+    //int interp_type = 100; 
+    //int relax_type = 0;
+    
+    // AMG coarsening options:
+    int coarsen_type = 6;   // 10 = HMIS, 8 = PMIS, 6 = Falgout, 0 = CLJP
+    int agg_levels   = 0;    // number of aggressive coarsening levels
+    double theta     = 0.25; // strength threshold: 0.25, 0.5, 0.8
+
+    // AMG interpolation options:
+    int interp_type  = 6;    // 6 = extended+i, 0 = classical
+
+    // AMG relaxation options:
+    int relax_type   = 8;    // 8 = l1-GS, 6 = symm. GS, 3 = GS, 18 = l1-Jacobi
+
+    // Additional options:
+    int printlevel  = 0;    
 };
+
 
 /** Provides the time-dependent RHS of the ODEs after spatially discretizing the 
     PDE,
@@ -115,7 +129,13 @@ private:
     
     mutable Vector source, temp;// Solution independent source term & auxillary vector
 
-    // Preconditioners for systems of the form B = gamma*I-dt*Jacobian
+    // Preconditioners for systems of the form B = gamma*I-dt*L
+    // Parameters used to assemble B and its preconditioner
+    struct Prec_params {
+        double gamma = 0.;
+        double dt = 0.;
+    };
+    Array<struct Prec_params> B_params;
     Array<HypreBoomerAMG *> B_prec; // 
     Array<HypreParMatrix *> B_mats; // Seem's like it's only safe to free matrix once preconditioner is finished with it, so need to save these...
     AMGParams AMG;                  // AMG solver params
@@ -131,7 +151,7 @@ private:
     inline void SetSource() const { Mesh.EvalFunction(&Source, GetTime(), source); };
     
     /// Gradient of L(u, t) w.r.t u evaluated at x
-    HypreParMatrix &GetExplicitGradient() const;
+    HypreParMatrix &SetJacobian() const;
     
 public:
     
@@ -263,10 +283,14 @@ int main(int argc, char *argv[])
      
     /// --- Solver parameters --- ///   
     /* AMG parameters */
-    args.AddOption(&use_AIR_temp, "-air", "--AMG-use-air", "AMG: 0=standard (default), 1=AIR");
+    args.AddOption(&use_AIR_temp, "-air", "--AMG-use-air", "AMG: 0=standard (default), 1=AIR");    
+    args.AddOption(&AMG.coarsen_type, "-ac", "--AMG-print", "AMG: Coarsen type");
+    args.AddOption(&AMG.agg_levels, "-ag", "--AMG-aggressive-coarseing", "AMG: Levels of aggressive coarsening");
+    args.AddOption(&AMG.theta, "-at", "--AMG-theta", "AMG: Strength threshold");
+    args.AddOption(&AMG.interp_type, "-ai", "--AMG-interp", "AMG: Interpolation");
+    args.AddOption(&AMG.relax_type, "-ar", "--AMG-relax", "AMG: Relaxation");
     args.AddOption(&AMG.printlevel, "-ap", "--AMG-print", "AMG: Print level");
-    args.AddOption(&AMG.agg_coarsening, "-agg", "--AMG-aggressive-coarseing", "AMG: Levels of aggressive coarsening");
-    
+
     /* Krylov parameters */
     args.AddOption(&krylov_solver, "-ksol", "--krylov-method", "KRYLOV: Method (see IRK::KrylovMethod)");
     args.AddOption(&KRYLOV.reltol, "-krtol", "--krylov-rel-tol", "KRYLOV: Relative stopping tolerance");
@@ -533,8 +557,8 @@ double PDESolution(const Vector &x, double t)
 AdvDif::AdvDif(FDMesh &Mesh_, Vector alpha_, Vector mu_, 
         int order, FDBias advection_bias) 
     : IRKOperator(Mesh_.GetComm(), Mesh_.GetLocalSize(), 0.0, 
-        TimeDependentOperator::Type::IMPLICIT),
-        //TimeDependentOperator::Type::EXPLICIT),
+        //TimeDependentOperator::Type::IMPLICIT),
+        TimeDependentOperator::Type::EXPLICIT),
         Mesh{Mesh_},
         alpha(alpha_), mu(mu_),
         dim(Mesh_.m_dim),
@@ -593,7 +617,7 @@ void AdvDif::ApplyL(const Vector &u, Vector &du_dt) const
 
 
 /// Gradient of L*u w.r.t u evaluated (i.e., L == -A + D) 
-HypreParMatrix &AdvDif::GetExplicitGradient() const {
+HypreParMatrix &AdvDif::SetJacobian() const {
     if (Jacobian) delete Jacobian;
 
     if (A && D) {
@@ -609,47 +633,70 @@ HypreParMatrix &AdvDif::GetExplicitGradient() const {
 
 void AdvDif::SetSystem(int index, double dt, double gamma, int type) {
     
-    // Explicitly assemble L == Jacobian if not done previously
-    if (!Jacobian) { GetExplicitGradient(); };
-    
+    // Update B_index
     B_index = index;
-    
-    // Make space for new preconditioner to be built 
-    if (index >= B_prec.Size()) {
+    //std::cout << "index = " << index << '\n';
+
+    // Preconditioner previously built with this index: Update it?
+    if (index < B_params.Size()) {
+        // if dt or gamma change, rebuild
+        if (B_params[index].dt != dt ||
+            B_params[index].gamma != gamma) {
+            delete B_prec[index];
+            B_prec[index] = NULL;
+            delete B_mats[index];
+            B_mats[index] = NULL;
+            //std::cout << "Re-building index = " << index << '\n';    
+        }
+        
+    // No preconditioner previously built with this index: Create space for new one. 
+    } else {
+        //std::cout << "Building index = " << index << '\n';
         B_prec.Append(NULL);
         B_mats.Append(NULL);
-    }
+        B_params.Append(Prec_params()); 
+    }  
     
-    // Build a new preconditioner 
+    
+    // Build a new preconditioner if needed
     if (!B_prec[index]) {
+        // Assemble L/Jacobian (if not done previously)
+        if (!Jacobian) SetJacobian();
         
-        // Assemble identity matrix 
+        // Assemble identity matrix (if not done previously)
         if (!identity) identity = (A) ? A->GetHypreParIdentityMatrix() : D->GetHypreParIdentityMatrix();
         
-        // B = gamma*I - dt*Jacobian
+        // Form matrix B = gamma*I - dt*Jacobian
         HypreParMatrix * B = HypreParMatrixAdd(-dt, *Jacobian, gamma, *identity); 
         
-        /* Build AMG preconditioner for B */
+        // Build AMG preconditioner for B
         HypreBoomerAMG * amg_solver = new HypreBoomerAMG(*B);
         
+        // Set options in AMG struct
         amg_solver->SetMaxIter(1); 
         amg_solver->SetTol(0.0);
-        amg_solver->SetMaxLevels(50); 
         amg_solver->SetPrintLevel(AMG.printlevel); 
         amg_solver->iterative_mode = false;
-        if (AMG.use_AIR) {                        
+        
+        
+        if (AMG.use_AIR) {                      
             amg_solver->SetLAIROptions(AMG.distance, 
                                         AMG.prerelax, AMG.postrelax,
                                         AMG.strength_tolC, AMG.strength_tolR, 
                                         AMG.filter_tolR, AMG.interp_type, 
                                         AMG.relax_type, AMG.filterA_tol,
-                                        AMG.coarsening);                                       
+                                        AMG.coarsen_type);                                       
         } else {
-            amg_solver->SetInterpolation(0);
-            amg_solver->SetCoarsening(AMG.coarsening);
-            amg_solver->SetAggressiveCoarsening(AMG.agg_coarsening); 
+            amg_solver->SetCoarsening(AMG.coarsen_type);
+            amg_solver->SetAggressiveCoarsening(AMG.agg_levels); 
+            amg_solver->SetStrengthThresh(AMG.theta);
+            amg_solver->SetInterpolation(AMG.interp_type);
+            amg_solver->SetRelaxType(AMG.relax_type);
         } 
         
+        // Update member parameters
+        B_params[index].dt = dt;
+        B_params[index].gamma = gamma;
         B_prec[index] = amg_solver;
         B_mats[index] = B;
     }
