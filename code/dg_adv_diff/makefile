@@ -5,7 +5,7 @@ HYPRE_DIR = $(HOME)/Documents/Coding/branches-mfem/hypre-2.19.0/src/hypre
 METIS_DIR = $(HOME)/Documents/Coding/metis-5.0
 CXX      = mpic++
 FLAGS    = -g -std=c++11
-INC      = -I$(MFEM_DIR) -I$(HYPRE_DIR)/include -I$(METIS_DIR)/include -I./src
+INC      = -I$(MFEM_DIR) -I$(HYPRE_DIR)/include -I$(METIS_DIR)/include
 CXXFLAGS = $(FLAGS) $(INC) -DMFEM_DIR=\"$(MFEM_DIR)/\"
 LDFLAGS  = -L$(MFEM_DIR) -L$(HYPRE_DIR)/lib -L$(METIS_DIR)/lib -lz
 LDLIBS   = -lmfem -lHYPRE -lmetis
