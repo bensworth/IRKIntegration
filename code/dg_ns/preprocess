@@ -1,0 +1,32 @@
+#!/usr/bin/env python
+
+import argparse
+import dgpython as dg
+
+parser = argparse.ArgumentParser(description='Preprocess DG mesh.')
+parser.add_argument('-nx', dest='nx', required=True, type=int, 
+                    help='Number of grid cells in x direction')
+parser.add_argument('-ny', dest='ny', required=True, type=int, 
+                    help='Number of grid cells in y direction')
+parser.add_argument('-p', dest='p', required=True, type=int, 
+                    help='Polynomial order')
+parser.add_argument('-n', dest='n', type=int, default=1,
+                    help='Number of mesh partitions')
+parser.add_argument('-q', dest='q', action='store_true',
+                    help='Use quadrilateral mesh')
+
+args = parser.parse_args()
+
+if args.q:
+  msh = dg.meshes.qmshsquare(args.nx, args.ny)
+else:
+  msh = dg.meshes.mshsquare(args.nx, args.ny, periodic=True)
+
+msh.p[0,:] = msh.p[0,:]*20
+msh.p[1,:] = msh.p[1,:]*15 - 7.5
+
+msh.nodealloc(args.p)
+msh.writefile('data/evmsh' + str(args.p) + '.h5')
+msh.partition(args.n)
+msh.writefile('data/evmsh' + str(args.p)
+              + 'partn' + str(args.n) + '.h5')
