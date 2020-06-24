@@ -313,9 +313,10 @@ int main(int argc, char *argv[])
    double eps = 1e-2;
    double dt = 1e-3;
    double tf = 0.1;
-   bool use_irk = true;
+   int use_irk = 16;
    // bool use_ilu = true;
    int nsubiter = 1;
+   bool visualization = false;
 
    OptionsParser args(argc, argv);
    args.AddOption(&mesh_file, "-m", "--mesh",
@@ -330,12 +331,13 @@ int main(int argc, char *argv[])
    args.AddOption(&eps, "-e", "--epsilon", "Diffusion coefficient.");
    args.AddOption(&dt, "-dt", "--time-step", "Time step.");
    args.AddOption(&tf, "-tf", "--final-time", "Final time.");
-   args.AddOption(&use_irk, "-i", "--irk", "-no-i", "--no-irk",
+   args.AddOption(&use_irk, "-i", "--irk", "Use IRK solver (provide id; if 0, no IRK).");
+   args.AddOption(&visualization, "-v", "--visualization", "-nov", "--no-visualization",
                   "Use IRK solver.");
    args.Parse();
    if (!args.Good())
    {
-      args.PrintUsage(std::cout);
+      if (myid == 0) args.PrintUsage(std::cout);
       MPI_Finalize();
       return 1;
    }
@@ -343,7 +345,7 @@ int main(int argc, char *argv[])
    {
       kappa = (order+1)*(order+1);
    }
-   args.PrintOptions(std::cout);
+   if (myid == 0) args.PrintOptions(std::cout);
 
    Mesh serial_mesh(mesh_file, 1, 1);
    int dim = serial_mesh.Dimension();
@@ -359,21 +361,23 @@ int main(int argc, char *argv[])
 
    DG_FECollection fec(order, dim, BasisType::GaussLobatto);
    ParFiniteElementSpace fes(&mesh, &fec);
-   std::cout << "Number of unknowns: " << fes.GetVSize() << std::endl;
+   if (myid == 0) std::cout << "Number of unknowns: " << fes.GetVSize() << std::endl;
 
    ParGridFunction u(&fes);
    FunctionCoefficient ic_coeff(ic_fn);
    u.ProjectCoefficient(ic_coeff);
 
    ParaViewDataCollection dc("DGAdvDiff", &mesh);
-   dc.SetPrefixPath("ParaView");
-   dc.RegisterField("u", &u);
-   dc.SetLevelsOfDetail(order);
-   dc.SetDataFormat(VTKFormat::BINARY);
-   dc.SetHighOrderOutput(true);
-   dc.SetCycle(0);
-   dc.SetTime(0.0);
-   dc.Save();
+   if (visualization) {
+      dc.SetPrefixPath("ParaView");
+      dc.RegisterField("u", &u);
+      dc.SetLevelsOfDetail(order);
+      dc.SetDataFormat(VTKFormat::BINARY);
+      dc.SetHighOrderOutput(true);
+      dc.SetCycle(0);
+      dc.SetTime(0.0);
+      dc.Save();
+   }
 
    DGAdvDiff dg(fes, eps);
 
@@ -381,9 +385,9 @@ int main(int argc, char *argv[])
 
    std::unique_ptr<ODESolver> ode;
 
-   if (use_irk)
+   if (use_irk != 0)
    {
-      RKData::Type irk_type = RKData::RadauIIA9; // RKData::LSDIRK3;
+      RKData::Type irk_type = static_cast<RKData::Type>(use_irk); // RKData::LSDIRK3;
       // RKData::Type irk_type = RKData::LSDIRK1;
       // Can adjust rel tol, abs tol, maxiter, kdim, etc.
       IRK::KrylovParams krylov_params;
@@ -419,11 +423,13 @@ int main(int argc, char *argv[])
       done = (t >= tf - 1e-8*dt);
       if (t - t_vis > vis_int || done)
       {
-         printf("t = %4.3f\n", t);
-         t_vis = t;
-         dc.SetCycle(dc.GetCycle()+1);
-         dc.SetTime(t);
-         dc.Save();
+         if (myid == 0) printf("t = %4.3f\n", t);
+         if (visualization) {
+            t_vis = t;
+            dc.SetCycle(dc.GetCycle()+1);
+            dc.SetTime(t);
+            dc.Save();
+         }
       }
    }
 

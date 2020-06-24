@@ -1,0 +1,38 @@
+# Compiler, compile options, and link options
+
+MFEM_DIR  = /g/g19/bs/mfem
+HYPRE_DIR = $(MFEM_DIR)/../hypre/src/hypre
+METIS_DIR = $(MFEM_DIR)/../metis/build/Linux-x86_64
+CXX      = mpicxx
+FLAGS    = -g -std=c++11 -fopenmp
+INC      = -I$(MFEM_DIR)/bens_build -I$(HYPRE_DIR)/include -I$(METIS_DIR)/include
+CXXFLAGS = $(FLAGS) $(INC) -DMFEM_DIR=\"$(MFEM_DIR)/\"
+LDFLAGS  = -L$(MFEM_DIR)/bens_build -L$(HYPRE_DIR)/lib -L$(METIS_DIR)/lib -lz
+LDLIBS   = -lmfem -lHYPRE -lmetis
+
+SOURCE_FILES  = $(wildcard *.cpp)
+OBJECT_FILES  = $(SOURCE_FILES:.cpp=.o)
+EXEC_FILES    = dg_adv_diff
+
+.PHONY: all clean clean-build clean-exec
+
+# Compile source files if the hpp or cpp has changed.
+%.o: %.cpp %.hpp makefile
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Recompile executables if cpp files or object dependencies have changed
+$(EXEC_FILES): $(OBJECT_FILES)
+	$(CXX) $(CXXFLAGS) -o $@ $(OBJECT_FILES) $(LDFLAGS) $(LDLIBS)
+
+# Specify that 'make' compiles all examples.
+all: $(OBJECT_FILES) $(EXEC_FILES)
+
+# Remove all object files and executables
+clean: clean-build clean-exec $(SUBDIRS_CLEAN)
+
+clean-build:
+	rm -f *.o *~ $(OBJECT_FILES) $(EXEC_FILES)
+	rm -rf *.dSYM *.TVD.*breakpoints
+
+clean-exec:
+	@rm -f refined.mesh displaced.mesh mesh.*
