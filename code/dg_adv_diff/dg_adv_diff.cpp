@@ -308,6 +308,8 @@ int main(int argc, char *argv[])
    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
    MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
+   bool root = (myid == 0);
+
    static const double sigma = -1.0;
 
    const char *mesh_file = MFEM_DIR "data/inline-quad.mesh";
@@ -347,7 +349,7 @@ int main(int argc, char *argv[])
    {
       kappa = (order+1)*(order+1);
    }
-   args.PrintOptions(std::cout);
+   if (root) { args.PrintOptions(std::cout); }
 
    Mesh serial_mesh(mesh_file, 1, 1);
    int dim = serial_mesh.Dimension();
@@ -363,7 +365,10 @@ int main(int argc, char *argv[])
 
    DG_FECollection fec(order, dim, BasisType::GaussLobatto);
    ParFiniteElementSpace fes(&mesh, &fec);
-   std::cout << "Number of unknowns: " << fes.GetVSize() << std::endl;
+   if (root)
+   {
+      std::cout << "Number of unknowns: " << fes.GetVSize() << std::endl;
+   }
 
    ParGridFunction u(&fes);
    FunctionCoefficient ic_coeff(ic_fn);
@@ -423,7 +428,7 @@ int main(int argc, char *argv[])
       done = (t >= tf - 1e-8*dt);
       if (t - t_vis > vis_int || done)
       {
-         printf("t = %4.3f\n", t);
+         if (root) { printf("t = %4.3f\n", t); }
          t_vis = t;
          dc.SetCycle(dc.GetCycle()+1);
          dc.SetTime(t);
