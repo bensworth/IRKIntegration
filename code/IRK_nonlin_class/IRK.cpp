@@ -129,10 +129,11 @@ void IRK::SetSolvers()
     
     
     // Create Jacobian solver
-    switch (m_newton_params.solver) {
-        
-        // Newton with Kronecker-product Jacobian
-        case IRK::NewtonMethod::KRONECKER:
+    // Newton with Kronecker-product Jacobian
+    //case IRK::NewtonMethod::KRONECKER:
+    switch (m_IRKOper->GetExplicitGradientsType()) {
+    
+        case IRKOperator::ExplicitGradientsType::APPROXIMATE:
         {
             // Create solver for approximate Kronecker-product Jacobian system
             
@@ -151,11 +152,13 @@ void IRK::SetSolvers()
             }
             
             m_nonlinear_solver->SetSolver(*m_kron_jac_solver);
-            //m_nonlinear_solver->SetSolver(*m_jacobian_solver); // The linear solver for the Newton method
             break;
         }
+            
         // Quasi-Newton method    
-        case IRK::NewtonMethod::QUASI:
+        //case IRK::NewtonMethod::QUASI:
+        case IRKOperator::ExplicitGradientsType::EXACT:
+        {
             
             m_jac_solverSparsity.Sparsify(static_cast<int>(m_newton_params.j_solverSparsity));
             m_jac_precSparsity.Sparsify(static_cast<int>(m_newton_params.j_precSparsity));
@@ -171,18 +174,10 @@ void IRK::SetSolvers()
                                             m_krylov_params, 
                                             m_jac_solverSparsity, m_jac_precSparsity);
             }
-        
             m_nonlinear_solver->SetSolver(*m_tri_jac_solver);
             break;
-        
-        // Full-Newton method    
-        case IRK::NewtonMethod::FULL:
-            mfem_error("IRK::Full Newton solver not implemented");
-            break;
-            
-        default:
-            mfem_error("IRK::NewtonParams.solver not recognised");
-    }    
+        } 
+    }
 }
 
 
@@ -200,14 +195,12 @@ void IRK::Init(TimeDependentOperator &F)
 void IRK::Step(Vector &x, double &t, double &dt)
 {
     // Reset iteration counter for Jacobian solve from previous Newton iteration
-    switch (m_newton_params.solver) {
-        case NewtonMethod::KRONECKER:
+    switch (m_IRKOper->GetExplicitGradientsType()) {
+        case IRKOperator::ExplicitGradientsType::APPROXIMATE:
             m_kron_jac_solver->ResetNumIterations();
             break;
-        case NewtonMethod::QUASI:
+        case IRKOperator::ExplicitGradientsType::EXACT:
             m_tri_jac_solver->ResetNumIterations();
-            break;
-        default:
             break;
     }
     

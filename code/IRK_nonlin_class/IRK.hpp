@@ -20,34 +20,60 @@ void KronTransform(const DenseMatrix &A, const BlockVector &x, BlockVector &y);
 void KronTransformTranspose(const DenseMatrix &A, const BlockVector &x, BlockVector &y);
 
 
-/** Class for spatial discretizations of a PDE resulting in the 
-    time-dependent, nonlinear ODEs
-        M*du/dt = L(u,t)    _OR_    du/dt = L(u,t) [if no mass matrix exists]
+/** Class for spatial discretizations of a PDE resulting in the time-dependent, 
+    nonlinear ODEs
+        M*du/dt = N(u,t)    [OR du/dt = N(u,t) if the mass is the identity]
 
-    If a mass matrix M exists, the following virtual function must be implemented:
+    For non-identity mass matrices, the following virtual function must be implemented:
         ImplicitMult(x,y): y <- M*x */
 class IRKOperator : public TimeDependentOperator
-{    
-protected:
-    MPI_Comm m_globComm;
-    
-    //mutable int stage_index;
-    mutable Vector temp; // Auxillary vector
+{   
 public:
-    IRKOperator(MPI_Comm comm, int n=0, double t=0.0, Type type=EXPLICIT) 
+    /** Describes how the s explicit gradient operators 
+            {N'} == (N'(u+dt*x1),...,N'(u+dt*xs))
+        are provided by the user. This determine's the solver used by IRK, and 
+        which set of virtual functions from this class must be implemented.
+    
+        APPROXIMATE - The s operators are approximated with the operator Na' 
+        that is (in some sense) representative of all s of them, e.g., 
+            Na' = N'(u+dt*avg(w1,...,ws)).
+        
+        EXACT - The s different operators  {N'} are provided */ 
+    enum ExplicitGradientsType {
+        APPROXIMATE = 0,// Na'
+        EXACT = 1       // {N'}
+    };     
+     
+protected:
+    MPI_Comm m_comm;
+    ExplicitGradientsType m_gradients_type; 
+    mutable Vector temp; // Auxillary vector
+    
+public:
+    IRKOperator(MPI_Comm comm, int n=0, double t=0.0, Type type=EXPLICIT, 
+                ExplicitGradientsType ex_gradients_type=EXACT) 
         : TimeDependentOperator(n, t, type), 
-            m_globComm{comm}, temp(n) {};
+            m_comm{comm}, m_gradients_type{ex_gradients_type}, temp(n) {};
     
     ~IRKOperator() { };
 
-    MPI_Comm GetComm() { return m_globComm; };
+    /// Get MPI communicator
+    inline MPI_Comm GetComm() { return m_comm; };
 
+    /// Get type of explicit gradients 
+    inline ExplicitGradientsType GetExplicitGradientsType() const { return m_gradients_type; }
+
+
+    /* ---------------------------------------------------------------------- */
+    /* ----------------------- Pure virtual functions ----------------------- */
+    /* ---------------------------------------------------------------------- */
     /// Apply action of M*du/dt, y <- L(x,y) 
     virtual void ExplicitMult(const Vector &x, Vector &y) const = 0;
     
-    /// Gradient of L(u, t) w.r.t u evaluated at x 
-    virtual Operator &GetExplicitGradient(const Vector &x) const = 0;
     
+    /* ---------------------------------------------------------------------- */
+    /* ---------------- Virtual functions for Type::IMPLICIT ---------------- */
+    /* ---------------------------------------------------------------------- */
     /** Apply action mass matrix, y = M*x. 
         If not re-implemented, this method simply generates an error. */
     virtual void ImplicitMult(const Vector &x, Vector &y) const
@@ -55,51 +81,123 @@ public:
         mfem_error("IRKOperator::ImplicitMult() is not overridden!");
     }
     
-    /// Precondition (\gamma*M - dt*L') 
-    virtual void ImplicitPrec(const Vector &x, Vector &y) const = 0;
     
-    /** Ensures that this->ImplicitPrec() preconditions (\gamma*M - dt*L') 
-            + index: index of system to solve, [0,s_eff)
-            + dt:    time step size
-            + type:  eigenvalue type, 1 = real, 2 = complex pair
-        These additional parameters are to provide ways to track when
-        (\gamma*M - dt*L') must be reconstructed or not to minimize setup. */
-    virtual void SetPreconditioner(int index, double dt, double gamma, int type) = 0;
+    /* ---------------------------------------------------------------------- */
+    /* ------ Virtual functions for ExplicitGradientsType::APPROXIMATE ------ */
+    /* ---------------------------------------------------------------------- */
     
-    
-    /* ----------- Quasi-Newton implementation ----------- */
-    
-    /** Assemble preconditioner for gamma*M - dt*{weights,N'} that's applied by
-        by calling: 
-            1. ImplicitPrec(.,.) if no further calls to SetPreconditioner() are made
-            2. ImplicitPrec(index,.,.)  */
-    virtual void SetPreconditioner(int index, double dt, double gamma, Vector weights) = 0;
-    
-    /// Precondition (\gamma*M - dt*{weights,N'}) with given index
-    virtual void ImplicitPrec(int index, const Vector &x, Vector &y) const = 0;
-    
-    /** Set the explicit gradients 
-            {N'} = {N'(u + dt*x[i], this->GetTime() + dt*c[i])}, i=0,...,s-1.
-        Or some approximation to them */
-    virtual void SetExplicitGradients(const Vector &u, double dt, const BlockVector &x, const Vector &c)
+    /** Set approximate gradient Na' which is an approximation to the s explicit 
+        gradients 
+            {N'} == {N'(u + dt*x[i], this->GetTime() + dt*c[i])}, i=0,...,s-1.
+        Such that it is referenceable with ExplicitGradientMult() and 
+        SetPreconditioner() 
+        If not re-implemented, this method simply generates an error. */
+    virtual void SetExplicitGradient(const Vector &u, double dt, 
+                                     const BlockVector &x, const Vector &c)
     {
-        mfem_error("IRKOperator::SetExplicitGradients() is not overridden!");
+        MFEM_ASSERT(m_gradients_type == ExplicitGradientsType::APPROXIMATE, 
+                    "IRKOperator::SetExplicitGradient() applies only for \
+                    ExplicitGradientsType::APPROXIMATE");
+        mfem_error("IRKOperator::SetExplicitGradient() is not overridden!");
     }
     
-    /// Compute action of `index`-th gradient operator above
-    virtual void ExplicitGradientMult(int index, const Vector &x, Vector &y) const
+    /** Compute action of Na' explicit gradient operator.
+        If not re-implemented, this method simply generates an error. */    
+    virtual void ExplicitGradientMult(const Vector &x, Vector &y) const
     {
+        MFEM_ASSERT(m_gradients_type == ExplicitGradientsType::APPROXIMATE, 
+                    "IRKOperator::ExplicitGradientMult() applies only for \
+                    ExplicitGradientsType::APPROXIMATE");
+        
         mfem_error("IRKOperator::ExplicitGradientMult() is not overridden!");
     }
     
+    /** Ensures that this->ImplicitPrec() preconditions 
+            (\gamma*M - dt*Na') 
+        + index: index of system to solve, [0,s_eff)
+        + type:  eigenvalue type, 1 = real, 2 = complex pair
+        These additional parameters are to provide ways to track when
+        (\gamma*M - dt*Na') must be reconstructed or not to minimize setup. */
+    virtual void SetPreconditioner(int index, double dt, double gamma, int type) 
+    {
+        MFEM_ASSERT(m_gradients_type == ExplicitGradientsType::APPROXIMATE, 
+                    "IRKOperator::SetExplicitGradient() applies only for \
+                    ExplicitGradientsType::APPROXIMATE");
+        mfem_error("IRKOperator::SetPreconditioner() is not overridden!");
+    }
+    
+    /** Precondition (\gamma*M - dt*N') 
+        If not re-implemented, this method simply generates an error. */    
+    virtual void ImplicitPrec(const Vector &x, Vector &y) const 
+    {
+        mfem_error("IRKOperator::ImplicitPrec() is not overridden!");
+    }
     
     
-    /// Compute y <- c*{weights,ExplicitGradients+stage_index}x
-    inline void AddExplicitGradientMultInnerProduct(double c, const Vector &weights, 
-                                                    const Vector &x, Vector &y) const {
+    /* ---------------------------------------------------------------------- */
+    /* --------- Virtual functions for ExplicitGradientsType::EXACT --------- */
+    /* ---------------------------------------------------------------------- */
+
+    /** Set the explicit gradients 
+            {N'} == {N'(u + dt*x[i], this->GetTime() + dt*c[i])}, i=0,...,s-1.
+        Such that they are referenceable with ExplicitGradientMult() and 
+        SetPreconditioner() 
+        
+        If not re-implemented, this method simply generates an error. */
+    virtual void SetExplicitGradients(const Vector &u, double dt, 
+                                      const BlockVector &x, const Vector &c)
+    {
+        MFEM_ASSERT(m_gradients_type == ExplicitGradientsType::EXACT, 
+                    "IRKOperator::SetExplicitGradients() applies only for \
+                    ExplicitGradientsType::EXACT");
+        mfem_error("IRKOperator::SetExplicitGradients() is not overridden!");
+    }
+    
+    /** Compute action of `index`-th explicit gradient operator.
+        If not re-implemented, this method simply generates an error. */    
+    virtual void ExplicitGradientMult(int index, const Vector &x, Vector &y) const
+    {
+        MFEM_ASSERT(m_gradients_type == ExplicitGradientsType::EXACT, 
+                    "IRKOperator::ExplicitGradientMult() applies only for \
+                    ExplicitGradientsType::EXACT");
+        mfem_error("IRKOperator::ExplicitGradientMult() is not overridden!");
+    }
+    
+    /** Assemble preconditioner for matrix 
+            gamma*M - dt*<weights,{N'}> 
+        that's applied by by calling: 
+            1. ImplicitPrec(.,.) if no further calls to SetPreconditioner() are made
+            2. ImplicitPrec(index,.,.)  
+            
+        If not re-implemented, this method simply generates an error. */    
+    virtual void SetPreconditioner(int index, double dt, double gamma, Vector weights) 
+    {
+        mfem_error("IRKOperator::SetPreconditioner() is not overridden!");
+    }
+    
+    /** Precondition (\gamma*M - dt*<weights,{N'}>) with given index
+        If not re-implemented, this method simply generates an error. */
+    virtual void ImplicitPrec(int index, const Vector &x, Vector &y) const 
+    {
+        mfem_error("IRKOperator::ImplicitPrec() is not overridden!");
+    }
+    
+    
+    /* ---------------------------------------------------------------------- */
+    /* ---------- Helper functions for ExplicitGradientsType::EXACT --------- */
+    /* ---------------------------------------------------------------------- */
+    
+    /// Compute y <- y + c*<weights,{N'}>x
+    inline void AddExplicitGradientsMult(double c, const Vector &weights, 
+                                         const Vector &x, Vector &y) const 
+    {
+        
+        MFEM_ASSERT(m_gradients_type == ExplicitGradientsType::EXACT, 
+                    "IRKOperator::AddExplicitGradientsMult() applies only for \
+                    ExplicitGradientsType::EXACT");
         
         MFEM_ASSERT(weights.Size() > 0, 
-            "IRKOperator::AddExplicitGradientMultInnerProduct() not defined for empty weights");
+            "IRKOperator::AddExplicitGradientsMult() not defined for empty weights");
             
         for (int i = 0; i < weights.Size(); i++) {
             if (fabs(c*weights(i)) > 0.) {
@@ -109,18 +207,22 @@ public:
         }
     }
     
-    /// Compute y1 <- c1*{weights1,ExplicitGradients}x, y2 <- c2*{weights2,ExplicitGradients}x
-    inline void AddExplicitGradientMultInnerProduct(double c1, const Vector &weights1, 
-                                                    double c2, const Vector &weights2, 
-                                                    const Vector &x, 
-                                                    Vector &y1, Vector &y2) const {
+    /** Compute y1 <- y1 + c1*<weights1,{N'}>x, 
+                y2 <- y2 + c2*<weights2,{N'}>x */
+    inline void AddExplicitGradientsMult(double c1, const Vector &weights1, 
+                                         double c2, const Vector &weights2, 
+                                         const Vector &x, 
+                                         Vector &y1, Vector &y2) const 
+    {
         
+        MFEM_ASSERT(m_gradients_type == ExplicitGradientsType::EXACT, 
+                    "IRKOperator::AddExplicitGradientsMult() applies only for \
+                    ExplicitGradientsType::EXACT");
         MFEM_ASSERT(weights1.Size() > 0 && weights2.Size() > 0, 
-            "IRKOperator::AddExplicitGradientMultInnerProduct() not defined for empty weights");
+            "IRKOperator::AddExplicitGradientsMult() not defined for empty weights");
         MFEM_ASSERT(weights1.Size() == weights2.Size(), 
-            "IRKOperator::AddExplicitGradientMultInnerProduct() weight vecors need to be of equal length");    
-        
-        //int offset = this->GetStageIndex();    
+            "IRKOperator::AddExplicitGradientsMult() weight vectors need to be of equal length");    
+            
         for (int i = 0; i < weights1.Size(); i++) {
             if (fabs(c1*weights1(i)) > 0. || fabs(c2*weights2(i)) > 0.) {
                 ExplicitGradientMult(i, x, temp);
@@ -190,7 +292,7 @@ public:
 
 class KronJacSolver;
 class TriJacSolver;
-/* Operator F defining the s stage equations. They satisfy F(w) = 0, 
+/** Operator F defining the s stage equations. They satisfy F(w) = 0, 
     where w = (A0 \otimes I)*k, and
         
                        [ F1 ]                         [N(u+dt*w1,t+c1*dt)]
@@ -424,12 +526,12 @@ public:
         KrylovMethod solver = KrylovMethod::GMRES;
     }; 
     
-    /// Type of Newton solver/form of Jacobian used when inverting IRKStageOper
-    enum NewtonMethod {
-        KRONECKER = 0, // Kronecker-product Jacobian: Ignores stage and time dependence of N'.
-        QUASI = 1,     // Allows for stage and time dependence of N', but approximates true Jacobian as block upper triangular.
-        FULL = 2       // Full Jacobian
-    }; 
+    // /// Type of Newton solver/form of Jacobian used when inverting IRKStageOper
+    // enum NewtonMethod {
+    //     KRONECKER = 0, // Kronecker-product Jacobian: Ignores stage and time dependence of N'.
+    //     QUASI = 1,     // Allows for stage and time dependence of N', but approximates true Jacobian as block upper triangular.
+    //     FULL = 2       // Full Jacobian
+    // };
     
     /** Sparsity pattern of (Q^\top \otimes I) diag(N1',...,Ns') (Q \otimes I)
         to be used in block-upper-triangular Quasi-Newton method */
@@ -443,7 +545,7 @@ public:
         double abstol = 1e-6;
         int maxiter = 10;
         int printlevel = 2; 
-        NewtonMethod solver = NewtonMethod::KRONECKER;
+        //NewtonMethod solver = NewtonMethod::KRONECKER;
         
         JacSparsity j_solverSparsity = JacSparsity::DENSE;
         JacSparsity j_precSparsity  = JacSparsity::DIAGONAL;
@@ -568,7 +670,7 @@ private:
     
     // Current time step and Jacobian block 
     mutable double dt;
-    mutable const Operator * N_jac;
+    //mutable const Operator * N_jac;
     
 public:
 
@@ -577,7 +679,7 @@ public:
         : Operator(height), 
         size{1}, IRKOper{IRKOper_}, temp_scalar(IRKOper_.Height()),
         R00{R00_},
-        dt{0.0}, N_jac(NULL)
+        dt{0.0}
         {};
 
     /// 2x2 block
@@ -585,26 +687,24 @@ public:
         Array<int> offsets_) : Operator(height), 
         size{2}, IRKOper{IRKOper_}, temp_scalar(IRKOper_.Height()),
         R(R_), offsets(offsets_),
-        dt{0.0}, N_jac(NULL)
+        dt{0.0}
         {};
 
     /// Update parameters required to compute action
-    inline void SetParameters(double dt_, const Operator * N_jac_) const
+    inline void SetParameters(double dt_) const
     {
         dt = dt_;
-        N_jac = N_jac_;
     };
         
     /// Compute action of diagonal block    
     inline void Mult(const Vector &x, Vector &y) const 
     {    
-        MFEM_ASSERT(N_jac, "KronJacDiagBlock::Mult() must set Jacobian block with SetParameters()");
         MFEM_ASSERT(x.Size() == this->Height(), "KronJacDiagBlock::Mult() incorrect input Vector size");
         MFEM_ASSERT(y.Size() == this->Height(), "KronJacDiagBlock::Mult() incorrect output Vector size");
         
         // 1x1 operator, y = [R(0)(0)*M - dt*N']*x
         if (size == 1) {
-            N_jac->Mult(x, y);
+            IRKOper.ExplicitGradientMult(x, y);
             y *= -dt;
         
         // MASS MATRIX    
@@ -626,11 +726,11 @@ public:
             y_block.Update(y.GetData(), offsets);
             
             // y(0)
-            N_jac->Mult(x_block.GetBlock(0), y_block.GetBlock(0));
+            IRKOper.ExplicitGradientMult(x_block.GetBlock(0), y_block.GetBlock(0));
             y_block.GetBlock(0) *= -dt;
             
             // y(1)
-            N_jac->Mult(x_block.GetBlock(1), y_block.GetBlock(1));
+            IRKOper.ExplicitGradientMult(x_block.GetBlock(1), y_block.GetBlock(1));
             y_block.GetBlock(1) *= -dt;
             
             // MASS MATRIX
@@ -780,7 +880,7 @@ private:
     Array<KronJacDiagBlockPrec *> JacDiagBlockPrec;
     
     // Jacobian of N.
-    Operator * N_jac;
+    //Operator * N_jac;
     
     // At what point do we linearize the Jacobian of N:
     //  0: u, t
@@ -812,7 +912,6 @@ public:
         y_2block(), z_2block(),
         temp_scalar1(StageOper_.RowOffsets()[1]), temp_scalar2(StageOper_.RowOffsets()[1]),
         krylov_solver1(NULL), krylov_solver2(NULL), multiple_krylov(false),
-        N_jac(NULL), 
         N_jac_lin{N_jac_lin_},
         N_jac_update_rate{N_jac_update_rate_}
     {    
@@ -944,18 +1043,24 @@ public:
         // Update N_jac if necessary (1st Newton iteration, or all Newton iterations)
         if (StageOper.getGradientCalls == 1 || N_jac_update_rate == 1) {
     
-            // Basic option: Eval jacobian of N at u
-            if (N_jac_lin == 0) {
-                temp_scalar1 = *(StageOper.u);
-                StageOper.IRKOper->SetTime(t);
-            // Eval jacobian of N at u + dt*w(N_jac_lin)
-            } else {
-                int idx = N_jac_lin-1; 
-                add(*(StageOper.u), dt, StageOper.GetCurrentIterate().GetBlock(idx), temp_scalar1);
-                StageOper.IRKOper->SetTime(t + dt*StageOper.Butcher.c0[idx]);
-            } 
+            // // Basic option: Eval jacobian of N at u
+            // if (N_jac_lin == 0) {
+            //     temp_scalar1 = *(StageOper.u);
+            //     StageOper.IRKOper->SetTime(t);
+            // // Eval jacobian of N at u + dt*w(N_jac_lin)
+            // } else {
+            //     int idx = N_jac_lin-1; 
+            //     add(*(StageOper.u), dt, StageOper.GetCurrentIterate().GetBlock(idx), temp_scalar1);
+            //     StageOper.IRKOper->SetTime(t + dt*StageOper.Butcher.c0[idx]);
+            // } 
+            // 
+            // N_jac = &(StageOper.IRKOper->GetExplicitGradient(temp_scalar1));
             
-            N_jac = &(StageOper.IRKOper->GetExplicitGradient(temp_scalar1));
+            
+            StageOper.IRKOper->SetExplicitGradient(*(StageOper.u), dt, 
+                        StageOper.GetCurrentIterate(), StageOper.Butcher.c0);
+            
+            
         }
     };
     
@@ -1006,7 +1111,8 @@ public:
             if (printlevel > 0) mfem::out << "    Block solve " << s_eff-diagBlock << " of " << s_eff;
             
             // Update parameters for the diag block to be inverted
-            JacDiagBlock[diagBlock]->SetParameters(StageOper.GetTimeStep(), N_jac);
+            //JacDiagBlock[diagBlock]->SetParameters(StageOper.GetTimeStep(), N_jac);
+            JacDiagBlock[diagBlock]->SetParameters(StageOper.GetTimeStep());
             
             // Ensure correct preconditioner is set up for R(idx, idx)*M - dt*N'.
             int system_idx = s_eff-diagBlock-1; // Note the reverse ordering...
@@ -1227,7 +1333,7 @@ public:
                 y = [R(0,0)*M-dt*{z(0,0),N'}]*x */
         if (size == 1) {
             y = 0.;
-            IRKOper.AddExplicitGradientMultInnerProduct(-dt, Z00, x, y);
+            IRKOper.AddExplicitGradientsMult(-dt, Z00, x, y);
             
             // MASS MATRIX    
             if (IRKOper.isImplicit()) {
@@ -1252,7 +1358,7 @@ public:
             y_block.GetBlock(1) = 0.;
             
             // --- Dependence on x(0)
-            IRKOper.AddExplicitGradientMultInnerProduct(-dt, Z00, -dt, Z10, 
+            IRKOper.AddExplicitGradientsMult(-dt, Z00, -dt, Z10, 
                                                         x_block.GetBlock(0), 
                                                         y_block.GetBlock(0), y_block.GetBlock(1));
             // MASS MATRIX
@@ -1267,7 +1373,7 @@ public:
             }
             
             // --- Dependence on x(1)
-            IRKOper.AddExplicitGradientMultInnerProduct(-dt, Z01, -dt, Z11, 
+            IRKOper.AddExplicitGradientsMult(-dt, Z01, -dt, Z11, 
                                                         x_block.GetBlock(1), 
                                                         y_block.GetBlock(0), y_block.GetBlock(1));
             // MASS MATRIX
@@ -1379,7 +1485,7 @@ public:
                 } else {
                     temp_scalar.Add(-R10, y_block.GetBlock(0));
                 }    
-                BlockOper.IRKOper.AddExplicitGradientMultInnerProduct(-BlockOper.GetTimeStep(), Y10, 
+                BlockOper.IRKOper.AddExplicitGradientsMult(-BlockOper.GetTimeStep(), Y10, 
                                                             y_block.GetBlock(0), temp_scalar);
                 
                 // Approximately invert (1,1) block
@@ -1706,7 +1812,7 @@ public:
                     }
                     /// N' component
                     for (int j = row+1; j < s; j++) {
-                        StageOper.IRKOper->AddExplicitGradientMultInnerProduct(
+                        StageOper.IRKOper->AddExplicitGradientsMult(
                                                 dt, Z_solver(row,j), y_block.GetBlock(j), z_block.GetBlock(row));
                     }                        
                 }
@@ -1765,7 +1871,7 @@ public:
                     
                     /// N' component
                     for (int j = row+2; j < s; j++) {                
-                        StageOper.IRKOper->AddExplicitGradientMultInnerProduct(
+                        StageOper.IRKOper->AddExplicitGradientsMult(
                                                 dt, Z_solver(row,j), 
                                                 dt, Z_solver(row+1,j), 
                                                 y_block.GetBlock(j), 
