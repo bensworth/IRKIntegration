@@ -96,25 +96,29 @@ public:
 
 struct BackwardEulerPreconditioner : Solver
 {
-   HypreParMatrix *B;
+   HypreParMatrix B;
    BlockILU prec;
 public:
    BackwardEulerPreconditioner(ParFiniteElementSpace &fes, double gamma,
                                HypreParMatrix &M, double dt, HypreParMatrix &A)
-      : Solver(fes.GetTrueVSize()), prec(fes.GetFE(0)->GetDof())
+      : Solver(fes.GetTrueVSize()), prec(fes.GetFE(0)->GetDof()),
+        B(A)
    {
-      B = Add(gamma, M, -dt, A);
-      prec.SetOperator(*B);
+      // Set B = gamma*M - dt*A
+      B *= -dt;
+      SparseMatrix B_diag, M_diag;
+      B.GetDiag(B_diag);
+      M.GetDiag(M_diag);
+      // M is block diagonal, so suffices to only add the processor-local part
+      B_diag.Add(gamma, M_diag);
+
+      prec.SetOperator(B);
    }
    void Mult(const Vector &x, Vector &y) const
    {
       prec.Mult(x, y);
    }
    void SetOperator(const Operator &op) { }
-   ~BackwardEulerPreconditioner()
-   {
-      delete B;
-   }
 };
 
 // Provides the time-dependent RHS of the ODEs after spatially discretizing the
@@ -175,19 +179,19 @@ public:
    // du_dt <- M^{-1} L y
    virtual void Mult(const Vector &u, Vector &du_dt) const override
    {
-      a.Mult(u, du_dt);
+      A_mat->Mult(u, du_dt);
       mass.Solve(du_dt);
    }
 
    virtual void ApplyL(const Vector &x, Vector &y) const override
    {
       y.SetSize(x.Size());
-      a.Mult(x, y);
+      A_mat->Mult(x, y);
    }
 
    void ExplicitMult(const Vector &u, Vector &du_dt) const override
    {
-      a.Mult(u, du_dt);
+      A_mat->Mult(u, du_dt);
    }
 
    // Apply action of the mass matrix
@@ -258,7 +262,7 @@ public:
    {
       dg.SetSystem(0, dt, 1.0, 0);
       linear_solver.SetPreconditioner(*dg.current_prec);
-      linear_solver.SetOperator(*dg.current_prec->B);
+      linear_solver.SetOperator(dg.current_prec->B);
    }
 
    void SetOperator(const Operator &op) { }
