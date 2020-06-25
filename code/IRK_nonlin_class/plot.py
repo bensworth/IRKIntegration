@@ -131,10 +131,7 @@ if params["space_dim"] == 1:
     nx = NX
     nt = params["nt"]
     x = np.linspace(-1, 1, nx+1)    
-    if (params["problemID"] <= 100):
-        x = x[:-1] # nx points in [-1, 1) for periodic
-    else:
-        x = x[1:] # nx points in (-1, 1] for inflow
+    x = x[:-1] # nx points in [-1, 1) for periodic
     T = params["dt"] * nt
 
     # Plot data if requested...

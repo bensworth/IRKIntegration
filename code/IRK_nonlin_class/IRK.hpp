@@ -289,8 +289,6 @@ public:
 };    
 
 
-
-class KronJacSolver;
 class TriJacSolver;
 /** Operator F defining the s stage equations. They satisfy F(w) = 0, 
     where w = (A0 \otimes I)*k, and
@@ -304,8 +302,7 @@ class IRKStageOper : public BlockOperator
 {
         
 private:
-    // Approximate Jacobian solvers need access
-    friend class KronJacSolver;     
+    // Jacobian solver need access
     friend class TriJacSolver;     
     
     Array<int> &offsets;            // Offsets of operator     
@@ -333,6 +330,7 @@ private:
     
     // Number of times GetGradient() been called with current states (u, t, dt).
     mutable int getGradientCalls;
+    
 public:
     
     IRKStageOper(IRKOperator * S_, Array<int> &offsets_, const RKData &RK_) 
@@ -366,8 +364,8 @@ public:
 
     /** Meant to return Jacobian of operator. This is called by Newton during 
         every iteration, and the result will be passed in to its linear solver 
-        via its SetOperator().
-        dummy function at the moment... Is required tho */
+        via its SetOperator(). We don't need this function in its current form,
+        however. */
     inline virtual Operator &GetGradient(const Vector &w) const
     {
         // Update `current_iterate` so that its data points to the current iterate's
@@ -411,6 +409,7 @@ public:
         } 
     }
 };
+
 
 /** Class describing the operator that's formed by taking the "quasi" product of
     an orthogonal matrix Q with itself */
@@ -529,13 +528,6 @@ public:
         KrylovMethod solver = KrylovMethod::GMRES;
     }; 
     
-    // /// Type of Newton solver/form of Jacobian used when inverting IRKStageOper
-    // enum NewtonMethod {
-    //     KRONECKER = 0, // Kronecker-product Jacobian: Ignores stage and time dependence of N'.
-    //     QUASI = 1,     // Allows for stage and time dependence of N', but approximates true Jacobian as block upper triangular.
-    //     FULL = 2       // Full Jacobian
-    // };
-    
     /** Sparsity pattern of (Q^\top \otimes I) diag(N1',...,Ns') (Q \otimes I)
         to be used in block-upper-triangular Quasi-Newton method */
     enum JacSparsity {
@@ -550,7 +542,7 @@ public:
         int printlevel = 2; 
         
         // How frequently to we update the Jacobian matrix?
-        // 0 - First iteration only
+        // <=0 - First iteration only
         // 1 - Every iteration
         // x > 1 - Every x iterations
         int jac_update_rate = 0;  
@@ -572,19 +564,16 @@ private:
     IRKStageOper * m_stageOper; // Operator encoding stages, F(w) = 0
     
     // Nonlinear and linear solvers for computing stage vectors
-    bool m_solversInit;                 // Have the solvers been initialized?
-    NewtonSolver * m_nonlinear_solver;  // Nonlinear solver for inverting F
-    
-    // Linear solver for inverting (approximate) Jacobian
-    TriJacSolver * m_tri_jac_solver;
+    bool m_solversInit;             // Have the solvers been initialized?
+    NewtonSolver * m_newton_solver; // Nonlinear solver for inverting F
+    TriJacSolver * m_tri_jac_solver;// Linear solver for inverting (approximate) Jacobian
     QuasiMatrixProduct * m_jac_solverSparsity;
     QuasiMatrixProduct * m_jac_precSparsity;
-    KronJacSolver * m_kron_jac_solver;  
     
-    NewtonParams m_newton_params;       // Parameters for Newton solver
-    KrylovParams m_krylov_params;       // Parameters for Krylov solver.
-    KrylovParams m_krylov_params2;      // Parameters for Krylov solver for 2x2 systems, if different than that for 1x1 systems
-    bool m_krylov2;                     // Do we use a second solver?
+    NewtonParams m_newton_params;   // Parameters for Newton solver
+    KrylovParams m_krylov_params;   // Parameters for Krylov solver.
+    KrylovParams m_krylov_params2;  // Parameters for Krylov solver for 2x2 systems, if different than that for 1x1 systems
+    bool m_krylov2;                 // Do we use a second solver?
 
     /* Statistics on solution of nonlinear and linear systems across whole integration */
     int m_avg_newton_iter;          // Avg number of Newton iterations per time step
@@ -634,626 +623,9 @@ public:
                                     avg_newton_iter = m_avg_newton_iter;
                                     avg_krylov_iter = m_avg_krylov_iter;
                                     system_size     = m_system_size;
-                                    eig_ratio       =  m_eig_ratio;
+                                    eig_ratio       = m_eig_ratio;
                                 }
 };
-
-
-
-
-
-/** Defines diagonal blocks appearing in the Kronecker product Jacobian. 
-    These take the form 1x1 or 2x2 blocks.
-
-    1x1: 
-         [R(0,0)*M - dt*N']
-
-    2x2:
-         [R(0,0)*M-dt*N'    R(0,1)*M   ]
-         [R(1,0)*M       R(1,1)*M-dt*N']
-
-    NOTE: 
-         -Jacobian block N' is assumed to be the same on both diagonals
-         -R(0,0)==R(1,1) (up to machine precision anyways)
-
-    TODO:
-     -make BlockOperator rather than Operator??
-     -Probably make into JacDiagBlock without the Kron part. Can just pass two 
-        separate blocks, which are potentially the same. */
-class KronJacDiagBlock : public Operator
-{
-private:
-    
-    int size;                   // Block size, 1x1 or 2x2
-    const IRKOperator &IRKOper; // Class defining mass matrix M
-    mutable Vector temp_scalar; // Auxillary vector
-    
-    // Data required for 1x1 operators
-    double R00;
-    
-    // Data required for 2x2 operators
-    Array<int> offsets; 
-    DenseMatrix R;
-    mutable BlockVector x_block, y_block;
-    
-    // Current time step and Jacobian block 
-    mutable double dt;
-    //mutable const Operator * N_jac;
-    
-public:
-
-    /// 1x1 block
-    KronJacDiagBlock(int height, const IRKOperator &IRKOper_, double R00_) 
-        : Operator(height), 
-        size{1}, IRKOper{IRKOper_}, temp_scalar(IRKOper_.Height()),
-        R00{R00_},
-        dt{0.0}
-        {};
-
-    /// 2x2 block
-    KronJacDiagBlock(int height, const IRKOperator &IRKOper_, DenseMatrix R_, 
-        Array<int> offsets_) : Operator(height), 
-        size{2}, IRKOper{IRKOper_}, temp_scalar(IRKOper_.Height()),
-        R(R_), offsets(offsets_),
-        dt{0.0}
-        {};
-
-    /// Update parameters required to compute action
-    inline void SetParameters(double dt_) const
-    {
-        dt = dt_;
-    };
-        
-    /// Compute action of diagonal block    
-    inline void Mult(const Vector &x, Vector &y) const 
-    {    
-        MFEM_ASSERT(x.Size() == this->Height(), "KronJacDiagBlock::Mult() incorrect input Vector size");
-        MFEM_ASSERT(y.Size() == this->Height(), "KronJacDiagBlock::Mult() incorrect output Vector size");
-        
-        // 1x1 operator, y = [R(0)(0)*M - dt*N']*x
-        if (size == 1) {
-            IRKOper.ExplicitGradientMult(x, y);
-            y *= -dt;
-        
-        // MASS MATRIX    
-        if (IRKOper.isImplicit()) {
-            IRKOper.ImplicitMult(x, temp_scalar);
-            y.Add(R00, temp_scalar);
-        // NO MASS MATRIX    
-        } else {
-            y.Add(R00, x);
-        }
-        
-            
-        // 2x2 operator,
-        //  y(0) = [R(0,0)*M-dt*N']*x(0) + [R(0,1)*M]*x(1)
-        //  y(1) = [R(1,0)*M]*x(0)       + [R(1,1)*M-dt*N']*x(1)
-        } else if (size == 2) {
-            // Wrap scalar Vectors with BlockVectors
-            x_block.Update(x.GetData(), offsets);
-            y_block.Update(y.GetData(), offsets);
-            
-            // y(0)
-            IRKOper.ExplicitGradientMult(x_block.GetBlock(0), y_block.GetBlock(0));
-            y_block.GetBlock(0) *= -dt;
-            
-            // y(1)
-            IRKOper.ExplicitGradientMult(x_block.GetBlock(1), y_block.GetBlock(1));
-            y_block.GetBlock(1) *= -dt;
-            
-            // MASS MATRIX
-            if (IRKOper.isImplicit()) {
-                // M*x(0) dependence
-                IRKOper.ImplicitMult(x_block.GetBlock(0), temp_scalar);
-                y_block.GetBlock(0).Add(R(0,0), temp_scalar);
-                y_block.GetBlock(1).Add(R(1,0), temp_scalar);
-                // M*x(1) dependence
-                IRKOper.ImplicitMult(x_block.GetBlock(1), temp_scalar);
-                y_block.GetBlock(0).Add(R(0,1), temp_scalar);
-                y_block.GetBlock(1).Add(R(1,1), temp_scalar);
-            
-            // NO MASS MATRIX    
-            } else {
-                // x(0) dependence
-                y_block.GetBlock(0).Add(R(0,0), x_block.GetBlock(0));
-                y_block.GetBlock(1).Add(R(1,0), x_block.GetBlock(0));
-                // x(1) dependence
-                y_block.GetBlock(0).Add(R(0,1), x_block.GetBlock(1));
-                y_block.GetBlock(1).Add(R(1,1), x_block.GetBlock(1));
-            }
-        }
-    };     
-};
-
-/** Preconditioner for Kronecker-product diagonal blocks taking the form
-    1x1: 
-         [R(0,0)*M - dt*N']
-
-    2x2:
-         [R(0,0)*M-dt*N'    R(0,1)*M   ]
-         [R(1,0)*M       R(0,0)*M-dt*N']
-
-    The 2x2 operator is preconditioned by the INVERSE of
-         [R(0,0)*M-dt*N'      0        ]
-         [R(1,0)*M       R(0,0)*M-dt*N']
-
-    Where, in all cases, IRKOper.ImplicitPrec(x,y) is used to approximately 
-         solve [R(0,0)*M-dt*N']*y=x */
-class KronJacDiagBlockPrec : public Solver
-{
-private:
-    const IRKOperator &IRKOper;
-    int size;
-    bool identity; // Use identity preconditioner. Useful as a comparison.
-    
-    // Data required for 2x2 operators
-    Array<int> offsets; 
-    double R10;
-    mutable BlockVector x_block, y_block;
-    mutable Vector temp_scalar; // Auxillary vector
-    
-public:
-    
-    /// 1x1 block
-    KronJacDiagBlockPrec(int height, const IRKOperator &IRKOper_, 
-        bool identity_=false) 
-        : Solver(height), IRKOper(IRKOper_), size{1}, identity(identity_) {};
-
-    /// 2x2 block
-    KronJacDiagBlockPrec(int height, const IRKOperator &IRKOper_, 
-        double R10_, Array<int> offsets_, bool identity_=false) 
-        : Solver(height), IRKOper(IRKOper_), size{2}, identity(identity_),
-            R10{R10_}, offsets(offsets_), temp_scalar(offsets_[1]) {};
-    
-    ~KronJacDiagBlockPrec() {};
-    
-    /// Apply action of preconditioner
-    inline void Mult(const Vector &x_scalar, Vector &y_scalar) const {
-        // Use an identity preconditioner
-        if (identity) {
-            y_scalar = x_scalar;
-            
-        // Use a proper preconditioner    
-        } else {
-            // 1x1 system
-            if (size == 1) {
-                IRKOper.ImplicitPrec(x_scalar, y_scalar);
-            }
-            // 2x2 system uses 2x2 block lower triangular preconditioner 
-            else if (size == 2) {
-                // Wrap scalar Vectors with BlockVectors
-                x_block.Update(x_scalar.GetData(), offsets);
-                y_block.Update(y_scalar.GetData(), offsets);
-                
-                // Approximately invert (0,0) block 
-                IRKOper.ImplicitPrec(x_block.GetBlock(0), y_block.GetBlock(0));
-                
-                /* Form RHS of next system, temp <- x(1) - R10*M*y(0) */
-                // MASS MATRIX
-                if (IRKOper.isImplicit()) {
-                    IRKOper.ImplicitMult(y_block.GetBlock(0), temp_scalar);
-                    temp_scalar *= -R10;
-                    temp_scalar += x_block.GetBlock(1);
-                // NO MASS MATRIX    
-                } else {
-                    add(x_block.GetBlock(1), -R10, y_block.GetBlock(0), temp_scalar); 
-                }
-                
-                // Approximately invert (1,1) block
-                IRKOper.ImplicitPrec(temp_scalar, y_block.GetBlock(1));
-            }
-        }
-    };
-    
-    /// Purely virtual function we must implement but do not use.
-    virtual void SetOperator(const Operator &op) {  };
-};
-
-
-/** N' (the Jacobian of N) is assumed constant w.r.t w, so that
-    the diagonal block of Jacobians can be written as a Kronecker product,
-        I \otimes N' ~ diag(N'(u+dt*w1), ..., N'(u+dt*ws))
-    Letting J = A^-1 \otimes I - dt * I \otimes N', here we solve J*x=b via 
-    block backward substitution, making use of the Schur decomposition of A^-1. */
-class KronJacSolver : public Solver
-{
-
-private:
-    int printlevel;
-    
-    IRKStageOper &StageOper;
-    
-    Array<int> &offsets;    // Offsets for vectors with s blocks
-    Array<int> offsets_2;   // Offsets for vectors with 2 blocks
-    
-    // Auxillary vectors  
-    mutable BlockVector x_block, b_block, b_block_temp, x_block_temp;   // s blocks
-    mutable BlockVector y_2block, z_2block;                             //  2 blocks 
-    mutable Vector temp_scalar1, temp_scalar2;  
-     
-    // Diagonal blocks inverted during backward substitution
-    Array<KronJacDiagBlock *> JacDiagBlock;
-    
-    // Solvers for inverting diagonal blocks
-    IterativeSolver * krylov_solver1; // 1x1 solver
-    IterativeSolver * krylov_solver2; // 2x2 solver
-    // NOTE: krylov_solver2 is just a pointer to krylov_solver1 so long as there aren't 
-    // both 1x1 and 2x2 systems to solve AND different solver parameters weren't passed 
-    bool multiple_krylov; // Do we really use two different solvers?
-    
-    // Number of Krylov iterations for each diagonal block
-    mutable vector<int> krylov_iters;
-    
-    // Preconditioners to assist with inversion of diagonal blocks
-    Array<KronJacDiagBlockPrec *> JacDiagBlockPrec;
-    
-    // Jacobian of N.
-    //Operator * N_jac;
-    
-    // At what point do we linearize the Jacobian of N:
-    //  0: u, t
-    //  0<j<=s: u+dt*w(j),t+dt*c0(j)
-    //      Best option(?): Use last stage value (j=s). This Get's correct 
-    //          for single stage schemes, and get's Jacobian right for last DOF 
-    //          which is important since we're doing back substitution.
-    int N_jac_lin;
-    
-    // How often do we update the Jacobian:
-    //  0:  At start of each new time step
-    //  1:  Every Newton iteration
-    int N_jac_update_rate;
-    
-public:
-
-    /** General constructor, where 1x1 and 2x2 systems can use different Krylov 
-        solvers.
-        NOTE: To use only a single solver, requires &solver_params1==&solver_params2 */
-    KronJacSolver(IRKStageOper &StageOper_, 
-                    const IRK::KrylovParams &solver_params1, const IRK::KrylovParams &solver_params2, 
-                    int N_jac_lin_, int N_jac_update_rate_) 
-        : Solver(StageOper_.Height()),
-        printlevel(solver_params1.printlevel),
-        StageOper(StageOper_),
-        offsets(StageOper_.RowOffsets()), offsets_2(0),
-        x_block(StageOper_.RowOffsets()), b_block(StageOper_.RowOffsets()), 
-        b_block_temp(StageOper_.RowOffsets()), x_block_temp(StageOper_.RowOffsets()), 
-        y_2block(), z_2block(),
-        temp_scalar1(StageOper_.RowOffsets()[1]), temp_scalar2(StageOper_.RowOffsets()[1]),
-        krylov_solver1(NULL), krylov_solver2(NULL), multiple_krylov(false),
-        N_jac_lin{N_jac_lin_},
-        N_jac_update_rate{N_jac_update_rate_}
-    {    
-        MFEM_ASSERT(N_jac_lin > 0 && N_jac_lin <= StageOper.Butcher.s, 
-                "KronJacSolver: Require 0 < N_jac_linearization <= s");
-        MFEM_ASSERT(N_jac_update_rate == 0 || N_jac_update_rate == 1, 
-                "KronJacSolver: Require N_jac_update_rate==0 or 1");
-        
-        // Create operators describing diagonal blocks
-        bool type1_solves = false; // Do we solve any 1x1 systems?
-        bool type2_solves = false; // Do we solve any 2x2 systems?
-        double R00;         // 1x1 diagonal block of R0
-        DenseMatrix R(2);   // 2x2 diagonal block of R0
-        int row = 0;        // Row of R0 we're accessing
-        JacDiagBlock.SetSize(StageOper.Butcher.s_eff);
-        JacDiagBlockPrec.SetSize(StageOper.Butcher.s_eff);
-        bool identity = !true; // Use identity preconditioners...
-        for (int i = 0; i < StageOper.Butcher.s_eff; i++) {
-            
-            // 1x1 diagonal block
-            if (StageOper.Butcher.R0_block_sizes[i] == 1)
-            {
-                type1_solves = true;
-                R00 = StageOper.Butcher.R0(row,row);
-                JacDiagBlock[i] = new KronJacDiagBlock(offsets[1], *(StageOper.IRKOper), R00);    
-                JacDiagBlockPrec[i] = new KronJacDiagBlockPrec(offsets[1], *(StageOper.IRKOper), identity);
-            } 
-            // 2x2 diagonal block
-            else 
-            {
-                type2_solves = true;
-                if (offsets_2.Size() == 0) {
-                    offsets_2.SetSize(3);
-                    offsets_2[0] = offsets[0];
-                    offsets_2[1] = offsets[1];
-                    offsets_2[2] = offsets[2];
-                }
-                
-                R(0,0) = StageOper.Butcher.R0(row,row);
-                R(0,1) = StageOper.Butcher.R0(row,row+1);
-                R(1,0) = StageOper.Butcher.R0(row+1,row);
-                R(1,1) = StageOper.Butcher.R0(row+1,row+1);
-                JacDiagBlock[i] = new KronJacDiagBlock(2*offsets[1], *(StageOper.IRKOper), R, offsets_2);
-                JacDiagBlockPrec[i] = new KronJacDiagBlockPrec(2*offsets[1], *(StageOper.IRKOper),
-                                            R(1,0), offsets_2, identity);
-                row++; // We've processed 2 rows of R0 here.
-            }
-            
-            row++; // Increment to next row of R0
-        }
-        
-        // Set up Krylov solver 
-        GetKrylovSolver(krylov_solver1, solver_params1);
-        krylov_solver2 = krylov_solver1; // By default, 2x2 systems solved with krylov_solver1.
-        
-        // Setup different solver for 2x2 blocks if needed (solving both 1x1 and 
-        // 2x2 systems AND references to solver parameters are not identical)
-        if ((type1_solves && type2_solves) && (&solver_params1 != &solver_params2)) {
-            MFEM_ASSERT(solver_params2.solver == IRK::KrylovMethod::GMRES, "IRK:: 2x2 systems must use GMRES.\n");
-            GetKrylovSolver(krylov_solver2, solver_params2);
-            multiple_krylov = true;
-        }
-        
-        krylov_iters.resize(StageOper.Butcher.s_eff, 0);
-    };
-    
-    /// Functions to track solver progress
-    inline vector<int> GetNumIterations() { return krylov_iters; };
-    inline void ResetNumIterations() { 
-        for (int i = 0; i < krylov_iters.size(); i++) krylov_iters[i] = 0; 
-    };
-    
-    /// Constructor for when 1x1 and 2x2 systems use same solver
-    KronJacSolver(IRKStageOper &StageOper_, const IRK::KrylovParams &solver_params,
-                  int N_jac_lin_, int N_jac_update_rate_)   
-                  : KronJacSolver(StageOper_, solver_params, solver_params, 
-                                    N_jac_lin_, N_jac_update_rate_) {};
-    
-    ~KronJacSolver()
-    {
-        for (int i = 0; i < JacDiagBlock.Size(); i++) {
-            delete JacDiagBlockPrec[i];
-            delete JacDiagBlock[i];
-        }
-        delete krylov_solver1;
-        if (multiple_krylov) delete krylov_solver2;
-    };
-    
-    /// Set up Krylov solver for inverting diagonal blocks
-    inline void GetKrylovSolver(IterativeSolver * &solver, const IRK::KrylovParams &params) {
-        switch (params.solver) {
-            case IRK::KrylovMethod::CG:
-                solver = new CGSolver(StageOper.IRKOper->GetComm());
-                break;
-            case IRK::KrylovMethod::MINRES:
-                solver = new MINRESSolver(StageOper.IRKOper->GetComm());
-                break;
-            case IRK::KrylovMethod::GMRES:
-                solver = new GMRESSolver(StageOper.IRKOper->GetComm());
-                static_cast<GMRESSolver*>(solver)->SetKDim(params.kdim);
-                break;
-            case IRK::KrylovMethod::BICGSTAB:
-                solver = new MINRESSolver(StageOper.IRKOper->GetComm());
-                break;    
-            case IRK::KrylovMethod::FGMRES:
-                solver = new FGMRESSolver(StageOper.IRKOper->GetComm());
-                static_cast<FGMRESSolver*>(solver)->SetKDim(params.kdim);
-                break;
-            default:
-                mfem_error("IRK::Invalid Krylov solve type.\n");   
-        }
-        
-        solver->iterative_mode = false;
-        solver->SetAbsTol(params.abstol);
-        solver->SetRelTol(params.reltol);
-        solver->SetMaxIter(params.maxiter);
-        solver->SetPrintLevel(params.printlevel);
-    }
-    
-    
-    /** Newton method will pass the operator returned from its GetGradient() to 
-        this, but we don't actually require it. However, we do access whether
-        we need to update our Jacobian, N_jac. */
-    void SetOperator (const Operator &op) { 
-    
-        double dt = StageOper.GetTimeStep();
-        double t = StageOper.GetTime();
-    
-        // Update N_jac if necessary (1st Newton iteration, or all Newton iterations)
-        if (StageOper.getGradientCalls == 1 || N_jac_update_rate == 1) {
-    
-            // // Basic option: Eval jacobian of N at u
-            // if (N_jac_lin == 0) {
-            //     temp_scalar1 = *(StageOper.u);
-            //     StageOper.IRKOper->SetTime(t);
-            // // Eval jacobian of N at u + dt*w(N_jac_lin)
-            // } else {
-            //     int idx = N_jac_lin-1; 
-            //     add(*(StageOper.u), dt, StageOper.GetCurrentIterate().GetBlock(idx), temp_scalar1);
-            //     StageOper.IRKOper->SetTime(t + dt*StageOper.Butcher.c0[idx]);
-            // } 
-            // 
-            // N_jac = &(StageOper.IRKOper->GetExplicitGradient(temp_scalar1));
-            
-            
-            StageOper.IRKOper->SetExplicitGradient(*(StageOper.u), dt, 
-                        StageOper.GetCurrentIterate(), StageOper.Butcher.c0);
-            
-            
-        }
-    };
-    
-    /** Solve J*x = b for x, J=A^-1 \otimes I - dt * I \otimes L' 
-        We first transform J*x=b into 
-            [Q^\top J Q][Q^\top * x]=[Q^\top * b] 
-                        <==> 
-            \tilde{J} * x_temp = b_temp,
-        i.e., x_temp = Q^\top * x_block, b_temp = Q^\top * b_block */
-    void Mult(const Vector &b_scalar, Vector &x_scalar) const
-    {   
-        // Wrap scalar Vectors into BlockVectors
-        b_block.Update(b_scalar.GetData(), offsets);
-        x_block.Update(x_scalar.GetData(), offsets);
-        
-        // Transform initial guess and RHS 
-        KronTransformTranspose(StageOper.Butcher.Q0, x_block, x_block_temp);
-        KronTransformTranspose(StageOper.Butcher.Q0, b_block, b_block_temp);
-        
-        // Solve \tilde{J}*x_block_temp=b_block_temp, 
-        BlockBackwardSubstitution(b_block_temp, x_block_temp);
-        
-        // Transform to get original x
-        KronTransform(StageOper.Butcher.Q0, x_block_temp, x_block); 
-    }
-    
-    /** Solve \tilde{J}*y = z via block backward substitution, where 
-            \tilde{J} = R \otimes M - I \otimes dt*N' 
-        NOTE: RHS vector z is not const, since its data is overridden during the 
-        solve */
-    void BlockBackwardSubstitution(BlockVector &z_block, BlockVector &y_block) const
-    {
-        if (printlevel > 0) mfem::out << "  ---Backward solve---" << '\n';
-        
-        // Short hands
-        int s = StageOper.Butcher.s; 
-        int s_eff = StageOper.Butcher.s_eff; 
-        DenseMatrix R = StageOper.Butcher.R0; 
-        bool krylov_converged;
-        
-        // Block index of current unknown (index w.r.t y/z block sizes, not Rs)
-        int idx = s-1;
-        
-        /* Backward substitution: Invert diagonal blocks, which are 1x1 systems 
-        for y[idx], or 2x2 systems for (y[idx],y[idx+1]) */
-        for (int diagBlock = s_eff-1; diagBlock >= 0; diagBlock--)
-        {
-            if (printlevel > 0) mfem::out << "    Block solve " << s_eff-diagBlock << " of " << s_eff;
-            
-            // Update parameters for the diag block to be inverted
-            //JacDiagBlock[diagBlock]->SetParameters(StageOper.GetTimeStep(), N_jac);
-            JacDiagBlock[diagBlock]->SetParameters(StageOper.GetTimeStep());
-            
-            // Ensure correct preconditioner is set up for R(idx, idx)*M - dt*N'.
-            int system_idx = s_eff-diagBlock-1; // Note the reverse ordering...
-            StageOper.IRKOper->SetPreconditioner(system_idx, StageOper.GetTimeStep(), R(idx, idx), 
-                                        StageOper.Butcher.R0_block_sizes[diagBlock]);
-            
-            // Invert 1x1 diagonal block
-            if (StageOper.Butcher.R0_block_sizes[diagBlock] == 1) 
-            {
-                if (printlevel > 0) {
-                    mfem::out << ": 1x1 block  -->  ";
-                    if (printlevel != 2) mfem::out << '\n';
-                }
-                // --- Form RHS vector (this overrides z_block(idx)) --- //
-                // Subtract out known information from LHS of equations
-                if (idx+1 < s) {
-                    // MASS MATRIX
-                    if (StageOper.IRKOper->isImplicit()) {
-                        temp_scalar1.Set(-R(idx, idx+1), y_block.GetBlock(idx+1));
-                        for (int j = idx+2; j < s; j++) {
-                            temp_scalar1.Add(-R(idx, j), y_block.GetBlock(j));
-                        }
-                        StageOper.IRKOper->ImplicitMult(temp_scalar1, temp_scalar2);
-                        z_block.GetBlock(idx) += temp_scalar2; // Add to existing RHS
-                        
-                    // NO MASS MATRIX    
-                    } else {
-                        for (int j = idx+1; j < s; j++) {
-                            z_block.GetBlock(idx).Add(-R(idx, j), y_block.GetBlock(j));
-                        }
-                    }
-                }
-                
-                // --- Solve 1x1 system --- //
-                // [R(idx, idx)*M - dt*L]*y(idx) = augmented(z(idx))
-                // Pass preconditioner for diagonal block to Krylov solver
-                krylov_solver1->SetPreconditioner(*JacDiagBlockPrec[diagBlock]);
-                // Pass diagonal block to Krylov solver
-                krylov_solver1->SetOperator(*JacDiagBlock[diagBlock]);
-                // Solve
-                krylov_solver1->Mult(z_block.GetBlock(idx), y_block.GetBlock(idx));
-                krylov_converged = krylov_solver1->GetConverged();
-                krylov_iters[diagBlock] += krylov_solver1->GetNumIterations();
-            } 
-            // Invert 2x2 diagonal block
-            else if (StageOper.Butcher.R0_block_sizes[diagBlock] == 2) 
-            {
-                if (printlevel > 0) {
-                    mfem::out << ": 2x2 block  -->  ";
-                    if (printlevel != 2) mfem::out << '\n';
-                }
-                idx--; // Index first unknown in pair rather than second
-        
-                // --- Form RHS vector (this overrides z_block[idx], z_block[idx+1]) --- //
-                // Point z_2block to the appropriate data from z_block 
-                // (note data arrays for blocks are stored contiguously)
-                z_2block.Update(z_block.GetBlock(idx).GetData(), offsets_2);
-                
-                // Subtract out known information from LHS of equations
-                if (idx+2 < s) {
-                    // MASS MATRIX
-                    if (StageOper.IRKOper->isImplicit()) {
-                        // First component
-                        temp_scalar1.Set(-R(idx, idx+2), y_block.GetBlock(idx+2));
-                        for (int j = idx+3; j < s; j++) {
-                            temp_scalar1.Add(-R(idx, j), y_block.GetBlock(j));
-                        }
-                        StageOper.IRKOper->ImplicitMult(temp_scalar1, temp_scalar2);
-                        z_2block.GetBlock(0) += temp_scalar2; // Add to existing RHS
-                        // Second component
-                        temp_scalar1.Set(-R(idx+1, idx+2), y_block.GetBlock(idx+2)); 
-                        for (int j = idx+3; j < s; j++) {
-                            temp_scalar1.Add(-R(idx+1, j), y_block.GetBlock(j)); 
-                        }
-                        StageOper.IRKOper->ImplicitMult(temp_scalar1, temp_scalar2);
-                        z_2block.GetBlock(1) += temp_scalar2; // Add to existing RHS
-                    
-                    // NO MASS MATRIX    
-                    } else {
-                        for (int j = idx+2; j < s; j++) {
-                            z_2block.GetBlock(0).Add(-R(idx, j), y_block.GetBlock(j)); // First component
-                            z_2block.GetBlock(1).Add(-R(idx+1, j), y_block.GetBlock(j)); // Second component
-                        }
-                    }
-                }
-                
-                // Point y_2block to data array of solution vector
-                y_2block.Update(y_block.GetBlock(idx).GetData(), offsets_2);
-                
-                // --- Solve 2x2 system --- //
-                // [R(idx,idx)*M-dt*N'     R(idx,idx+1)*M    ][y(idx)  ] = augmented(z(idx))
-                // [R(idx+1,idx)*M     R(idx+1,idx+1)*M-dt*N'][y(idx+1)] = augmented(z(idx+1))
-                // Pass preconditioner for diagonal block to Krylov solver
-                krylov_solver2->SetPreconditioner(*JacDiagBlockPrec[diagBlock]);
-                // Pass diagonal block to Krylov solver
-                krylov_solver2->SetOperator(*JacDiagBlock[diagBlock]);
-                // Solve
-                krylov_solver2->Mult(z_2block, y_2block);
-                krylov_converged = krylov_solver2->GetConverged();    
-                krylov_iters[diagBlock] += krylov_solver1->GetNumIterations();
-            }
-            
-            // Check convergence 
-            if (!krylov_converged) {
-                string msg = "KronJacSolver::BlockBackwardSubstitution() Krylov solver at t=" 
-                                + to_string(StageOper.IRKOper->GetTime()) 
-                                + " not converged [system " + to_string(s_eff-diagBlock) 
-                                + "/" + to_string(s_eff) 
-                                + ", size=" + to_string(StageOper.Butcher.R0_block_sizes[diagBlock]) + ")]\n";
-                mfem_error(msg.c_str());
-            }
-            
-            idx--; // Decrement to refer to next unknown
-        }
-    }
-};
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1311,9 +683,9 @@ public:
         R00{R00_}
         {
             MFEM_ASSERT(IRKOper.GetExplicitGradientsType() == IRKOperator::ExplicitGradients::APPROXIMATE,
-                        "KronJacDiagBlock:: This constructor is for IRKOperator's \
+                        "JacDiagBlock:: This constructor is for IRKOperator's \
                         with ExplicitGradients::APPROXIMATE");
-        };
+        }
     
     /// ExplicitGradients==EXACT, 1x1 block
     JacDiagBlock(const Array<int> &offsets_, const IRKOperator &IRKOper_, 
@@ -1323,9 +695,9 @@ public:
         R00{R00_}, Z00{Z00_}
         {
             MFEM_ASSERT(IRKOper.GetExplicitGradientsType() == IRKOperator::ExplicitGradients::EXACT,
-                        "KronJacDiagBlock:: This constructor is for IRKOperator's \
+                        "JacDiagBlock:: This constructor is for IRKOperator's \
                         with ExplicitGradients::EXACT");
-        };
+        }
     
     /// ExplicitGradients==APPROXIMATE, 2x2 block
     JacDiagBlock(const Array<int> &offsets_, const IRKOperator &IRKOper_, 
@@ -1335,9 +707,9 @@ public:
         R00{R00_}, R01{R01_}, R10{R10_}, R11{R11_}
         {
             MFEM_ASSERT(IRKOper.GetExplicitGradientsType() == IRKOperator::ExplicitGradients::APPROXIMATE,
-                        "KronJacDiagBlock:: This constructor is for IRKOperator's \
+                        "JacDiagBlock:: This constructor is for IRKOperator's \
                         with ExplicitGradients::APPROXIMATE");
-        };
+        }
 
     /// ExplicitGradients==EXACT, 2x2 block
     JacDiagBlock(const Array<int> &offsets_, const IRKOperator &IRKOper_, 
@@ -1349,9 +721,9 @@ public:
         Z00{Z00_}, Z01{Z01_}, Z10{Z10_}, Z11{Z11_} 
         {
             MFEM_ASSERT(IRKOper.GetExplicitGradientsType() == IRKOperator::ExplicitGradients::EXACT,
-                        "KronJacDiagBlock:: This constructor is for IRKOperator's \
+                        "JacDiagBlock:: This constructor is for IRKOperator's \
                         with ExplicitGradients::EXACT");
-        };
+        }
 
     inline void SetTimeStep(double dt_) const { dt = dt_; };
     inline double GetTimeStep() const { return dt; };
@@ -1552,7 +924,7 @@ public:
         bool identity_=false) 
         : Solver(BlockOper_.Height()), BlockOper{BlockOper_}, 
         identity(identity_) 
-        {};
+        {}
         
     /// ExplicitGradients==APPROXIMATE, 2x2 block
     JacDiagBlockPrec(const JacDiagBlock &BlockOper_, double R10_, 
@@ -1560,7 +932,11 @@ public:
         : Solver(BlockOper_.Height()), BlockOper{BlockOper_}, 
             identity(identity_), temp_scalar(BlockOper_.Offsets()[1]),
             R10{R10_} 
-        {};
+        {
+            MFEM_ASSERT(BlockOper.IRKOper.GetExplicitGradientsType() == IRKOperator::ExplicitGradients::APPROXIMATE,
+                        "JacDiagBlockPrec:: This constructor is for IRKOperator's \
+                        with ExplicitGradients::APPROXIMATE");
+        }
 
     /// ExplicitGradients==EXACT, 2x2 block
     JacDiagBlockPrec(const JacDiagBlock &BlockOper_, double R10_, 
@@ -1570,9 +946,13 @@ public:
             identity(identity_), temp_scalar(BlockOper_.Offsets()[1]),
             R10{R10_}, 
             Y10{Y10_}, prec00_idx{prec00_idx_}, prec11_idx{prec11_idx_} 
-        {};
+        {
+            MFEM_ASSERT(BlockOper.IRKOper.GetExplicitGradientsType() == IRKOperator::ExplicitGradients::EXACT,
+                        "JacDiagBlockPrec:: This constructor is for IRKOperator's \
+                        with ExplicitGradients::EXACT");
+        }
     
-    ~JacDiagBlockPrec() {};
+    ~JacDiagBlockPrec() {}
     
     /// Apply action of preconditioner
     inline void Mult(const Vector &x_scalar, Vector &y_scalar) const {
@@ -1647,7 +1027,7 @@ public:
     }
     
     /// Purely virtual function we must implement but do not use.
-    virtual void SetOperator(const Operator &op) {  };
+    virtual void SetOperator(const Operator &op) {  }
 };
 
 
@@ -1693,10 +1073,10 @@ class TriJacSolver : public Solver
 {
 
 private:
-    int printlevel;
     
     IRKStageOper &StageOper;
     
+    int printlevel;
     int jac_update_rate;    // How frequently is Jacobian updated?
     
     Array<int> &offsets;    // Offsets for vectors with s blocks
@@ -1711,6 +1091,9 @@ private:
     // Diagonal blocks inverted during backward substitution
     Array<JacDiagBlock *> DiagBlock;
     
+    // Preconditioners to assist with inversion of diagonal blocks
+    Array<JacDiagBlockPrec *> DiagBlockPrec;
+    
     // Solvers for inverting diagonal blocks
     IterativeSolver * krylov_solver1; // 1x1 solver
     IterativeSolver * krylov_solver2; // 2x2 solver
@@ -1720,9 +1103,6 @@ private:
     
     // Number of Krylov iterations for each diagonal block
     mutable vector<int> krylov_iters;
-    
-    // Preconditioners to assist with inversion of diagonal blocks
-    Array<JacDiagBlockPrec *> DiagBlockPrec;
     
     // Sparsity pattern of \tilde{P}
     bool kronecker_form;    // Structure of \tilde{P}: Just a short hand for StageOper.IRKOper->GetExplicitGradient
@@ -1748,10 +1128,6 @@ public:
         krylov_solver1(NULL), krylov_solver2(NULL), multiple_krylov(false),
         Z_solver(Z_solver_), Z_prec(Z_prec_)
     {        
-        
-        // Z_solver.Print();
-        // mfem::out << "\n\n";
-        // Z_prec.Print();
         
         kronecker_form = (StageOper.IRKOper->GetExplicitGradientsType() == IRKOperator::ExplicitGradients::APPROXIMATE);
         

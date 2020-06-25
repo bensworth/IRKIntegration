@@ -16,7 +16,23 @@ using namespace std;
 //      *** Solve 2D in space problem w/ 4th-order discretizations in space & time ***
 //      >> mpirun -np 4 ./driver_adv_dif_FD -f 1 -d 2 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -np 2 -nmaxit 20 -nrtol 1e-10 -natol 1e-10 -krtol 1e-13 -katol 1e-13 -kp 0
 //
-// 
+//      *** Solve 1D in space PDE with 10th-order discretizations in space & time with dt=10*dx ***
+//      * Kronecker-product Jacobian, updated 1st Newton iteration only *
+//      >> mpirun -np 4 ./driver_adv_dif_FD -jac 0 -jacu 0 -f 1 -d 1 -ex 1 -ax 0.85 -mx 0.3 -l 5 -o 10 -dt -10 -t 110 -save 2 -tf 4 -np 2 -nmaxit 20 -nrtol 1e-10 -natol 1e-10 -krtol 1e-13 -katol 1e-13 -kp 0
+//
+//      * Kronecker-product Jacobian, updated every Newton iteration *
+//      >> mpirun -np 4 ./driver_adv_dif_FD -jac 0 -jacu 1 -f 1 -d 1 -ex 1 -ax 0.85 -mx 0.3 -l 5 -o 10 -dt -10 -t 110 -save 2 -tf 4 -np 2 -nmaxit 20 -nrtol 1e-10 -natol 1e-10 -krtol 1e-13 -katol 1e-13 -kp 0
+//
+//      * Jacobian truncated to be block upper triangular *
+//      >> mpirun -np 4 ./driver_adv_dif_FD -jac 1 -jacu 1 -jacs 2 -jacp 2 -f 1 -d 1 -ex 1 -ax 0.85 -mx 0.3 -l 5 -o 10 -dt -10 -t 110 -save 2 -tf 4 -np 2 -nmaxit 20 -nrtol 1e-10 -natol 1e-10 -krtol 1e-13 -katol 1e-13 -kp 0
+//
+//      * From upper triangular Jacobian, truncate all off-diagonal N' components *
+//      >> mpirun -np 4 ./driver_adv_dif_FD -jac 1 -jacu 1 -jacs 1 -jacp 1 -f 1 -d 1 -ex 1 -ax 0.85 -mx 0.3 -l 5 -o 10 -dt -10 -t 110 -save 2 -tf 4 -np 2 -nmaxit 20 -nrtol 1e-10 -natol 1e-10 -krtol 1e-13 -katol 1e-13 -kp 0
+//
+//      * From upper triangular Jacobian, truncate all N' components except the largest one from each diagonal *
+//      >> mpirun -np 4 ./driver_adv_dif_FD -jac 1 -jacu 1 -jacs 0 -jacp 0 -f 1 -d 1 -ex 1 -ax 0.85 -mx 0.3 -l 5 -o 10 -dt -10 -t 110 -save 2 -tf 4 -np 2 -nmaxit 20 -nrtol 1e-10 -natol 1e-10 -krtol 1e-13 -katol 1e-13 -kp 0
+//
+//
 // Solve scalar advection-diffusion equation,
 //     u_t + alpha.grad(f(u)) = div( mu \odot grad(u) ) + s(x,t),
 // for constant vectors alpha, and mu.
@@ -120,9 +136,8 @@ private:
     /// Set solution independent source term at current time.
     inline void SetSource() const { Mesh.EvalFunction(&Source, GetTime(), source); };
     
+    /// Compute J == N'(x)
     void GetGradient(const Vector &x, HypreParMatrix * &J) const;
-    /// Gradient of L(u, t) w.r.t u evaluated at x 
-    //HypreParMatrix &GetExplicitGradient(const Vector &x) const;
     
 public:
     
@@ -516,7 +531,6 @@ int main(int argc, char *argv[])
     MPI_Finalize();
     return 0;
 }
-
 
 
 

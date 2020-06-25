@@ -54,8 +54,7 @@ void KronTransformTranspose(const DenseMatrix &A, const BlockVector &x, BlockVec
 IRK::IRK(IRKOperator *IRKOper_, const RKData &ButcherTableau)
         : m_IRKOper(IRKOper_), m_Butcher{ButcherTableau}, 
         m_stageOper(NULL),
-        m_nonlinear_solver(NULL),
-        m_kron_jac_solver(NULL),
+        m_newton_solver(NULL),
         m_tri_jac_solver(NULL),
         m_jac_solverSparsity(NULL),
         m_jac_precSparsity(NULL),
@@ -106,9 +105,8 @@ IRK::IRK(IRKOperator *IRKOper_, const RKData &ButcherTableau)
 
 /// Destructor
 IRK::~IRK() {
-    if (m_kron_jac_solver) delete m_kron_jac_solver;
     if (m_tri_jac_solver) delete m_tri_jac_solver;
-    if (m_nonlinear_solver) delete m_nonlinear_solver;
+    if (m_newton_solver) delete m_newton_solver;
     if (m_stageOper) delete m_stageOper;
     
     if (m_jac_solverSparsity) delete m_jac_solverSparsity;
@@ -123,26 +121,24 @@ void IRK::SetSolvers()
     m_solversInit = true;
     
     // Setup Newton solver
-    m_nonlinear_solver = new NewtonSolver(m_comm);
-    m_nonlinear_solver->iterative_mode = false;
-    m_nonlinear_solver->SetMaxIter(m_newton_params.maxiter);
-    m_nonlinear_solver->SetRelTol(m_newton_params.reltol);
-    m_nonlinear_solver->SetPrintLevel(m_newton_params.printlevel);    
-    if (m_newton_params.printlevel == 2) m_nonlinear_solver->SetPrintLevel(-1);
-    
-    
-    
-    
+    m_newton_solver = new NewtonSolver(m_comm);
+    m_newton_solver->iterative_mode = false;
+    m_newton_solver->SetMaxIter(m_newton_params.maxiter);
+    m_newton_solver->SetRelTol(m_newton_params.reltol);
+    m_newton_solver->SetPrintLevel(m_newton_params.printlevel);    
+    if (m_newton_params.printlevel == 2) m_newton_solver->SetPrintLevel(-1);
     
     
     // Set sparsity patterns for Jacobian and its preconditioner if using a 
     // non-Kronecker-product Jacobian
-    if (m_IRKOper->GetExplicitGradientsType() == IRKOperator::ExplicitGradients::EXACT)
-    m_jac_solverSparsity = new QuasiMatrixProduct(m_Butcher.Q0);
-    m_jac_precSparsity   = new QuasiMatrixProduct(m_Butcher.Q0);
-    
-    m_jac_solverSparsity->Sparsify(static_cast<int>(m_newton_params.jac_solver_sparsity));
-    m_jac_precSparsity->Sparsify(static_cast<int>(m_newton_params.jac_prec_sparsity));
+    if (m_IRKOper->GetExplicitGradientsType() == IRKOperator::ExplicitGradients::EXACT) {
+        m_jac_solverSparsity = new QuasiMatrixProduct(m_Butcher.Q0);
+        m_jac_precSparsity   = new QuasiMatrixProduct(m_Butcher.Q0);
+        
+        m_jac_solverSparsity->Sparsify(static_cast<int>(m_newton_params.jac_solver_sparsity));
+        m_jac_precSparsity->Sparsify(static_cast<int>(m_newton_params.jac_prec_sparsity));
+        
+    }
     
     // Create Jacobian solver
     // User requested different Krylov solvers for 1x1 and 2x2 blocks
@@ -158,63 +154,7 @@ void IRK::SetSolvers()
                                     m_krylov_params, 
                                     m_jac_solverSparsity, m_jac_precSparsity);
     }
-    m_nonlinear_solver->SetSolver(*m_tri_jac_solver);
-    
-    
-    // // Newton with Kronecker-product Jacobian
-    // //case IRK::NewtonMethod::KRONECKER:
-    // switch (m_IRKOper->GetExplicitGradientsType()) {
-    // 
-    //     case IRKOperator::ExplicitGradients::APPROXIMATE:
-    //     {
-    //         // Create solver for approximate Kronecker-product Jacobian system
-    // 
-    //         // TODO: Setup option for user to determine these parameters
-    //         int N_jac_update_rate = 0;  // Update once only at start of each time step
-    //         int N_jac_lin = m_Butcher.s;// Linearize so that Jacobian is evaluated correct for last stage
-    // 
-    //         // User requested different Krylov solvers for 1x1 and 2x2 blocks
-    //         if (m_krylov2) {
-    //             m_kron_jac_solver = new KronJacSolver(*m_stageOper, m_krylov_params, m_krylov_params2, 
-    //                                                     N_jac_lin, N_jac_update_rate);
-    //         // Use same Krylov solvers for 1x1 and 2x2 blocks
-    //         } else {
-    //             m_kron_jac_solver = new KronJacSolver(*m_stageOper, m_krylov_params, 
-    //                                                     N_jac_lin, N_jac_update_rate);
-    //         }
-    // 
-    //         m_nonlinear_solver->SetSolver(*m_kron_jac_solver);
-    //         break;
-    //     }
-    // 
-    //     // Quasi-Newton method    
-    //     //case IRK::NewtonMethod::QUASI:
-    //     case IRKOperator::ExplicitGradients::EXACT:
-    //     {
-    // 
-    //         m_jac_solverSparsity = new QuasiMatrixProduct(m_Butcher.Q0);
-    //         m_jac_precSparsity   = new QuasiMatrixProduct(m_Butcher.Q0);
-    // 
-    //         m_jac_solverSparsity->Sparsify(static_cast<int>(m_newton_params.j_solverSparsity));
-    //         m_jac_precSparsity->Sparsify(static_cast<int>(m_newton_params.j_precSparsity));
-    // 
-    //         // User requested different Krylov solvers for 1x1 and 2x2 blocks
-    //         if (m_krylov2) {
-    //             m_tri_jac_solver = new TriJacSolver(*m_stageOper, 
-    //                                     m_newton_params.jac_update_rate,
-    //                                     m_krylov_params, m_krylov_params2, 
-    //                                     m_jac_solverSparsity, m_jac_precSparsity);
-    //         // Use same Krylov solvers for 1x1 and 2x2 blocks
-    //         } else {
-    //             m_tri_jac_solver = new TriJacSolver(*m_stageOper, 
-    //                                         m_newton_params.jac_update_rate,
-    //                                         m_krylov_params, 
-    //                                         m_jac_solverSparsity, m_jac_precSparsity);
-    //         }
-    //         m_nonlinear_solver->SetSolver(*m_tri_jac_solver);
-    //         break;
-    //     } 
-    // }
+    m_newton_solver->SetSolver(*m_tri_jac_solver);
 }
 
 
@@ -232,44 +172,34 @@ void IRK::Init(TimeDependentOperator &F)
 void IRK::Step(Vector &x, double &t, double &dt)
 {
     // Reset iteration counter for Jacobian solve from previous Newton iteration
-    // switch (m_IRKOper->GetExplicitGradientsType()) {
-    //     case IRKOperator::ExplicitGradients::APPROXIMATE:
-    //         m_kron_jac_solver->ResetNumIterations();
-    //         break;
-    //     case IRKOperator::ExplicitGradients::EXACT:
-    //         m_tri_jac_solver->ResetNumIterations();
-    //         break;
-    // }
-    
     m_tri_jac_solver->ResetNumIterations();
-    
     
     // Pass current values of dt and x to stage operator
     m_stageOper->SetParameters(&x, t, dt); 
     
     // Reset operator for Newton solver
-    m_nonlinear_solver->SetOperator(*m_stageOper);
+    m_newton_solver->SetOperator(*m_stageOper);
     
     // Solve for stages (Empty RHS is interpreted as zero RHS)
-    m_nonlinear_solver->Mult(Vector(), m_w);
+    m_newton_solver->Mult(Vector(), m_w);
     
     // Facilitate different printing from Newton solver.
     if (m_newton_params.printlevel == 2) {
         mfem::out   << "Newton: Number of iterations: " 
-                    << m_nonlinear_solver->GetNumIterations() 
-                    << ", ||r|| = " << m_nonlinear_solver->GetFinalNorm() 
+                    << m_newton_solver->GetNumIterations() 
+                    << ", ||r|| = " << m_newton_solver->GetFinalNorm() 
                     << '\n';
     }
     
     // Add iteration counts from this solve to existing counts
-    m_avg_newton_iter += m_nonlinear_solver->GetNumIterations();
-    vector<int> krylov_iters = (m_tri_jac_solver) ? m_tri_jac_solver->GetNumIterations() : m_kron_jac_solver->GetNumIterations();
+    m_avg_newton_iter += m_newton_solver->GetNumIterations();
+    vector<int> krylov_iters = m_tri_jac_solver->GetNumIterations();
     for (int system = 0; system < m_avg_krylov_iter.size(); system++) {
         m_avg_krylov_iter[system] += krylov_iters[system];
     }
     
     // Check for convergence 
-    if (!m_nonlinear_solver->GetConverged()) {
+    if (!m_newton_solver->GetConverged()) {
         string msg = "IRK::Step() Newton solver at t=" + to_string(t) + " not converged\n";
         mfem_error(msg.c_str());
     }
