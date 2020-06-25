@@ -3,6 +3,15 @@
 
 using namespace mfem;
 
+
+// COMMENTS
+//    + Using multiple AIR iterations helpful here
+//    srun -n48 ./dg_adv_diff  -r 6 -i 18 -o 2 -dt 0.005 -air 1 -tf 0.05 --> 86,70 iters
+//    srun -n48 ./dg_adv_diff  -r 6 -i 18 -o 2 -dt 0.005 -air 2 -tf 0.05 --> 30,17 iters
+//    srun -n48 ./dg_adv_diff  -r 6 -i 18 -o 2 -dt 0.005 -air 3 -tf 0.05 --> 23,11 iters
+
+
+
 double ic_fn(const Vector &xvec)
 {
    double x = xvec[0];
@@ -96,24 +105,79 @@ public:
 
 struct BackwardEulerPreconditioner : Solver
 {
-   HypreParMatrix *B;
-   BlockILU prec;
+   HypreParMatrix B;
+   HypreParMatrix B_s;
+   HypreBoomerAMG *AMG_solver;
+   BlockILU *prec;
+   int blocksize;
 public:
    BackwardEulerPreconditioner(ParFiniteElementSpace &fes, double gamma,
                                HypreParMatrix &M, double dt, HypreParMatrix &A)
-      : Solver(fes.GetTrueVSize()), prec(fes.GetFE(0)->GetDof())
+      : Solver(fes.GetTrueVSize()), B(A), AMG_solver(NULL)
    {
-      B = Add(gamma, M, -dt, A);
-      prec.SetOperator(*B);
+      // Set B = gamma*M - dt*A
+      B *= -dt;
+      SparseMatrix B_diag, M_diag;
+      B.GetDiag(B_diag);
+      M.GetDiag(M_diag);
+      // M is block diagonal, so suffices to only add the processor-local part
+      B_diag.Add(gamma, M_diag);
+      prec = new BlockILU(B);
+   }
+   BackwardEulerPreconditioner(ParFiniteElementSpace &fes, double gamma,
+                               HypreParMatrix &M, double dt, HypreParMatrix &A,
+                               int AMG_iter)
+      : Solver(fes.GetTrueVSize()), B(A), prec(NULL)
+   {
+      // Set B = gamma*M - dt*A
+      B *= -dt;
+      SparseMatrix B_diag, M_diag;
+      B.GetDiag(B_diag);
+      M.GetDiag(M_diag);
+      // M is block diagonal, so suffices to only add the processor-local part
+      B_diag.Add(gamma, M_diag);
+
+      int order = fes.GetOrder(0);
+      blocksize = (order+1)*(order+1);
+
+      // BUild AMG solver
+      if (blocksize > 0) {
+         BlockInverseScale(&B, &B_s, NULL, NULL, blocksize, 0);
+         AMG_solver = new HypreBoomerAMG(B_s);
+      }
+      else {
+         AMG_solver = new HypreBoomerAMG(B);
+      }
+      AMG_solver->SetMaxLevels(50);      
+      AMG_solver->SetLAIROptions(1.5, "", "FFC", 0.1, 0.01, 0.0,
+                                    100, 3, 0.0, 10, -1, 1);
+                                // 100, 3, 0.0, 6, -1, 1);
+      AMG_solver->SetTol(1e-12);
+      AMG_solver->SetMaxIter(AMG_iter);
+      AMG_solver->SetPrintLevel(0);
    }
    void Mult(const Vector &x, Vector &y) const
    {
-      prec.Mult(x, y);
+      if (AMG_solver) {
+         if (blocksize > 0) {
+            HypreParVector b_s;
+            BlockInverseScale(&B, NULL, &x, &b_s, blocksize, 2);
+            AMG_solver->Mult(b_s, y);
+         }
+         else {
+            AMG_solver->Mult(x, y);
+         }
+      }
+      else {
+         prec->Mult(x, y);
+      }
    }
    void SetOperator(const Operator &op) { }
+   
    ~BackwardEulerPreconditioner()
    {
-      delete B;
+      if (AMG_solver) delete AMG_solver;
+      if (prec) delete prec;
    }
 };
 
@@ -134,15 +198,17 @@ struct DGAdvDiff : IRKOperator
    std::map<std::pair<double,double>,BackwardEulerPreconditioner*> prec;
    BackwardEulerPreconditioner *current_prec;
    HypreParMatrix *A_mat, *M_mat;
+   int use_AIR;
 public:
-   DGAdvDiff(ParFiniteElementSpace &fes_, double eps)
+   DGAdvDiff(ParFiniteElementSpace &fes_, double eps, int use_AIR_=1)
       : IRKOperator(fes_.GetComm(), fes_.GetTrueVSize(), 0.0, IMPLICIT),
         fes(fes_),
         v_coeff(fes.GetMesh()->Dimension(), v_fn),
         diff_coeff(-eps),
         a(&fes),
         m(&fes),
-        mass(fes)
+        mass(fes),
+        use_AIR(use_AIR_)
    {
       const int order = fes.GetOrder(0);
       const double sigma = -1.0;
@@ -175,19 +241,19 @@ public:
    // du_dt <- M^{-1} L y
    virtual void Mult(const Vector &u, Vector &du_dt) const override
    {
-      a.Mult(u, du_dt);
+      A_mat->Mult(u, du_dt);
       mass.Solve(du_dt);
    }
 
    virtual void ApplyL(const Vector &x, Vector &y) const override
    {
       y.SetSize(x.Size());
-      a.Mult(x, y);
+      A_mat->Mult(x, y);
    }
 
    void ExplicitMult(const Vector &u, Vector &du_dt) const override
    {
-      a.Mult(u, du_dt);
+      A_mat->Mult(u, du_dt);
    }
 
    // Apply action of the mass matrix
@@ -220,7 +286,12 @@ public:
       bool key_exists = prec.find(key) != prec.end();
       if (!key_exists)
       {
-         prec[key] = new BackwardEulerPreconditioner(fes, gamma, *M_mat, dt, *A_mat);
+         if (use_AIR > 0) {
+            prec[key] = new BackwardEulerPreconditioner(fes, gamma, *M_mat, dt, *A_mat, use_AIR);
+         }
+         else {
+            prec[key] = new BackwardEulerPreconditioner(fes, gamma, *M_mat, dt, *A_mat);
+         }
       }
       current_prec = prec[key];
    }
@@ -258,7 +329,7 @@ public:
    {
       dg.SetSystem(0, dt, 1.0, 0);
       linear_solver.SetPreconditioner(*dg.current_prec);
-      linear_solver.SetOperator(*dg.current_prec->B);
+      linear_solver.SetOperator(dg.current_prec->B);
    }
 
    void SetOperator(const Operator &op) { }
@@ -304,6 +375,8 @@ int main(int argc, char *argv[])
    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
    MPI_Comm_rank(MPI_COMM_WORLD, &myid);
 
+   bool root = (myid == 0);
+
    static const double sigma = -1.0;
 
    const char *mesh_file = MFEM_DIR "data/inline-quad.mesh";
@@ -314,6 +387,7 @@ int main(int argc, char *argv[])
    double dt = 1e-3;
    double tf = 0.1;
    int use_irk = 16;
+   int use_AIR = 1;
    // bool use_ilu = true;
    int nsubiter = 1;
    bool visualization = false;
@@ -332,6 +406,7 @@ int main(int argc, char *argv[])
    args.AddOption(&dt, "-dt", "--time-step", "Time step.");
    args.AddOption(&tf, "-tf", "--final-time", "Final time.");
    args.AddOption(&use_irk, "-i", "--irk", "Use IRK solver (provide id; if 0, no IRK).");
+   args.AddOption(&use_AIR, "-air", "--use-air", "Use AIR: > 0 implies # AIR iterations, 0 = Block ILU.");
    args.AddOption(&visualization, "-v", "--visualization", "-nov", "--no-visualization",
                   "Use IRK solver.");
    args.Parse();
@@ -345,7 +420,7 @@ int main(int argc, char *argv[])
    {
       kappa = (order+1)*(order+1);
    }
-   if (myid == 0) args.PrintOptions(std::cout);
+   if (root) { args.PrintOptions(std::cout); }
 
    Mesh serial_mesh(mesh_file, 1, 1);
    int dim = serial_mesh.Dimension();
@@ -361,7 +436,10 @@ int main(int argc, char *argv[])
 
    DG_FECollection fec(order, dim, BasisType::GaussLobatto);
    ParFiniteElementSpace fes(&mesh, &fec);
-   if (myid == 0) std::cout << "Number of unknowns: " << fes.GetVSize() << std::endl;
+   if (root)
+   {
+      std::cout << "Number of unknowns: " << fes.GetVSize() << std::endl;
+   }
 
    ParGridFunction u(&fes);
    FunctionCoefficient ic_coeff(ic_fn);
@@ -379,7 +457,7 @@ int main(int argc, char *argv[])
       dc.Save();
    }
 
-   DGAdvDiff dg(fes, eps);
+   DGAdvDiff dg(fes, eps, use_AIR);
 
    double t = 0.0;
 
@@ -392,7 +470,8 @@ int main(int argc, char *argv[])
       // Can adjust rel tol, abs tol, maxiter, kdim, etc.
       IRK::KrylovParams krylov_params;
       krylov_params.printlevel = 2;
-      krylov_params.kdim = 100;
+      krylov_params.kdim = 50;
+      krylov_params.maxiter = 200;
       // Build IRK object using spatial discretization
       IRK *irk = new IRK(&dg, irk_type);
       // Set GMRES settings
@@ -424,6 +503,7 @@ int main(int argc, char *argv[])
       if (t - t_vis > vis_int || done)
       {
          if (myid == 0) printf("t = %4.3f\n", t);
+         if (root) { printf("t = %4.3f\n", t); }
          if (visualization) {
             t_vis = t;
             dc.SetCycle(dc.GetCycle()+1);

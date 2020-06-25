@@ -205,7 +205,7 @@ void IRK::Step(Vector &x, double &t, double &dt)
                             + " not converged [system "
                             + to_string(factor+1) + "/" + to_string(m_CharPolyOper.Size())
                             + " (degree=" + to_string(m_CharPolyOper[factor]->Degree()) + ")\n";
-            mfem_error(msg.c_str());
+            if (m_rank == 0) mfem_error(msg.c_str());
         }
 
         // Record number of iterations
