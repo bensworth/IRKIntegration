@@ -10,7 +10,9 @@ using namespace mfem;
 //    srun -n48 ./dg_adv_diff  -r 6 -i 18 -o 2 -dt 0.005 -air 2 -tf 0.05 --> 30,17 iters
 //    srun -n48 ./dg_adv_diff  -r 6 -i 18 -o 2 -dt 0.005 -air 3 -tf 0.05 --> 23,11 iters
 
-
+// Matlab plot of velocity field
+// [xs,ys] = meshgrid(0:0.05:1, 0:0.05:1);
+// quiver(xs,ys,sin(ys*4*pi),cos(xs*2*pi))
 
 double ic_fn(const Vector &xvec)
 {
@@ -24,9 +26,10 @@ void v_fn(const Vector &xvec, Vector &v)
 {
    double x = xvec[0];
    double y = xvec[1];
-   v(0) = 2*M_PI*(0.5 - y);
-   v(1) = 2*M_PI*(x - 0.5);
-   // v = 1;
+   // v(0) = 2*M_PI*(0.5 - y);
+   // v(1) = 2*M_PI*(x - 0.5);
+   v(0) = sin(y*4*M_PI);
+   v(1) = cos(x*2*M_PI);
 }
 
 class DGMassMatrix
@@ -380,7 +383,8 @@ int main(int argc, char *argv[])
    static const double sigma = -1.0;
 
    const char *mesh_file = MFEM_DIR "data/inline-quad.mesh";
-   int ref_levels = -1;
+   int ser_ref_levels = 3;
+   int par_ref_levels = 2;
    int order = 1;
    double kappa = -1.0;
    double eps = 1e-2;
@@ -395,8 +399,10 @@ int main(int argc, char *argv[])
    OptionsParser args(argc, argv);
    args.AddOption(&mesh_file, "-m", "--mesh",
                   "Mesh file to use.");
-   args.AddOption(&ref_levels, "-r", "--refine",
-                  "Number of times to refine the mesh uniformly, -1 for auto.");
+   args.AddOption(&ser_ref_levels, "-rs", "--refine",
+                  "Number of times to refine the serial mesh uniformly.");
+   args.AddOption(&par_ref_levels, "-rp", "--refine",
+                  "Number of times to refine the parallel mesh uniformly.");
    args.AddOption(&order, "-o", "--order",
                   "Finite element order (polynomial degree) >= 0.");
    args.AddOption(&kappa, "-k", "--kappa",
@@ -422,24 +428,36 @@ int main(int argc, char *argv[])
    }
    if (root) { args.PrintOptions(std::cout); }
 
-   Mesh serial_mesh(mesh_file, 1, 1);
-   int dim = serial_mesh.Dimension();
-   if (ref_levels < 0)
+   Mesh *serial_mesh = new Mesh(mesh_file, 1, 1);
+   int dim = serial_mesh->Dimension();
+   if (ser_ref_levels < 0)
    {
-      ref_levels = (int)floor(log(50000./serial_mesh.GetNE())/log(2.)/dim);
+      ser_ref_levels = (int)floor(log(50000./serial_mesh->GetNE())/log(2.)/dim);
    }
-   for (int l = 0; l < ref_levels; l++)
+   for (int l = 0; l < ser_ref_levels; l++)
    {
-      serial_mesh.UniformRefinement();
+      serial_mesh->UniformRefinement();
    }
-   ParMesh mesh(MPI_COMM_WORLD, serial_mesh);
+   ParMesh mesh(MPI_COMM_WORLD, *serial_mesh);
+   delete serial_mesh;
+   for (int lev = 0; lev < par_ref_levels; lev++)
+   {
+      mesh.UniformRefinement();
+   }
+
+   // Print mesh size
+   double hmin, hmax, kmin, kmax;
+   mesh.GetCharacteristics (hmin, hmax, kmin, kmax);
+   if (root)
+   {
+      std::cout << "dt = " << dt << ", hmin = " << hmin << ", hmax = " << hmax << "\n";
+      std::cout << "time order = " << use_irk%10 << ", space order = " << order << "\n";
+      std::cout << "time acc. = " << std::pow(dt,(use_irk%10))
+                << ", space acc. = " << std::pow(hmax,order) << "\n";
+   }
 
    DG_FECollection fec(order, dim, BasisType::GaussLobatto);
    ParFiniteElementSpace fes(&mesh, &fec);
-   if (root)
-   {
-      std::cout << "Number of unknowns: " << fes.GetVSize() << std::endl;
-   }
 
    ParGridFunction u(&fes);
    FunctionCoefficient ic_coeff(ic_fn);
@@ -493,6 +511,13 @@ int main(int argc, char *argv[])
    int vis_steps = 100;
    double t_vis = t;
    double vis_int = (tf-t)/double(vis_steps);
+
+   // Vector sizes
+   if (root)
+   {
+      std::cout << "Number of unknowns/proc: " << fes.GetVSize() << std::endl;
+      std::cout << "Total number of unknowns: " << fes.GlobalVSize() << std::endl;
+   }
 
    bool done = false;
    while (!done)
