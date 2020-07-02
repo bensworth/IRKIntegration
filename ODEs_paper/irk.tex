@@ -38,7 +38,8 @@
 % ------------------------------------------------------------------------------------ %
 % ------------------------------------------------------------------------------------ %
 
-\newcommand{\TheTitle}{Fast parallel solution of fully implict\\Runge-Kutta in numerical PDEs}
+\newcommand{\TheTitle}{Fast parallel solution of fully implict Runge-Kutta and discontinous
+	Galerkin in time for numerical PDEs}
 \newcommand{\TheAuthors}{B.S. Southworth }
 \headers{IRK!}{\TheAuthors}
 \title{{\TheTitle}\thanks{This research was conducted ...
@@ -111,7 +112,7 @@ Runge-Kutta methods update the solution using a sum over stage vectors,
 %
 \begin{align}\label{eq:update}
 \mathbf{u}_{n+1} & = \mathbf{u}_n + \delta t \sum_{i=1}^s b_i\mathbf{k}_i, \\
-M\mathbf{k}_i & = \mathcal{N}\left(\mathbf{u}_n + \delta t\sum_{j=1}^s a_{ij}\mathbf{k}_j, t_n+\delta tc_i\right).\nonumber
+M\mathbf{k}_i & = \mathcal{N}\left(\mathbf{u}_n + \delta t\sum_{j=1}^s a_{ij}\mathbf{k}_j, t_n+\delta tc_i\right).\label{eq:stages}
 \end{align}
 %
 For nonlinear PDEs, $\mathcal{N}$ is linearized using, for example, a Newton or a Picard
@@ -148,7 +149,9 @@ methods are even less likely to yield acceptable performance in solving \eqref{e
 \subsection{Outline}\label{sec:intro:outline}
 
 This paper develops fast, parallel preconditioning techniques for the solution of
-fully implicit Runge-Kutta methods. 
+fully implicit Runge-Kutta methods in numerical PDEs. Although we focus on implicit
+Runge-Kutta, the techniques developed extend naturally to discontinuous Galerkin 
+finite elements in time as well.
 First, \Cref{sec:intro:hist} provides background on why IRK methods are desirable
 over the simpler and more commonly used DIRK methods, and also provides a
 historical context for the preconditioners developed in this work.
@@ -172,12 +175,12 @@ linear setting are provided in \Cref{sec:numerics_lin}, demonstrating
 up to 10th-order accuracy using Gauss integration with a variety of problems
 and preconditioners. In addition, by using the new method with 2-stage Gauss
 integration, we are able to halve the number of AMG preconditioning iterations
-necessary to obtain 4th-order accuracy compared with standard 4th-order SDIRK
-schemes.
+necessary to obtain 4th-order accuracy on an advection-diffusion example
+compared with standard 4th-order SDIRK schemes.
 
 Nonlinear problems are then addressed in \Cref{sec:nonlinear}. First, a
 simplified Newton method is considered in \Cref{sec:nonlinear:simp},
-wherein we develop a method to solve
+wherein we develop a method to precondition
 \eqref{eq:keq} under the assumption that $\mathcal{L}_i=\mathcal{L}_j$ for all
 $i,j$. The proposed method is based on the real Schur decomposition, a technique
 not new to Runge-Kutta literature \todo{cite}. However, building on theory from
@@ -269,14 +272,14 @@ less citations), the polynomial form provides a more natural way to handle compl
 particularly for numerical PDEs in the modern high-performance computing landscape,
 where direct LU inverses are rare and most linear systems are solved via preconditioning
 and/or Krylov methods. We present a similar result in \Cref{lem:inv} and use this to
-develop an effective preconditioning fir linear problems in \Cref{sec:solve:prec}.
+develop an effective preconditioning for linear problems in \Cref{sec:solve:prec}.
 
 Because significant research has been done on IRK methods, it is worth briefly
 reviewing some of the literature to put this work in context. In the field of time
 integration, SIRK and DIRK methods overcome the difficulty of solving IRK methods
 \cite{alexander1977diagonally,norsett1976runge}.
 In \cite{orel91}, it is shown that in considering RK methods with all real eigenvalues
-(wherein the Butcher transformation \cite{butcher76{}} remains real-valued), the best
+(wherein the Butcher transformation \cite{butcher76} remains real-valued), the best
 approximation to exponential is obtained by having all eigenvalues equal (SIRK
 methods \cite{norsett1976runge}).
 Although SIRK methods offer some advantages over DIRK methods, they generally lack
@@ -405,8 +408,8 @@ lack the robustness of fully implicit methods.
 % ------------------------------------------------------------------------------------- %
 \subsection{A preconditioning framework and stability}\label{sec:intro:stab}
 
-Throughout the paper, we use the reformulation
-introduced in \cite{pazner17}, where we can pull an $A_0\otimes I$ out of the
+Throughout the paper, we use the reformulation used in, for example,
+\cite{pazner17}, where we can pull an $A_0\otimes I$ out of the
 fully implicit system in \eqref{eq:k0}, yielding the equivalent problem
 %
 \begin{align}\label{eq:keq}
@@ -442,7 +445,7 @@ $\mathbf{u}'(t) = \mathcal{L}\mathbf{u}$, with solution $e^{t\mathcal{L}}\mathbf
 A necessary condition for stability is that the eigenvalues of $\mathcal{L}$
 lie within distance $\mathcal{O}(\delta t)$ of the region of stability for 
 the Runge-Kutta scheme of choice (e.g., see \cite{reddy92}). Here we are
-interested in implicit schemes and, because the majority of implciit Runge-Kutta schemes
+interested in implicit schemes and, because the majority of implicit Runge-Kutta schemes
 used in practice are A- or L-stable, an effectively necessary condition for
 stability is that the eigenvalues of $\mathcal{L}$ be nonpositive. For
 normal operators, this requirement ends up being a necessary and sufficient
@@ -523,7 +526,7 @@ strategy to apply this update using existing fast, parallel preconditioners.
 \subsection{An inverse and update for commuting operators}\label{sec:solve:inv}
 
 This section introduces a result similar to Bickart's \cite{bickart77},
-but generalized to hold for commuting
+but using a different framework and generalized to hold for commuting
 operators. If $\widehat{\mathcal{L}}_i=\widehat{\mathcal{L}}_j$ for all $i,j$, we show that
 the inverse of \eqref{eq:k1} can be expressed in terms of $P_s(\widehat{\mathcal{L}})^{-1}$,
 where $P_s(\widehat{\mathcal{L}})$ is the characteristic polynomial of $A_0^{-1}$. Note, we
@@ -684,7 +687,7 @@ the preconditioned operator then takes the form
 
 It turns out, under assumptions introduced in \Cref{sec:intro:stab}, the preconditioned 
 operator in \eqref{eq:prec1} is very well-conditioned. \Cref{th:fov} analyzes the
-field-of-values of $\mathcal{P}_\eta$, denoted $W(\mathcal{P}_\eta)$ \eqref{cor:fov},
+field-of-values of $\mathcal{P}_\eta$ \eqref{eq:fov}
 as a measure of the preconditioning, and \Cref{cor:gmres,cor:cg} extend this 
 reconditioning to prove fast convergence of GMRES and conjugate gradient (CG).
 
@@ -707,7 +710,7 @@ that is independent of problem size.
 %
 \begin{theorem}[Preconditioned field of values]\label{th:fov}
 Assume \Cref{ass:eig} and \Cref{ass:fov} hold, that is, $\eta > 0$
-and $W(\mathcal{L}) \leq 0$ \eqref{cor:fov}. Let $\mathcal{P}_\eta$ denote the
+and $W(\mathcal{L}) \leq 0$ \eqref{eq:fov}. Let $\mathcal{P}_\eta$ denote the
 preconditioned operator, where $((\eta + i\beta)I -
 \widehat{\mathcal{L}})((\eta - i\beta)I - \widehat{\mathcal{L}})$ is
 preconditioned with $(\eta I - \widehat{\mathcal{L}})^{-2}$. Then 
@@ -816,7 +819,7 @@ Plugging into \eqref{eq:gmres} completes the proof.\footnote{Note, classical GMR
 results based on $\lambda_{\textnormal{min}}((\mathcal{P}_\eta+\mathcal{P}_\eta^T)/2)$ and
 $\lambda_{\textnormal{max}}(\mathcal{P}_\eta^T\mathcal{P}_\eta)$ can also be applied, yielding
 the bound $\Big(\tfrac{\beta^2/\eta^2}{1 + \beta^2/\eta^2}\Big)^{k/2}$, $2-4\times$
-less slower convergence than \Cref{th:fov}.}
+slower convergence than \Cref{th:fov}.}
 \end{proof}
 %
 
@@ -935,7 +938,7 @@ of $(\eta I - \widehat{\mathcal{L}})^{-2}$.
 
 To motive this heuristically, suppose $(\eta I - \widehat{\mathcal{L}}) = (\eta I - B)+N$,
 where $(\eta I - B)^{-1}$ corresponds to the action of a preconditioner and $N$ the error
-terms that is not capture. For a good preconditioner, we expect
+terms that is not captured. For a good preconditioner, we expect
 $(\eta I - B)^{-1}(\eta I - \widehat{\mathcal{L}}) = I+(\eta I - B)^{-1}N$ to be
 well-conditioned and, thus, $(\eta I - B)^{-1}N$ to be small in some sense. Then,
 %
@@ -1117,7 +1120,7 @@ The left-most matrix is now a block upper triangular matrix, which can be solved
 using a block backward solve, and requires inverting each diagonal block. Diagonal
 blocks corresponding to real-valued eigenvalues $\eta$ take the form
 $(\eta I - \widehat{\mathcal{L}})$, and are amenable to standard preconditioning
-texhniques. $2\times 2$ diagonal blocks corresponding to complex eigenvalues
+techniques. $2\times 2$ diagonal blocks corresponding to complex eigenvalues
 take the form
 %
 \begin{align}\label{eq:block}
@@ -1431,6 +1434,104 @@ all $i,j$, each of the following operators is the identity.
 \section{Numerical results: the nonlinear setting}\label{sec:numerics_nonlin}
 
 
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+\subsection{Nonlinear heat conduction}\label{sec:numerics_nonlin:heat}
+
+Consider Example 16p in MFEM, which solves a nonlinear heat conduction equation
+%
+\begin{align*}
+u_t  & = \nabla\cdot (\kappa + \alpha u) \nabla u.
+\end{align*}
+%
+Let us express the diffusion as a nonlinear matrix-valued operator $K(u)$ with
+potential forcing function $f(t)$. Discretizing in space we can express the semidiscrete 
+system as the nonlinear set of equations
+%
+\begin{align*}
+M\mathbf{u}_t & = K(\mathbf{u})\mathbf{u} + \mathbf{f}.
+\end{align*}
+%
+Here we demonstrate how a typical Picard linearization can fit into the 
+framework developed above. Let $\mathbf{u}_i$ denote $\mathbf{u}$ at the $i$th
+time step, and consider a backward Euler step,
+%
+\begin{align*}
+M\mathbf{u}_{i+1} & = M\mathbf{u}_i + \delta tK(\mathbf{u}_{i+1}) + \mathbf{f}.
+\end{align*}
+%
+Rearranging yields a nonlinear system $\mathcal{F}(\mathbf{u}_{i+1}) = \mathbf{0}$,
+where
+%
+\begin{align*}
+\mathcal{F}(\mathbf{u}_{i+1}) := 
+	(M - \delta t K(\mathbf{u}_{i+1}))\mathbf{u}_{i+1} - M\mathbf{u}_i - \mathbf{f}.
+\end{align*}
+%
+We can invert the matrix-valued operator as a linear preconditioning, leading
+to an equivalent nonlinear system $\mathcal{H}(\mathbf{u}_{i+1}) = \mathbf{0}$,
+where
+%
+\begin{align*}
+\mathcal{H}(\mathbf{u}_{i+1}) := 
+	(M - \delta t K(\mathbf{u}_{i+1}))^{-1}(M\mathbf{u}_i + \mathbf{f}) - \mathbf{u}_{i+1}.
+\end{align*}
+%
+Finally, we formulate a Picard iteration by defining $\mathcal{G}(\mathbf{u}_{i+1}) :=
+\mathcal{H}(\mathbf{u}_{i+1}) + \mathbf{u}_{i+1}$, and noting that
+$\mathbf{G}(\mathbf{u}_{i+1}) = \mathbf{u}_{i+1}$ if and only if
+$\mathcal{F}(\mathbf{u}_{i+1}) = \mathbf{0}$. Fixed-point iterations are then
+given by 
+%
+\begin{align*}
+\mathbf{u}_{i+1}^{k+1} & = \mathcal{G}(\mathbf{u}_{i+1}^k) \\
+& = (M - \delta t K(\mathbf{u}_{i+1}^k))^{-1}(M\mathbf{u}_i + \mathbf{f}), \\
+\Longleftrightarrow\hspace{5ex}
+(M - \delta t K(\mathbf{u}_{i+1}^k))\mathbf{u}_{i+1}^k& = M\mathbf{u}_i + \mathbf{f}.\
+\end{align*}
+%
+
+In fact, this is exactly a Newton-like iteration approximating the Jacobian of
+$\mathcal{F}(\mathbf{u}_{i+1})$ evaluated at $\mathbf{u}_{i+1}^k$ as
+$J[\mathbf{u}_{i+1}^k] \approx (M - \delta t K(\mathbf{u}_{i+1}^k))$. We use
+this observation to extend the same principle to IRK methods, approximating
+the Jacobian for the stage equations \eqref{eq:stages} evaluated at the previous
+stage vectors as
+%
+\begin{align*}
+&J[\mathbf{k}_1^{k},...,\mathbf{k}_s^k] \approx \\
+&\begin{bmatrix} M \\ & \ddots & \\ && M \end{bmatrix} - \delta t
+	\begin{bmatrix} a_{11}K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
+	a_{1j}\mathbf{k}_j^k\right) & ... & a_{1s}K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
+	a_{ij}\mathbf{k}_j^k\right) \\
+	\vdots & \ddots & \vdots \\
+	a_{s1}K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
+	a_{sj}\mathbf{k}_j^k\right) & ... & a_{ss}K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
+	a_{sj}\mathbf{k}_j^k\right)
+	\end{bmatrix}.
+\end{align*}
+%
+Letting $\mathcal{L}_i := K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
+a_{ij}\mathbf{k}_j^k\right)$ denote the approximate jacobian for the
+$i$th row, we can proceed exactly as discussed in \Cref{sec:nonlinear}.
+
+%
+\begin{remark}[Picard as a Newton-like method]
+Note, it is important to express Picard and fixed-point iterations in the 
+form of a Newton-like method to use the preconditioning techniques developed
+in this paper! By expressing it as a Newton-like method, we are approximating
+the Jacobian and will still converge to the solution of the nonlinear functional
+$\mathcal{F} = 0$ when adding levels of approximation as in \Cref{sec:nonlinear:gen}.
+A traditional Picard iteration relies on converging exactly to the fixed-point
+$\mathcal{G}(\mathbf{k}) = \mathbf{k}$ via iterates $\mathbf{k}^{k+1} =
+\mathcal{G}(\mathbf{k}^k)$. Within this iteration there is delicate cancellation
+that result from solving directly for $\mathbf{k}^{k+1}$ rather than a correction,
+and approximating $\mathcal{G}$ would result in convergence to a different problem.
+\end{remark}
+%
+
+
+
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -1439,7 +1540,7 @@ all $i,j$, each of the following operators is the identity.
 
 This paper introduced a theoretical and algorithmic framework for the fast, parallel
 solution of fully implicit Runge-Kutta methods in numerical PDEs (without algebraic
-constraints). A field-of-values analysis is derived to guarantees rapid Krylov
+constraints). A field-of-values analysis is derived to guarantee rapid Krylov
 convergence...\todo{finish}
 
 

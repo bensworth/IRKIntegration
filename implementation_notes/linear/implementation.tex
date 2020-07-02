@@ -307,14 +307,14 @@ Some remarks:
 
 \begin{figure}[H]
 \centerline{
-\includegraphics[width = 0.55\textwidth]{figures/LSDIRK_d2_ex1}
+\includegraphics[width = 0.55\textwidth]{figures/LSDIRK_d2_ex1.pdf}
 \quad
-\includegraphics[width = 0.55\textwidth]{figures/Gauss_d2_ex1}
+\includegraphics[width = 0.55\textwidth]{figures/Gauss_d2_ex1.pdf}
 }
 \centerline{
-\includegraphics[width = 0.55\textwidth]{figures/RadauIIA_d2_ex1}
+\includegraphics[width = 0.55\textwidth]{figures/RadauIIA_d2_ex1.pdf}
 \quad
-\includegraphics[width = 0.55\textwidth]{figures/LobattoIIIC_d2_ex1}
+\includegraphics[width = 0.55\textwidth]{figures/LobattoIIIC_d2_ex1.pdf}
 }
 \caption{$L_{\infty}$ errors measured at $t \approx 2$. Theoretically predicted convergence rates of ${\cal O}(p)$ are shown as dashed black lines.
 \label{fig:errors2D}
@@ -325,14 +325,14 @@ Some remarks:
 
 \begin{figure}[H]
 \centerline{
-\includegraphics[width = 0.575\textwidth]{{{figures/amg_iters_14_34_23_-14_4_d2_ex1}}}
+\includegraphics[width = 0.575\textwidth]{figures/amg_iters_14_34_23_-14_4_d2_ex1.pdf}
 \quad
-\includegraphics[width = 0.575\textwidth]{{{figures/amg_iters_18_38_27_d2_ex1}}}
+\includegraphics[width = 0.575\textwidth]{figures/amg_iters_18_38_27_d2_ex1.pdf}
 }
 \centerline{
-\includegraphics[width = 0.575\textwidth]{{{figures/errors_iters_14_34_23_-14_4_d2_ex1}}}
+\includegraphics[width = 0.575\textwidth]{figures/errors_iters_14_34_23_-14_4_d2_ex1.pdf}
 \quad
-\includegraphics[width = 0.575\textwidth]{{{figures/errors_iters_18_38_27_d2_ex1}}}
+\includegraphics[width = 0.575\textwidth]{figures/errors_iters_18_38_27_d2_ex1.pdf}
 }
 \caption{Average iterations per time step (data associated with convergence plots in Figure \ref{fig:errors2D}). \textbf{Left:} 4th(ish)-order schemes. \textbf{Right:} 8th(ish)-order schemes. \textbf{Top:} AMG iterations. \textbf{Bottom:} Discretization errors. The systems that AMG is applied to have dimension $n = (16^2, 32^2, 64^2, 128^2)$ for $\delta t = (2^{-2}, 2^{-3}, 2^{-4}, 2^{-5})$. In terms of work done per accuracy, it seems Gauss $<$ Radau IIA $\ll$ Lobatto IIIC. Notice that the error constant for A-SDIRK(4) is much larger that the other 4th-order schemes (bottom left), and convergence appears only $\approx$3rd-order; however, continuing to refine the mesh shows that 4th-order accuracy is obtained eventually (not shown here).
 \label{fig:iters2D}
