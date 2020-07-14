@@ -151,7 +151,7 @@ public:
       else {
          AMG_solver = new HypreBoomerAMG(B);
       }
-      AMG_solver->SetMaxLevels(50);      
+      AMG_solver->SetMaxLevels(50);
       AMG_solver->SetLAIROptions(1.5, "", "FFC", 0.1, 0.01, 0.0,
                                     100, 3, 0.0, 10, -1, 1);
                                 // 100, 3, 0.0, 6, -1, 1);
@@ -176,7 +176,7 @@ public:
       }
    }
    void SetOperator(const Operator &op) { }
-   
+
    ~BackwardEulerPreconditioner()
    {
       if (AMG_solver) delete AMG_solver;
@@ -371,13 +371,11 @@ public:
    }
 };
 
-int main(int argc, char *argv[])
+int run_adv_diff(int argc, char *argv[])
 {
    int num_procs, myid;
-   MPI_Init(&argc, &argv);
    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
    MPI_Comm_rank(MPI_COMM_WORLD, &myid);
-
    bool root = (myid == 0);
 
    static const double sigma = -1.0;
@@ -419,7 +417,6 @@ int main(int argc, char *argv[])
    if (!args.Good())
    {
       if (myid == 0) args.PrintUsage(std::cout);
-      MPI_Finalize();
       return 1;
    }
    if (kappa < 0)
@@ -538,6 +535,13 @@ int main(int argc, char *argv[])
       }
    }
 
-   MPI_Finalize();
    return 0;
+}
+
+int main(int argc, char **argv)
+{
+   MPI_Init(&argc, &argv);
+   int retval = run_adv_diff(argc, argv);
+   MPI_Finalize();
+   return retval;
 }
