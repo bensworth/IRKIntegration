@@ -18,6 +18,7 @@
 \definecolor{darkgreen}{rgb}{0.0, 0.5, 0}
 \usepackage[numbers,sort]{natbib}
 \usepackage{cleveref}
+\usepackage[belowskip=-5pt]{subcaption}
 
 \newsiamremark{remark}{Remark}
 \newsiamremark{assumption}{Assumption}
@@ -149,6 +150,12 @@ parabolic PDEs where $\mathcal{L}$ is symmetric positive definite, \eqref{eq:k0}
 instead yields a large nonsymmetric system with significant block coupling. For
 nonsymmetric systems $\mathcal{L}$ that already have variable coupling, fast iterative
 methods are even less likely to yield acceptable performance in solving \eqref{eq:k0}.
+
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+\subsection{Discontinuous Galerkin in time}\label{sec:intro:dg}
+
+\todo{Fill in background here}
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -1068,6 +1075,42 @@ The main task here is going to be computing the action of the degree $s-1$ polyn
 % ------------------------------------------------------------------------------------- %
 \subsection{Discontinuous Galerkin advection-diffusion}
 
+%
+\begin{figure}[!b]
+  \centering
+  \begin{subfigure}[b]{0.3\textwidth}
+    \includegraphics[width=\textwidth]{./figures/velocity_field.pdf}
+    \caption{Velocity field}\label{fig:v}
+  \end{subfigure}
+   \begin{subfigure}[b]{0.3\textwidth}
+    \includegraphics[width=\textwidth]{./figures/solution.0000.png}
+    \caption{$t = 0$}
+  \end{subfigure}
+  \begin{subfigure}[b]{0.3\textwidth}
+    \includegraphics[width=\textwidth]{./figures/solution.0003.png}
+    \caption{$t = 0.3$}
+  \end{subfigure}
+  \\\vspace{2ex}
+   \begin{subfigure}[b]{0.3\textwidth}
+    \includegraphics[width=\textwidth]{./figures/solution.0008.png}
+    \caption{$t = 0.8$}
+  \end{subfigure}
+   \begin{subfigure}[b]{0.3\textwidth}
+    \includegraphics[width=\textwidth]{./figures/solution.0020.png}
+    \caption{$t = 2.0$}
+  \end{subfigure}
+  \begin{subfigure}[b]{0.3\textwidth}
+    \includegraphics[width=\textwidth]{./figures/solution.0070.png}
+    \caption{$t = 7.0$}
+  \end{subfigure}
+  \\\vspace{2ex}
+      \caption{Advection-diffusion problem with velocity field shown in
+      subplot (a) and the solution plotted for various time points from
+      $t=0$ to $t = 7.0$ in subplots (b-f). Heatmap indicates solution in the
+      2d domain, with blue $\mapsto 0$ and red $\mapsto 1$.}
+  \label{fig:ad_advdiff}
+\end{figure}
+
 
 
 % ------------------------------------------------------------------------------------- %
@@ -1365,28 +1408,38 @@ Jacobian.
 To develop effective approximations, we are particularly interested in the operator
 %
 \begin{align}\label{eq:Q0approx}
-(Q_0^T\otimes I) \begin{bmatrix}
+\widehat{P} \coloneqq (Q_0^T\otimes I) \begin{bmatrix}
 	\widehat{\mathcal{L}}_1  & \\ & \ddots \\ && \widehat{\mathcal{L}}_s\end{bmatrix}
-	(Q_0\otimes I).
+	(Q_0\otimes I)
+= \begin{bmatrix}
+	\bm{c}^\top_{1,1} \bm{{\cal L}}' & \cdots & \bm{c}^\top_{1,s} \bm{{\cal L}}' \\
+	\vdots & & \vdots \\
+	\bm{c}^\top_{s,1} \bm{{\cal L}}' & \cdots & \bm{c}^\top_{s,s} \bm{{\cal L}}'
+	\end{bmatrix},
 \end{align}
+%
+where $\bm{c}^\top_{k,\ell} = \Big((Q_0^\top)_{k ,1} (Q_0)_{1, \ell},
+\ldots, (Q_0^\top)_{k, s} (Q_0)_{s, \ell} \Big) \in \mathbb{R}^s$ is a row vector,
+$\bm{{\cal L}}' = ({\cal L}'_1, \ldots, {\cal L}'_s)$ is a column vector of the
+linearized operators, and
+%
+\begin{align*}
+\bm{c}^\top_{k,\ell} \bm{{\cal L}}' = \sum \limits_{i = 1}^s (\bm{c}_{k, \ell})_i {\cal L}'_i.
+\end{align*}
 %
 For $\widehat{\mathcal{L}}_i = \widehat{\mathcal{L}}_j$, \eqref{eq:Q0approx}
 is block diagonal, given by $I\otimes\widehat{\mathcal{L}}$. For
-$\widehat{\mathcal{L}}_i \neq \widehat{\mathcal{L}}_j$, diagonal blocks of
-\eqref{eq:Q0approx} take the form $\sum_{k=1}^s |c_k|\widehat{\mathcal{L}}_k$,
-where $\sum_{k=1}^s |c_k| = 1$, and off-diagonal blocks take the form
-$\sum_{k=1}^s d_k \widehat{\mathcal{L}}_k$, where $\sum_{k=1}^s d_k = 0$.
+$\widehat{\mathcal{L}}_i \neq \widehat{\mathcal{L}}_j$, note that
+$\sum_{i=1}^s (\bm{c}_{k, \ell})_i = 1$, while for off-diagonal blocks
+$\sum_{i=1}^s (\bm{c}_{k, \ell})_i = 0$.
 Due to the off-diagonal zero sums, here we claim that \eqref{eq:Q0approx}
 can be well-approximated by some block-diagonal or block upper triangular
-approximation, which can then be easily inverted using a block backward
-solve.
+approximation, which can then be easily inverted using block backward
+substitution.
 
 As an example, consider \eqref{eq:Q0approx} for the two-stage Gauss and
 RadauIIA methods in bracket notation, where, e.g., $\{a_1,a_2,a_3\}\mapsto 
-a_1\mathcal{L}_1 + a_2\mathcal{L}_2 + a_3\mathcal{L}_3$. Note in the matrices
-below, the constants in diagonal brackets always sum to one and off-diagonal
-sum to zero, wherein if $\mathcal{L}_i = \mathcal{L}_j$ for all $i,j$, each
-of the following operators is the identity.
+a_1\mathcal{L}_1 + a_2\mathcal{L}_2 + a_3\mathcal{L}_3$:
 %
 \begin{align*}
 \textnormal{Gauss(2):} \hspace{1ex}
@@ -1402,53 +1455,88 @@ of the following operators is the identity.
 	\end{bmatrix}.
 \end{align*}
 %
+Recall in the matrices above, the constants in diagonal brackets always sum to
+one and off-diagonal sum to zero, wherein if $\mathcal{L}_i = \mathcal{L}_j$
+for all $i,j$, each of the operators is the identity.
 
+Note that there is no approximation in two-stage Gauss, that is, it is
+straightforward to apply a true Newton or Picard iteration to two-stage
+Gauss using preconditioning techniques developed in \Cref{sec:nonlinear:simp}.
+For two-stage RadauIIA, we see that the diagonal blocks are almost
+defined by the (linearized) operator evaluated at a single time step, which
+provides a natural and simple approximation. The off-diagonal blocks are
+simply a measure of commutation, $0.121(\mathcal{L}_1 - \mathcal{L}_2)$.
+Such entries could be included in the preconditioning for the upper
+triangular portion of the matrix (adding a few additional mat-vecs and
+memory usage), or simply ignored under the assumption that $\mathcal{L}_1 -
+\mathcal{L}_2$ is ``small'' in some sense. Even for reasonably stiff 
+problems, the operator often does not change significantly between
+two stages -- if it did, e.g., due to a shockwave, the larger time step
+may not be small enough to accurately resolve the nonlinear behavior in
+the first place. Similar structure as discussed for the two-stage methods
+holds for other methods as well. For example, the constants for four-stage
+Gauss are given by:
+%
+\begin{align*}
+\textnormal{Gauss(4):}& \hspace{1ex}
+\left[\begin{matrix}
+\{0.002,0.014,0.012,\mathbf{0.970}\} & \{0.001,-0.011,-0.110,0.120\} \\
+\{0.001,-0.011,-0.110,0.120\} & \{0.000,0.008,\mathbf{0.975},0.014\} \\
+\{-0.016,-0.113,0.010,0.119\} & \{-0.007,0.085,-0.093,0.014\} \\
+\{-0.045,0.041,-0.005,0.009\} & \{-0.021,-0.031,0.051,0.001\}
+\end{matrix}\right.
+\\&\hspace{5ex}
+\left.\begin{matrix}
+\{-0.016,-0.113,0.010,0.119\} & \{-0.045,0.041,-0.005,0.009\}\\
+\{-0.007,0.085,-0.093,0.014\} & \{-0.021,-0.031,0.051,0.001\}\\
+\{0.113,\mathbf{0.863},0.008,0.014\} & \{0.316,-0.312,-0.004,0.001\}\\
+\{0.316,-0.312,-0.004,0.001\} & \{\mathbf{0.883},0.113,0.002,0.000\}\\
+\end{matrix}\right].
+\end{align*}
+%
+Analogous to the twi-stage case, note that the diagonal blocks are largely
+defined by $\mathcal{L}$ evaluated at a single time point (coefficient
+here shown in bold). Moreover, not only are the off-diagonal constants
+a measure of commutivity, many of them are quite small in the first place;
+then, regardless of commutivity, ignoring such terms in the lower-triangular
+or off-diagonal blocks is a natural preconditioning. 
 
+Motivated by the above discussion, we construct {block upper triangular}
+$\widetilde{P} \approx \widehat{P}$ as Newton-like methods (or more
+generally some fixed-point iteration as in \eqref{eq:non_rich}) which has
+a (block) sparsity pattern contained within that of $R_0 \otimes I$. Recall
+by constructing $\widetilde{P}$ to be block upper triangular, we can then
+invert the resulting operator
+%
+\begin{align}
+R_0 \otimes M - \delta t \widehat{P} \approx R_0 \otimes I -  \delta t \widetilde{P}
+\end{align}
+%
+via block backward substitution. In addition to the simplified Newton
+method discussed in \Cref{sec:nonlinear:simp}, we propose three (successively
+more accurate) approximations to \eqref{eq:Q0approx}:
+\vspace{1ex}
+%
+\begin{enumerate}
+\setlength\itemsep{0.5em}
+\item[0.] \underline{Simplified Newton:} as in \Cref{sec:nonlinear:simp}, apply a
+simplified Newton method by evaluating $\mathcal{L}$ at the same time point for
+all stages.
 
+\item \underline{Newton-Like(1):} Truncate $\widehat{P}$ to be block diagonal and
+lump the coefficients of $\bm{c}_{ii}$ to the largest one so that each diagonal
+block of $\widetilde{P}$ contains only one matrix from $\bm{{\cal L}}'$.
 
-{\color{blue}
-\textbf{Few thoughts:}
-\begin{itemize}
-	\item There are a number of ways we can think about this. We can pick some
-	specific block triangular representation of \eqref{eq:keq4} and invert it
-	exactly for each nonlinear iteration. In the context of Newton, this would
-	be a quasi-Newton type method. We could also use a block triangular
-	approximation to \eqref{eq:keq4} as a preconditioner and iterate on the
-	linear system to invert the actual Jacobian. I think the preconditioning
-	would be sufficiently good that this would converge very rapidly. The
-	downside is that we would either need (i) to store preconditioners for each
-	stage to be applied every outer linear iteration on the block system, or (ii)
-	rebuild solvers for each stage during each linear iteration if we cannot store
-	them all. Unclear what the ``best'' approach would be. 
+\item \underline{Newton-Like(2):} Truncate $\widehat{P}$ to be block diagonal
+(can include the off-diagonal entries in $2 \times 2$ diagonal blocks, or not)
+\todo{How is this implemented?}
 
-	\item An important piece of the puzzle is \eqref{eq:Q0approx}. A closed form
-	as a function of $\{\widehat{\mathcal{L}}_k\}$ is straightforward to compute
-	in Mathematica. In general, it seems for IRK schemes that diagonal blocks
-	are dominated by one term, and effectively defined by two. Many of the
-	off-diagonal elements have very small coefficients, and can probably be
-	ignored without significant issue. But there are still many options. For
-	example, we can include the upper triangular off-diagonal components of
-	\eqref{eq:Q0approx} at the expense of some extra mat-vecs. Is this additional
-	work worth the improvement in convergence? 
+\item \underline{Newton-Like(3):} Truncate $\widehat{P}$ to be block upper triangular.
+This option adds a number of matrix-vector products and requires storing $\mathcal{L}_i$ 
+in memory for multiple $i$, but is also the best approximation to an exact Newton or
+Picard iteration.
 
-	\item Inverting the $2\times 2$ diagonal blocks likely require the most careful
-	attention. The off-diagonal blocks for a principle $2\times 2$ submatrix in
-	\eqref{eq:Q0approx} are identical, but the diagonal blocks differ. Do we take
-	a linear combination $\sum_{k=1}^s |c_k|\widehat{\mathcal{L}}_k$ for some or
-	all of the terms, or just use the dominant term? If we drop any terms, we
-	should probably rescale to have coefficients sum to one. If we assume the
-	off-diagonal blocks are zero, \Cref{cor:fov} extends well to a $2\times 2$
-	matrix with different $\sum_{k=1}^s |c_k|\widehat{\mathcal{L}}_k$ on the
-	diagonal blocks. If we have off-diagonal blocks, these will not commute,
-	and the analysis may be more complicated. 
-
-\end{itemize}
-
-}
-
-
-
-
+\end{enumerate}
 
 
 % ------------------------------------------------------------------------------------- %
@@ -1577,83 +1665,83 @@ constraints). A field-of-values analysis is derived to guarantee rapid Krylov
 convergence...\todo{finish}
 
 
-% ------------------------------------------------------------------------------------- %
-% ------------------------------------------------------------------------------------- %
-% ------------------------------------------------------------------------------------- %
-\section*{Appendix}
+% % ------------------------------------------------------------------------------------- %
+% % ------------------------------------------------------------------------------------- %
+% % ------------------------------------------------------------------------------------- %
+% \section*{Appendix}
 
-% ------------------------------------------------------------------------------------- %
-% ------------------------------------------------------------------------------------- %
-\subsection{Real Schur decomposition applied to general operators}
+% % ------------------------------------------------------------------------------------- %
+% % ------------------------------------------------------------------------------------- %
+% \subsection{Real Schur decomposition applied to general operators}
 
-Here we write out $(Q_0^T\otimes I)\boldsymbol{\mathcal{L}}(Q_0\otimes I)$
-in bracket notation, where, e.g., $\{a_1,a_2,a_3\}\mapsto a_1\mathcal{L}_1 + a_2\mathcal{L}_2 + 
-a_3\mathcal{L}_3$. Note in the matrices below, the constants in diagonal brackets always
-sum to one and off-diagonal sum to zero, wherein if $\mathcal{L}_i = \mathcal{L}_j$ for
-all $i,j$, each of the following operators is the identity.
+% Here we write out $(Q_0^T\otimes I)\boldsymbol{\mathcal{L}}(Q_0\otimes I)$
+% in bracket notation, where, e.g., $\{a_1,a_2,a_3\}\mapsto a_1\mathcal{L}_1 + a_2\mathcal{L}_2 + 
+% a_3\mathcal{L}_3$. Note in the matrices below, the constants in diagonal brackets always
+% sum to one and off-diagonal sum to zero, wherein if $\mathcal{L}_i = \mathcal{L}_j$ for
+% all $i,j$, each of the following operators is the identity.
 
-% ------------------------------------------------------------------------------------- %
-\subsubsection*{Gauss}
+% % ------------------------------------------------------------------------------------- %
+% \subsubsection*{Gauss}
 
-%
-\textbf{2-stage:}
-\begin{align*}
-\begin{bmatrix}
-\{1,0\} & \{0,0\} \\
- \{0,0\} & \{0,1\} \\
-\end{bmatrix}
-\end{align*}
-%
-\textbf{3,-stage:}
-\begin{align*}
-\begin{bmatrix}
-\{0.002,0.565,0.432\} & \{-0.038,-0.245,0.284\} & \{0.024,-0.430,0.405\}\\
-\{-0.038,-0.245,0.284\} & \{0.705,0.107,0.187\} & \{-0.453,0.187,0.266\}\\
-\{0.024,-0.430,0.405\} & \{-0.453,0.187,0.266\} & \{0.291,0.327,0.380\}\\
-\end{bmatrix}
-\end{align*}
-%
-\textbf{4,-stage:}
-\begin{align*}
-\begin{bmatrix}
-\{0.002,0.014,0.012,0.970\} & \{0.001,-0.011,-0.110,0.120\} & \{-0.016,-0.113,0.010,0.119\} & \{-0.045,0.041,-0.005,0.009\}\\
-\{0.001,-0.011,-0.110,0.120\} & \{0.000,0.008,0.975,0.014\} & \{-0.007,0.085,-0.093,0.014\} & \{-0.021,-0.031,0.051,0.001\}\\
-\{-0.016,-0.113,0.010,0.119\} & \{-0.007,0.085,-0.093,0.014\} & \{0.113,0.863,0.008,0.014\} & \{0.316,-0.312,-0.004,0.001\}\\
-\{-0.045,0.041,-0.005,0.009\} & \{-0.021,-0.031,0.051,0.001\} & \{0.316,-0.312,-0.004,0.001\} & \{0.883,0.113,0.002,0.000\}\\
-\end{bmatrix}
-\end{align*}
+% %
+% \textbf{2-stage:}
+% \begin{align*}
+% \begin{bmatrix}
+% \{1,0\} & \{0,0\} \\
+%  \{0,0\} & \{0,1\} \\
+% \end{bmatrix}
+% \end{align*}
+% %
+% \textbf{3,-stage:}
+% \begin{align*}
+% \begin{bmatrix}
+% \{0.002,0.565,0.432\} & \{-0.038,-0.245,0.284\} & \{0.024,-0.430,0.405\}\\
+% \{-0.038,-0.245,0.284\} & \{0.705,0.107,0.187\} & \{-0.453,0.187,0.266\}\\
+% \{0.024,-0.430,0.405\} & \{-0.453,0.187,0.266\} & \{0.291,0.327,0.380\}\\
+% \end{bmatrix}
+% \end{align*}
+% %
+% \textbf{4,-stage:}
+% \begin{align*}
+% \begin{bmatrix}
+% \{0.002,0.014,0.012,0.970\} & \{0.001,-0.011,-0.110,0.120\} & \{-0.016,-0.113,0.010,0.119\} & \{-0.045,0.041,-0.005,0.009\}\\
+% \{0.001,-0.011,-0.110,0.120\} & \{0.000,0.008,0.975,0.014\} & \{-0.007,0.085,-0.093,0.014\} & \{-0.021,-0.031,0.051,0.001\}\\
+% \{-0.016,-0.113,0.010,0.119\} & \{-0.007,0.085,-0.093,0.014\} & \{0.113,0.863,0.008,0.014\} & \{0.316,-0.312,-0.004,0.001\}\\
+% \{-0.045,0.041,-0.005,0.009\} & \{-0.021,-0.031,0.051,0.001\} & \{0.316,-0.312,-0.004,0.001\} & \{0.883,0.113,0.002,0.000\}\\
+% \end{bmatrix}
+% \end{align*}
 
 
-%,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-%
-\subsubsection*{RadauIIA}
+% %,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-%
+% \subsubsection*{RadauIIA}
 
-%
-\textbf{2,-stage:}
-\begin{align*}
-\begin{bmatrix}
-\{0.985,0.014\} & \{0.121,-0.121\}\\
-\{0.121,-0.121\} & \{0.014,0.985\}\\
-\end{bmatrix}
-\end{align*}
-%
-\textbf{3,-stage:}
-\begin{align*}
-\begin{bmatrix}
-\{0.019,0.052,0.928\} & \{0.006,0.222,-0.229\} & \{0.137,-0.017,-0.119\}\\
-\{0.006,0.222,-0.229\} & \{0.002,0.941,0.056\} & \{0.045,-0.075,0.029\}\\
-\{0.137,-0.017,-0.119\} & \{0.045,-0.075,0.029\} & \{0.978,0.006,0.015\}\\
-\end{bmatrix}
-\end{align*}
-%
-\textbf{4,-stage:}
-\begin{align*}
-\begin{bmatrix}
-\{0.002,0.031,0.103,0.862\} & \{0.006,0.022,-0.301,0.272\} & \{0.052,-0.049,0.025,-0.028\} & \{-0.014,-0.166,-0.029,0.209\}\\
-\{0.006,0.022,-0.301,0.272\} & \{0.015,0.016,0.882,0.085\} & \{0.120,-0.035,-0.075,-0.009\} & \{-0.032,-0.118,0.084,0.066\}\\
-\{0.052,-0.049,0.025,-0.028\} & \{0.120,-0.035,-0.075,-0.009\} & \{0.915,0.077,0.006,0.000\} & \{-0.245,0.260,-0.007,-0.006\}\\
-\{-0.014,-0.166,-0.029,0.209\} & \{-0.032,-0.118,0.084,0.066\} & \{-0.245,0.260,-0.007,-0.006\} & \{0.066,0.874,0.008,0.050\}\\
-\end{bmatrix}
-\end{align*}
+% %
+% \textbf{2,-stage:}
+% \begin{align*}
+% \begin{bmatrix}
+% \{0.985,0.014\} & \{0.121,-0.121\}\\
+% \{0.121,-0.121\} & \{0.014,0.985\}\\
+% \end{bmatrix}
+% \end{align*}
+% %
+% \textbf{3,-stage:}
+% \begin{align*}
+% \begin{bmatrix}
+% \{0.019,0.052,0.928\} & \{0.006,0.222,-0.229\} & \{0.137,-0.017,-0.119\}\\
+% \{0.006,0.222,-0.229\} & \{0.002,0.941,0.056\} & \{0.045,-0.075,0.029\}\\
+% \{0.137,-0.017,-0.119\} & \{0.045,-0.075,0.029\} & \{0.978,0.006,0.015\}\\
+% \end{bmatrix}
+% \end{align*}
+% %
+% \textbf{4,-stage:}
+% \begin{align*}
+% \begin{bmatrix}
+% \{0.002,0.031,0.103,0.862\} & \{0.006,0.022,-0.301,0.272\} & \{0.052,-0.049,0.025,-0.028\} & \{-0.014,-0.166,-0.029,0.209\}\\
+% \{0.006,0.022,-0.301,0.272\} & \{0.015,0.016,0.882,0.085\} & \{0.120,-0.035,-0.075,-0.009\} & \{-0.032,-0.118,0.084,0.066\}\\
+% \{0.052,-0.049,0.025,-0.028\} & \{0.120,-0.035,-0.075,-0.009\} & \{0.915,0.077,0.006,0.000\} & \{-0.245,0.260,-0.007,-0.006\}\\
+% \{-0.014,-0.166,-0.029,0.209\} & \{-0.032,-0.118,0.084,0.066\} & \{-0.245,0.260,-0.007,-0.006\} & \{0.066,0.874,0.008,0.050\}\\
+% \end{bmatrix}
+% \end{align*}
 
 % ------------------------------------------------------------------------------- %
 \bibliographystyle{siamplain}
