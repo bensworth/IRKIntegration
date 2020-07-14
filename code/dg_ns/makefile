@@ -10,7 +10,7 @@ HDF_FLAGS = -lhdf5 -lhdf5_cpp -lhdf5_hl
 3DG_FLAGS = $(HDF_FLAGS) -lblas -llapack -ldgmpi -ldgapps -lumfpack -lklu
 METIS_DIR = $(HOME)/Documents/Coding/metis-5.0
 CXX      = mpic++
-FLAGS    = -g -std=c++11
+FLAGS    = -g -std=c++11 -O3
 INC      = -I$(MFEM_DIR) -I$(HYPRE_DIR)/include -I$(METIS_DIR)/include  -I$(3DG_DIR)/include
 CXXFLAGS = $(FLAGS) $(INC) -DMFEM_DIR=\"$(MFEM_DIR)/\"
 LDFLAGS  = -L$(MFEM_DIR) -L$(HYPRE_DIR)/lib -L$(METIS_DIR)/lib -lz -L$(3DG_DIR)/lib/$(3DG_ARCH)

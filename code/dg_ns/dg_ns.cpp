@@ -1,6 +1,7 @@
 #include "IRK.hpp"
 #include "bljacobi.hpp"
 #include "3dg_wrapper.hpp"
+#include "general/binaryio.hpp"
 
 struct DGIRKOperator : IRKOperator
 {
@@ -133,6 +134,7 @@ private:
    GMRESSolver gmres;
    BlockILU prec;
    Vector rhs;
+   mutable Vector z;
 
 public:
    FE_Evolution(DGWrapper &dg_)
@@ -145,7 +147,7 @@ public:
       gmres.SetAbsTol(1e-10);
       gmres.SetMaxIter(100);
       gmres.SetKDim(100);
-      gmres.SetPrintLevel(1);
+      gmres.SetPrintLevel(2);
       gmres.SetPreconditioner(prec);
       newton.SetSolver(gmres);
       newton.SetOperator(dg_newton_op);
@@ -157,7 +159,9 @@ public:
 
    virtual void Mult(const Vector &x, Vector &y) const
    {
-      dg.Assemble(x, y);
+      z.SetSize(x.Size());
+      dg.Assemble(x, z);
+      dg.ApplyMassInverse(z, y);
    }
 
    virtual void ImplicitSolve(const double dt, const Vector &x, Vector &k)
@@ -169,27 +173,34 @@ public:
    }
 };
 
-int main(int argc, char **argv)
+void ReadVector(std::ifstream &f, Vector &b)
 {
-   MPI_Init(&argc, &argv);
+   int n = bin_io::read<int>(f);
+   b.SetSize(n);
+   f.read((char *)b.GetData(), sizeof(double)*n);
+}
 
+void WriteVector(std::ofstream &f, Vector &b)
+{
+   int n = b.Size();
+   bin_io::write(f, n);
+   f.write((const char *)b.GetData(), sizeof(double)*n);
+}
+
+struct Params
+{
+   double tf, dt;
+   bool use_irk, compute_exact;
+};
+
+double RunCase(Params &p)
+{
    double t = 0.0;
-   double tf = 0.1;
-   double dt = 1e-3;
-   bool use_irk = false;
 
-   OptionsParser args(argc, argv);
-   args.AddOption(&dt, "-dt", "--time-step", "Time step.");
-   args.AddOption(&tf, "-tf", "--final-time", "Final time.");
-   args.AddOption(&use_irk, "-i", "--irk", "-no-i", "--no-irk",
-                  "Use IRK solver.");
-   args.Parse();
-   if (!args.Good())
-   {
-      args.PrintUsage(std::cout);
-      MPI_Finalize();
-      return 1;
-   }
+   double tf = p.tf;
+   double dt = p.dt;
+   bool use_irk = p.use_irk;
+   bool compute_exact = p.compute_exact;
 
    std::cout << "Using dt = " << dt << std::endl;
 
@@ -200,7 +211,7 @@ int main(int argc, char **argv)
 
    std::unique_ptr<ODESolver> ode;
 
-   if (use_irk)
+   if (use_irk && !compute_exact)
    {
       RKData::Type irk_type = RKData::RadauIIA3;
       // RKData::Type irk_type = RKData::LSDIRK3;
@@ -221,7 +232,8 @@ int main(int argc, char **argv)
    }
    else
    {
-      ode.reset(new SDIRK33Solver);
+      if (compute_exact) { ode.reset(new RK4Solver); }
+      else { ode.reset(new SDIRK33Solver); }
       evol.SetTime(t);
       ode->Init(evol);
    }
@@ -239,7 +251,49 @@ int main(int argc, char **argv)
       done = (t >= tf - 1e-8*dt);
    }
 
-   MPI_Finalize();
+   if (compute_exact) {
+      std::ofstream f("u.dat");
+      WriteVector(f, u);
+      return 0.0;
+   }
+   else
+   {
+      Vector u_ex;
+      std::ifstream f("u.dat");
+      ReadVector(f, u_ex);
+      u_ex -= u;
+      printf("Error: %8.6e\n", u_ex.Normlinf());
+      return u_ex.Normlinf();
+   }
+}
 
+int main(int argc, char **argv)
+{
+   MPI_Init(&argc, &argv);
+
+   Params p;
+   p.tf = 1.0;
+   p.dt = 0.16;
+   p.compute_exact = false;
+
+   int nruns = 7;
+
+   ofstream f("out_10.txt");
+   f << "dt    irk    dirk" << std::endl;
+   f << std::scientific;
+   f.precision(8);
+
+   for (int i=0; i<nruns; ++i)
+   {
+      p.use_irk = true;
+      double irk_er = RunCase(p);
+      p.use_irk = false;
+      // double dirk_er = RunCase(p);
+      double dirk_er = 0.0;
+      f << p.dt << "    " << irk_er << "    " << dirk_er << std::endl;
+      p.dt *= 0.5;
+   }
+
+   MPI_Finalize();
    return 0;
 }

@@ -100,7 +100,7 @@ struct DGInternal
    darray r, Ddrdu, Odrdu;
    iarray Didx, Oidx;
 
-   int porder, N, nt, ns, nes, nf;
+   int N, nt, ns, nes, nf;
    std::vector<double> params;
    double X, Y;
 
@@ -109,14 +109,8 @@ struct DGInternal
 
 DGInternal::DGInternal() : a(dgnavierstokes)
 {
-   // Read in the configuration file
-   dgconfig c("ev.cfg");
-   porder             = c("porder");
-   double dt          = c("dt");
-   int nsteps         = c("nsteps");
-   std::string method = c("method");
-
    int np = 1; // Hard-coded 1 MPI rank for now... can consider parallel later
+   int porder = 4; // Hard-coded for now...
    std::string mshfilename = stringformat("data/evmsh%dpartn%d.h5", porder, np);
    msh.readfile(mshfilename);
    if (np > 1) { msh.initialize_mpi(); }
@@ -129,7 +123,7 @@ DGInternal::DGInternal() : a(dgnavierstokes)
    double theta = atan2(1, 2);
    double    M0 = 0.5;
    double    x0 = 5;
-   double    y0 = -5;
+   double    y0 = -2.5;
 
    params = {rc, eps, M0, theta, x0, y0};
    X = 40;
