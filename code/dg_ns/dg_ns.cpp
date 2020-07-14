@@ -223,6 +223,8 @@ double RunCase(Params &p)
       krylov_params.kdim = 100;
 
       IRK::NewtonParams newton_params;
+      newton_params.reltol = 1e-9;
+      newton_params.abstol = 1e-9;
 
       irk->SetKrylovParams(krylov_params);
       irk->SetNewtonParams(newton_params);
@@ -252,14 +254,14 @@ double RunCase(Params &p)
    }
 
    if (compute_exact) {
-      std::ofstream f("u.dat");
+      std::ofstream f("data/u_exact.dat");
       WriteVector(f, u);
       return 0.0;
    }
    else
    {
       Vector u_ex;
-      std::ifstream f("u.dat");
+      std::ifstream f("data/u_exact.dat");
       ReadVector(f, u_ex);
       u_ex -= u;
       printf("Error: %8.6e\n", u_ex.Normlinf());
@@ -276,9 +278,9 @@ int main(int argc, char **argv)
    p.dt = 0.16;
    p.compute_exact = false;
 
-   int nruns = 7;
+   int nruns = 3;
 
-   ofstream f("out_10.txt");
+   ofstream f("out.txt");
    f << "dt    irk    dirk" << std::endl;
    f << std::scientific;
    f.precision(8);
