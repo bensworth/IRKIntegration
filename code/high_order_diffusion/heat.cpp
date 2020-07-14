@@ -184,12 +184,10 @@ int run_heat(int argc, char *argv[])
    int num_procs, myid;
    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
    MPI_Comm_rank(MPI_COMM_WORLD, &myid);
-
    bool root = (myid == 0);
 
    const char *mesh_file = MFEM_DIR "data/inline-quad.mesh";
    int ser_ref_levels = 3;
-   int par_ref_levels = 2;
    int order = 1;
    double eps = 1e-2;
    double dt = 1e-3;
@@ -202,8 +200,6 @@ int run_heat(int argc, char *argv[])
                   "Mesh file to use.");
    args.AddOption(&ser_ref_levels, "-rs", "--refine-serial",
                   "Number of times to refine the serial mesh uniformly.");
-   args.AddOption(&par_ref_levels, "-rp", "--refine-parallel",
-                  "Number of times to refine the parallel mesh uniformly.");
    args.AddOption(&order, "-o", "--order",
                   "Finite element order (polynomial degree) >= 0.");
    args.AddOption(&eps, "-e", "--epsilon", "Diffusion coefficient.");
@@ -232,10 +228,6 @@ int run_heat(int argc, char *argv[])
    }
    ParMesh mesh(MPI_COMM_WORLD, *serial_mesh);
    delete serial_mesh;
-   for (int lev = 0; lev < par_ref_levels; lev++)
-   {
-      mesh.UniformRefinement();
-   }
 
    // Print mesh size
    double hmin, hmax, kmin, kmax;
@@ -251,14 +243,16 @@ int run_heat(int argc, char *argv[])
    H1_FECollection fec(order, dim, BasisType::GaussLobatto);
    ParFiniteElementSpace fes(&mesh, &fec);
 
-   ParGridFunction u(&fes);
+   Vector u;
+   ParGridFunction u_gf(&fes);
    FunctionCoefficient ic_coeff(ic_fn);
-   u.ProjectCoefficient(ic_coeff);
+   u_gf.ProjectCoefficient(ic_coeff);
+   u_gf.GetTrueDofs(u);
 
    ParaViewDataCollection dc("Heat", &mesh);
    if (visualization) {
       dc.SetPrefixPath("ParaView");
-      dc.RegisterField("u", &u);
+      dc.RegisterField("u", &u_gf);
       dc.SetLevelsOfDetail(order);
       dc.SetDataFormat(VTKFormat::BINARY);
       dc.SetHighOrderOutput(true);
@@ -310,6 +304,7 @@ int run_heat(int argc, char *argv[])
          if (root) { printf("t = %4.3f\n", t); }
          if (visualization)
          {
+            u_gf.SetFromTrueDofs(u);
             t_vis = t;
             dc.SetCycle(dc.GetCycle()+1);
             dc.SetTime(t);

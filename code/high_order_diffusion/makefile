@@ -3,13 +3,14 @@
 MFEM_DIR  = $(HOME)/Documents/Coding/mfem
 HYPRE_DIR  = $(HOME)/Documents/Coding/hypre/src/hypre
 METIS_DIR = $(HOME)/Documents/Coding/metis-5.0
+SUITE_SPARSE_DIR = $(HOME)/Documents/Coding/SuiteSparse
 CXX      = mpic++
 #FLAGS    = -g -std=c++11 -O3
 FLAGS    = -g -std=c++11
-INC      = -I$(MFEM_DIR) -I$(HYPRE_DIR)/include -I$(METIS_DIR)/include -Isolver_lib
+INC      = -I$(MFEM_DIR) -I$(HYPRE_DIR)/include -I$(METIS_DIR)/include -Isolver_lib -I$(SUITE_SPARSE_DIR)/include
 CXXFLAGS = $(FLAGS) $(INC) -DMFEM_DIR=\"$(MFEM_DIR)/\"
-LDFLAGS  = -L$(MFEM_DIR) -L$(HYPRE_DIR)/lib -L$(METIS_DIR)/lib -lz -Lsolver_lib
-LDLIBS   = -lmfem -lHYPRE -lmetis -las -lumfpack -lklu
+LDFLAGS  = -L$(MFEM_DIR) -L$(HYPRE_DIR)/lib -lz -Lsolver_lib -L$(SUITE_SPARSE_DIR)/lib
+LDLIBS   = -lmfem -lHYPRE -las -lumfpack -lklu -lmetis
 
 SOURCE_FILES  = $(wildcard *.cpp)
 OBJECT_FILES  = $(SOURCE_FILES:.cpp=.o)
