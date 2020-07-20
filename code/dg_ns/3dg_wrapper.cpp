@@ -95,7 +95,9 @@ struct DGInternal
    mesh msh;
    data d;
    phys p;
-   appl &a;
+   appl a;
+
+   darray u_ic;
 
    darray r, Ddrdu, Odrdu;
    iarray Didx, Oidx;
@@ -104,14 +106,39 @@ struct DGInternal
    std::vector<double> params;
    double X, Y;
 
-   DGInternal();
+   void InitSizes();
+   void InitEulerVortex();
+   void InitNACA();
 };
 
-DGInternal::DGInternal() : a(dgnavierstokes)
+void DGInternal::InitSizes()
 {
+   appinfo app;
+   a.getappinfo(msh.dim, p, app);
+   N = app.N;
+   nt = msh.nt;
+   ns = d.ns;
+   nes = d.nes;
+   nf=msh.nf;
+
+   // Allocate arrays to store Jacobian
+   Ddrdu.realloc(N*ns,N*ns,nt);
+   Odrdu.realloc(N*d.nes,N*ns,msh.nf,nt);
+   r.realloc(ns,N,nt);
+   Didx.realloc(2,(N*ns)*(N*ns)*(nt));
+   Oidx.realloc(2,(N*nes)*(N*ns)*(nf)*(nt));
+
+   // Precompute indices for sparse Jacobian matrix
+   dgjacindices(msh, d, N, Didx, Oidx);
+}
+
+void DGInternal::InitEulerVortex()
+{
+   a = dgnavierstokes;
+
    int np = 1; // Hard-coded 1 MPI rank for now... can consider parallel later
    int porder = 4; // Hard-coded for now...
-   std::string mshfilename = stringformat("data/evmsh%dpartn%d.h5", porder, np);
+   std::string mshfilename = stringformat("data/ev/evmsh%dpartn%d.h5", porder, np);
    msh.readfile(mshfilename);
    if (np > 1) { msh.initialize_mpi(); }
 
@@ -141,35 +168,39 @@ DGInternal::DGInternal() : a(dgnavierstokes)
    &p);
 
    // Get the initial conditions
-   // darray u;
-   // evperiodic(msh, u, 0.0, {rc, eps, M0, theta, x0, y0}, X, Y, 1);
-   // fwritesolution("plt/evsol0.dat", u, msh);
-   // Get the exact solution
-   // darray uE;
-   // evperiodic(msh, uE, nsteps*dt, {rc, eps, M0, theta, x0, y0}, X, Y, 1);
-   // fwritesolution("plt/exact.dat", uE, msh);
+   evperiodic(msh, u_ic, 0.0, {rc, eps, M0, theta, x0, y0}, X, Y, 1);
 
    // Set up the solvers
    auto linsolver = LinearSolverOptions::gmres("i");
    auto newton = NewtonOptions(linsolver);
 
-   appinfo app;
-   a.getappinfo(msh.dim, p, app);
-   N = app.N;
-   nt = msh.nt;
-   ns = d.ns;
-   nes = d.nes;
-   nf=msh.nf;
+   InitSizes();
+}
 
-   // Allocate arrays to store Jacobian
-   Ddrdu.realloc(N*ns,N*ns,nt);
-   Odrdu.realloc(N*d.nes,N*ns,msh.nf,nt);
-   r.realloc(ns,N,nt);
-   Didx.realloc(2,(N*ns)*(N*ns)*(nt));
-   Oidx.realloc(2,(N*nes)*(N*ns)*(nf)*(nt));
+void DGInternal::InitNACA()
+{
+   a = dgnsisentrop;
 
-   // Precompute indices for sparse Jacobian matrix
-   dgjacindices(msh, d, N, Didx, Oidx);
+   int np = 1;
+   std::string mshfilename = "data/naca/mshnacales1ref1partn" + to_string(np) + ".h5";
+   msh.readfile(mshfilename);
+   if (np > 1) msh.initialize_mpi();
+
+   double Re = 40e3;
+   dginit(msh, d);
+   using dg::physinit::FarFieldQty;
+   dg::physinit::nsisentrop(
+      msh,
+      {2, 1},           // bndcnds
+      {Re, 0.72, 0, 1}, // pars
+      1.0,              // far field density
+      0.1,              // far field Mach
+      {1.0, 0.0},       // far field velocity
+      &p);
+
+   dgfreestream(msh, p, u_ic);
+
+   InitSizes();
 }
 
 DGWrapper::DGWrapper()
@@ -272,15 +303,24 @@ void DGWrapper::MassMatrix(DGMatrix &M)
    M.A.Swap(A);
 }
 
-void DGWrapper::ExactSolution(Vector &u, double t)
-{
-   u.SetSize(Size());
-   darray u_ar(u.GetData(), dg->ns, dg->N, dg->nt);
-
-   evperiodic(dg->msh, u_ar, t, dg->params, dg->X, dg->Y, 1);
-}
-
 void DGWrapper::InitialCondition(Vector &u)
 {
-   ExactSolution(u, 0.0);
+   u.SetSize(Size());
+   u = dg->u_ic;
+}
+
+void DGWrapper::Init(int problem)
+{
+   if (problem == 0)
+   {
+      dg->InitEulerVortex();
+   }
+   else if (problem == 1)
+   {
+      dg->InitNACA();
+   }
+   else
+   {
+      MFEM_ABORT("Unknown problem type.")
+   }
 }

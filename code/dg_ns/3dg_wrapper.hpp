@@ -52,8 +52,8 @@ struct DGWrapper
    void Assemble(const Vector &u, Vector &r);
    void AssembleJacobian(const Vector &u, DGMatrix &J);
    void MassMatrix(DGMatrix &M);
-   void ExactSolution(Vector &u, double t);
    void InitialCondition(Vector &u);
+   void Init(int problem);
 };
 
 #endif

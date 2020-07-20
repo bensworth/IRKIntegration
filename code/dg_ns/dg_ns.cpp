@@ -189,6 +189,7 @@ void WriteVector(std::ofstream &f, Vector &b)
 
 struct Params
 {
+   int problem;
    double tf, dt;
    bool use_irk, compute_exact;
 };
@@ -205,6 +206,7 @@ double RunCase(Params &p)
    std::cout << "Using dt = " << dt << std::endl;
 
    DGWrapper dg_wrapper;
+   dg_wrapper.Init(p.problem);
 
    DGIRKOperator dg_irk(dg_wrapper);
    FE_Evolution evol(dg_wrapper);
@@ -213,7 +215,7 @@ double RunCase(Params &p)
 
    if (use_irk && !compute_exact)
    {
-      RKData::Type irk_type = RKData::RadauIIA3;
+      RKData::Type irk_type = RKData::RadauIIA7;
       // RKData::Type irk_type = RKData::LSDIRK3;
       IRK *irk = new IRK(&dg_irk, irk_type);
 
@@ -260,12 +262,12 @@ double RunCase(Params &p)
    }
    else
    {
-      Vector u_ex;
-      std::ifstream f("data/u_exact.dat");
-      ReadVector(f, u_ex);
-      u_ex -= u;
-      printf("Error: %8.6e\n", u_ex.Normlinf());
-      return u_ex.Normlinf();
+      // Vector u_ex;
+      // std::ifstream f("data/u_exact.dat");
+      // ReadVector(f, u_ex);
+      // u_ex -= u;
+      // printf("Error: %8.6e\n", u_ex.Normlinf());
+      // return u_ex.Normlinf();
    }
 }
 
@@ -275,10 +277,12 @@ int main(int argc, char **argv)
 
    Params p;
    p.tf = 1.0;
-   p.dt = 0.16;
+   // p.dt = 0.16;
+   p.dt = 1e-3;
    p.compute_exact = false;
+   p.problem = 1;
 
-   int nruns = 3;
+   int nruns = 1;
 
    ofstream f("out.txt");
    f << "dt    irk    dirk" << std::endl;
@@ -287,11 +291,11 @@ int main(int argc, char **argv)
 
    for (int i=0; i<nruns; ++i)
    {
+      double irk_er=0.0, dirk_er=0.0;
       p.use_irk = true;
-      double irk_er = RunCase(p);
+      //irk_er = RunCase(p);
       p.use_irk = false;
-      // double dirk_er = RunCase(p);
-      double dirk_er = 0.0;
+      dirk_er = RunCase(p);
       f << p.dt << "    " << irk_er << "    " << dirk_er << std::endl;
       p.dt *= 0.5;
    }
