@@ -1,7 +1,9 @@
 #include "mfem.hpp"
+#include "fem/picojson.h"
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <string>
 #include <cmath>
 
 #include "as.hpp"
@@ -187,10 +189,10 @@ int run_heat(int argc, char *argv[])
    bool root = (myid == 0);
 
    const char *mesh_file = MFEM_DIR "data/inline-quad.mesh";
-   int ser_ref_levels = 3;
+   int ref_levels = 3;
    int order = 1;
    double eps = 1e-2;
-   double dt = 1e-3;
+   double dt = 1e-2;
    double tf = 0.1;
    int irk_method = 16;
    bool visualization = false;
@@ -198,7 +200,7 @@ int run_heat(int argc, char *argv[])
    OptionsParser args(argc, argv);
    args.AddOption(&mesh_file, "-m", "--mesh",
                   "Mesh file to use.");
-   args.AddOption(&ser_ref_levels, "-rs", "--refine-serial",
+   args.AddOption(&ref_levels, "-r", "--refine-serial",
                   "Number of times to refine the serial mesh uniformly.");
    args.AddOption(&order, "-o", "--order",
                   "Finite element order (polynomial degree) >= 0.");
@@ -206,7 +208,7 @@ int run_heat(int argc, char *argv[])
    args.AddOption(&dt, "-dt", "--time-step", "Time step.");
    args.AddOption(&tf, "-tf", "--final-time", "Final time.");
    args.AddOption(&irk_method, "-i", "--irk", "ID of IRK method.");
-   args.AddOption(&visualization, "-v", "--visualization", "-nov", "--no-visualization",
+   args.AddOption(&visualization, "-vis", "--visualization", "-no-vis", "--no-visualization",
                   "Use IRK solver.");
    args.Parse();
    if (!args.Good())
@@ -218,11 +220,11 @@ int run_heat(int argc, char *argv[])
 
    Mesh *serial_mesh = new Mesh(mesh_file, 1, 1);
    int dim = serial_mesh->Dimension();
-   if (ser_ref_levels < 0)
+   if (ref_levels < 0)
    {
-      ser_ref_levels = (int)floor(log(50000./serial_mesh->GetNE())/log(2.)/dim);
+      ref_levels = (int)floor(log(50000./serial_mesh->GetNE())/log(2.)/dim);
    }
-   for (int l = 0; l < ser_ref_levels; l++)
+   for (int l = 0; l < ref_levels; l++)
    {
       serial_mesh->UniformRefinement();
    }
@@ -250,7 +252,8 @@ int run_heat(int argc, char *argv[])
    u_gf.GetTrueDofs(u);
 
    ParaViewDataCollection dc("Heat", &mesh);
-   if (visualization) {
+   if (visualization)
+   {
       dc.SetPrefixPath("ParaView");
       dc.RegisterField("u", &u_gf);
       dc.SetLevelsOfDetail(order);
@@ -265,8 +268,6 @@ int run_heat(int argc, char *argv[])
 
    double t = 0.0;
 
-   std::unique_ptr<ODESolver> ode;
-
    RKData::Type irk_type = RKData::Type(irk_method);
    // Can adjust rel tol, abs tol, maxiter, kdim, etc.
    IRK::KrylovParams krylov_params;
@@ -275,12 +276,11 @@ int run_heat(int argc, char *argv[])
    krylov_params.maxiter = 200;
    krylov_params.solver = IRK::KrylovMethod::CG;
    // Build IRK object using spatial discretization
-   IRK *irk = new IRK(&heat, irk_type);
+   IRK irk(&heat, irk_type);
    // Set GMRES settings
-   irk->SetKrylovParams(krylov_params);
+   irk.SetKrylovParams(krylov_params);
    // Initialize solver
-   irk->Init(heat);
-   ode.reset(irk);
+   irk.Init(heat);
 
    int vis_steps = 100;
    double t_vis = t;
@@ -293,11 +293,13 @@ int run_heat(int argc, char *argv[])
       std::cout << "Total number of unknowns: " << fes.GlobalVSize() << std::endl;
    }
 
+   int nsteps = 0;
    bool done = false;
    while (!done)
    {
+      ++nsteps;
       double dt_real = min(dt, tf - t);
-      ode->Step(u, t, dt_real);
+      irk.Step(u, t, dt_real);
       done = (t >= tf - 1e-8*dt);
       if (t - t_vis > vis_int || done)
       {
@@ -312,6 +314,58 @@ int run_heat(int argc, char *argv[])
          }
       }
    }
+
+   std::map<int,std::string> irk_names;
+
+   irk_names[-13] = "asdirk3";
+   irk_names[-14] = "asdirk4";
+
+   irk_names[01] = "dirk1";
+   irk_names[02] = "dirk2";
+   irk_names[03] = "dirk3";
+   irk_names[04] = "dirk4";
+
+   irk_names[12] = "gauss2";
+   irk_names[14] = "gauss4";
+   irk_names[16] = "gauss6";
+   irk_names[18] = "gauss8";
+   irk_names[110] = "gauss10";
+
+   irk_names[23] = "radau3";
+   irk_names[25] = "radau5";
+   irk_names[27] = "radau7";
+   irk_names[29] = "radau9";
+
+   irk_names[32] = "lobatto2";
+   irk_names[34] = "lobatto4";
+   irk_names[36] = "lobatto6";
+   irk_names[38] = "lobatto8";
+
+   std::vector<int> avg_iter, type;
+   std::vector<double> eig_ratio;
+   irk.GetSolveStats(avg_iter, type, eig_ratio);
+
+   std::map<std::string,picojson::value> dict;
+   dict.emplace("irk_method", irk_names[irk_method]);
+   dict.emplace("ref", double(ref_levels));
+   dict.emplace("dt", dt);
+   dict.emplace("order", double(order));
+   dict.emplace("num_systems", double(avg_iter.size()));
+
+   std::vector<picojson::value> sys_info;
+   for (int i=0; i<avg_iter.size(); ++i)
+   {
+      std::map<std::string,picojson::value> sys;
+      sys.emplace("avg_iter", double(avg_iter[i])/nsteps);
+      sys.emplace("degree", double(type[i]));
+      sys.emplace("eig_ratio", eig_ratio[i]);
+      sys_info.emplace_back(sys);
+   }
+   dict.emplace("sys_info", sys_info);
+
+   std::ofstream f("results/" + irk_names[irk_method] + ".txt");
+   f << picojson::value(dict);
+   f << std::endl;
 
    return 0;
 }
