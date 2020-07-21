@@ -103,8 +103,6 @@ struct DGInternal
    iarray Didx, Oidx;
 
    int N, nt, ns, nes, nf;
-   std::vector<double> params;
-   double X, Y;
 
    void InitSizes();
    void InitEulerVortex();
@@ -119,7 +117,7 @@ void DGInternal::InitSizes()
    nt = msh.nt;
    ns = d.ns;
    nes = d.nes;
-   nf=msh.nf;
+   nf = msh.nf;
 
    // Allocate arrays to store Jacobian
    Ddrdu.realloc(N*ns,N*ns,nt);
@@ -152,9 +150,9 @@ void DGInternal::InitEulerVortex()
    double    x0 = 5;
    double    y0 = -2.5;
 
-   params = {rc, eps, M0, theta, x0, y0};
-   X = 40;
-   Y = 30;
+   std::vector<double> params = {rc, eps, M0, theta, x0, y0};
+   double X = 40;
+   double Y = 30;
 
    double    Re = std::numeric_limits<double>::infinity();
    using dg::physinit::FarFieldQty;
@@ -182,7 +180,7 @@ void DGInternal::InitNACA()
    a = dgnsisentrop;
 
    int np = 1;
-   std::string mshfilename = "data/naca/mshnacales1ref1partn" + to_string(np) + ".h5";
+   std::string mshfilename = "data/naca/mshnacales1ref1partn14.h5";
    msh.readfile(mshfilename);
    if (np > 1) msh.initialize_mpi();
 
@@ -198,7 +196,12 @@ void DGInternal::InitNACA()
       {1.0, 0.0},       // far field velocity
       &p);
 
-   dgfreestream(msh, p, u_ic);
+   // dgfreestream(msh, p, u_ic);
+   freadsolution("data/naca/nacales1sol250.dat", u_ic, msh);
+
+   auto linsolver = LinearSolverOptions::gmres("i", 5e-4, 500);
+   auto newton = NewtonOptions(linsolver);
+   // dgirktime(a, u_ic, msh, d, p, 1e-2, 1, dirk_coeffs(3), newton, "");
 
    InitSizes();
 }
@@ -260,7 +263,7 @@ void DGWrapper::AssembleJacobian(const Vector &u, DGMatrix &J)
    {
       int i = dg->Didx(0,idx);
       int j = dg->Didx(1,idx);
-      A.Set(i,j,dg->Ddrdu[idx]);
+      A.Add(i,j,dg->Ddrdu[idx]);
    }
 
    int nnz_O = dg->Oidx.size(1);
@@ -268,10 +271,10 @@ void DGWrapper::AssembleJacobian(const Vector &u, DGMatrix &J)
    {
       int i = dg->Oidx(0,idx);
       int j = dg->Oidx(1,idx);
-      A.Set(i,j,dg->Odrdu[idx]);
+      A.Add(i,j,dg->Odrdu[idx]);
    }
 
-   A.Finalize();
+   A.Finalize(0);
 
    J.A.Swap(A);
 }
@@ -293,13 +296,13 @@ void DGWrapper::MassMatrix(DGMatrix &M)
             {
                int i = ii + dg->ns*icomp + dg->N*dg->ns*it;
                int j = jj + dg->ns*icomp + dg->N*dg->ns*it;
-               A.Set(i, j, M_el[cidx]);
+               A.Add(i, j, M_el[cidx]);
                ++cidx;
             }
          }
       }
    }
-   A.Finalize();
+   A.Finalize(0);
    M.A.Swap(A);
 }
 

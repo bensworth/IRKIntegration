@@ -2,6 +2,7 @@
 #include "bljacobi.hpp"
 #include "3dg_wrapper.hpp"
 #include "general/binaryio.hpp"
+#include "fem/picojson.h"
 
 #include <memory>
 
@@ -18,8 +19,8 @@ struct DGIRKOperator : IRKOperator
    mutable bool jacobian_updated;
    Vector z;
 
-   DGIRKOperator(DGWrapper &dg_, IRKOperator::ExplicitGradients grad_type)
-      : IRKOperator(MPI_COMM_WORLD, dg_.Size(), 0.0, IMPLICIT, grad_type),
+   DGIRKOperator(DGWrapper &dg_, IRKOperator::ExplicitGradients jac_type)
+      : IRKOperator(MPI_COMM_WORLD, dg_.Size(), 0.0, IMPLICIT, jac_type),
         dg(dg_),
         current_prec(nullptr),
         jacobian_updated(true)
@@ -178,7 +179,7 @@ struct DGNewtonOperator : Operator
    mutable Vector z;
 
    DGMatrix M;
-   mutable DGMatrix A;
+   mutable SparseMatrix A;
 
    DGNewtonOperator(DGWrapper &dg_) : Operator(dg_.Size()), dg(dg_)
    {
@@ -193,6 +194,7 @@ struct DGNewtonOperator : Operator
       dg.Assemble(z, y);
       y *= -1.0;
       dg.ApplyMass(x, z);
+      // y = M k - r(u0 + dt*k)
       y += z;
    }
 
@@ -202,8 +204,8 @@ struct DGNewtonOperator : Operator
       DGMatrix J;
       dg.AssembleJacobian(z, J);
       std::unique_ptr<SparseMatrix> A_tmp(Add(1.0, M.A, -dt, J.A));
-      A.A.Swap(*A_tmp);
-      return A.A;
+      A.Swap(*A_tmp);
+      return A;
    }
 };
 
@@ -250,8 +252,10 @@ public:
    {
       dg_newton_op.dt = dt;
       dg_newton_op.u0 = x;
-      k = 0.0;
+      // k = 0.0;
+      k = x;
       newton.Mult(rhs, k);
+      k -= x;
    }
 };
 
@@ -271,37 +275,88 @@ void WriteVector(std::ofstream &f, Vector &b)
 
 struct Params
 {
-   int problem;
-   double tf, dt;
-   bool use_irk, compute_exact;
+   int problem=0;
+   int nsteps;
+   double tf=1e-1, dt=1e-2;
+   bool use_irk=true, compute_exact=false;
+   RKData::Type irk_method;
+   IRKOperator::ExplicitGradients jac_type=IRKOperator::APPROXIMATE;
 };
 
-double RunCase(Params &p)
+void WriteSolveStats(const std::string &prefix, IRK &irk, const Params &p)
+{
+   std::map<int,std::string> irk_names;
+
+   irk_names[-13] = "asdirk3";
+   irk_names[-14] = "asdirk4";
+
+   irk_names[01] = "dirk1";
+   irk_names[02] = "dirk2";
+   irk_names[03] = "dirk3";
+   irk_names[04] = "dirk4";
+
+   irk_names[12] = "gauss2";
+   irk_names[14] = "gauss4";
+   irk_names[16] = "gauss6";
+   irk_names[18] = "gauss8";
+   irk_names[110] = "gauss10";
+
+   irk_names[23] = "radau3";
+   irk_names[25] = "radau5";
+   irk_names[27] = "radau7";
+   irk_names[29] = "radau9";
+
+   irk_names[32] = "lobatto2";
+   irk_names[34] = "lobatto4";
+   irk_names[36] = "lobatto6";
+   irk_names[38] = "lobatto8";
+
+   int avg_newton_iter;
+   std::vector<int> avg_krylov_iter, system_size;
+   std::vector<double> eig_ratio;
+   irk.GetSolveStats(avg_newton_iter, avg_krylov_iter, system_size, eig_ratio);
+
+   std::map<std::string,picojson::value> dict;
+   dict.emplace("irk_method", irk_names[p.irk_method]);
+   dict.emplace("dt", p.dt);
+   dict.emplace("num_systems", double(avg_krylov_iter.size()));
+   dict.emplace("avg_newton_iter", double(avg_newton_iter));
+
+   std::vector<picojson::value> sys_info;
+   for (int i=0; i<avg_krylov_iter.size(); ++i)
+   {
+      std::map<std::string,picojson::value> sys;
+      sys.emplace("avg_krylov_iter", double(avg_krylov_iter[i])/p.nsteps/avg_newton_iter);
+      sys.emplace("system_size", double(system_size[i]));
+      sys.emplace("eig_ratio", eig_ratio[i]);
+      sys_info.emplace_back(sys);
+   }
+   dict.emplace("sys_info", sys_info);
+
+   std::ofstream f("results/" + prefix + "_" + irk_names[p.irk_method] + ".json");
+   f << picojson::value(dict) << std::endl;
+}
+
+void RunCase(Params &p, Vector &u)
 {
    double t = 0.0;
-
    double tf = p.tf;
    double dt = p.dt;
-   bool use_irk = p.use_irk;
-   bool compute_exact = p.compute_exact;
 
    std::cout << "Using dt = " << dt << std::endl;
 
    DGWrapper dg_wrapper;
    dg_wrapper.Init(p.problem);
 
-   // DGIRKOperator dg_irk(dg_wrapper, IRKOperator::APPROXIMATE);
-   DGIRKOperator dg_irk(dg_wrapper, IRKOperator::EXACT);
+   DGIRKOperator dg_irk(dg_wrapper, p.jac_type);
    FE_Evolution evol(dg_wrapper);
 
    std::unique_ptr<ODESolver> ode;
    std::unique_ptr<RKData> tableau;
 
-   if (use_irk && !compute_exact)
+   if (p.use_irk && !p.compute_exact)
    {
-      // RKData::Type irk_type = RKData::RadauIIA7;
-      RKData::Type irk_type = RKData::Gauss4;
-      tableau.reset(new RKData(irk_type));
+      tableau.reset(new RKData(p.irk_method));
       IRK *irk = new IRK(&dg_irk, *tableau);
 
       IRK::KrylovParams krylov_params;
@@ -322,69 +377,93 @@ double RunCase(Params &p)
    }
    else
    {
-      if (compute_exact) { ode.reset(new RK4Solver); }
-      else { ode.reset(new SDIRK33Solver); }
+      if (p.compute_exact) { ode.reset(new RK4Solver); }
+      // else { ode.reset(new SDIRK33Solver); }
+      else { ode.reset(new BackwardEulerSolver); }
       evol.SetTime(t);
       ode->Init(evol);
    }
 
-   Vector u;
    dg_wrapper.InitialCondition(u);
 
-   int step = 1;
+   p.nsteps = 0;
    bool done = false;
    while (!done)
    {
       double dt_real = min(dt, tf - t);
-      std::cout << " >>> Step " << step++ << " <<<\n";
+      std::cout << " >>> Step " << ++p.nsteps << " <<<\n";
       ode->Step(u, t, dt_real);
       done = (t >= tf - 1e-8*dt);
    }
 
-   if (compute_exact) {
+   IRK *irk = dynamic_cast<IRK*>(ode.get());
+   if (irk)
+   {
+      std::string prefix = (p.problem == 0) ? "ev" : "naca";
+      WriteSolveStats(prefix, *irk, p);
+   }
+}
+
+double RunEulerVortex(Params p)
+{
+   Vector u;
+   p.problem = 0;
+   RunCase(p, u);
+
+   if (p.compute_exact) {
       std::ofstream f("data/u_exact.dat");
       WriteVector(f, u);
       return 0.0;
    }
    else
    {
-      // Vector u_ex;
-      // std::ifstream f("data/u_exact.dat");
-      // ReadVector(f, u_ex);
-      // u_ex -= u;
-      // printf("Error: %8.6e\n", u_ex.Normlinf());
-      // return u_ex.Normlinf();
+      /*Vector u_ex;
+      std::ifstream f("data/u_exact.dat");
+      ReadVector(f, u_ex);
+      u_ex -= u;
+      printf("Error: %8.6e\n", u_ex.Normlinf());
+      return u_ex.Normlinf();*/
+      return 0.0;
    }
+}
+
+void RunNACA(Params p)
+{
+   Vector u;
+   p.problem = 1;
+   RunCase(p, u);
 }
 
 int main(int argc, char **argv)
 {
    MPI_Init(&argc, &argv);
 
-   Params p;
-   // p.dt = 0.16;
-   p.dt = 1e-3;
-   p.tf = p.dt;
-   p.compute_exact = false;
-   p.problem = 1;
+   double dt = 1e-2;
+   double tf = 0.1;
+   int irk_method = 16;
 
-   int nruns = 1;
-
-   ofstream f("out.txt");
-   f << "dt    irk    dirk" << std::endl;
-   f << std::scientific;
-   f.precision(8);
-
-   for (int i=0; i<nruns; ++i)
+   OptionsParser args(argc, argv);
+   args.AddOption(&dt, "-dt", "--time-step", "Time step.");
+   args.AddOption(&tf, "-tf", "--final-time", "Final time.");
+   args.AddOption(&irk_method, "-i", "--irk", "ID of IRK method.");
+   args.Parse();
+   if (!args.Good())
    {
-      double irk_er=0.0, dirk_er=0.0;
-      p.use_irk = true;
-      irk_er = RunCase(p);
-      p.use_irk = false;
-      dirk_er = RunCase(p);
-      f << p.dt << "    " << irk_er << "    " << dirk_er << std::endl;
-      p.dt *= 0.5;
+      args.PrintUsage(std::cout);
+      return 1;
    }
+   args.PrintOptions(std::cout);
+
+   Params p;
+   p.dt = dt;
+   p.tf = tf;
+   p.compute_exact = false;
+   p.irk_method = RKData::Type(irk_method);
+   p.use_irk = true;
+   p.jac_type = IRKOperator::EXACT;
+
+   // RunEulerVortex(p);
+   RunNACA(p);
 
    MPI_Finalize();
    return 0;
