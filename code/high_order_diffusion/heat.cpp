@@ -12,6 +12,8 @@
 using namespace std;
 using namespace mfem;
 
+int n_applications = 0;
+
 double ic_fn(const Vector &xvec)
 {
    double x = xvec[0];
@@ -27,7 +29,7 @@ double f_fn(const Vector &xvec)
    return cos(4*M_PI*x)*cos(4*M_PI*y);
 }
 
-struct BackwardEulerPreconditioner
+struct BackwardEulerPreconditioner : Solver
 {
    ConstantCoefficient mass_coeff, diff_coeff;
    HighOrderASPreconditioner prec;
@@ -36,14 +38,40 @@ struct BackwardEulerPreconditioner
                                double gamma,
                                double dt_times_eps,
                                Array<int> &ess_bdr)
-   : mass_coeff(gamma),
+   : Solver(fes.GetTrueVSize()),
+     mass_coeff(gamma),
      diff_coeff(-dt_times_eps),
      prec(fes, mass_coeff, diff_coeff, ess_bdr, 1)
    { }
 
-   void Mult(const Vector &b, Vector &x)
+   void Mult(const Vector &b, Vector &x) const
    {
       prec.Mult(b, x);
+      ++n_applications;
+   }
+
+   void SetOperator(const Operator &op) { }
+};
+
+struct HeatOperator : Operator
+{
+   OperatorHandle &A, &M;
+   double gamma, alpha;
+   mutable Vector z;
+   HeatOperator(OperatorHandle &A_, OperatorHandle &M_) : A(A_), M(M_) { }
+   virtual void Mult(const Vector &x, Vector &y) const override
+   {
+      z.SetSize(x.Size());
+      A->Mult(x, y);
+      y *= -alpha;
+      M->Mult(x, z);
+      z *= gamma;
+      y += z;
+   }
+   void SetSize(int n)
+   {
+      width = n;
+      height = n;
    }
 };
 
@@ -59,6 +87,10 @@ struct HeatIRKOperator : IRKOperator
    BackwardEulerPreconditioner *current_prec;
    IntegrationRules irs;
 
+   HeatOperator oper;
+
+   CGSolver inner_cg;
+
    Vector B;
    mutable Vector z;
 
@@ -69,7 +101,8 @@ public:
         diff_coeff(-eps),
         a(&fes),
         m(&fes),
-        irs(0, Quadrature1D::GaussLobatto)
+        irs(0, Quadrature1D::GaussLobatto),
+        oper(A, M)
    {
       a.AddDomainIntegrator(new DiffusionIntegrator(diff_coeff));
       a.SetAssemblyLevel(AssemblyLevel::PARTIAL);
@@ -103,7 +136,15 @@ public:
       B.SetSize(fes.GetTrueVSize());
       b.ParallelAssemble(B);
 
+      oper.SetSize(A->Width());
+
       current_prec = nullptr;
+
+      inner_cg.SetRelTol(1e-1);
+      inner_cg.SetAbsTol(1e-1);
+      inner_cg.SetMaxIter(5);
+      inner_cg.SetPrintLevel(0);
+      inner_cg.SetOperator(oper);
    }
 
    // Compute the right-hand side of the ODE system.
@@ -122,11 +163,6 @@ public:
       A->Mult(x, y);
    }
 
-   // void ExplicitMult(const Vector &u, Vector &du_dt) const override
-   // {
-   //    A->Mult(u, du_dt);
-   // }
-
    // Apply action of the mass matrix
    virtual void ImplicitMult(const Vector &x, Vector &y) const override
    {
@@ -142,7 +178,8 @@ public:
    inline void ImplicitPrec(const Vector &x, Vector &y) const override
    {
       MFEM_VERIFY(current_prec != NULL, "Must call SetSystem before ImplicitPrec");
-      current_prec->Mult(x, y);
+      // current_prec->Mult(x, y);
+      inner_cg.Mult(x, y);
    }
 
    /** Ensures that this->ImplicitPrec() preconditions (\gamma*M - dt*L)
@@ -161,6 +198,10 @@ public:
             fes, gamma, dt*diff_coeff.constant, ess_bdr);
       }
       current_prec = prec[key];
+
+      oper.gamma = gamma;
+      oper.alpha = dt;
+      inner_cg.SetPreconditioner(*current_prec);
    }
 
    ~HeatIRKOperator()
@@ -274,7 +315,8 @@ int run_heat(int argc, char *argv[])
    krylov_params.printlevel = 2;
    krylov_params.kdim = 50;
    krylov_params.maxiter = 200;
-   krylov_params.solver = IRK::KrylovMethod::CG;
+   // krylov_params.solver = IRK::KrylovMethod::CG;
+   krylov_params.solver = IRK::KrylovMethod::FGMRES;
    // Build IRK object using spatial discretization
    IRK irk(&heat, irk_type);
    // Set GMRES settings
@@ -366,6 +408,8 @@ int run_heat(int argc, char *argv[])
    std::ofstream f("results/" + irk_names[irk_method] + ".txt");
    f << picojson::value(dict);
    f << std::endl;
+
+   std::cout << "TOTAL PREC APPLICATIONS: " << n_applications << '\n';
 
    return 0;
 }
