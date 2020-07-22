@@ -141,8 +141,8 @@ solution of the block linear system,
 
 The difficulty in fully implicit Runge-Kutta methods (which we will denote IRK) lies in
 solving the $Ns\times Ns$ block linear system in \eqref{eq:k0}. This paper focuses on the
-parallel simulation of numerical PDEs, where $N$ is typically very large, on the order of
-millions or billions, and $\mathcal{L}$ is highly ill-conditioned. In such cases, direct
+parallel simulation of numerical PDEs, where $N$ is typically very large
+and $\mathcal{L}$ is highly ill-conditioned. In such cases, direct
 solution techniques to solve \eqref{eq:k0} are not a viable option, and fast, parallel 
 iterative methods must be used. However, IRK methods are rarely employed in practice due
 to the difficulties of solving \eqref{eq:k0}. Even for relatively simple
@@ -731,7 +731,7 @@ preconditioned with $(\eta I - \widehat{\mathcal{L}})^{-2}$. Then
 $W(\mathcal{P}_\eta)$ is bounded by $\Omega$ as shown in \Cref{fig:bound}.
 \begin{figure}[h!]
 \centering
-\includegraphics[width = 0.3\textwidth]{fov.pdf}
+\includegraphics[width = 0.3\textwidth]{./figures/fov.pdf}
 \caption{}
 \label{fig:bound}
 \end{figure}
@@ -1067,16 +1067,38 @@ The main task here is going to be computing the action of the degree $s-1$ polyn
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
-\subsection{Finite-difference advection-diffusion}
+\subsection{Finite-difference advection-diffusion}\label{sec:numerics_lin:fd}
 
 
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
-\subsection{Discontinuous Galerkin advection-diffusion}
+\subsection{Discontinuous Galerkin advection-diffusion}\label{sec:numerics_lin:dg}
 
+This section considers a more difficult advection-diffusion problem, discretized
+using high-order discontinuous Galerkin finite elements. In particular, we demonstrate
+the effectiveness and scalability of the new preconditioning on more complex flows and 
+DG discretizations (\Cref{fig:ad_advdiff} and \Cref{sec:numerics_lin:dg:adv}),
+the reduction in computational work that can be achieved using large time steps and
+very high-order integration (\Cref{sec:numerics_lin:dg:adv}), and how
+using multiple ``inner'' preconditioning iterations to approximate $\widehat{L}^{-1}$
+(or even inner Krylov acceleration) can be important for the fast, scalable
+application of IRK integration (\Cref{sec:numerics_lin:dg:diff}).
+
+
+\todo{Will, can you please add a problem/FEM discretization description here?}
+
+
+\Cref{fig:ad_advdiff} plots the velocity field $\Omega(x,y)$ followed by the spatial
+solution at five points in time (including the initial condition at $t=0$) using
+diffusion coefficient $\kappa = 10^{-6}$.
+
+% srun -n32 ./dg_adv_diff  -rs 3 -rp 1 -i 18 -o 4 -dt 0.1 -air 2 -tf 10 -e 1e-6 -nov
+% dt = 0.1, hmin = 0.015625, hmax = 0.015625
+% time order = 8, space order = 4
+% time acc. = 1e-08, space acc. = 5.96046e-08
 %
-\begin{figure}[!b]
+\begin{figure}[!htb]
   \centering
   \begin{subfigure}[b]{0.3\textwidth}
     \includegraphics[width=\textwidth]{./figures/velocity_field.pdf}
@@ -1110,6 +1132,114 @@ The main task here is going to be computing the action of the degree $s-1$ polyn
       2d domain, with blue $\mapsto 0$ and red $\mapsto 1$.}
   \label{fig:ad_advdiff}
 \end{figure}
+
+% ------------------------------------------------------------------------------------- %
+\subsection{High-order \& advection-dominated}\label{sec:numerics_lin:dg:adv}
+
+First, we demonstrate high-order IRK integration applied to the advection-dominated
+problem in \Cref{fig:ad_advdiff}, using AIR as a preconditioner for the linear
+systems. AIR was originally designed for upwind DG discretizations of advection
+and is well-suited for this problem. We use the \textit{hypre} implementation,
+with distance 1.5 restriction with strength tolerance $\theta_R=0.01$, one-point
+interpolation (type 100), Falgout coarsening (type 6) with strength tolerance
+$\theta_C=0.1$, no pre-relaxation, and forward Gauss Seidel
+post-relaxation (type 3), first on F-points followed by a second sweep on
+all points. The domain is discretized using 4th-order finite elements on a
+structured mesh, and the time step for each integration scheme is chosen
+such that the spatial and temporal orders of accuracy match; for example,
+for 8th-order integration we choose $\delta t = \sqrt{h}$, for mesh spacing
+$h$, so that $\delta t^8 = h^4$. All linear systems are solved to a relative
+tolerance of $10^{-12}$.
+
+\Cref{fig:dg_o4_abs} shows the total numer of AIR iterations required to
+compute one time step using six different Runge-Kutta schemes, from 4th
+to 10th order, as a funciton of mesh spacing $h$. Note that as $h\to 0$,
+there is only modest growth in the number of AIR iterations per time step,
+indicating good (but not perfect) scalability.
+Moreover, note that there is small growth in the number of iterations for
+SDIRK4 as well (increasing from 20 to 25), which suggests the growth in
+iteration count is due to imperfect scalability of AIR iterations rather
+than the new IRK preconditioning.
+
+\Cref{fig:dg_o4_rel} then shows the relative number of AIR iterations to
+compute a given accuracy compared to SDIRK4. For example, if $h=0.01$,
+then SDIRK4 uses $\delta t_4 = 0.01$ and Gauss8 uses $\delta t_8 =
+\sqrt{0.01} = 0.1 = 10\delta t_4$, that is, $10\times$ less time steps to
+achieve comparable accuracy. Note that as $h\to 0$, this factor becomes progressively
+larger. For quite moderate $h$, we see how very high-order integration
+can quickly lead to a reduction in total AIR iterations compared to a
+standard SDIRK4 iteration. Gauss8, for example, requires $\approx 29\%$
+of the total number of AIR iterations as SDIRK4 at $h =\delta t_4 = 1/256$,
+and this ratio continues to decrease for smaller $\delta t$. Although this
+does not account for additional setup time, where Gauss8 requires solving
+two different linear systems and SDIRK4 only one, very high-order integration
+permitted through the new preconditioning still offers the opportuntity
+for significant speedups.
+
+%
+\begin{figure}[!h]
+  \centering
+  \begin{subfigure}[b]{0.475\textwidth}
+    \includegraphics[width=\textwidth]{./figures/dg_advdiff_o4_1e-6.pdf}
+    \caption{Total AIR iterations per time step}
+	\label{fig:dg_o4_abs}
+  \end{subfigure}
+   \begin{subfigure}[b]{0.475\textwidth}
+    \includegraphics[width=\textwidth]{./figures/dg_advdiff_o4_1e-6_rel.pdf}
+   \caption{AIR iterations relative to SDIRK4}
+	\label{fig:dg_o4_rel}
+  \end{subfigure}
+\caption{}
+  \label{fig:dg_o4}
+\end{figure}
+%
+
+
+% ------------------------------------------------------------------------------------- %
+\subsection{Diffusive problems and inner Krylov}\label{sec:numerics_lin:dg:diff}
+
+In \cite{AIR2}, AIR was shown to be effective on some DG advection-diffusion
+problems, and classical AMG is known to be effective on diffusion-dominated
+problems. However, the region of comparable levels of advection and diffusion
+remains the most difficult from a multigrid perspective. We use this to 
+demonstrate how methods developed here require a ``good'' preconditioner
+for a backward Euler time step in order to converge on more general IRK
+methods. However, ensuring a preconditioner is sufficiently good can be 
+resolved analogous to block preconditioning techniques, where an inner
+iteration is used that applies multiple AIR iterations as a single preconditioner.
+
+Here we consider an analogous problem to above, but set the diffusion coefficient
+to $\kappa = 0.01$. We use a mesh with spacing $h \approx 0.001$, 2nd-order
+DG finite elements, a time step of $\delta t = 0.1$, and three-stage 6th-order
+Gauss integration. Altogether, this yields equal orders of accuracy, with time and
+space error $\sim10^{-6}$. FGMRES \cite{saad1993flexible} is used for the
+outer iteration, which allows for GMRES to be applied in an inner iteration
+as a preconditioner for $(\eta M - \mathcal{L})$. \Cref{fig:dg_o2} plots the
+total number of AIR iterations per time step as a function of the number of
+AIR iterations applied for each application of the preconditioner, using an
+inner GMRES or an inner fixed-point iteration. 
+
+Recall we have three stages, one of which is a single linear system coresponding
+to a real eigenvalue, and the other corresponding to a pair of complex conjugate
+eigenvalues, which we precondition as in \Cref{sec:solve}. The latter ends up being
+the more difficult problem to solve -- using one AIR iteration as a preconditioner,
+the outer FGMRES iteration for the complex conjugate quadratic does not converge in
+1000 iterations. If two AIR iterations with GMRES are used as a preconditioner,
+the FGMRES iteration converges in approximately 130 iterations, each of which
+requires two applications of GMRES preconditioned with two AIR iterations,
+yielding just over 500 total AIR iterations to converge. Further increasing
+the number of AIR iterations per preconditioning yields nice convergence
+using inner fixed-point or GMRES, with 150 and 112 total AIR iterations per
+time step, respectively. 
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width = 0.55\textwidth]{./figures/dg_advdiff_o2_1e-2.pdf}
+\caption{AIR iterations per time step as a function of the number of
+AIR iterations applied for each application of the preconditioner.}
+\label{fig:dg_o2}
+\end{figure}
+
 
 
 
@@ -1252,7 +1382,7 @@ but is able to store all stage vectors and is compatible with a simplified Newto
 iteration. Note, for linear problems, the algorithm from \Cref{sec:solve} is still
 preferable because it requires less memory, the Krylov space only needs to store
 ons stage vector, and three-term Krylov recursion can be used when applicable. 
-only feasible in limited scenarios. The method based on a real Schur decomposition
+The method based on a real Schur decomposition
 also gives important insight into a preconditioning for the fully nonlinear
 and time-dependent setting, which is discussed in the following section. 
 
@@ -1419,12 +1549,13 @@ To develop effective approximations, we are particularly interested in the opera
 \end{align}
 %
 where $\bm{c}^\top_{k,\ell} = \Big((Q_0^\top)_{k ,1} (Q_0)_{1, \ell},
-\ldots, (Q_0^\top)_{k, s} (Q_0)_{s, \ell} \Big) \in \mathbb{R}^s$ is a row vector,
-$\bm{{\cal L}}' = ({\cal L}'_1, \ldots, {\cal L}'_s)$ is a column vector of the
-linearized operators, and
+\ldots, (Q_0^\top)_{k, s} (Q_0)_{s, \ell} \Big) \in \mathbb{R}^s$ is a scalar row
+vector, $\bm{{\cal L}}' = (\widehat{\mathcal{L}}_1; \ldots; \widehat{\mathcal{L}}_s)$
+is a block column vector of the linearized operators, and
 %
 \begin{align*}
-\bm{c}^\top_{k,\ell} \bm{{\cal L}}' = \sum \limits_{i = 1}^s (\bm{c}_{k, \ell})_i {\cal L}'_i.
+\bm{c}^\top_{k,\ell} \bm{{\cal L}}' = \sum \limits_{i = 1}^s (\bm{c}_{k, \ell})_i
+	\widehat{\mathcal{L}}_i.
 \end{align*}
 %
 For $\widehat{\mathcal{L}}_i = \widehat{\mathcal{L}}_j$, \eqref{eq:Q0approx}
@@ -1439,7 +1570,7 @@ substitution.
 
 As an example, consider \eqref{eq:Q0approx} for the two-stage Gauss and
 RadauIIA methods in bracket notation, where, e.g., $\{a_1,a_2,a_3\}\mapsto 
-a_1\mathcal{L}_1 + a_2\mathcal{L}_2 + a_3\mathcal{L}_3$:
+a_1\widehat{\mathcal{L}}_1 + a_2\widehat{\mathcal{L}}_2 + a_3\widehat{\mathcal{L}}_3$:
 %
 \begin{align*}
 \textnormal{Gauss(2):} \hspace{1ex}
@@ -1456,7 +1587,7 @@ a_1\mathcal{L}_1 + a_2\mathcal{L}_2 + a_3\mathcal{L}_3$:
 \end{align*}
 %
 Recall in the matrices above, the constants in diagonal brackets always sum to
-one and off-diagonal sum to zero, wherein if $\mathcal{L}_i = \mathcal{L}_j$
+one and off-diagonal sum to zero, wherein if $\widehat{\mathcal{L}}_i = \widehat{\mathcal{L}}_j$
 for all $i,j$, each of the operators is the identity.
 
 Note that there is no approximation in two-stage Gauss, that is, it is
@@ -1465,16 +1596,16 @@ Gauss using preconditioning techniques developed in \Cref{sec:nonlinear:simp}.
 For two-stage RadauIIA, we see that the diagonal blocks are almost
 defined by the (linearized) operator evaluated at a single time step, which
 provides a natural and simple approximation. The off-diagonal blocks are
-simply a measure of commutation, $0.121(\mathcal{L}_1 - \mathcal{L}_2)$.
+simply a measure of commutation, $0.121(\widehat{\mathcal{L}}_1 - \widehat{\mathcal{L}}_2)$.
 Such entries could be included in the preconditioning for the upper
 triangular portion of the matrix (adding a few additional mat-vecs and
-memory usage), or simply ignored under the assumption that $\mathcal{L}_1 -
-\mathcal{L}_2$ is ``small'' in some sense. Even for reasonably stiff 
-problems, the operator often does not change significantly between
+memory usage), or simply ignored under the assumption that $\widehat{\mathcal{L}}_1 -
+\widehat{\mathcal{L}}_2$ is ``small'' in some sense. Even for reasonably stiff 
+problems, the operator often does not change substantially between
 two stages -- if it did, e.g., due to a shockwave, the larger time step
 may not be small enough to accurately resolve the nonlinear behavior in
 the first place. Similar structure as discussed for the two-stage methods
-holds for other methods as well. For example, the constants for four-stage
+holds for other methods as well. For example, the coefficients for four-stage
 Gauss are given by:
 %
 \begin{align*}
@@ -1494,9 +1625,9 @@ Gauss are given by:
 \end{matrix}\right].
 \end{align*}
 %
-Analogous to the twi-stage case, note that the diagonal blocks are largely
-defined by $\mathcal{L}$ evaluated at a single time point (coefficient
-here shown in bold). Moreover, not only are the off-diagonal constants
+Analogous to the two-stage case, note that the diagonal blocks are largely
+defined by $\widehat{\mathcal{L}}$ evaluated at a single time point (coefficient
+shown in bold). Moreover, not only are the off-diagonal constants
 a measure of commutivity, many of them are quite small in the first place;
 then, regardless of commutivity, ignoring such terms in the lower-triangular
 or off-diagonal blocks is a natural preconditioning. 
@@ -1512,7 +1643,9 @@ invert the resulting operator
 R_0 \otimes M - \delta t \widehat{P} \approx R_0 \otimes I -  \delta t \widetilde{P}
 \end{align}
 %
-via block backward substitution. In addition to the simplified Newton
+via block backward substitution, applying preconditioning to each $1\times 1$
+or $2\times 2$ diagonal blocks as in \Cref{sec:nonlinear:simp}.
+In addition to the simplified Newton
 method discussed in \Cref{sec:nonlinear:simp}, we propose three (successively
 more accurate) approximations to \eqref{eq:Q0approx}:
 \vspace{1ex}
@@ -1525,7 +1658,7 @@ all stages.
 
 \item \underline{Newton-Like(1):} Truncate $\widehat{P}$ to be block diagonal and
 lump the coefficients of $\bm{c}_{ii}$ to the largest one so that each diagonal
-block of $\widetilde{P}$ contains only one matrix from $\bm{{\cal L}}'$.
+block of $\widehat{P}$ contains only one matrix from $\bm{{\cal L}}'$.
 
 \item \underline{Newton-Like(2):} Truncate $\widehat{P}$ to be block diagonal
 (can include the off-diagonal entries in $2 \times 2$ diagonal blocks, or not)

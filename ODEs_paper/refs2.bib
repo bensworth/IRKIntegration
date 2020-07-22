@@ -1,3 +1,37 @@
+@article{saad1993flexible,
+  title={A flexible inner-outer preconditioned {GMRES} algorithm},
+  author={Saad, Youcef},
+  journal={SIAM Journal on Scientific Computing},
+  volume={14},
+  number={2},
+  pages={461--469},
+  year={1993},
+  publisher={SIAM}
+}
+
+@article{AIR1,
+  Author = {T. A. Manteuffel and S. {M}unzenmaier and J. Ruge and B. S. Southworth},
+  Date-Added = {2019-11-01 11:47:02 -0700},
+  Date-Modified = {2019-11-01 11:47:02 -0700},
+  Journal = {SIAM J. Sci. Comput.},
+  Number = {5},
+  Pages = {S242-S268},
+  Title = {Nonsymmetric reduction-based algebraic multigrid},
+  Volume = {41},
+  Year = {2019}}
+
+@article{AIR2,
+  Author = {T. A. Manteuffel and J. Ruge and B. S. Southworth},
+  Date-Added = {2019-10-25 13:11:40 -0700},
+  Date-Modified = {2019-10-25 13:11:40 -0700},
+  Journal = {SIAM J. Sci. Comput.},
+  Month = {Dec.},
+  Number = {6},
+  Pages = {A4105-A4130},
+  Title = {Nonsymmetric Algebraic multigrid based on local approximate ideal restriction ({$\ell${AIR}})},
+  Volume = {40},
+  Year = {2018}}
+
 @article{Fischer:1998vj,
   Author = {Fischer, B and Ramage, A and Silvester, D J and Wathen, A J},
   Date-Added = {2019-10-24 11:03:58 -0700},
@@ -10,7 +44,7 @@
   Year = {1998}}
 
 @article{2x2block,
-  title={On Fixed-Point, Krylov, and 2*2 Block Preconditioners for Nonsymmetric Problems},
+  title={On Fixed-Point, {K}rylov, and 2x2 Block Preconditioners for Nonsymmetric Problems},
   author={Southworth, Ben S and Sivas, Abdullah A and Rhebergen, Sander},
   journal={SIAM Journal on Matrix Analysis and Applications},
   volume={41},
@@ -47,7 +81,7 @@
 }
 
 @article{liesen2012field,
-  title={The field of values bound on ideal GMRES},
+  title={The field of values bound on ideal {GMRES}},
   author={Liesen, J{\"o}rg and Tich{\`y}, Petr},
   journal={arXiv preprint arXiv:1211.5969},
   year={2012}
@@ -632,7 +666,6 @@ Equations.  A Review}},
   title = {{Stage-parallel fully implicit Runge–Kutta solvers for discontinuous Galerkin fluid simulations}}, 
   issn = {0021-9991}, 
   doi = {10.1016/j.jcp.2017.01.050}, 
-  abstract = {{In this paper, we develop new techniques for solving the large, coupled linear systems that arise from fully implicit Runge–Kutta methods. This method makes use of the iterative preconditioned GMRES algorithm for solving the linear systems, which has seen success for fluid flow problems and discontinuous Galerkin discretizations. By transforming the resulting linear system of equations, one can obtain a method which is much less computationally expensive than the untransformed formulation, and which compares competitively with other time-integration schemes, such as diagonally implicit Runge–Kutta (DIRK) methods. We develop and test several ILU-based preconditioners effective for these large systems. We additionally employ a parallel-in-time strategy to compute the Runge–Kutta stages simultaneously. Numerical experiments are performed on the Navier–Stokes equations using Euler vortex and 2D and 3D NACA airfoil test cases in serial and in parallel settings. The fully implicit Radau IIA Runge–Kutta methods compare favorably with equal-order DIRK methods in terms of accuracy, number of GMRES iterations, number of matrix–vector multiplications, and wall-clock time, for a wide range of time steps.}}, 
   pages = {700--717}, 
   volume = {335}, 
   journal = {Journal of Computational Physics}, 
