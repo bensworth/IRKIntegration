@@ -61,13 +61,17 @@ line6, = plt.plot(dt4, iter110, '->', lw=lw, markersize=16, label='Gauss10')
 axL.set_xscale('log', basex=2)
 
 axL.patch.set_visible(False)
-axL.set_xlabel("Mesh spacing, h", va='bottom')
+axL.set_xlabel("Mesh spacing (h)", va='bottom')
 axL.yaxis.tick_left()
 axL.set_ylabel("AIR iterations/time step")
 axL.set_ylim((0,250))
 axL.xaxis.labelpad = 28
 axL.xaxis.grid(True)
 axL.yaxis.grid(True)
+
+plt.xticks(np.array([1.0/8,1.0/16,1.0/32,1.0/64,1.0/128,1.0/256]))
+axL.xaxis.set_tick_params(pad=8)
+axL.set_xticklabels(('1/8','1/16','1/32','1/64','1/128','1/256'))
 
 # plt.title("4th-order elements")
 plt.grid(True)
@@ -88,13 +92,17 @@ line6, = plt.plot(dt4, iter110*dt10_dt0/iter4, '->', lw=lw, markersize=16, label
 axL.set_xscale('log', basex=2)
 
 axL.patch.set_visible(False)
-axL.set_xlabel("Mesh spacing, h", va='bottom')
+axL.set_xlabel("Mesh spacing (h)", va='bottom')
 axL.yaxis.tick_left()
 axL.set_ylabel("Relative AIR iterations/time step")
 axL.set_ylim((0,2))
 axL.xaxis.labelpad = 28
 axL.xaxis.grid(True)
 axL.yaxis.grid(True)
+
+plt.xticks(np.array([1.0/8,1.0/16,1.0/32,1.0/64,1.0/128,1.0/256]))
+axL.xaxis.set_tick_params(pad=8)
+axL.set_xticklabels(('1/8','1/16','1/32','1/64','1/128','1/256'))
 
 # plt.title("4th-order elements")
 plt.grid(True)
