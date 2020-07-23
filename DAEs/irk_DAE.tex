@@ -259,8 +259,9 @@ We can also try a better approximation to the Schur complement. Let
 \begin{align*}
 D_L & = M(\eta M - \delta tL_{uu})^{-1} \\
 & = (\eta I - \delta tL_{uu}M^{-1})^{-1}, \\
-D_R & = (\eta M - \delta tL_{uu})^{-1} \\
-& = (\eta I - \delta tM^{-1}L_{uu})^{-1}.
+D_R & = (\eta M - \delta tL_{uu})^{-1}M \\
+& = (\eta I - \delta tM^{-1}L_{uu})^{-1}, \\
+\mathcal{D} & =(\eta M - \delta tL_{uu}).  
 \end{align*}
 %
 Then note that
@@ -270,11 +271,24 @@ Then note that
 	\begin{bmatrix} \eta M - \delta tL_{uu} & -\delta tL_{up} \\ -\delta tL_{pu} & \delta tS
 	\end{bmatrix}^{-1}
 	\begin{bmatrix} M & 0 \\ 0 & 0 \end{bmatrix} \\
-& \begin{bmatrix} MD_R + \delta t^2D_LL_{up}
+& = \begin{bmatrix} MD_R + \delta t^2D_LL_{up}
 	(\delta tS - \delta t^2L_{pu}(\eta M - \delta tL_{uu})^{-1}L_{up})^{-1}
-		D_RL_{pu} & 0 \\ 0 & 0 \end{bmatrix}
+		L_{pu}D_R & 0 \\ 0 & 0 \end{bmatrix}
 \end{align*}
 % 
+Suppose we use a standard RT formulation and $S = \mathbf{0}$. This simplifies to
+%
+\begin{align*}
+\begin{bmatrix} M & 0 \\ 0 & 0 \end{bmatrix}& 
+	\begin{bmatrix} \eta M - \delta tL_{uu} & -\delta tL_{up} \\ -\delta tL_{pu} & \mathbf{0}
+	\end{bmatrix}^{-1}
+	\begin{bmatrix} M & 0 \\ 0 & 0 \end{bmatrix} \\
+& = \begin{bmatrix} M\mathcal{D}^{-1}M + M\mathcal{D}^{-1}L_{up}
+	(L_{pu}\mathcal{D}^{-1}L_{up})^{-1}
+		L_{pu}\mathcal{D}^{-1}M & 0 \\ 0 & 0 \end{bmatrix}
+\end{align*}
+% 
+
 
 
 Alternatively, we can reorder \eqref{eq:R2x2} to take the form
