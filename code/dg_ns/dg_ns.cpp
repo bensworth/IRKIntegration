@@ -316,22 +316,25 @@ void WriteSolveStats(const std::string &prefix, IRK &irk, const Params &p)
    std::vector<double> eig_ratio;
    irk.GetSolveStats(avg_newton_iter, avg_krylov_iter, system_size, eig_ratio);
 
+   std::string jac_type = (p.jac_type == 0) ? "approx" : "exact";
+
    std::map<std::string,picojson::value> dict;
-   dict.emplace("irk_method", irk_names[p.irk_method]);
-   dict.emplace("dt", p.dt);
-   dict.emplace("num_systems", double(avg_krylov_iter.size()));
-   dict.emplace("avg_newton_iter", double(avg_newton_iter));
+   dict.emplace("irk_method", picojson::value(irk_names[p.irk_method]));
+   dict.emplace("dt", picojson::value(p.dt));
+   dict.emplace("num_systems", picojson::value(double(avg_krylov_iter.size())));
+   dict.emplace("avg_newton_iter", picojson::value(double(avg_newton_iter)));
+   dict.emplace("jac_type", picojson::value(jac_type));
 
    std::vector<picojson::value> sys_info;
    for (int i=0; i<avg_krylov_iter.size(); ++i)
    {
       std::map<std::string,picojson::value> sys;
-      sys.emplace("avg_krylov_iter", double(avg_krylov_iter[i])/p.nsteps/avg_newton_iter);
-      sys.emplace("system_size", double(system_size[i]));
-      sys.emplace("eig_ratio", eig_ratio[i]);
+      sys.emplace("avg_krylov_iter", picojson::value(double(avg_krylov_iter[i])/p.nsteps/avg_newton_iter));
+      sys.emplace("system_size", picojson::value(double(system_size[i])));
+      sys.emplace("eig_ratio", picojson::value(eig_ratio[i]));
       sys_info.emplace_back(sys);
    }
-   dict.emplace("sys_info", sys_info);
+   dict.emplace("sys_info", picojson::value(sys_info));
 
    std::ofstream f("results/" + prefix + "_" + irk_names[p.irk_method] + ".json");
    f << picojson::value(dict) << std::endl;
@@ -368,6 +371,7 @@ void RunCase(Params &p, Vector &u)
       newton_params.reltol = 1e-9;
       newton_params.abstol = 1e-9;
       newton_params.jac_update_rate = 1;
+      newton_params.maxiter = 25;
 
       irk->SetKrylovParams(krylov_params);
       irk->SetNewtonParams(newton_params);
@@ -441,11 +445,13 @@ int main(int argc, char **argv)
    double dt = 1e-2;
    double tf = 0.1;
    int irk_method = 16;
+   int jac_type;
 
    OptionsParser args(argc, argv);
    args.AddOption(&dt, "-dt", "--time-step", "Time step.");
    args.AddOption(&tf, "-tf", "--final-time", "Final time.");
    args.AddOption(&irk_method, "-i", "--irk", "ID of IRK method.");
+   args.AddOption(&jac_type, "-j", "--jacobian", "Jacobian type (0: approximate, 1: exact)");
    args.Parse();
    if (!args.Good())
    {
@@ -460,7 +466,7 @@ int main(int argc, char **argv)
    p.compute_exact = false;
    p.irk_method = RKData::Type(irk_method);
    p.use_irk = true;
-   p.jac_type = IRKOperator::EXACT;
+   p.jac_type = (jac_type == 0) ? IRKOperator::APPROXIMATE : IRKOperator::EXACT;
 
    // RunEulerVortex(p);
    RunNACA(p);
