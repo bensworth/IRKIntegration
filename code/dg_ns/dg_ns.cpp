@@ -281,6 +281,8 @@ struct Params
    bool use_irk=true, compute_exact=false;
    RKData::Type irk_method;
    IRKOperator::ExplicitGradients jac_type=IRKOperator::APPROXIMATE;
+   IRK::JacSparsity solver_sparsity=IRK::DENSE;
+   IRK::JacSparsity prec_sparsity=IRK::DIAGONAL;
 };
 
 void WriteSolveStats(const std::string &prefix, IRK &irk, const Params &p)
@@ -317,6 +319,8 @@ void WriteSolveStats(const std::string &prefix, IRK &irk, const Params &p)
    irk.GetSolveStats(avg_newton_iter, avg_krylov_iter, system_size, eig_ratio);
 
    std::string jac_type = (p.jac_type == 0) ? "approx" : "exact";
+   double solver_sparsity = double(p.solver_sparsity);
+   double prec_sparsity = double(p.prec_sparsity);
 
    std::map<std::string,picojson::value> dict;
    dict.emplace("irk_method", picojson::value(irk_names[p.irk_method]));
@@ -324,6 +328,8 @@ void WriteSolveStats(const std::string &prefix, IRK &irk, const Params &p)
    dict.emplace("num_systems", picojson::value(double(avg_krylov_iter.size())));
    dict.emplace("avg_newton_iter", picojson::value(double(avg_newton_iter)));
    dict.emplace("jac_type", picojson::value(jac_type));
+   dict.emplace("solver_sparsity", picojson::value(solver_sparsity));
+   dict.emplace("prec_sparsity", picojson::value(prec_sparsity));
 
    std::vector<picojson::value> sys_info;
    for (int i=0; i<avg_krylov_iter.size(); ++i)
@@ -372,6 +378,8 @@ void RunCase(Params &p, Vector &u)
       newton_params.abstol = 1e-9;
       newton_params.jac_update_rate = 1;
       newton_params.maxiter = 25;
+      newton_params.jac_solver_sparsity = p.solver_sparsity;
+      newton_params.jac_prec_sparsity = p.prec_sparsity;
 
       irk->SetKrylovParams(krylov_params);
       irk->SetNewtonParams(newton_params);
@@ -446,12 +454,15 @@ int main(int argc, char **argv)
    double tf = 0.1;
    int irk_method = 16;
    int jac_type;
+   int solver_sparsity=2, prec_sparsity=1;
 
    OptionsParser args(argc, argv);
    args.AddOption(&dt, "-dt", "--time-step", "Time step.");
    args.AddOption(&tf, "-tf", "--final-time", "Final time.");
    args.AddOption(&irk_method, "-i", "--irk", "ID of IRK method.");
    args.AddOption(&jac_type, "-j", "--jacobian", "Jacobian type (0: approximate, 1: exact)");
+   args.AddOption(&solver_sparsity, "-s", "--solver-sparsity", "Solver sparsity (0: lumped, 1: diagonal, 2: dense)");
+   args.AddOption(&prec_sparsity, "-p", "--prec-sparsity", "Preconditioner sparsity (0: lumped, 1: diagonal, 2: dense)");
    args.Parse();
    if (!args.Good())
    {
@@ -467,6 +478,8 @@ int main(int argc, char **argv)
    p.irk_method = RKData::Type(irk_method);
    p.use_irk = true;
    p.jac_type = (jac_type == 0) ? IRKOperator::APPROXIMATE : IRKOperator::EXACT;
+   p.solver_sparsity = IRK::JacSparsity(solver_sparsity);
+   p.prec_sparsity = IRK::JacSparsity(prec_sparsity);
 
    // RunEulerVortex(p);
    RunNACA(p);
