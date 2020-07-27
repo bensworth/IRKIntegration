@@ -66,50 +66,11 @@
 \begin{document}
 \allowdisplaybreaks
 
-% ------------------------------------------------------------------------------------ %
-% ------------------------------------------------------------------------------------ %
-\section{MFEM}\text{ }
-
-\noindent
-IRK : public ODESolver
-\begin{itemize}
-	\item Must implement virtual void functions:
-	\begin{itemize}
-		\item \textit{Step(Vector \&x, double \&t, double \&dt)=0} -- Perform a time
-		step from time $t$ to time $t+dt$ based on the requested step size $dt$.
-		\item \textit{Run(Vector \&x, double \&t, double \&dt, double tf)} -- Perform time integration from time $t$ to time $tf$.
-	\end{itemize}
-
-	\item This class should contain all the underlying algorithm, including
-	CharPolyPrecon and CharPolyOp. The latter classes should call Mult() from
-	the user-defined solver in IRKSpatialDisc. 
-\end{itemize}
-
-\noindent
-IRKSpatialDisc : public TimeDependentOperator
-\begin{itemize}
-	\item Must implement virtual void functions:
-	\begin{itemize}
-		\item \textit{Mult(const Vector \&x, Vector \&y) const}
-		\item \textit{ImplicitSolve(const double dt, const Vector \&x, Vector \&k)}.
-	\end{itemize}
-
-	\item This will be an abstract base class that a user will implement a derived
-	version of, providing solvers for $(M - c\delta t \mathcal{L})$ and the application
-	of $M^{-1}\mathcal{L}$. I believe these are ImplicitSolve and Mult, repsectively
-	(check on Mult).
-
-	\item It is possible this class could just be a TimeDependentOperator, but we
-	can start with its own more specific class and switch to TimeDependentOperator
-	later if it makes sense.
-
-\end{itemize}
-
 
 
 % ------------------------------------------------------------------------------------ %
 % ------------------------------------------------------------------------------------ %
-\section{Implementation details:  The time-independent case}
+\section{Implementation details}
 
 The basic idea is that at each time step, we need to update the previous solution with
 \begin{align} \label{eq:RK_update}
