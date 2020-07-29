@@ -3,6 +3,8 @@
 
 using namespace mfem;
 
+double eps = 1e-2;
+
 
 // COMMENTS
 //    + Using multiple AIR iterations helpful here
@@ -18,8 +20,18 @@ double ic_fn(const Vector &xvec)
 {
    double x = xvec[0];
    double y = xvec[1];
-   double r2 = pow(x-0.25,2) + pow(y-0.25,2);
-   return exp(-100*r2);
+#if 0
+   double r0 = pow(x-0.25,2) + pow(y-0.25,2);
+   double r1 = pow(x-0.75,2) + pow(y-0.25,2);
+   double r2 = pow(x-0.25,2) + pow(y-0.75,2);
+   double r3 = pow(x-0.75,2) + pow(y-0.75,2);
+   return exp(-100*r0) + exp(-100*r1) + exp(-100*r2) + exp(-100*r3);
+#else
+   double r0 = pow(x-0.25,2) + pow(y-0.25,2);
+   double r1 = pow(x-0.5,2) + pow(y-0.75,2);
+   double r2 = pow(x-0.75,2) + pow(y-0.5,2);
+   return exp(-1*r0) + exp(-1*r1) + exp(-1*r2);
+#endif
 }
 
 void v_fn(const Vector &xvec, Vector &v)
@@ -111,12 +123,14 @@ struct BackwardEulerPreconditioner : Solver
    HypreParMatrix B;
    HypreParMatrix B_s;
    HypreBoomerAMG *AMG_solver;
+   HypreGMRES *GMRES_solver;
    BlockILU *prec;
    int blocksize;
+   bool use_gmres;
 public:
    BackwardEulerPreconditioner(ParFiniteElementSpace &fes, double gamma,
                                HypreParMatrix &M, double dt, HypreParMatrix &A)
-      : Solver(fes.GetTrueVSize()), B(A), AMG_solver(NULL)
+      : Solver(fes.GetTrueVSize()), B(A), AMG_solver(NULL), use_gmres(false)
    {
       // Set B = gamma*M - dt*A
       B *= -dt;
@@ -129,8 +143,8 @@ public:
    }
    BackwardEulerPreconditioner(ParFiniteElementSpace &fes, double gamma,
                                HypreParMatrix &M, double dt, HypreParMatrix &A,
-                               int AMG_iter)
-      : Solver(fes.GetTrueVSize()), B(A), prec(NULL)
+                               int AMG_iter, bool use_gmres_)
+      : Solver(fes.GetTrueVSize()), B(A), prec(NULL), use_gmres(use_gmres_)
    {
       // Set B = gamma*M - dt*A
       B *= -dt;
@@ -151,24 +165,46 @@ public:
       else {
          AMG_solver = new HypreBoomerAMG(B);
       }
-      AMG_solver->SetMaxLevels(50);      
-      AMG_solver->SetLAIROptions(1.5, "", "FFC", 0.1, 0.01, 0.0,
-                                    100, 3, 0.0, 10, -1, 1);
-                                // 100, 3, 0.0, 6, -1, 1);
+      AMG_solver->SetMaxLevels(50); 
+      if (eps > 1e-4) {
+         AMG_solver->SetLAIROptions(1.5, "", "FA", 0.1, 0.01, 0.0,
+                                    0, 3, 0.0, 6, -1, 1);
+      }
+      else {
+         AMG_solver->SetLAIROptions(1.5, "", "FA", 0.1, 0.01, 0.0,
+                                    100, 3, 0.0, 6, -1, 1);
+         // AMG_solver->SetLAIROptions(1.5, "", "FFC", 0.1, 0.01, 0.0,
+         //                           100, 3, 0.0, 6, -1, 1);
+      }
       AMG_solver->SetTol(1e-12);
-      AMG_solver->SetMaxIter(AMG_iter);
+      if (use_gmres) {
+         if (blocksize > 0) GMRES_solver = new HypreGMRES(B_s);
+         else GMRES_solver = new HypreGMRES(B);
+         GMRES_solver->SetMaxIter(AMG_iter);
+         GMRES_solver->SetTol(1e-12);
+         GMRES_solver->SetPreconditioner(*AMG_solver);
+         AMG_solver->SetMaxIter(1);
+      }
+      else {
+         GMRES_solver = NULL;
+         AMG_solver->SetTol(1e-12);
+         AMG_solver->SetMaxIter(AMG_iter);
+      }
       AMG_solver->SetPrintLevel(0);
    }
    void Mult(const Vector &x, Vector &y) const
    {
+      y = 0.0;
       if (AMG_solver) {
          if (blocksize > 0) {
             HypreParVector b_s;
             BlockInverseScale(&B, NULL, &x, &b_s, blocksize, 2);
-            AMG_solver->Mult(b_s, y);
+            if (use_gmres) GMRES_solver->Mult(b_s, y);
+            else AMG_solver->Mult(b_s, y);
          }
          else {
-            AMG_solver->Mult(x, y);
+            if (use_gmres) GMRES_solver->Mult(x, y);
+            else AMG_solver->Mult(x, y);
          }
       }
       else {
@@ -180,6 +216,7 @@ public:
    ~BackwardEulerPreconditioner()
    {
       if (AMG_solver) delete AMG_solver;
+      if (GMRES_solver) delete GMRES_solver;
       if (prec) delete prec;
    }
 };
@@ -202,8 +239,10 @@ struct DGAdvDiff : IRKOperator
    BackwardEulerPreconditioner *current_prec;
    HypreParMatrix *A_mat, *M_mat;
    int use_AIR;
+   bool use_gmres;
 public:
-   DGAdvDiff(ParFiniteElementSpace &fes_, double eps, int use_AIR_=1)
+   DGAdvDiff(ParFiniteElementSpace &fes_, int use_AIR_= 1,
+      bool use_gmres_ = false)
       : IRKOperator(fes_.GetComm(), fes_.GetTrueVSize(), 0.0, IMPLICIT),
         fes(fes_),
         v_coeff(fes.GetMesh()->Dimension(), v_fn),
@@ -211,7 +250,8 @@ public:
         a(&fes),
         m(&fes),
         mass(fes),
-        use_AIR(use_AIR_)
+        use_AIR(use_AIR_),
+        use_gmres(use_gmres_)
    {
       const int order = fes.GetOrder(0);
       const double sigma = -1.0;
@@ -290,7 +330,8 @@ public:
       if (!key_exists)
       {
          if (use_AIR > 0) {
-            prec[key] = new BackwardEulerPreconditioner(fes, gamma, *M_mat, dt, *A_mat, use_AIR);
+            prec[key] = new BackwardEulerPreconditioner(fes, gamma, *M_mat, dt,
+                                                        *A_mat, use_AIR, use_gmres);
          }
          else {
             prec[key] = new BackwardEulerPreconditioner(fes, gamma, *M_mat, dt, *A_mat);
@@ -387,7 +428,6 @@ int main(int argc, char *argv[])
    int par_ref_levels = 2;
    int order = 1;
    double kappa = -1.0;
-   double eps = 1e-2;
    double dt = 1e-3;
    double tf = 0.1;
    int use_irk = 16;
@@ -395,6 +435,10 @@ int main(int argc, char *argv[])
    // bool use_ilu = true;
    int nsubiter = 1;
    bool visualization = false;
+   int vis_steps = 200;
+   int use_gmres = false;
+   int maxiter = 250;
+   int mag_prec = false;
 
    OptionsParser args(argc, argv);
    args.AddOption(&mesh_file, "-m", "--mesh",
@@ -415,6 +459,10 @@ int main(int argc, char *argv[])
    args.AddOption(&use_AIR, "-air", "--use-air", "Use AIR: > 0 implies # AIR iterations, 0 = Block ILU.");
    args.AddOption(&visualization, "-v", "--visualization", "-nov", "--no-visualization",
                   "Use IRK solver.");
+   args.AddOption(&use_gmres, "-gmres", "--use-gmres",
+                  "-1=FGMRES/fixed-point, 0=GMRES/fixed-point, 1=FGMRES/GMRES.");
+   args.AddOption(&mag_prec, "-mag", "--mag-prec",
+                  "0 -> gamma = eta, 1 -> gamma = sqrt(eta^2+beta^2).");
    args.Parse();
    if (!args.Good())
    {
@@ -475,7 +523,14 @@ int main(int argc, char *argv[])
       dc.Save();
    }
 
-   DGAdvDiff dg(fes, eps, use_AIR);
+   bool temp_dg;
+   if (use_gmres==1) {
+      temp_dg = true;
+   }
+   else {
+      temp_dg = false;
+   }
+   DGAdvDiff dg(fes, use_AIR, temp_dg);
 
    double t = 0.0;
 
@@ -489,9 +544,15 @@ int main(int argc, char *argv[])
       IRK::KrylovParams krylov_params;
       krylov_params.printlevel = 2;
       krylov_params.kdim = 50;
-      krylov_params.maxiter = 200;
+      krylov_params.maxiter = maxiter;
+      // krylov_params.abstol = 1e-12;
+      krylov_params.reltol = 1e-12;
+      if (use_gmres==-1 || use_gmres==1) krylov_params.solver = IRK::KrylovMethod::FGMRES;
+      else if(use_gmres == 2) krylov_params.solver = IRK::KrylovMethod::FP;
+      else krylov_params.solver = IRK::KrylovMethod::GMRES;
+
       // Build IRK object using spatial discretization
-      IRK *irk = new IRK(&dg, irk_type);
+      IRK *irk = new IRK(&dg, irk_type, mag_prec);
       // Set GMRES settings
       irk->SetKrylovParams(krylov_params);
       // Initialize solver
@@ -508,7 +569,6 @@ int main(int argc, char *argv[])
       ode->Init(evol);
    }
 
-   int vis_steps = 100;
    double t_vis = t;
    double vis_int = (tf-t)/double(vis_steps);
 
@@ -538,6 +598,7 @@ int main(int argc, char *argv[])
       }
    }
 
+   MPI_Barrier(MPI_COMM_WORLD);
    MPI_Finalize();
    return 0;
 }
