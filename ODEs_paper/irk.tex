@@ -155,7 +155,28 @@ methods are even less likely to yield acceptable performance in solving \eqref{e
 % ------------------------------------------------------------------------------------- %
 \subsection{Discontinuous Galerkin in time}\label{sec:intro:dg}
 
-\todo{Fill in background here}
+Another field that has seen growing interest recently for numerical PDEs is discretizing
+in time using finite elements, rather than standard ODE techniques. Some of the more
+interesting features of using finite-elements in time is the natural ability to handle
+time-dependent domains, unstructured meshes in space-time, and adaptive mesh
+refinement in space and time. However, for so-called slab-based meshing in time with
+discontinuous Galerkin finite elements, where
+the time domain is discretized using spatial slabs (that is, the same time step is
+applied to the entire spatial domain), the resulting linear systems that must be
+solved for each time step take the same structure as \eqref{eq:k0} (for example,
+see \cite{hn}). A handful of works have looked at linear solvers for such
+discretizations, primarily for parabolic problems, including block preconditioning
+approaches \cite{exh,8jp,27n}, and direct space-time multigrid methods 
+\cite{gander2016analysis}.
+
+Although this paper focuses on fully implicit Runge-Kutta, the algorithms developed
+here can be directly applied to discontinuous Galerkin discretizations in time on
+fixed slab-based meshes. In fact, the principles used in this paper are similar
+to those used in \cite{exh} for space-time DG discretizations of linear parabolic
+problems, and some of the theory derived therein...
+
+but here we consider much more general settings, including both
+non-parabolic and nonlinear problems.
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -164,7 +185,7 @@ methods are even less likely to yield acceptable performance in solving \eqref{e
 This paper develops fast, parallel preconditioning techniques for the solution of
 fully implicit Runge-Kutta methods in numerical PDEs. Although we focus on implicit
 Runge-Kutta, the techniques developed extend naturally to discontinuous Galerkin 
-finite elements in time as well.\todo{more on DG in time}
+finite elements in time as well, as discussed in \Cref{sec:intro:dg}. 
 First, \Cref{sec:intro:hist} provides background on why IRK methods are desirable
 over the simpler and more commonly used DIRK methods, and also provides a
 historical context for the preconditioners developed in this work.
@@ -490,13 +511,13 @@ time step. Assume $W(\mathcal{L}) \leq 0$.
 It should be noted that the field-of-values have an additional connection
 to stability. From \cite[Theorem 17.1]{trefethen2005spectra}, we have that
 $\|e^{t\mathcal{L}}\|\leq 1$ for all $t\geq 0$ i.f.f. $W(\mathcal{L}) \leq 0$.
-This is  analogous to the ``strong stability'' discussed by Leveque 
+This is analogous to the ``strong stability'' discussed by Leveque 
 \cite[Chapter 9.5]{leveque2007finite}, as opposed to the weaker (but still
 sufficient) condition $\|e^{t\mathcal{L}}\|\leq C$ for all $t\geq 0$ and
 some constant $C$. In practice, \Cref{ass:fov} is likely to hold when
 simulating numerical PDEs, and in \Cref{sec:solve:prec,sec:nonlinear:simp},
-\Cref{ass:eig} and \ref{ass:fov} provide sufficient conditions to guarantee
-fast Krylov convergence of the proposed methods.
+it is proven that \Cref{ass:eig} and \ref{ass:fov} provide sufficient conditions
+to guarantee fast Krylov convergence of the proposed methods.
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -822,10 +843,10 @@ applied to the preconditioned operator $\mathcal{P}_\eta$ \eqref{eq:prec1} is bo
 \end{corollary}
 \begin{proof}
 For operator $B$, let $\nu(B)$ denote the distance of $W(B)$ from the origin and define
-$\cos(\beta) := \nu(B) / r(B)$. In \cite[Lemma 3.2]{liesen2012field}, it is proven that worst-case convergence of GMRES applied to operator $B$ is bounded by
+$\cos(\zeta) := \nu(B) / r(B)$. In \cite[Lemma 3.2]{liesen2012field}, it is proven that worst-case convergence of GMRES applied to operator $B$ is bounded by
 %
 \begin{align}\label{eq:gmres}
-\min_{p\in\pi_k} \|p(B)\| \leq 2\left(\frac{1-\cos\beta}{1+\cos\beta}\right)^k.
+\min_{p\in\pi_k} \|p(B)\| \leq 2\left(\frac{1-\cos\zeta}{1+\cos\zeta}\right)^k.
 \end{align}
 %
 For $B = \mathcal{P}_\eta$, we have $\nu(\mathcal{P}_\eta)= 1$ and $r(\mathcal{P}_\eta) \leq 1+\beta^2/\eta^2$.
@@ -938,38 +959,368 @@ integration.
 }
 
 % ------------------------------------------------------------------------------------- %
+\clearpage
+\subsubsection{A better constant \& preconditioner}
+
+In the previous section, we considered two applications of $(\eta I -
+\widehat{\mathcal{L}})^{-1}$ as a preconditioner for $\mathcal{Q}_\eta$ \eqref{eq:imag1}.
+\Cref{th:fov} and the corresponding Corollaries proved that preconditioned
+GMRES is guaranteed to converge using such an approach, with bounds on convergence
+provided in \Cref{tab:beta}. However, one can note from \Cref{fig:bound} and
+\Cref{tab:beta} that convergence depends on values of $\beta$ and $\eta$ and, in
+particular, that convergence degrades as the number of stages increase. Ideally,
+we would like to observe convergence independent of $\beta$ and $\eta$, analogous
+to spatial solvers that achieve convergence independent of spatial mesh and
+discretization order. This section is motivated by \cite{exh}, where a similar
+algorithm is developed for linear parabolic problems using the real Schur
+decomposition, and, for SPD operators, a modified constant $\eta \mapsto
+\sqrt{\eta^2+\beta^2}$ is proven to be optimal in terms of minimizing the
+condition number of the preconditioned operator.
+
+To that end, consider a similar preconditioner as in
+\Cref{sec:solve:inv}, but with some modified constant $\gamma \mapsto
+(\gamma I - \widehat{\mathcal{L}})^{-2}$. The resulting preconditioned
+operator takes the form
+%
+\begin{align}\nonumber
+\mathcal{P}_\gamma & = 
+(\gamma I - \mathcal{L})^{-2}\Big[(nI - \mathcal{L})^2 + \beta^2 I\Big] \\ \nonumber
+& = (\gamma I - \mathcal{L})^{-2}\Big[((\eta-\gamma)I + (\gamma I - \mathcal{L}))^2 + \beta^2 I\Big] \\
+& = (\gamma I - \mathcal{L})^{-2}\Big[(\gamma-\eta)^2I - 2(\gamma-\eta)(\gamma I - \mathcal{L}) +
+	(\gamma I - \mathcal{L})^2 + \beta^2 I\Big] \nonumber\\
+& = I - 2(\gamma-\eta)(\gamma I - \mathcal{L})^{-1} + (\beta^2 + (\gamma-\eta)^2)(\gamma I - 
+	\mathcal{L})^{-2} \nonumber\\
+& = I - 2\frac{\gamma-\eta}{\gamma}\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1} +
+	\frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}
+	\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-2}.\label{eq:prec_k}
+\end{align}
+%
+Note that in \eqref{eq:prec_k} we have a quadratic polynomial in
+$(I - \tfrac{1}{\gamma}\mathcal{L})^{-1}$. Although this provides
+nice structure, the field-of-values analysis applied in \Cref{sec:solve:inv}
+becomes much more complicated due to no necessary relation between
+$\langle A\mathbf{x},\mathbf{x}\rangle$ and 
+$\langle A^2\mathbf{x},\mathbf{x}\rangle$ for general operators $A$. Thus, here
+we take a different approach, analyzing the condition number of the preconditioned
+operator, $\mathcal{P}_\gamma$, similar to as done for SPD matrices in \cite{exh}.
+Although the conditioning does not yield immediate GMRES bounds as the field-of-values
+analysis does (or as conditioning does for bounds on CG convergence), it still
+provides a robust measure of the effectiveness and scalability of the 
+preconditioner.
+
+First, note that working out the roots of the polynomial in \eqref{eq:prec_k},
+it can be expressed in factored form as
+%
+\begin{align*}
+\mathcal{P}_\gamma
+	& = \Big[I - \overline{\alpha}\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\Big]
+	\Big[I - \alpha\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\Big],
+\end{align*}
+%
+where
+%
+\begin{align}\label{eq:alpha}
+\alpha, \overline{\alpha} & := 1 - \frac{\eta}{\gamma} \pm \mathrm{i}\beta,
+\end{align}
+%
+and
+%
+\begin{align}\label{eq:alphs_eq}
+\alpha + \overline{\alpha} = 2(1 - \tfrac{\eta}{\gamma}), \hspace{5ex}
+\alpha\overline{\alpha} = \tfrac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}.
+\end{align}
+%
+Moving forward we will limit ourselves to considering $\eta \leq \gamma \leq \
+\tfrac{\eta^2+\beta^2}{\eta}$, which limits to the natural case of $\gamma = \eta$
+as $\beta \to 0$. Similar analysis can be performed for $\gamma$ outside of
+this range, but the derivations are different and the corresponding methods
+less effective.
+
+%
+\begin{theorem}[Conditioning of preconditioned operator]\label{th:cond}
+Suppose Assumptions \ref{ass:eig} and \ref{ass:fov} hold, that is, $\eta > 0$
+and $W(\mathcal{L}) \leq 0$ \eqref{eq:fov}. Let $\eta \leq \gamma \leq \
+\tfrac{\eta^2+\beta^2}{\eta}$ and
+$\mathcal{P}_\gamma$ denote the preconditioned operator, where $((\eta + i\beta)I -
+\widehat{\mathcal{L}})((\eta - i\beta)I - \widehat{\mathcal{L}})$ is
+preconditioned with $(\gamma I - \widehat{\mathcal{L}})^{-2}$. Then,
+\begin{align}\label{eq:cond1}
+\textnormal{cond}(\mathcal{P}_\gamma) \leq (1 + \alpha\overline{\alpha})
+		\left(1 + \frac{\alpha\overline{\alpha}}{(1 - \alpha)(1 - \overline{\alpha})}\right)
+	% \begin{cases} 
+	% \frac{1 + \alpha\overline{\alpha}} {(1 - \alpha)(1 - \overline{\alpha})}
+	% 	& \eta\gamma \geq \eta^2+\beta^2, \\
+	% (1 + \alpha\overline{\alpha})
+	% 	\left(1 + \frac{\alpha\overline{\alpha}}{(1 - \alpha)(1 - \overline{\alpha})}\right)
+	% 	& \eta\gamma < \eta^2+\beta^2,
+	% \end{cases}
+\end{align}
+with $\alpha$ and $\overline{\alpha}$ defined as in \eqref{eq:alpha}.
+\end{theorem}
+\begin{proof}
+The proof proceeds as follows: first, we factor $\mathcal{P}_\gamma$ \eqref{eq:prec_k},
+and proceed to use the factored form to derive an upper bound on 
+$\|\mathcal{P}_\gamma\|$ and $\|\mathcal{P}_\gamma^{-1}\|$, which immediately
+yields a bound on
+%
+\begin{align}\label{eq:cond0}
+\textnormal{cond}(\mathcal{P}_\gamma) = \|\mathcal{P}_\gamma\|\|\mathcal{P}_\gamma^{-1}\|.
+\end{align}
+%
+Note that following from the discussion in \Cref{sec:solve:inv} and \Cref{th:fov},
+for real $k>0$, $W\left[\left(I - \tfrac{1}{k}\mathcal{L}\right)^{-1}\right]$ and
+$W\left[\left(I - \tfrac{1}{k}\mathcal{L}\right)^{-2}\right]$ are contained in
+the positive half unit circle, and $\|(I - \tfrac{1}{\gamma}\mathcal{L})^{-1}\| \leq 1$
+(see proof of \Cref{th:fov}).
+
+We start with $\|\mathcal{P}_\gamma\|$, where
+%
+\begin{align}\label{eq:CS}
+\|\mathcal{P}_\gamma\| & \leq 
+	\Big\|I - \overline{\alpha}\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\Big\|
+	\Big\|I - \alpha\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\Big\|.
+\end{align}
+%
+Recalling that $W\left[(I - \tfrac{1}{k}\mathcal{L})^{-1}\right] \geq 0$
+and $\|(I - \tfrac{1}{\gamma}\mathcal{L})^{-1}\| \leq 1$, and using the
+assumption $\gamma \geq \eta$, we can expand the norm squared in inner-product
+form, yielding
+%
+\begin{align*}
+&\hspace{-5ex}
+\Big\|I - \overline{\alpha}\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\Big\|^2 \\
+	& = 1 + \max_{\mathbf{x}\neq\mathbf{0}} \left( \alpha\overline{\alpha}
+		\frac{\left\|\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\mathbf{x}\right\|^2
+		}{\|\mathbf{x}\|^2}
+	- (\alpha + \overline{\alpha})\frac{\textnormal{Re}\left(\left\langle\left(I -
+		\tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\mathbf{x}, \mathbf{x}\right\rangle\right)}
+		{\|\mathbf{x}\|^2}\right) \\
+& \leq 1 + \alpha\overline{\alpha}\left\|\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\right\|^2 \\
+& \leq 1 + \alpha\overline{\alpha}.
+\end{align*}
+%
+Note that the above derivation is identical for $\alpha$ and $\overline{\alpha}$,
+which yields
+%
+\begin{align} \label{eq:upper_alpha}
+\|\mathcal{P}_\gamma\| & \leq 1 + \alpha\overline{\alpha}.
+\end{align}
+%
+
+To bound $\|\mathcal{P}_\gamma^{-1}\|$, we use an analogous approach as above
+\eqref{eq:CS}, developing bounds on the two polynomial factors separately.
+First, note that
+%
+\begin{align*}
+\left[I - \alpha\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\right]^{-1}
+	& = \left(I - \tfrac{1}{\gamma}\mathcal{L}\right)
+		\left[(1-\alpha)I - \tfrac{1}{\gamma}\mathcal{L}\right]^{-1} \\
+& = \left[\alpha I + ((1-\alpha)I - \tfrac{1}{\gamma}\mathcal{L})\right]
+		\left[(1-\alpha)I - \tfrac{1}{\gamma}\mathcal{L}\right]^{-1} \\
+& = I + \alpha \left[(1-\alpha)I - \tfrac{1}{\gamma}\mathcal{L}\right]^{-1} \\
+& = I + \frac{\alpha}{1-\alpha} \left(I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L}\right)^{-1}.
+\end{align*}
+%
+For condensed notation, let $c_\alpha := \tfrac{\alpha}{1-\alpha}$, and note that 
+%
+\begin{align*} 
+c_\alpha+\overline{c_\alpha} & = \frac{\alpha + \overline{\alpha} - 2\alpha\overline{\alpha}}
+	{1 + \alpha\overline{\alpha} - (\alpha + \overline{\alpha})} 
+= \frac{2\eta\gamma - 2(\eta^2+\beta^2)}{\eta^2+\beta^2},
+\end{align*}
+%
+which is $< 0$ when $\eta\gamma \leq (\eta^2+\beta^2)$ and $<0$ otherwise. 
+
+Expanding the squared norm of the above operator in inner-product form, we have
+%
+\begin{align}\label{eq:pinv0}
+& \hspace{-5ex}
+1 + \max_{\mathbf{x}\neq\mathbf{0}} \left[ (c_\alpha+\overline{c_\alpha})
+	\frac{\textnormal{Re}\left(\left\langle (I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L})^{-1}\mathbf{x},
+		\mathbf{x}\right\rangle\right)}{\|\mathbf{x}\|^2} + 
+	c_\alpha\overline{c_\alpha}
+	\frac{\left\|(I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L})^{-1}\mathbf{x}\right\|^2}
+		{\|\mathbf{x}\|^2} \right].
+\end{align}
+%
+Suppose $(c_\alpha+\overline{c_\alpha}) \geq 0$. Then we can bound \eqref{eq:pinv0} via
+%
+\begin{align}
+& \leq 1 + (c_\alpha+\overline{c_\alpha})
+	\left\|(I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L})^{-1}\right\|
+	+ c_\alpha\overline{c_\alpha}
+		\left\|(I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L})^{-1}\right\|^2 \\
+& = \left(1 + c_\alpha \left\|(I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L})^{-1}\right\|\right)
+	\left(1 + \overline{c_\alpha} \left\|(I - \tfrac{1}{\gamma(1-\alpha)}
+		\mathcal{L})^{-1}\right\|\right).\label{eq:pinv1}
+\end{align}
+%
+Bounding the norms in \eqref{eq:pinv1} is a bit more subtle here because $\alpha$ is
+complex. Note that the norm is the maximum singular value, which is equivalent to one
+over the minimum nonzero singular value of the inverse. The squared minimum nonzero
+singular value of the inverse of the inverse in \eqref{eq:pinv1} is given by
+%
+\begin{align*}
+&\hspace{-5ex}
+\min_{\mathbf{x}\neq\mathbf{0}} \frac{\left\|\left(I - \tfrac{1}{\gamma(1-\alpha)}
+	\mathcal{L}\right)\mathbf{x}\right\|^2}{\|\mathbf{x}\|^2} \\
+& = 1 + \min_{\mathbf{x}\neq\mathbf{0}} \left[ \frac{1}{|\gamma(1-\alpha)|^2}
+	\frac{\left\|\mathcal{L}\mathbf{x}\right\|^2}{\|\mathbf{x}\|^2}
+	- \left(\frac{1}{\gamma(1-\alpha)} + \frac{1}{\overline{\gamma}(1-\overline{\alpha})}\right)
+	\frac{\textnormal{Re}\left(\left\langle\mathcal{L}\mathbf{x},\mathbf{x}\right\rangle\right)}
+		{\|\mathbf{x}\|^2}\right].
+\end{align*}
+%
+Noting that Re$\left(\langle\mathcal{L}\mathbf{x},\mathbf{x}\rangle\right) \leq 0$,
+$\gamma \geq \eta > 0$, and Re$(1-\alpha) \geq 0$, it follows that the squared minimum
+singular value above is $\geq 1$, which implies $\|(I - \tfrac{1}{\gamma(1-\alpha)}
+\mathcal{L})^{-1}\| \leq 1$. Plugging into \eqref{eq:pinv1} and noting
+that an identical derivation and result holds for $\overline{\alpha}$, we have
+for $(c_\alpha+\overline{c_\alpha}) \geq 0$,
+%
+\begin{align}\nonumber
+\|\mathcal{P}_\gamma^{-1}\| & \leq 
+	\Big\|\Big(I - \overline{\alpha}\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\Big)^{-1}\Big\|
+	\Big\|\Big(I - \alpha\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\Big)^{-1}\Big\| \\
+& \leq \left(1 + \frac{\alpha}{1-\alpha}\right)
+	\left(1 + \frac{\overline{\alpha}}{1-\overline{\alpha}}\right) \nonumber\\
+& = \frac{1}{(1 - \alpha)(1 - \overline{\alpha})}. \label{eq:lower_alpha1}
+\end{align}
+%
+
+Returning to \eqref{eq:pinv0}, suppose now that $(c_\alpha+\overline{c_\alpha}) < 0$.
+Then note that letting $\mathbf{x}:= (I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L})\mathbf{y}$,
+we have
+%
+\begin{align*}
+\frac{\left\langle (I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L})^{-1}\mathbf{x},
+		\mathbf{x}\right\rangle}{\|\mathbf{x}\|^2}
+& = \frac{\left\langle \mathbf{y}, (I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L})\mathbf{y}
+	\right\rangle}{\|(I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L})\mathbf{y}\|^2}
+= \frac{\|\mathbf{y}\|^2 - \frac{1}{\gamma (1 - \overline{\alpha})}
+	\left\langle \mathbf{y},\mathcal{L}\mathbf{y} \right\rangle}
+	{\|(I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L})\mathbf{y}\|^2}.
+\end{align*}
+%
+By assumption we have Re$\left(\langle \mathbf{y},\mathcal{L}\mathbf{y}\rangle\right) \leq 0$,
+while $\gamma\geq 0$ and Re$(1-\alpha) \geq 0$. It follows that
+%
+\begin{align*}
+\textnormal{Re}\left(\frac{\left\langle (I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L})^{-1}\mathbf{x},
+	\mathbf{x}\right\rangle}{\|\mathbf{x}\|^2}\right) \geq 0.
+\end{align*}
+%
+Thus in \eqref{eq:pinv0} when $(c_\alpha+\overline{c_\alpha}) < 0$, we can drop
+the corresponding term for an upper bound of
+%
+\begin{align*}
+\left\|\left[I - \alpha\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\right]^{-1}\right\|^2 
+	& \leq 1 + c_\alpha\overline{c_\alpha}
+		\left\|(I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L})^{-1}\right\|^2 \\
+& \leq 1 + c_\alpha\overline{c_\alpha} \\
+& = 1 + \frac{\alpha\overline{\alpha}}{(1 - \alpha)(1 - \overline{\alpha})}.
+\end{align*}
+%
+Again noting that analogous derivations holds for $\overline{\alpha}$ with
+identical bounds, we have for $(c_\alpha+\overline{c_\alpha}) < 0$,
+%
+\begin{align}
+\|\mathcal{P}_\gamma^{-1}\| & \leq 1 + 
+	\frac{\alpha\overline{\alpha}}{(1 - \alpha)(1 - \overline{\alpha})}. \label{eq:lower_alpha2}
+\end{align}
+% 
+
+Combining \eqref{eq:cond0}, \eqref{eq:upper_alpha}, \eqref{eq:lower_alpha1},
+and \eqref{eq:lower_alpha2} completes the proof.
+\end{proof}
+%
+
+In \cite{exh}, a similar analysis as \Cref{th:cond} is done under the assumption
+that $-\mathcal{L}$ is SPD, in which case the conditioning can be derived based on
+eigenvalues. There, they derive the conditioning of the preconditioned
+operator for $\gamma = \eta$ to be cond$(\mathcal{P}_\eta) = 1 + \tfrac{\beta^2}{\eta^2}$.
+If we let $\gamma = \eta$, then $\alpha+\overline{\alpha} = 0$, $\alpha\overline{\alpha} =
+\frac{\beta^2}{\eta^2}$, and \Cref{th:cond} yields the bound
+%
+\begin{align}\label{eq:cond_eta}
+\textnormal{cond}(\mathcal{P}_{\gamma = \eta}) \leq 1 + 2\frac{\beta^2}{\eta^2}.
+\end{align}
+%
+In particular, this indicates that \Cref{th:cond} is fairly tight (it is unclear
+if the additional factor of 2 in \eqref{eq:cond_eta} is necessary for non-SPD
+operators, or a flaw in the line of proof). Here, we again see the dependence
+of conditioning on the ratio $\beta^2/\eta^2$.
+
+Using the tight derivation of conditioning of the preconditioned operator in
+\cite{exh}, they also derive an optimal constant to minimize the condition
+number for SPD matrices, 
+%
+\begin{align}\label{eq:gam_opt} 
+\gamma _* := \sqrt{\eta^2+\beta^2}.
+\end{align}
+%
+Considering $\gamma_*$ here, $\alpha+\overline{\alpha} = \alpha\overline{\alpha} =
+2 - 2\frac{\eta}{\sqrt{\eta^2+\beta^2}}$, and \Cref{th:cond} yields the bound
+%
+\begin{align*}
+\textnormal{cond}(\mathcal{P}_{\gamma_*})
+	\leq \left(3 - 2\frac{\eta}{\sqrt{\eta^2+\beta^2}}\right)^2.
+\end{align*}
+%
+Noting that $\textnormal{cond}(\mathcal{P}_{\gamma_*}) < 9$ for all $\eta>0,
+\beta\geq 0$, we have the following corollary.
+
+%
+\begin{corollary}
+
+
+
+
+
+
+% ------------------------------------------------------------------------------------- %
 \subsubsection{Inexact preconditioning}
 
 In practice, fully converging $(\eta I - \widehat{\mathcal{L}})^{-1}$ as a preconditioner
 is not desirable --  even if a Krylov method converges rapidly, if each iteration requires
-a full linear solve, the resulting method remains moderately expensive. Here, we propose
-applying a Krylov method to $(\eta^2+\beta^2)I - 2\eta\widehat{\mathcal{L}} +
+a full linear solve, the resulting method remains too expensive to be competitive in practice.
+Here, we propose
+applying a Krylov method to $\mathcal{Q}_\eta:=(\eta^2+\beta^2)I - 2\eta\widehat{\mathcal{L}} +
 \widehat{\mathcal{L}}^2$ by computing the operator's action (that is, not fully constructing
 it), and preconditioning each Krylov iteration with \textit{two} applications of a sparse
-parallel preconditioner for $(\eta I - \widehat{\mathcal{L}})$, representing the action
+parallel preconditioner for $(\eta I - \widehat{\mathcal{L}})$, approximating the action
 of $(\eta I - \widehat{\mathcal{L}})^{-2}$.
 
-To motive this heuristically, suppose $(\eta I - \widehat{\mathcal{L}}) = (\eta I - B)+N$,
-where $(\eta I - B)^{-1}$ corresponds to the action of a preconditioner and $N$ the error
+To motive this heuristically, suppose $(\eta I - \widehat{\mathcal{L}}) = B + N$,
+where $B^{-1}$ corresponds to the action of a preconditioner and $N$ the error
 term that is not captured. For a good preconditioner, we expect
-$(\eta I - B)^{-1}(\eta I - \widehat{\mathcal{L}}) = I+(\eta I - B)^{-1}N$ to be
-well-conditioned and, thus, $(\eta I - B)^{-1}N$ to be small in some sense. Then,
+$B^{-1}(\eta I - \widehat{\mathcal{L}}) = I+B^{-1}N$ to be
+well-conditioned and, thus, $B^{-1}N$ to be small in some sense. Then,
 %
-\begin{align*}
-(\eta I - B)^{-2}\mathcal{Q}_\eta & = (\eta I - B)^{-2}(\eta I - \widehat{\mathcal{L}})^{2}
-	+ \frac{\beta^2}{\eta^2}(\eta I - B)^{-2}.
-\end{align*}
+\begin{align}\nonumber
+B^{-2}\mathcal{Q}_\eta & = I + \beta^2B^{-2} + \left(B^{-2}NB + B^{-1}N + B^{-2}N^{-2}\right)\label{eq:approx}.
+\end{align}
 %
-\todo{Fix this section}
-Note the terms $B^{-1}N + B^{-2}NB + B^{-2}N^{-2}$ exactly correspond to error
-propagation of one fixed-point iteration to precondition $(\eta I - \widehat{\mathcal{L}})^2$
-with $B^{-2}$, which we expect to be small if $B^{-1}$ is an effective preconditioner
-for $(\eta I - \widehat{\mathcal{L}})^2$. Thus, there is a sense of commutativity of
-preconditioning, where two applications of a preconditioner for $(\eta I -
-\widehat{\mathcal{L}})$ will serve as an effective preconditioning for
-$((\eta^2+\beta^2)I - 2\eta \widehat{\mathcal{L}} + \widehat{\mathcal{L}}^2)$.
-This is confirmed in practice for several different examples in \Cref{sec:numerics}. 
+In addition to wanting $N$ to be small, it is also important that the error terms
+$B^{-2}NB + B^{-1}N + B^{-2}N^{-2}$ are generally positive in a field-of-values sense.
+If these terms are large and positive in a field-of-values sense, the outer Krylov
+iteration applied to $B^{-2}\mathcal{Q}_\eta$ can correct for these modes. However,
+if error terms $B^{-2}NB + B^{-1}N + B^{-2}N^{-2}$ in \eqref{eq:approx} have 
+negative components, the field-of-values of the preconditioned operator is shifted
+towards the origin, wherein Krylov acceleration is often of progressively less use. 
 
+Thus, theory developed in \Cref{sec:solve:prec} guarantees that the proposed algorithm
+will have robust and fairly rapid convergence under reasonable assumptions if each
+linear system is inverted exactly. Approximate inverses prove to be much faster in
+practice, but \textit{it is important that the underlying preconditioner provides a good
+inverse approximation}. Fortunately, for difficult problems with only okay preconditioners,
+it is straightforward to apply either multiple inner fixed-point iterations or an
+inner Krylov iteration (wrapped with a flexible outer Krylov method
+\cite{notay2000flexible,saad1993flexible}) to ensure robust (outer) iterations, analogous
+to techniques used in block preconditioning. In \Cref{sec:numerics_lin:dg:diff}, a
+numerical example is shown where the proposed method diverges using a single inner
+fixed-point iteration as a preconditioner for $(\eta I - \widehat{\mathcal{L}})$, but
+three (or more) inner fixed-point iterations yields fast, scalable convergence.
 
 % -------------------------- %
 \begin{remark}[Mass matrices]
@@ -1134,7 +1485,7 @@ diffusion coefficient $\kappa = 10^{-6}$.
 \end{figure}
 
 % ------------------------------------------------------------------------------------- %
-\subsection{High-order \& advection-dominated}\label{sec:numerics_lin:dg:adv}
+\subsubsection{High-order \& advection-dominated}\label{sec:numerics_lin:dg:adv}
 
 First, we demonstrate high-order IRK integration applied to the advection-dominated
 problem in \Cref{fig:ad_advdiff}, using AIR as a preconditioner for the linear
@@ -1173,7 +1524,7 @@ of the total number of AIR iterations as SDIRK4 at $h =\delta t_4 = 1/256$,
 and this ratio continues to decrease for smaller $\delta t$. Although this
 does not account for additional setup time, where Gauss8 requires solving
 two different linear systems and SDIRK4 only one, very high-order integration
-permitted through the new preconditioning still offers the opportuntity
+permitted through the new preconditioning still offers the opportunity
 for significant speedups.
 
 %
@@ -1196,7 +1547,7 @@ for significant speedups.
 
 
 % ------------------------------------------------------------------------------------- %
-\subsection{Diffusive problems and inner Krylov}\label{sec:numerics_lin:dg:diff}
+\subsubsection{Diffusive problems and inner Krylov}\label{sec:numerics_lin:dg:diff}
 
 In \cite{AIR2}, AIR was shown to be effective on some DG advection-diffusion
 problems, and classical AMG is known to be effective on diffusion-dominated
