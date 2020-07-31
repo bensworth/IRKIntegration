@@ -16,7 +16,23 @@ using namespace std;
 //      *** Solve 2D in space problem w/ 4th-order discretizations in space & time ***
 //      >> mpirun -np 4 ./driver_adv_dif_FD -f 1 -d 2 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -np 2 -nmaxit 20 -nrtol 1e-10 -natol 1e-10 -krtol 1e-13 -katol 1e-13 -kp 0
 //
-// 
+//      *** Solve 1D in space PDE with 10th-order discretizations in space & time with dt=10*dx ***
+//      * Kronecker-product Jacobian, updated 1st Newton iteration only *
+//      >> mpirun -np 4 ./driver_adv_dif_FD -jac 0 -jacu 0 -f 1 -d 1 -ex 1 -ax 0.85 -mx 0.3 -l 5 -o 10 -dt -10 -t 110 -save 2 -tf 4 -np 2 -nmaxit 20 -nrtol 1e-10 -natol 1e-10 -krtol 1e-13 -katol 1e-13 -kp 0
+//
+//      * Kronecker-product Jacobian, updated every Newton iteration *
+//      >> mpirun -np 4 ./driver_adv_dif_FD -jac 0 -jacu 1 -f 1 -d 1 -ex 1 -ax 0.85 -mx 0.3 -l 5 -o 10 -dt -10 -t 110 -save 2 -tf 4 -np 2 -nmaxit 20 -nrtol 1e-10 -natol 1e-10 -krtol 1e-13 -katol 1e-13 -kp 0
+//
+//      * Jacobian truncated to be block upper triangular *
+//      >> mpirun -np 4 ./driver_adv_dif_FD -jac 1 -jacu 1 -jacs 2 -jacp 2 -f 1 -d 1 -ex 1 -ax 0.85 -mx 0.3 -l 5 -o 10 -dt -10 -t 110 -save 2 -tf 4 -np 2 -nmaxit 20 -nrtol 1e-10 -natol 1e-10 -krtol 1e-13 -katol 1e-13 -kp 0
+//
+//      * From upper triangular Jacobian, truncate all off-diagonal N' components *
+//      >> mpirun -np 4 ./driver_adv_dif_FD -jac 1 -jacu 1 -jacs 1 -jacp 1 -f 1 -d 1 -ex 1 -ax 0.85 -mx 0.3 -l 5 -o 10 -dt -10 -t 110 -save 2 -tf 4 -np 2 -nmaxit 20 -nrtol 1e-10 -natol 1e-10 -krtol 1e-13 -katol 1e-13 -kp 0
+//
+//      * From upper triangular Jacobian, truncate all N' components except the largest one from each diagonal *
+//      >> mpirun -np 4 ./driver_adv_dif_FD -jac 1 -jacu 1 -jacs 0 -jacp 0 -f 1 -d 1 -ex 1 -ax 0.85 -mx 0.3 -l 5 -o 10 -dt -10 -t 110 -save 2 -tf 4 -np 2 -nmaxit 20 -nrtol 1e-10 -natol 1e-10 -krtol 1e-13 -katol 1e-13 -kp 0
+//
+//
 // Solve scalar advection-diffusion equation,
 //     u_t + alpha.grad(f(u)) = div( mu \odot grad(u) ) + s(x,t),
 // for constant vectors alpha, and mu.
@@ -120,13 +136,12 @@ private:
     /// Set solution independent source term at current time.
     inline void SetSource() const { Mesh.EvalFunction(&Source, GetTime(), source); };
     
+    /// Compute J == N'(x)
     void GetGradient(const Vector &x, HypreParMatrix * &J) const;
-    /// Gradient of L(u, t) w.r.t u evaluated at x 
-    //HypreParMatrix &GetExplicitGradient(const Vector &x) const;
     
 public:
     
-    AdvDif(IRKOperator::ExplicitGradientsType gradientsType, 
+    AdvDif(IRKOperator::ExplicitGradients gradientsType, 
             FDMesh &Mesh_, int fluxID, Vector alpha_, Vector mu_, 
             int order, FDBias advection_bias);
     ~AdvDif();
@@ -134,19 +149,31 @@ public:
     /// Allocate memory to and assign initial condition.
     inline void GetU0(Vector * &u) const { Mesh.EvalFunction(&InitialCondition, u); };
     
+    /// Get error w.r.t. exact PDE solution (if available)
+    bool GetError(int save, const char * out, double t, const Vector &u, 
+                    double &eL1, double &eL2, double &eLinf);
+    
+
+    /* ---------------------------------------------------------------------- */
+    /* -------------------------- Virtual functions ------------------------- */
+    /* ---------------------------------------------------------------------- */                
+
     /// Compute the right-hand side of the ODE system.
     void Mult(const Vector &u, Vector &du_dt) const;
     
     /// Compute the right-hand side of the ODE system. (Some applications require this operator too)
     void ExplicitMult(const Vector &u, Vector &du_dt) const { Mult(u, du_dt); };
+
+    /// Precondition B*x=y <==> (\gamma*I - dt*L')*x=y 
+    inline void ImplicitPrec(const Vector &x, Vector &y) const {
+        MFEM_ASSERT(B_prec[B_hash.at(B_index)], 
+            "AdvDif::ImplicitPrec() Must first set system! See SetPreconditioner()");
+        B_prec[B_hash.at(B_index)]->Mult(x, y);
+    }   
     
     /// Apply action of identity mass matrix, y = M*x. 
-    inline void ImplicitMult(const Vector &x, Vector &y) const { y = x; };
-    
-    /// Get error w.r.t. exact PDE solution (if available)
-    bool GetError(int save, const char * out, double t, const Vector &u, 
-                    double &eL1, double &eL2, double &eLinf);
-    
+    inline void ImplicitMult(const Vector &x, Vector &y) const { y = x; };             
+
 
     /* ---------------------------------------------------------------------- */
     /* ---------- Virtual functions for approximate Jacobians of N  --------- */
@@ -169,14 +196,6 @@ public:
         MFEM_ASSERT(Gradient, "AdvDif::ExplicitGradientMult() Gradient not set");
         Gradient->Mult(x, y);
     }                         
-
-    /// Precondition B*x=y <==> (\gamma*I - dt*L')*x=y 
-    inline void ImplicitPrec(const Vector &x, Vector &y) const {
-        MFEM_ASSERT(B_prec[B_hash.at(B_index)], 
-            "AdvDif::ImplicitPrec() Must first set system! See SetPreconditioner()");
-        B_prec[B_hash.at(B_index)]->Mult(x, y);
-    }
-    
     
     /** Ensures that this->ImplicitPrec() preconditions (\gamma*M - dt*L') 
             + index: index of system to solve, [0,s_eff)
@@ -272,8 +291,8 @@ int main(int argc, char *argv[])
     int krylov_solver = static_cast<int>(KRYLOV.solver);
     IRK::NewtonParams NEWTON;
     int gradientsType = 1; // APPROXIMATE or EXACT Jacobians. 
-    int newton_jacs = static_cast<int>(NEWTON.j_solverSparsity);
-    int newton_jacp = static_cast<int>(NEWTON.j_precSparsity);
+    int newton_jacs = static_cast<int>(NEWTON.jac_solver_sparsity);
+    int newton_jacp = static_cast<int>(NEWTON.jac_prec_sparsity);
     
     // Output paramaters
     int save         = 0;       // Save solution vector
@@ -328,13 +347,14 @@ int main(int argc, char *argv[])
     args.AddOption(&KRYLOV.kdim, "-kdim", "--krylov-dimension", "KRYLOV: Maximum subspace dimension");
     args.AddOption(&KRYLOV.printlevel, "-kp", "--krylov-print", "KRYLOV: Print level");
     /* Newton parameters */
-    args.AddOption(&gradientsType, "-jac", "--ODEs-jacobian", "ODEs Jacobian: 0=Approximate/Kronecker form, 1=Exact form (see IRKOperator::ExplicitGradientsType)");
+    args.AddOption(&gradientsType, "-jac", "--ODEs-jacobian", "ODEs Jacobian: 0=Approximate/Kronecker form, 1=Exact form (see IRKOperator::ExplicitGradients)");
     args.AddOption(&NEWTON.reltol, "-nrtol", "--newton-rel-tol", "NEWTON: Relative stopping tolerance");
     args.AddOption(&NEWTON.abstol, "-natol", "--newton-abs-tol", "NEWTON: Absolute stopping tolerance");
     args.AddOption(&NEWTON.maxiter, "-nmaxit", "--newton-max-iterations", "NEWTON: Maximum iterations");
     args.AddOption(&NEWTON.printlevel, "-np", "--newton-print", "NEWTON: Print level");
-    args.AddOption(&newton_jacs, "-njacs", "--newton-jac-solver-sparsity", "NEWTON: Jacobian solver sparsity (see IRK::NewtonParams)");
-    args.AddOption(&newton_jacp, "-njacp", "--newton-jac-prec-sparsity", "NEWTON: Jacobian preconditioner sparsity (see IRK::NewtonParams)");
+    args.AddOption(&NEWTON.jac_update_rate, "-jacu", "--newton-jac-update-rate", "NEWTON: Rate that Jacobian is updated (see IRK::NewtonParams)");
+    args.AddOption(&newton_jacs, "-jacs", "--newton-jac-solver-sparsity", "NEWTON: Jacobian solver sparsity (see IRK::NewtonParams)");
+    args.AddOption(&newton_jacp, "-jacp", "--newton-jac-prec-sparsity", "NEWTON: Jacobian preconditioner sparsity (see IRK::NewtonParams)");
     
     /* --- Text output of solution etc --- */              
     args.AddOption(&out, "-out", "--out-directory", "Name of output file."); 
@@ -348,8 +368,8 @@ int main(int argc, char *argv[])
     advection_bias = static_cast<FDBias>(advection_bias_temp);
     AMG.use_AIR = (bool) use_AIR_temp;
     KRYLOV.solver = static_cast<IRK::KrylovMethod>(krylov_solver);
-    NEWTON.j_solverSparsity = static_cast<IRK::JacSparsity>(newton_jacs);
-    NEWTON.j_precSparsity = static_cast<IRK::JacSparsity>(newton_jacp);
+    NEWTON.jac_solver_sparsity = static_cast<IRK::JacSparsity>(newton_jacs);
+    NEWTON.jac_prec_sparsity = static_cast<IRK::JacSparsity>(newton_jacp);
     std::vector<int> np = {};
     if (npx != -1) {
         if (dim >= 1) np.push_back(npx);
@@ -376,7 +396,7 @@ int main(int argc, char *argv[])
     // Set up spatial discretization.
     /////////////////////////////////
     //for (int i = 0; i < mu.Size(); i++) mu(i) *= dx;
-    AdvDif SpaceDisc(static_cast<IRKOperator::ExplicitGradientsType>(gradientsType), 
+    AdvDif SpaceDisc(static_cast<IRKOperator::ExplicitGradients>(gradientsType), 
                      Mesh, fluxID, alpha, mu, order, advection_bias);
     SpaceDisc.SetAMGParams(AMG);
         
@@ -473,9 +493,10 @@ int main(int argc, char *argv[])
             std::vector<int> system_size;
             std::vector<double> eig_ratio;
             MyIRK.GetSolveStats(avg_newton_iter, avg_krylov_iter, system_size, eig_ratio);
-            solinfo.Print("gradients_type", gradientsType);
-            solinfo.Print("newton_j_solverSparsity", static_cast<int>(NEWTON.j_solverSparsity));
-            solinfo.Print("newton_j_precSparsity", static_cast<int>(NEWTON.j_precSparsity));
+            solinfo.Print("newton_gradients_type", gradientsType);
+            solinfo.Print("newton_jac_update_rate", NEWTON.jac_update_rate);
+            solinfo.Print("newton_jac_solver_sparsity", static_cast<int>(NEWTON.jac_solver_sparsity));
+            solinfo.Print("newton_jac_prec_sparsity", static_cast<int>(NEWTON.jac_prec_sparsity));
             solinfo.Print("nrtol", NEWTON.reltol);
             solinfo.Print("natol", NEWTON.abstol);
             solinfo.Print("newton_iters", avg_newton_iter);
@@ -510,7 +531,6 @@ int main(int argc, char *argv[])
     MPI_Finalize();
     return 0;
 }
-
 
 
 
@@ -672,7 +692,7 @@ ScalarFun GradientFlux(int fluxID) {
 }
 
 
-AdvDif::AdvDif(IRKOperator::ExplicitGradientsType gradientsType, 
+AdvDif::AdvDif(IRKOperator::ExplicitGradients gradientsType, 
         FDMesh &Mesh_, int fluxID, Vector alpha_, Vector mu_, 
         int order, FDBias advection_bias) 
     : IRKOperator(Mesh_.GetComm(), Mesh_.GetLocalSize(), 0.0, 
