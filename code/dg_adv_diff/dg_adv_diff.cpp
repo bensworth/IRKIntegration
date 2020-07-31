@@ -437,8 +437,8 @@ int main(int argc, char *argv[])
    bool visualization = false;
    int vis_steps = 200;
    int use_gmres = false;
-   int maxiter = 250;
-   int mag_prec = false;
+   int maxiter = 150;
+   int mag_prec = 0;
 
    OptionsParser args(argc, argv);
    args.AddOption(&mesh_file, "-m", "--mesh",

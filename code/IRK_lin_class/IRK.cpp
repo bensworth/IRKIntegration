@@ -65,7 +65,7 @@ OK questions for BS (and general thoughts):
 
 
 /// Constructor
-IRK::IRK(IRKOperator *IRKOper_, RKData::Type RK_ID_, bool mag_prec)
+IRK::IRK(IRKOperator *IRKOper_, RKData::Type RK_ID_, int mag_prec)
         : m_IRKOper(IRKOper_), m_Butcher(RK_ID_),
         m_CharPolyPrec(*IRKOper_), m_CharPolyOper(),
         m_krylov(NULL), m_comm{IRKOper_->GetComm()}
