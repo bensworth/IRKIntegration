@@ -40,9 +40,9 @@
 % ------------------------------------------------------------------------------------ %
 
 \newcommand{\TheTitle}{Fast parallel solution of fully implict Runge-Kutta and discontinous
-	Galerkin in time for numerical PDEs}
+	Galerkin in time for numerical PDEs, Part I: the linear setting}
 \newcommand{\TheAuthors}{B.S. Southworth, O. Krzysik, and W. Pazner}
-\headers{Parallel solution of fully implict Runge-Kutta and DG in time}{\TheAuthors}
+\headers{Parallel solution of fully implict Runge-Kutta and DG in time I}{\TheAuthors}
 \title{{\TheTitle}\thanks{This research was conducted ...
   }}
 
@@ -87,16 +87,20 @@
 % ------------------------------------------------------------------------------------- %
 \subsection{Fully implicit Runge-Kutta}\label{sec:intro:irk}
 
-Consider the method-of-lines approach to the numerical solution of partial differential
-equations (PDEs), where we discretize in space and arrive at a system of ordinary
-differential equations (ODEs) in time,
+Consider the method-of-lines approach to the numerical solution of linear
+partial differential equations (PDEs), where we discretize in space and arrive
+at a system of ordinary differential equations (ODEs) in time,
 %
 \begin{align}\label{eq:problem}
-	M\mathbf{u}'(t) =  \mathcal{N}(\mathbf{u},t) \quad\text{in }(0,T], \quad \mathbf{u}(0) = \mathbf{u}_0,
+M\mathbf{u}'(t) =  \mathcal{L}(t)\mathbf{u} + \mathbf{f}(t)
+	\quad\text{in }(0,T], \quad \mathbf{u}(0) = \mathbf{u}_0,
 \end{align}
 %
-where $M$ is a mass matrix and $\mathcal{N}\in\mathbb{R}^{N\times N}$ is a discrete, time-dependent, nonlinear operator depending on $t$ and $\mathbf{u}$ (including potential
-forcing terms).\footnote{Note, PDEs with an algebraic constraint, for example, the divergence-free
+where $M$ is a mass matrix, $\mathcal{L}(t)\in\mathbb{R}^{N\times N}$ a discrete
+linear operator, and $\mathbf{f}(t)$ a time-dependent forcing function.
+
+\footnote{Note,
+PDEs with an algebraic constraint, for example, the divergence-free
 constraint in Navier Stokes, instead yield a differential algebraic equation (DAE), which
 requires separate careful treatment and will be the subject of a forthcoming paper.}
 Then, consider time propagation using an $s$-stage Runge-Kutta scheme,
@@ -112,22 +116,18 @@ characterized by the Butcher tableaux
 	\end{array},
 \end{align*}
 %
-with Runge-Kutta matrix $A_0 = (a_{ij})$, weight vector $\mathbf{b}_0^T = (b_1, \ldots, b_s)^T$,
-and quadrature nodes $\mathbf{c}_0 = (c_0, \ldots, c_s)$.
+with Runge-Kutta matrix $A_0 = (a_{ij})$, weight vector $\mathbf{b}_0^T = (b_1,
+\ldots, b_s)^T$, and quadrature nodes $\mathbf{c}_0 = (c_0, \ldots, c_s)$.
 
 Runge-Kutta methods update the solution using a sum over stage vectors,
 %
 \begin{align}\label{eq:update}
 \mathbf{u}_{n+1} & = \mathbf{u}_n + \delta t \sum_{i=1}^s b_i\mathbf{k}_i, \\
-M\mathbf{k}_i & = \mathcal{N}\left(\mathbf{u}_n + \delta t\sum_{j=1}^s a_{ij}\mathbf{k}_j, t_n+\delta tc_i\right).\label{eq:stages}
+M\mathbf{k}_i & = \mathcal{L}\left(\mathbf{u}_n + \delta t\sum_{j=1}^s a_{ij}\mathbf{k}_j,
+	t_n+\delta tc_i\right) + \mathbf{f}(t_n+\delta tc_i).\label{eq:stages}
 \end{align}
 %
-For nonlinear PDEs, $\mathcal{N}$ is linearized using, for example, a Newton or a Picard
-linearization of the underlying PDE. Let us denote this linearization
-${\mathcal{L}}\in\mathbb{R}^{N\times N}$
-(or, in the case of a linear PDE, let $\mathcal{L} := \mathcal{N}$).
-Expanding, solving for the stages $\mathbf{k}$ as each step in a nonlinear iteration, or
-as the update to $\mathbf{u}$ for a linear PDE, can then be expressed as the
+Expanding, solving for the stages $\mathbf{k}$ can then be expressed as the
 solution of the block linear system,
 %
 \begin{align}\label{eq:k0}
@@ -135,9 +135,13 @@ solution of the block linear system,
 	- \delta t \begin{bmatrix} a_{11}\mathcal{L}_1 & ... & a_{1s}\mathcal{L}_1 \\
 	\vdots & \ddots & \vdots \\ a_{s1}\mathcal{L}_s & ... & a_{ss} \mathcal{L}_s \end{bmatrix} \right)
 	\begin{bmatrix} \mathbf{k}_1 \\ \vdots \\ \mathbf{k}_s \end{bmatrix} 
-& = \begin{bmatrix} \mathbf{f}_1 \\ \vdots \\ \mathbf{f}_s \end{bmatrix}.
+& = \begin{bmatrix} \mathbf{f}_1 \\ \vdots \\ \mathbf{f}_s \end{bmatrix},
 \end{align}
 %
+where $\mathcal{L}_i := \mathcal{L}(t_n+\delta tc_i)$. Primarily this paper
+focuses on spatial operators that are independent of time; however, some of
+the results hold for commuting operators, such as may arise in, for example,
+a time-dependent reaction term, so for now we maintain this generality.
 
 The difficulty in fully implicit Runge-Kutta methods (which we will denote IRK) lies in
 solving the $Ns\times Ns$ block linear system in \eqref{eq:k0}. This paper focuses on the
@@ -146,7 +150,7 @@ and $\mathcal{L}$ is highly ill-conditioned. In such cases, direct
 solution techniques to solve \eqref{eq:k0} are not a viable option, and fast, parallel 
 iterative methods must be used. However, IRK methods are rarely employed in practice due
 to the difficulties of solving \eqref{eq:k0}. Even for relatively simple
-parabolic PDEs where $\mathcal{L}$ is symmetric positive definite, \eqref{eq:k0}
+parabolic PDEs where $\mathcal{L}$ is symmetric positive definite (SPD), \eqref{eq:k0}
 instead yields a large nonsymmetric system with significant block coupling. For
 nonsymmetric systems $\mathcal{L}$ that already have variable coupling, fast iterative
 methods are even less likely to yield acceptable performance in solving \eqref{eq:k0}.
@@ -184,7 +188,7 @@ non-parabolic and nonlinear problems.
 
 This paper develops fast, parallel preconditioning techniques for the solution of
 fully implicit Runge-Kutta methods in numerical PDEs. Although we focus on implicit
-Runge-Kutta, the techniques developed extend naturally to discontinuous Galerkin 
+Runge-Kutta, the techniques developed extend naturally to DG
 finite elements in time as well, as discussed in \Cref{sec:intro:dg}. 
 First, \Cref{sec:intro:hist} provides background on why IRK methods are desirable
 over the simpler and more commonly used DIRK methods, and also provides a
@@ -205,28 +209,12 @@ gradient (CG)/MINRES) if $\eta M - \mathcal{L}$ is, and (ii) only operates on th
 thus not requiring the storage of each stage vector. Theory is developed
 that guarantees rapid convergence of GMRES and CG under basic assumptions
 on stability from \Cref{sec:intro:stab}. Numerical results for the
-linear setting are provided in \Cref{sec:numerics_lin}, demonstrating
+linear setting are provided in \Cref{sec:numerics}, demonstrating
 up to 10th-order accuracy using Gauss integration with a variety of problems
 and preconditioners. In addition, by using the new method with 2-stage Gauss
 integration, we are able to halve the number of AMG preconditioning iterations
 necessary to obtain 4th-order accuracy on an advection-diffusion example
 compared with standard 4th-order SDIRK schemes.
-
-Nonlinear problems are then addressed in \Cref{sec:nonlinear}. First, a
-simplified Newton method is considered in \Cref{sec:nonlinear:simp},
-wherein we develop a method to precondition
-\eqref{eq:keq} under the assumption that $\mathcal{L}_i=\mathcal{L}_j$ for all
-$i,j$. The proposed method is based on the real Schur decomposition, a technique
-not new to Runge-Kutta literature \todo{cite}. However, building on theory from
-Section \ref{sec:solve}, we are able to \textit{prove} rapid Krylov convergence
-on \eqref{eq:keq}
-under basic assumptions of stability and having an effective preconditioner for
-systems along the lines of $\eta M - \delta t\mathcal{L}$, exactly as would be
-used for, e.g., SDIRK methods. Extensions are then introduced for applying IRK
-methods with a true Newton or Picard iteration, where $\mathcal{L}_i\neq
-\mathcal{L}_j$, in \Cref{sec:nonlinear:gen}. Numerical results for nonlinear
-problems are provided in \Cref{sec:numerics_nonlin}, \todo{including ...}
-
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -454,8 +442,8 @@ fully implicit system in \eqref{eq:k0}, yielding the equivalent problem
 %
 The off-diagonal block coupling in \eqref{eq:keq} now consists of mass matrices
 rather than differential operators, which makes the analysis and solution more
-tractable.\footnote{For some of the methods introduced in this paper (the linear case
-and simplified Newton case), more-or-less equivalent algorithms can be developed
+tractable.\footnote{For some of the methods introduced in this paper,
+more-or-less equivalent algorithms can be developed
 for \eqref{eq:k0} (that is, without extracting $A_0\otimes I$). However, 
 the derivation and analysis therein is more difficult, and the resulting
 algorithms offer no clear benefits over the presented methods.}
@@ -515,18 +503,17 @@ This is analogous to the ``strong stability'' discussed by Leveque
 \cite[Chapter 9.5]{leveque2007finite}, as opposed to the weaker (but still
 sufficient) condition $\|e^{t\mathcal{L}}\|\leq C$ for all $t\geq 0$ and
 some constant $C$. In practice, \Cref{ass:fov} is likely to hold when
-simulating numerical PDEs, and in \Cref{sec:solve:prec,sec:nonlinear:simp},
-it is proven that \Cref{ass:eig} and \ref{ass:fov} provide sufficient conditions
-to guarantee fast Krylov convergence of the proposed methods.
+simulating numerical PDEs, and in \Cref{sec:solve:prec}, it is proven that
+\Cref{ass:eig} and \ref{ass:fov} provide sufficient conditions to guarantee
+fast Krylov convergence of the proposed methods.
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
-\section{The linear setting}\label{sec:solve}
+\section{Fast parallel preconditioning}\label{sec:solve}
 
-We start by considering the application of IRK to linear PDEs with fixed
-spatial operator $\mathcal{L}$. For ease of notation, let us scale both sides
-of the \eqref{eq:keq} by a block-diagonal mass matrix inverse and let
+For ease of notation, let us scale both sides of the \eqref{eq:keq} by a
+block-diagonal mass matrix inverse and let
 %
 \begin{equation*}
 \widehat{\mathcal{L}}_i := \delta t M^{-1}\mathcal{L}_i,
@@ -550,10 +537,14 @@ takes the form of \eqref{eq:k1} but based on a principle submatrix of $A_0$.}
 	\label{eq:k1}
 \end{align}
 %
-We proceed by deriving a closed form inverse for this operator, demonstrating
+
+We proceed by deriving a closed form inverse \eqref{eq:k1}, demonstrating
 how the Runge-Kutta update in \eqref{eq:update} can then be performed directly
 (without forming and saving each stage vector), and developing a preconditioning
-strategy to apply this update using existing fast, parallel preconditioners. 
+strategy to apply this update using existing fast, parallel preconditioners.
+In \Cref{sec:solve:gamma}, analysis proves that with the right choice
+of constant in the preconditioner, the preconditioned operator has condition
+number $<9$, independent of problem size, order, and number of stages.
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -727,18 +718,14 @@ as a measure of the preconditioning, and \Cref{cor:gmres,cor:cg} extend this
 preconditioning to prove fast convergence of GMRES and conjugate gradient (CG).
 
 %
-\begin{remark}[Convergence independent of problem size]
-It is worth pointing out the key
-cancellation in \eqref{eq:prec1}, where the preconditioned operator has no terms directly
-involving $\widehat{\mathcal{L}}$ or $\widehat{\mathcal{L}}^{-1}$ (why $(I -
-\tfrac{1}{\eta}\widehat{\mathcal{L}})^{-2}$ is different will be clear in the proof
-of \Cref{th:fov}). Because of this, the conditioning of $\mathcal{P}_\eta$ is effectively
-independent of the conditioning of $\widehat{\mathcal{L}}$, which ensures convergence
-that is independent of problem size.
-% This is in contrast to most standard matrix-splitting
-% or block-preconditioning techniques, where the preconditioned operator has some dependence
-% on $\widehat{\mathcal{L}}$, which leads to convergence dependent on the conditioning of
-% $\widehat{\mathcal{L}}$ (and, thus indirectly, the problem size).
+\begin{remark}[Convergence independent number of stages/DG polynomial order]
+\textnormal{ }\newline
+It turns out the conditioning of $\mathcal{P}_\eta$ has some dependence on the ratio
+$\beta^2/\eta^2$, particularly for $\beta > \eta$, which typically increases
+with number of stages/DG polynomial order. \Cref{sec:solve:gamma} introduces
+a modification that yields conditioning independent of $\beta$ and $\eta$
+(and thus, number of stages/polynomial order) at the expense of less rigorous
+analysis of GMRES convergence than provided for $\mathcal{P}_\eta$ in this section.
 \end{remark}
 %
 
@@ -899,11 +886,6 @@ the proof.
 \end{proof}
 %
 
-Interestingly, in dropping the $\beta^2 I$ term from $\mathcal{Q}_\eta$ in the
-preconditioner, we are actually preconditioning $\mathcal{Q}_\eta = 
-(\eta^2+\beta^2)I - 2\eta \widehat{\mathcal{L}} + \widehat{\mathcal{L}}^2$ with a
-worse-conditioned operator, since $\beta^2I$ shifts the spectrum and field of values
-positive away from the origin. Nevertheless, this preconditioning is quite effective --
 \Cref{tab:beta} provides the values of $\eta$, $\beta^2/\eta^2$, and the CG and GMRES
 bounds from \Cref{cor:gmres} and \Cref{cor:cg} for Gauss, RadauIIA, and LobattoIIIC
 integration.
@@ -959,8 +941,7 @@ integration.
 }
 
 % ------------------------------------------------------------------------------------- %
-\clearpage
-\subsubsection{A better constant \& preconditioner}
+\subsection{Conditioning independent of $\eta$ and $\beta$}\label{sec:solve:gamma}
 
 In the previous section, we considered two applications of $(\eta I -
 \widehat{\mathcal{L}})^{-1}$ as a preconditioner for $\mathcal{Q}_\eta$ \eqref{eq:imag1}.
@@ -975,9 +956,20 @@ discretization order. This section is motivated by \cite{exh}, where a similar
 algorithm is developed for linear parabolic problems using the real Schur
 decomposition, and, for SPD operators, a modified constant $\eta \mapsto
 \sqrt{\eta^2+\beta^2}$ is proven to be optimal in terms of minimizing the
-condition number of the preconditioned operator.
+condition number of the preconditioned operator. In this section, we derive
+bounds on the condition number of the preconditioned operator for
+preconditioner $(\gamma I - \widehat{\mathcal{L}})^{-2}$, $\gamma\neq \eta$,
+and general operators satisfying \Cref{ass:fov} (\Cref{th:cond}). A corollary
+then proves that the constant 
+%
+\begin{align}\label{eq:gam_opt} 
+\gamma _* := \sqrt{\eta^2+\beta^2}
+\end{align}
+%
+yields a preconditioned operator with condition number $<9$, independent
+of $\eta$ and $\beta$ (\Cref{cor:independent}).
 
-To that end, consider a similar preconditioner as in
+Consider a similar preconditioner as in
 \Cref{sec:solve:inv}, but with some modified constant $\gamma \mapsto
 (\gamma I - \widehat{\mathcal{L}})^{-2}$. The resulting preconditioned
 operator takes the form
@@ -1008,8 +1000,8 @@ analysis does (or as conditioning does for bounds on CG convergence), it still
 provides a robust measure of the effectiveness and scalability of the 
 preconditioner.
 
-First, note that working out the roots of the polynomial in \eqref{eq:prec_k},
-it can be expressed in factored form as
+As a preliminary result, note that working out the roots of the polynomial 
+in \eqref{eq:prec_k}, it can be expressed in factored form as
 %
 \begin{align*}
 \mathcal{P}_\gamma
@@ -1025,7 +1017,7 @@ where
 %
 and
 %
-\begin{align}\label{eq:alphs_eq}
+\begin{align}\label{eq:alpha_eq}
 \alpha + \overline{\alpha} = 2(1 - \tfrac{\eta}{\gamma}), \hspace{5ex}
 \alpha\overline{\alpha} = \tfrac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}.
 \end{align}
@@ -1033,14 +1025,15 @@ and
 Moving forward we will limit ourselves to considering $\eta \leq \gamma \leq \
 \tfrac{\eta^2+\beta^2}{\eta}$, which limits to the natural case of $\gamma = \eta$
 as $\beta \to 0$. Similar analysis can be performed for $\gamma$ outside of
-this range, but the derivations are different and the corresponding methods
-less effective.
+this range, but the derivations are different and there does not appear to
+be any good reason for $\gamma$ outside of this range (see discussion
+following \Cref{th:cond}).
 
 %
 \begin{theorem}[Conditioning of preconditioned operator]\label{th:cond}
 Suppose Assumptions \ref{ass:eig} and \ref{ass:fov} hold, that is, $\eta > 0$
 and $W(\mathcal{L}) \leq 0$ \eqref{eq:fov}. Let $\eta \leq \gamma \leq \
-\tfrac{\eta^2+\beta^2}{\eta}$ and
+\tfrac{\eta^2+\beta^2}{\eta}$ and let
 $\mathcal{P}_\gamma$ denote the preconditioned operator, where $((\eta + i\beta)I -
 \widehat{\mathcal{L}})((\eta - i\beta)I - \widehat{\mathcal{L}})$ is
 preconditioned with $(\gamma I - \widehat{\mathcal{L}})^{-2}$. Then,
@@ -1111,15 +1104,16 @@ To bound $\|\mathcal{P}_\gamma^{-1}\|$, we use an analogous approach as above
 \eqref{eq:CS}, developing bounds on the two polynomial factors separately.
 First, note that
 %
-\begin{align*}
+\begin{align}\nonumber
 \left[I - \alpha\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\right]^{-1}
 	& = \left(I - \tfrac{1}{\gamma}\mathcal{L}\right)
-		\left[(1-\alpha)I - \tfrac{1}{\gamma}\mathcal{L}\right]^{-1} \\
+		\left[(1-\alpha)I - \tfrac{1}{\gamma}\mathcal{L}\right]^{-1} \nonumber\\
 & = \left[\alpha I + ((1-\alpha)I - \tfrac{1}{\gamma}\mathcal{L})\right]
-		\left[(1-\alpha)I - \tfrac{1}{\gamma}\mathcal{L}\right]^{-1} \\
-& = I + \alpha \left[(1-\alpha)I - \tfrac{1}{\gamma}\mathcal{L}\right]^{-1} \\
+		\left[(1-\alpha)I - \tfrac{1}{\gamma}\mathcal{L}\right]^{-1} \nonumber\\
+& = I + \alpha \left[(1-\alpha)I - \tfrac{1}{\gamma}\mathcal{L}\right]^{-1} \nonumber\\
 & = I + \frac{\alpha}{1-\alpha} \left(I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L}\right)^{-1}.
-\end{align*}
+	\label{eq:inv_factor}
+\end{align}
 %
 For condensed notation, let $c_\alpha := \tfrac{\alpha}{1-\alpha}$, and note that 
 %
@@ -1131,7 +1125,7 @@ c_\alpha+\overline{c_\alpha} & = \frac{\alpha + \overline{\alpha} - 2\alpha\over
 %
 which is $< 0$ when $\eta\gamma \leq (\eta^2+\beta^2)$ and $<0$ otherwise. 
 
-Expanding the squared norm of the above operator in inner-product form, we have
+Expanding the squared norm of \eqref{eq:inv_factor} in inner-product form, we have
 %
 \begin{align}\label{eq:pinv0}
 & \hspace{-5ex}
@@ -1143,22 +1137,10 @@ Expanding the squared norm of the above operator in inner-product form, we have
 		{\|\mathbf{x}\|^2} \right].
 \end{align}
 %
-Suppose $(c_\alpha+\overline{c_\alpha}) \geq 0$. Then we can bound \eqref{eq:pinv0} via
-%
-\begin{align}
-& \leq 1 + (c_\alpha+\overline{c_\alpha})
-	\left\|(I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L})^{-1}\right\|
-	+ c_\alpha\overline{c_\alpha}
-		\left\|(I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L})^{-1}\right\|^2 \\
-& = \left(1 + c_\alpha \left\|(I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L})^{-1}\right\|\right)
-	\left(1 + \overline{c_\alpha} \left\|(I - \tfrac{1}{\gamma(1-\alpha)}
-		\mathcal{L})^{-1}\right\|\right).\label{eq:pinv1}
-\end{align}
-%
-Bounding the norms in \eqref{eq:pinv1} is a bit more subtle here because $\alpha$ is
+Bounding the norm term in \eqref{eq:pinv0} requires care because $\alpha$ is
 complex. Note that the norm is the maximum singular value, which is equivalent to one
 over the minimum nonzero singular value of the inverse. The squared minimum nonzero
-singular value of the inverse of the inverse in \eqref{eq:pinv1} is given by
+singular value of the inverse of the inverse is given by
 %
 \begin{align*}
 &\hspace{-5ex}
@@ -1174,22 +1156,27 @@ singular value of the inverse of the inverse in \eqref{eq:pinv1} is given by
 Noting that Re$\left(\langle\mathcal{L}\mathbf{x},\mathbf{x}\rangle\right) \leq 0$,
 $\gamma \geq \eta > 0$, and Re$(1-\alpha) \geq 0$, it follows that the squared minimum
 singular value above is $\geq 1$, which implies $\|(I - \tfrac{1}{\gamma(1-\alpha)}
-\mathcal{L})^{-1}\| \leq 1$. Plugging into \eqref{eq:pinv1} and noting
-that an identical derivation and result holds for $\overline{\alpha}$, we have
-for $(c_\alpha+\overline{c_\alpha}) \geq 0$,
-%
-\begin{align}\nonumber
-\|\mathcal{P}_\gamma^{-1}\| & \leq 
-	\Big\|\Big(I - \overline{\alpha}\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\Big)^{-1}\Big\|
-	\Big\|\Big(I - \alpha\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\Big)^{-1}\Big\| \\
-& \leq \left(1 + \frac{\alpha}{1-\alpha}\right)
-	\left(1 + \frac{\overline{\alpha}}{1-\overline{\alpha}}\right) \nonumber\\
-& = \frac{1}{(1 - \alpha)(1 - \overline{\alpha})}. \label{eq:lower_alpha1}
-\end{align}
-%
+\mathcal{L})^{-1}\| \leq 1$.
 
-Returning to \eqref{eq:pinv0}, suppose now that $(c_\alpha+\overline{c_\alpha}) < 0$.
-Then note that letting $\mathbf{x}:= (I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L})\mathbf{y}$,
+% ------> Old extra derivation for \gamma larger than currently considered
+% ------------------------------------------------------------------------
+% Plugging into \eqref{eq:pinv1} and noting
+% that an identical derivation and result holds for $\overline{\alpha}$, we have
+% for $(c_\alpha+\overline{c_\alpha}) \geq 0$,
+% %
+% \begin{align}\nonumber
+% \|\mathcal{P}_\gamma^{-1}\| & \leq 
+% 	\Big\|\Big(I - \overline{\alpha}\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\Big)^{-1}\Big\|
+% 	\Big\|\Big(I - \alpha\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\Big)^{-1}\Big\| \\
+% & \leq \left(1 + \frac{\alpha}{1-\alpha}\right)
+% 	\left(1 + \frac{\overline{\alpha}}{1-\overline{\alpha}}\right) \nonumber\\
+% & = \frac{1}{(1 - \alpha)(1 - \overline{\alpha})}. \label{eq:lower_alpha1}
+% \end{align}
+% %
+
+Returning to \eqref{eq:pinv0}, consider the inner-product term with leading
+constant $(c_\alpha+\overline{c_\alpha}) \leq 0$. Note that letting
+$\mathbf{x}:= (I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L})\mathbf{y}$,
 we have
 %
 \begin{align*}
@@ -1202,7 +1189,7 @@ we have
 	{\|(I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L})\mathbf{y}\|^2}.
 \end{align*}
 %
-By assumption we have Re$\left(\langle \mathbf{y},\mathcal{L}\mathbf{y}\rangle\right) \leq 0$,
+By assumption, Re$\left(\langle \mathbf{y},\mathcal{L}\mathbf{y}\rangle\right) \leq 0$,
 while $\gamma\geq 0$ and Re$(1-\alpha) \geq 0$. It follows that
 %
 \begin{align*}
@@ -1210,7 +1197,7 @@ while $\gamma\geq 0$ and Re$(1-\alpha) \geq 0$. It follows that
 	\mathbf{x}\right\rangle}{\|\mathbf{x}\|^2}\right) \geq 0.
 \end{align*}
 %
-Thus in \eqref{eq:pinv0} when $(c_\alpha+\overline{c_\alpha}) < 0$, we can drop
+Thus in \eqref{eq:pinv0} because $(c_\alpha+\overline{c_\alpha}) \leq 0$, we can drop
 the corresponding term for an upper bound of
 %
 \begin{align*}
@@ -1230,16 +1217,17 @@ identical bounds, we have for $(c_\alpha+\overline{c_\alpha}) < 0$,
 \end{align}
 % 
 
-Combining \eqref{eq:cond0}, \eqref{eq:upper_alpha}, \eqref{eq:lower_alpha1},
+Combining \eqref{eq:cond0}, \eqref{eq:upper_alpha},
 and \eqref{eq:lower_alpha2} completes the proof.
 \end{proof}
 %
 
 In \cite{exh}, a similar analysis as \Cref{th:cond} is done under the assumption
 that $-\mathcal{L}$ is SPD, in which case the conditioning can be derived based on
-eigenvalues. There, they derive the conditioning of the preconditioned
+eigenvalues. There, they derive the (exact) conditioning of the preconditioned
 operator for $\gamma = \eta$ to be cond$(\mathcal{P}_\eta) = 1 + \tfrac{\beta^2}{\eta^2}$.
-If we let $\gamma = \eta$, then $\alpha+\overline{\alpha} = 0$, $\alpha\overline{\alpha} =
+If we let $\gamma = \eta$, from \eqref{eq:alpha_eq} we have
+$\alpha+\overline{\alpha} = 0$, $\alpha\overline{\alpha} =
 \frac{\beta^2}{\eta^2}$, and \Cref{th:cond} yields the bound
 %
 \begin{align}\label{eq:cond_eta}
@@ -1248,33 +1236,89 @@ If we let $\gamma = \eta$, then $\alpha+\overline{\alpha} = 0$, $\alpha\overline
 %
 In particular, this indicates that \Cref{th:cond} is fairly tight (it is unclear
 if the additional factor of 2 in \eqref{eq:cond_eta} is necessary for non-SPD
-operators, or a flaw in the line of proof). Here, we again see the dependence
-of conditioning on the ratio $\beta^2/\eta^2$.
+operators, or a flaw in the line of proof). 
+Considering the upper limit on $\gamma$ in \Cref{th:cond}, $\gamma \mapsto
+\tfrac{\eta^2+\beta^2}{\eta}$, we have a bound
+%
+\begin{align}\label{eq:cond_upper}
+\textnormal{cond}\left(\mathcal{P}_{\gamma = \frac{\eta^2+\beta^2}{\eta}}\right) \leq
+	\left(1 + \frac{\beta^2}{\eta^2}\right) \left(1 + \frac{\beta^2}{\beta^2 + \eta^2}\right).
+\end{align}
+%
+Note, in both \eqref{eq:cond_eta} and \eqref{eq:cond_upper} we see a dependence
+on $\eta$ and $\beta$.
 
 Using the tight derivation of conditioning of the preconditioned operator in
 \cite{exh}, they also derive an optimal constant to minimize the condition
-number for SPD matrices, 
-%
-\begin{align}\label{eq:gam_opt} 
-\gamma _* := \sqrt{\eta^2+\beta^2}.
-\end{align}
-%
-Considering $\gamma_*$ here, $\alpha+\overline{\alpha} = \alpha\overline{\alpha} =
+number for SPD matrices, $\gamma _* := \sqrt{\eta^2+\beta^2}$ \eqref{eq:gam_opt}.
+Considering $\gamma_*$ here, \eqref{eq:alpha_eq} yields
+$\alpha+\overline{\alpha} = \alpha\overline{\alpha} =
 2 - 2\frac{\eta}{\sqrt{\eta^2+\beta^2}}$, and \Cref{th:cond} yields the bound
 %
-\begin{align*}
+\begin{align}\label{eq:cond_opt}
 \textnormal{cond}(\mathcal{P}_{\gamma_*})
 	\leq \left(3 - 2\frac{\eta}{\sqrt{\eta^2+\beta^2}}\right)^2.
-\end{align*}
+\end{align}
 %
 Noting that $\textnormal{cond}(\mathcal{P}_{\gamma_*}) < 9$ for all $\eta>0,
 \beta\geq 0$, we have the following corollary.
 
 %
-\begin{corollary}
+\begin{corollary}[Conditioning independent of $\eta$ and $\beta$]\label{cor:independent}
+Preconditioning $\mathcal{Q}_\eta$ \eqref{eq:imag1} with
+$(\gamma_* I - \widehat{\mathcal{L}})^{-2}$, for $\gamma_* = \sqrt{\eta^2+\beta^2}$
+yields a preconditioned operator $\mathcal{P}_{\gamma_*}$ such that
+$\textnormal{cond}(\mathcal{P}_{\gamma_*}) < 9$,
+independent of $\eta$ and $\beta$.
+\end{corollary}
+%
+It is also worth pointing out that as $\beta \to 0$, $\gamma \to \eta$
+in all three of the above cases, and (as expected) \eqref{eq:cond_eta},
+\eqref{eq:cond_upper}, and \eqref{eq:cond_opt} all $\to 1$.
+
+%
+\begin{remark}[``Optimal'' $\gamma$]
+A natural question is what is the optimal $\gamma$ in general?
+Let $f(\gamma)$ denote the upper bound from \Cref{th:cond} \eqref{eq:cond1}.
+Some algebra shows that
+%
+\begin{align*}
+f'(\gamma) &= \frac{4\gamma^4 - 6\eta\gamma^3 + 4\eta(\eta^2+\beta^2)\gamma -
+	2(\eta^2+\beta^2)^2}{(\eta^2+\beta^2)\gamma^3}.
+\end{align*}
+%
+For $\beta > 0$,
+%
+\begin{align*}
+f'(\eta) & = -\frac{2\beta^4}{\eta^3(\eta^2+\beta^2)} < 0, 
+\hspace{5ex}
+f'(\gamma_*) = \frac{2(\sqrt{\eta^2+\beta^2} - \eta)}{\eta^2+\beta^2} > 0.
+% f'\left(\tfrac{\eta^2+\beta^2}{\eta}\right) & = 2\beta^2 + \frac{\beta^2}{\eta^2+\beta^2} > 0, \\
+\end{align*}
+%
+Thus there exists a critical point $\gamma \in(\eta,\gamma_*)$, and it is 
+likely not advantageous to choose $\gamma > \gamma_*$. The equation
+for the root is a quartic polynomial and is not examined analytically here,
+however, depending on $\eta$ and $\beta$, the sign change (and, thus, root) is
+likely between $0.8\gamma_* - 0.9\gamma_*$ , suggesting $\gamma_*$ is indeed
+a good approximation to the optimal $\gamma$ with respect to \eqref{eq:cond1}.
+
+Moreover, the analysis from \cite{exh} proves that $\gamma_*$ \eqref{eq:gam_opt}
+\textit{is} optimal for SPD operators, and we prove $\gamma_*$ also provides
+very good preconditioning independent of the number of stages/order of integration
+in the more general setting (\Cref{cor:independent}).
+\end{remark}
+%
 
 
 
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+\subsection{Preconditioning in practice}
+
+
+% ------------------------------------------------------------------------------------- %
+\subsubsection{Choosing $\gamma$}
 
 
 
@@ -1317,13 +1361,13 @@ inverse approximation}. Fortunately, for difficult problems with only okay preco
 it is straightforward to apply either multiple inner fixed-point iterations or an
 inner Krylov iteration (wrapped with a flexible outer Krylov method
 \cite{notay2000flexible,saad1993flexible}) to ensure robust (outer) iterations, analogous
-to techniques used in block preconditioning. In \Cref{sec:numerics_lin:dg:diff}, a
+to techniques used in block preconditioning. In \Cref{sec:numerics:dg:diff}, a
 numerical example is shown where the proposed method diverges using a single inner
 fixed-point iteration as a preconditioner for $(\eta I - \widehat{\mathcal{L}})$, but
 three (or more) inner fixed-point iterations yields fast, scalable convergence.
 
-% -------------------------- %
-\begin{remark}[Mass matrices]
+% ------------------------------------------------------------------------------------- %
+\subsubsection{Mass matrices}
 
 Recall in the finite element context where mass matrices are involved, we defined
 $\widehat{\mathcal{L}} := \delta t M^{-1}\mathcal{L}$. For a given conjugate pair
@@ -1340,7 +1384,7 @@ and if $M$ and $\mathcal{L}$ are Hermitian, the resulting quadratic system is SP
 and can be solved using preconditioned conjugate gradient or MINRES, preconditioned
 with one application of a preconditioner, the action of $M$, and a second application
 of the preconditioner.
-\end{remark}
+
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -1414,27 +1458,27 @@ The main task here is going to be computing the action of the degree $s-1$ polyn
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
-\section{Numerical results: the linear setting}\label{sec:numerics_lin}
+\section{Numerical results}\label{sec:numerics}
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
-\subsection{Finite-difference advection-diffusion}\label{sec:numerics_lin:fd}
+\subsection{Finite-difference advection-diffusion}\label{sec:numerics:fd}
 
 
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
-\subsection{Discontinuous Galerkin advection-diffusion}\label{sec:numerics_lin:dg}
+\subsection{Discontinuous Galerkin advection(-diffusion)}\label{sec:numerics:dg}
 
 This section considers a more difficult advection-diffusion problem, discretized
 using high-order discontinuous Galerkin finite elements. In particular, we demonstrate
 the effectiveness and scalability of the new preconditioning on more complex flows and 
-DG discretizations (\Cref{fig:ad_advdiff} and \Cref{sec:numerics_lin:dg:adv}),
+DG discretizations (\Cref{fig:ad_advdiff} and \Cref{sec:numerics:dg:adv}),
 the reduction in computational work that can be achieved using large time steps and
-very high-order integration (\Cref{sec:numerics_lin:dg:adv}), and how
+very high-order integration (\Cref{sec:numerics:dg:adv}), and how
 using multiple ``inner'' preconditioning iterations to approximate $\widehat{L}^{-1}$
 (or even inner Krylov acceleration) can be important for the fast, scalable
-application of IRK integration (\Cref{sec:numerics_lin:dg:diff}).
+application of IRK integration (\Cref{sec:numerics:dg:diff}).
 
 
 \todo{Will, can you please add a problem/FEM discretization description here?}
@@ -1485,7 +1529,7 @@ diffusion coefficient $\kappa = 10^{-6}$.
 \end{figure}
 
 % ------------------------------------------------------------------------------------- %
-\subsubsection{High-order \& advection-dominated}\label{sec:numerics_lin:dg:adv}
+\subsubsection{High-order \& advection-dominated}\label{sec:numerics:dg:adv}
 
 First, we demonstrate high-order IRK integration applied to the advection-dominated
 problem in \Cref{fig:ad_advdiff}, using AIR as a preconditioner for the linear
@@ -1547,7 +1591,7 @@ for significant speedups.
 
 
 % ------------------------------------------------------------------------------------- %
-\subsubsection{Diffusive problems and inner Krylov}\label{sec:numerics_lin:dg:diff}
+\subsubsection{Diffusive problems and inner Krylov}\label{sec:numerics:dg:diff}
 
 In \cite{AIR2}, AIR was shown to be effective on some DG advection-diffusion
 problems, and classical AMG is known to be effective on diffusion-dominated
@@ -1603,541 +1647,6 @@ AIR iterations applied for each application of the preconditioner.}
 
 
 
-
-
-% ------------------------------------------------------------------------------------- %
-% ------------------------------------------------------------------------------------- %
-% ------------------------------------------------------------------------------------- %
-\section{The nonlinear setting}\label{sec:nonlinear}
-
-For linear problems, the method developed in \Cref{sec:solve} can be applied on the
-solution level, rather than solving for all stages and updating the solution
-by summing over stages.
-This is beneficial from a memory perspective, being able to achieve very
-high order accuracy while only storing the solution and an auxilliary vector, and
-also allows for the use of CG and MINRES when applicable to the spatial operator.
-
-The time-dependent and nonlinear case is more complicated. Consider
-the simplest cast of a time-independent nonlinear problem and simplified Newton method,
-which only applies the Jacobian based on the current solution. Each
-nonlinear iteration requires the action of the nonlinear operator to compute a residual,
-and this action is implicitly defined by individual stage vectors. The linear algorithm
-developed in \Cref{sec:solve} solves for the summation over stage vectors, and individual
-stages cannot be extracted. Without each stage vector, the action of the nonlinear 
-operator cannot be computed, and even the simplified Newton method cannot be applied.
-Similar difficulties apply for full Newton and Picard iterations for operators with
-and without time-dependent differential components. Reformulating the algorithm
-from \Cref{sec:solve} to store stage vectors also ends up being impractical --
-applying det$\mathcal{M}_s^{-1}$ requires the solution of $s$ linear systems. To store
-each stage vector requires applying det$\mathcal{M}_s^{-1}$ to each one. This
-requires $s^2$ linear solves, which is too expensive to be appealling in practice.
-
-
-% ------------------------------------------------------------------------------------- %
-% ------------------------------------------------------------------------------------- %
-\subsection{Simplified Newton}\label{sec:nonlinear:simp}
-
-Consider developing a similar method as in \Cref{sec:solve}, but which stores all
-vectors and only requires $s$ linear solves. Suppose $\mathcal{L}_i = \mathcal{L}_j$
-for all $i,j$ (as in a simplified Newton method). Returning to \eqref{eq:keq}, the
-stage updates are defined as the solution of the linear system
-%
-\begin{align}\label{eq:keq2}
-\left( A_0^{-1}\otimes I - I\otimes\widehat{\mathcal{L}}\right)
-	(A_0\otimes I) \mathbf{k} & = \mathbf{f}.
-\end{align}
-%
-
-Now, let $A_0^{-1} = Q_0R_0Q_0^T$ be the real Schur decomposition of $A_0^{-1}$, where
-$Q_0$ is real-valued and orthogonal, and $R_0$ is a block
-upper triangular matrix, where each block corresponds to an eigenvalue (pair) of
-$A_0^{-1}$. Real-valued eigenvalues have block size one, and complex eigenvalues
-$\eta\pm i\beta$ are in $2\times 2$ blocks,
-$\begin{bmatrix} \eta & \phi \\-\beta^2/\phi & \eta\end{bmatrix}$, for some
-constant $\phi$.
-Pulling out a $Q_0\otimes I$ and $Q_0^T\otimes I$ from the left and right of
-\eqref{eq:keq2} yields the equivalent linear system
-%
-\begin{align}\label{eq:keq3}
-\left( R_0\otimes I - I \otimes \widehat{\mathcal{L}}\right)
-	(R_0^{-1}Q_0^T\otimes I) \mathbf{k} & = (Q_0^T\otimes I)\mathbf{f}.
-\end{align}
-%
-The left-most matrix is now a block upper triangular matrix, which can be solved
-using a block backward solve, and requires inverting each diagonal block. Diagonal
-blocks corresponding to real-valued eigenvalues $\eta$ take the form
-$(\eta I - \widehat{\mathcal{L}})$, and are amenable to standard preconditioning
-techniques. $2\times 2$ diagonal blocks corresponding to complex eigenvalues
-take the form
-%
-\begin{align}\label{eq:block}
-\begin{bmatrix} \eta I - \widehat{\mathcal{L}} & \phi I\\
--\frac{\beta^2}{\phi} I & \eta I - \widehat{\mathcal{L}}\end{bmatrix}.
-\end{align}
-%
-
-It turns out analogous ideas as used for the adjugate formulation can be applied
-to the $2\times 2$ operator in \eqref{eq:block}. Note that the Schur complement
-of \eqref{eq:block} is given by
-%
-\begin{align}\label{eq:simpSchur}
-S & := \eta I - \widehat{\mathcal{L}} + \beta^2 (\eta I - \widehat{\mathcal{L}})^{-1},
-\end{align}
-%
-and consider a block lower triangular preconditioner for \eqref{eq:block} given by
-%
-\begin{equation}\label{eq:Lprec}
-L_P := \begin{bmatrix} \eta I - \widehat{\mathcal{L}} & \mathbf{0} \\ -\frac{\beta^2}{\phi} I
-	& \widehat{S}\end{bmatrix}^{-1}.
-\end{equation}
-%
-When applying GMRES to block $2\times 2$ operators preconditioned with a lower
-(or upper) triangular preconditioner (analogous to \eqref{eq:Lprec}), convergence 
-is exactly defined by convergence of GMRES applied to the preconditioned Schur
-complement, $\widehat{S}^{-1}S$ \cite{2x2block}. If $\widehat{S} = S$ is exact,
-exact convergence on the larger $2\times2$ system is guaranteed in two iterations
-(or one iteration with a block LDU).
-
-Similar to \Cref{sec:solve:prec}, suppose we precondition $S$ by dropping
-terms corresponding to the complex part of the eigenvalue, $\beta^2$, yielding the
-preconditioned operator
-%
-\begin{align}
-(\eta I - \widehat{\mathcal{L}})^{-1}S &
-= I + \frac{\beta^2}{\eta^2} (I - \tfrac{1}{\eta}\widehat{\mathcal{L}})^{-2}.
-\label{eq:prec2}
-\end{align}
-%
-This is exactly the form we arrived at when analyzing preconditioning using the
-adjugate and determinant in \Cref{sec:solve} and \Cref{th:fov}. Indeed, because
-GMRES convergence of the preconditioned $2\times 2$ operator is defined by GMRES
-convergence on the preconditioned Schur complement \cite{2x2block}, the GMRES
-bounds presented in \Cref{tab:beta} apply here as well.\footnote{Note, for
-symmetric spatial operators, the nonsymmetric matrix in \eqref{eq:block}
-is no longer amenable to CG or MINRES. One option is to scale the second 
-equation in \eqref{eq:block} by $-1$, which yields a symmetric saddle-point
-like operator with definite diagonal blocks. In principle this is amenable
-to MINRES with an SPD preconditioner, but the result is a clustering of
-eigenvalues at $\pm 1$, which typically results in a ``staircasing'' effect
-on convergence and can take roughly twice as many iterations as, e.g.,
-block-triangular preconditioning of the original system \cite{Fischer:1998vj}.}
-Similar to \Cref{sec:solve}, we do not
-want to solve $(\eta I - \widehat{\mathcal{L}})^{-1}$ exactly each iteration. It
-is well-known in the block-preconditioning community that a few iterations of
-an effective preconditioner for the (1,1) block in \eqref{eq:Lprec} typically
-yields convergence on the $2\times 2$ operator just as fast as if performing
-direct solves of the (1,1) block.
-
-Thus, we have an algorithm that is similar in essence to that of \Cref{sec:solve},
-but is able to store all stage vectors and is compatible with a simplified Newton
-iteration. Note, for linear problems, the algorithm from \Cref{sec:solve} is still
-preferable because it requires less memory, the Krylov space only needs to store
-ons stage vector, and three-term Krylov recursion can be used when applicable. 
-The method based on a real Schur decomposition
-also gives important insight into a preconditioning for the fully nonlinear
-and time-dependent setting, which is discussed in the following section. 
-
-
-
-%
-\begin{comment}
-\begin{remark}[Closed form Inverse]
-One might note that the two Schur complements of \eqref{eq:block} are the same, and
-\begin{align*}
-S^{-1} = \mathcal{Q}_\eta^{-1}(\eta I - \widehat{\mathcal{L}}),
-\end{align*}
-with $\mathcal{Q}_\eta$ as in \eqref{eq:imag1}. Using this, one can get a simple
-closed form for the inverse of \eqref{eq:imag1} based on $\mathcal{Q}_\eta^{-1}$.
-However, consistent with the algorithm developed in \Cref{sec:solve}, applying the
-$2\times 2$ inverse requires applying $\mathcal{Q}_\eta^{-1}$ to both stage vectors,
-which doubles the number of linear solves. 
-\end{remark}
-%
-
-
-% See "Parallel iterative linear solvers for multistep Runge-Kutta methods"
-%
-%
-%
-\begin{remark}[A similar approach for $A_0$]
-This is not the first work to consider a real Schur decomposition of $A_0$
-\todo{cite?}. A similar approach can be applied to the traditional Kronkecker
-product form \eqref{eq:kron1}, now transforming $A_0$ (instead of $A_0^{-1}$)
-using the real Schur decomposition. Solving for all stage vectors can then 
-be achieved by solving a similar block upper triangular matrix as in
-\eqref{eq:keq3}, but now the $2\times 2$ block linear systems correspond
-to complex eigenvalues of $A_0$, say $\mu + i\zeta$, and take the form 
-\begin{align*}
-\begin{bmatrix} I - \mu\widehat{\mathcal{L}} & \phi\widehat{\mathcal{L}} \\
-	-\frac{\zeta^2}{\phi}\widehat{\mathcal{L}} & I - \mu\widehat{\mathcal{L}} \end{bmatrix}.
-\end{align*}
-
-An analogous approach as used with the $A_0^{-1}$ transformation
-can be applied here. If we precondition the Schur complement
-$S_0 = (I - \mu \widehat{\mathcal{L}}) +
-\zeta^2(I - \mu \widehat{\mathcal{L}})^{-1}\widehat{\mathcal{L}}^2$ with the
-term associated with the real-valued eigenvalue, $(I - \mu \widehat{\mathcal{L}})$,
-the preconditioned Schur complement is given by
-%
-\begin{align*}
-(I - \mu \widehat{\mathcal{L}})^{-1}S_0
-	& = I -  \frac{\zeta^2}{\mu^2}(I - \tfrac{1}{\mu} \widehat{\mathcal{L}}^{-1})^{-2}.
-\end{align*}
-%
-Note that this closely resembles the preconditioned operator from \eqref{eq:prec1}
-and \eqref{eq:prec2}, but here with a $\widehat{\mathcal{L}}^{-1}$ inside of the
-inverse term, as opposed to a $\widehat{\mathcal{L}}$ in \eqref{eq:prec1}
-and \eqref{eq:prec2}. In \Cref{th:fov}, we assumed that $\widehat{\mathcal{L}}$
-is negative in a field of values sense, equivalent to saying that
-$(\widehat{\mathcal{L}} + \widehat{\mathcal{L}}^T)$ is negative semi-definite.
-However, it holds that if $(\widehat{\mathcal{L}} + \widehat{\mathcal{L}}^T)$ is
-negative semi-definite, then $(\widehat{\mathcal{L}}^{-1} +
-\widehat{\mathcal{L}}^{-T})$ is also negative semi-definite, which yields the
-following corollary.
-\end{remark}
-%
-
-%
-\begin{corollary}[Preconditioned field of values]\label{cor:fov}
-Assume that $\mu > 0$ and the symmetric part of $\widehat{\mathcal{L}}^{-1}$
-satisfies $(\widehat{\mathcal{L}}^{-1}+\widehat{\mathcal{L}}^{-T}) \leq 0$. Let
-$\mathcal{P}_\mu$ denote the preconditioned operator, where
-$(I - \mu \widehat{\mathcal{L}}) +
-	\zeta^2(I - \mu \widehat{\mathcal{L}})^{-1}\widehat{\mathcal{L}}^2$ is
-preconditioned with $(\mu I - \widehat{\mathcal{L}})^{-1}$. Then 
-$W(\mathcal{P}_\mu)$ is contained within a region analogous to $\Omega$ 
-in \Cref{fig:bound}, but with radius $\zeta^2/\mu^2$ (based on the eigenvalues
-of $A_0$) rather than $\beta^2/\eta^2$. 
-\end{corollary}
-\begin{proof}
-The proof follows from the above discussion and analagous derivations to the
-proof of \Cref{th:fov}.
-\end{proof}
-%
-
-\todo{rewrite, comment on $\beta^2/\eta^2$ and $\zeta^2/\mu^2$ being the same
-for all Gauss and RadauIIA methods.}
-\Cref{cor:fov} suggests the $A_0^{-1}$ transformation is not necessary -- one
-can apply the real Schur decomposition to the traditional Kronecker product form 
-\eqref{eq:kron1} and use a similar block preconditioning as introduced in 
-\eqref{eq:Lprec} and \eqref{eq:prec2} to solve the $2\times 2$ blocks associated
-with complex eigenvalues, with similarly nice theoretical bounds on the
-conditioning of the preconditioned operator. Here, we use the $A_0^{-1}$
-approach as it \textit{is} necessary for the linear algorithm developed in
-\Cref{sec:solve}, and also more naturally suggests an extension to the
-general nonlinear setting (for example, full Newton as opposed to simplified
-Newton) in the following section.
-\end{comment}
-
-
-% ------------------------------------------------------------------------------------- %
-% ------------------------------------------------------------------------------------- %
-\subsection{The general setting}\label{sec:nonlinear:gen}
-
-We start by noting that most nonlinear iterations, including Newton, Picard, and
-other fixed-point iterations, can all be expressed as linearly preconditioned
-nonlinear Richardson iterations. For nonlinear functional
-$\mathcal{F}(\mathbf{x}) = 0$, such an iteration takes the form
-%
-\begin{align}\label{eq:non_rich}
-\mathbf{x}_{k+1} = \mathbf{x}_k + \mathcal{P}^{-1}\mathcal{F}(\mathbf{x}_k).
-\end{align}
-%
-For preconditioner $\mathcal{P} := -J[\mathbf{x}_k]$ given by the (negative)
-Jacobian of $\mathcal{F}(\mathbf{x})$ evaluated at $\mathbf{x}_k$, \eqref{eq:non_rich}
-yields a Newton iteration. For $\mathcal{P}$ given by a zero-th order linearization
-of $\mathcal{F}(\mathbf{x})$ (the nonlinear operator evaluated at $\mathbf{x}_k$),
-\eqref{eq:non_rich} yields a Picard iteration. In general, thinking of nonlinear
-iterations as linear preconditioners for nonlinear Richardson iterations
-\eqref{eq:non_rich} naturally allows for various levels of approximation,
-which is the focus of this section. 
-
-Now let us return to \eqref{eq:keq} for $\mathcal{L}_i\neq\mathcal{L}_j$, but
-extract the real Schur decomposition as in \Cref{sec:nonlinear:gen}. Continuing
-with the simplified representation $\widehat{\mathcal{L}}_i := \delta t M^{-1}\mathcal{L}_i$,
-this yields the linear system
-%
-\begin{align}\label{eq:keq4}
-\left( R_0\otimes I - (Q_0^T\otimes I) \begin{bmatrix}
-	\widehat{\mathcal{L}}_1  & \\ & \ddots \\ && \widehat{\mathcal{L}}_s\end{bmatrix}
-	(Q_0\otimes I)\right) (R_0^{-1}Q_0^T\otimes I) \mathbf{k}\
-= (Q_0^T\otimes I)\mathbf{f}.
-\end{align}
-%
-Picard and Newton iterations both require the solution of such a system each
-iteration (see $\mathcal{P}^{-1}$ in \eqref{eq:non_rich}). Here we propose 
-approximations to the solution of \eqref{eq:keq4} that are (i) solvable using
-techniques similar to \Cref{sec:nonlinear:simp}, and (ii) yield nonlinear 
-convergence close to a true Newton or Picard iteration. In principle, these
-approximations can also be iterated to convergence in the linear sense, yielding
-a precise Newton or Picard iteration, but here we opt to resolve the approximations
-(i.e., converge) in the nonlinear iteration. Similar to inexact Newton methods,
-such an approach is often more efficient in practice than computing, e.g., an exact
-Jacobian. 
-
-% Note, it is important to express Picard and fixed-point iterations in the 
-% form of a Newton-like method to use the preconditioning techniques developed
-% in this paper! By expressing it as a Newton-like method, we are approximating
-% the Jacobian and will still converge to the solution of the nonlinear functional
-% $\mathcal{F} = 0$ when adding levels of approximation as in \Cref{sec:nonlinear:gen}.
-% A traditional Picard iteration relies on converging exactly to the fixed-point
-% $\mathcal{G}(\mathbf{k}) = \mathbf{k}$ via iterates $\mathbf{k}^{k+1} =
-% \mathcal{G}(\mathbf{k}^k)$. Within this iteration there is delicate cancellation
-% that result from solving directly for $\mathbf{k}^{k+1}$ rather than a correction,
-% and approximating $\mathcal{G}$ would result in convergence to a different problem.
-
-To develop effective approximations, we are particularly interested in the operator
-%
-\begin{align}\label{eq:Q0approx}
-\widehat{P} \coloneqq (Q_0^T\otimes I) \begin{bmatrix}
-	\widehat{\mathcal{L}}_1  & \\ & \ddots \\ && \widehat{\mathcal{L}}_s\end{bmatrix}
-	(Q_0\otimes I)
-= \begin{bmatrix}
-	\bm{c}^\top_{1,1} \bm{{\cal L}}' & \cdots & \bm{c}^\top_{1,s} \bm{{\cal L}}' \\
-	\vdots & & \vdots \\
-	\bm{c}^\top_{s,1} \bm{{\cal L}}' & \cdots & \bm{c}^\top_{s,s} \bm{{\cal L}}'
-	\end{bmatrix},
-\end{align}
-%
-where $\bm{c}^\top_{k,\ell} = \Big((Q_0^\top)_{k ,1} (Q_0)_{1, \ell},
-\ldots, (Q_0^\top)_{k, s} (Q_0)_{s, \ell} \Big) \in \mathbb{R}^s$ is a scalar row
-vector, $\bm{{\cal L}}' = (\widehat{\mathcal{L}}_1; \ldots; \widehat{\mathcal{L}}_s)$
-is a block column vector of the linearized operators, and
-%
-\begin{align*}
-\bm{c}^\top_{k,\ell} \bm{{\cal L}}' = \sum \limits_{i = 1}^s (\bm{c}_{k, \ell})_i
-	\widehat{\mathcal{L}}_i.
-\end{align*}
-%
-For $\widehat{\mathcal{L}}_i = \widehat{\mathcal{L}}_j$, \eqref{eq:Q0approx}
-is block diagonal, given by $I\otimes\widehat{\mathcal{L}}$. For
-$\widehat{\mathcal{L}}_i \neq \widehat{\mathcal{L}}_j$, note that
-$\sum_{i=1}^s (\bm{c}_{k, \ell})_i = 1$, while for off-diagonal blocks
-$\sum_{i=1}^s (\bm{c}_{k, \ell})_i = 0$.
-Due to the off-diagonal zero sums, here we claim that \eqref{eq:Q0approx}
-can be well-approximated by some block-diagonal or block upper triangular
-approximation, which can then be easily inverted using block backward
-substitution.
-
-As an example, consider \eqref{eq:Q0approx} for the two-stage Gauss and
-RadauIIA methods in bracket notation, where, e.g., $\{a_1,a_2,a_3\}\mapsto 
-a_1\widehat{\mathcal{L}}_1 + a_2\widehat{\mathcal{L}}_2 + a_3\widehat{\mathcal{L}}_3$:
-%
-\begin{align*}
-\textnormal{Gauss(2):} \hspace{1ex}
-	\begin{bmatrix}
-	\{1,0\} & \{0,0\} \\
-	 \{0,0\} & \{0,1\} \\
-	\end{bmatrix},
-	\hspace{3ex}
-\textnormal{RadauIIA(2):} \hspace{1ex}
-	\begin{bmatrix}
-	\{0.985,0.014\} & \{0.121,-0.121\}\\
-	\{0.121,-0.121\} & \{0.014,0.985\}\\
-	\end{bmatrix}.
-\end{align*}
-%
-Recall in the matrices above, the constants in diagonal brackets always sum to
-one and off-diagonal sum to zero, wherein if $\widehat{\mathcal{L}}_i = \widehat{\mathcal{L}}_j$
-for all $i,j$, each of the operators is the identity.
-
-Note that there is no approximation in two-stage Gauss, that is, it is
-straightforward to apply a true Newton or Picard iteration to two-stage
-Gauss using preconditioning techniques developed in \Cref{sec:nonlinear:simp}.
-For two-stage RadauIIA, we see that the diagonal blocks are almost
-defined by the (linearized) operator evaluated at a single time step, which
-provides a natural and simple approximation. The off-diagonal blocks are
-simply a measure of commutation, $0.121(\widehat{\mathcal{L}}_1 - \widehat{\mathcal{L}}_2)$.
-Such entries could be included in the preconditioning for the upper
-triangular portion of the matrix (adding a few additional mat-vecs and
-memory usage), or simply ignored under the assumption that $\widehat{\mathcal{L}}_1 -
-\widehat{\mathcal{L}}_2$ is ``small'' in some sense. Even for reasonably stiff 
-problems, the operator often does not change substantially between
-two stages -- if it did, e.g., due to a shockwave, the larger time step
-may not be small enough to accurately resolve the nonlinear behavior in
-the first place. Similar structure as discussed for the two-stage methods
-holds for other methods as well. For example, the coefficients for four-stage
-Gauss are given by:
-%
-\begin{align*}
-\textnormal{Gauss(4):}& \hspace{1ex}
-\left[\begin{matrix}
-\{0.002,0.014,0.012,\mathbf{0.970}\} & \{0.001,-0.011,-0.110,0.120\} \\
-\{0.001,-0.011,-0.110,0.120\} & \{0.000,0.008,\mathbf{0.975},0.014\} \\
-\{-0.016,-0.113,0.010,0.119\} & \{-0.007,0.085,-0.093,0.014\} \\
-\{-0.045,0.041,-0.005,0.009\} & \{-0.021,-0.031,0.051,0.001\}
-\end{matrix}\right.
-\\&\hspace{5ex}
-\left.\begin{matrix}
-\{-0.016,-0.113,0.010,0.119\} & \{-0.045,0.041,-0.005,0.009\}\\
-\{-0.007,0.085,-0.093,0.014\} & \{-0.021,-0.031,0.051,0.001\}\\
-\{0.113,\mathbf{0.863},0.008,0.014\} & \{0.316,-0.312,-0.004,0.001\}\\
-\{0.316,-0.312,-0.004,0.001\} & \{\mathbf{0.883},0.113,0.002,0.000\}\\
-\end{matrix}\right].
-\end{align*}
-%
-Analogous to the two-stage case, note that the diagonal blocks are largely
-defined by $\widehat{\mathcal{L}}$ evaluated at a single time point (coefficient
-shown in bold). Moreover, not only are the off-diagonal constants
-a measure of commutivity, many of them are quite small in the first place;
-then, regardless of commutivity, ignoring such terms in the lower-triangular
-or off-diagonal blocks is a natural preconditioning. 
-
-Motivated by the above discussion, we construct {block upper triangular}
-$\widetilde{P} \approx \widehat{P}$ as Newton-like methods (or more
-generally some fixed-point iteration as in \eqref{eq:non_rich}) which has
-a (block) sparsity pattern contained within that of $R_0 \otimes I$. Recall
-by constructing $\widetilde{P}$ to be block upper triangular, we can then
-invert the resulting operator
-%
-\begin{align}
-R_0 \otimes M - \delta t \widehat{P} \approx R_0 \otimes I -  \delta t \widetilde{P}
-\end{align}
-%
-via block backward substitution, applying preconditioning to each $1\times 1$
-or $2\times 2$ diagonal blocks as in \Cref{sec:nonlinear:simp}.
-In addition to the simplified Newton
-method discussed in \Cref{sec:nonlinear:simp}, we propose three (successively
-more accurate) approximations to \eqref{eq:Q0approx}:
-\vspace{1ex}
-%
-\begin{enumerate}
-\setlength\itemsep{0.5em}
-\item[0.] \underline{Simplified Newton:} as in \Cref{sec:nonlinear:simp}, apply a
-simplified Newton method by evaluating $\mathcal{L}$ at the same time point for
-all stages.
-
-\item \underline{Newton-Like(1):} Truncate $\widehat{P}$ to be block diagonal and
-lump the coefficients of $\bm{c}_{ii}$ to the largest one so that each diagonal
-block of $\widehat{P}$ contains only one matrix from $\bm{{\cal L}}'$.
-
-\item \underline{Newton-Like(2):} Truncate $\widehat{P}$ to be block diagonal
-(can include the off-diagonal entries in $2 \times 2$ diagonal blocks, or not)
-\todo{How is this implemented?}
-
-\item \underline{Newton-Like(3):} Truncate $\widehat{P}$ to be block upper triangular.
-This option adds a number of matrix-vector products and requires storing $\mathcal{L}_i$ 
-in memory for multiple $i$, but is also the best approximation to an exact Newton or
-Picard iteration.
-
-\end{enumerate}
-
-
-% ------------------------------------------------------------------------------------- %
-% ------------------------------------------------------------------------------------- %
-% ------------------------------------------------------------------------------------- %
-\section{Numerical results: the nonlinear setting}\label{sec:numerics_nonlin}
-
-% ------------------------------------------------------------------------------------- %
-% ------------------------------------------------------------------------------------- %
-\subsection{Nonlinear advection-diffusion}\label{sec:numerics_nonlin:advdiff}
-
-
-
-% % ------------------------------------------------------------------------------------- %
-% % ------------------------------------------------------------------------------------- %
-% \subsection{Nonlinear heat conduction}\label{sec:numerics_nonlin:heat}
-
-% Consider Example 16p in MFEM, which solves a nonlinear heat conduction equation
-% %
-% \begin{align*}
-% u_t  & = \nabla\cdot (\kappa + \alpha u) \nabla u.
-% \end{align*}
-% %
-% Let us express the diffusion as a nonlinear matrix-valued operator $K(u)$ with
-% potential forcing function $f(t)$. Discretizing in space we can express the semidiscrete 
-% system as the nonlinear set of equations
-% %
-% \begin{align*}
-% M\mathbf{u}_t & = K(\mathbf{u})\mathbf{u} + \mathbf{f}.
-% \end{align*}
-% %
-% Here we demonstrate how a typical Picard linearization can fit into the 
-% framework developed above. Let $\mathbf{u}_i$ denote $\mathbf{u}$ at the $i$th
-% time step, and consider a backward Euler step,
-% %
-% \begin{align*}
-% M\mathbf{u}_{i+1} & = M\mathbf{u}_i + \delta tK(\mathbf{u}_{i+1}) + \mathbf{f}.
-% \end{align*}
-% %
-% Rearranging yields a nonlinear system $\mathcal{F}(\mathbf{u}_{i+1}) = \mathbf{0}$,
-% where
-% %
-% \begin{align*}
-% \mathcal{F}(\mathbf{u}_{i+1}) := 
-% 	(M - \delta t K(\mathbf{u}_{i+1}))\mathbf{u}_{i+1} - M\mathbf{u}_i - \mathbf{f}.
-% \end{align*}
-% %
-% We can invert the matrix-valued operator as a linear preconditioning, leading
-% to an equivalent nonlinear system $\mathcal{H}(\mathbf{u}_{i+1}) = \mathbf{0}$,
-% where
-% %
-% \begin{align*}
-% \mathcal{H}(\mathbf{u}_{i+1}) := 
-% 	(M - \delta t K(\mathbf{u}_{i+1}))^{-1}(M\mathbf{u}_i + \mathbf{f}) - \mathbf{u}_{i+1}.
-% \end{align*}
-% %
-% Finally, we formulate a Picard iteration by defining $\mathcal{G}(\mathbf{u}_{i+1}) :=
-% \mathcal{H}(\mathbf{u}_{i+1}) + \mathbf{u}_{i+1}$, and noting that
-% $\mathbf{G}(\mathbf{u}_{i+1}) = \mathbf{u}_{i+1}$ if and only if
-% $\mathcal{F}(\mathbf{u}_{i+1}) = \mathbf{0}$. Fixed-point iterations are then
-% given by 
-% %
-% \begin{align*}
-% \mathbf{u}_{i+1}^{k+1} & = \mathcal{G}(\mathbf{u}_{i+1}^k) \\
-% & = (M - \delta t K(\mathbf{u}_{i+1}^k))^{-1}(M\mathbf{u}_i + \mathbf{f}), \\
-% \Longleftrightarrow\hspace{5ex}
-% (M - \delta t K(\mathbf{u}_{i+1}^k))\mathbf{u}_{i+1}^k& = M\mathbf{u}_i + \mathbf{f}.\
-% \end{align*}
-% %
-
-% In fact, this is exactly a Newton-like iteration approximating the Jacobian of
-% $\mathcal{F}(\mathbf{u}_{i+1})$ evaluated at $\mathbf{u}_{i+1}^k$ as
-% $J[\mathbf{u}_{i+1}^k] \approx (M - \delta t K(\mathbf{u}_{i+1}^k))$. We use
-% this observation to extend the same principle to IRK methods, approximating
-% the Jacobian for the stage equations \eqref{eq:stages} evaluated at the previous
-% stage vectors as
-% %
-% \begin{align*}
-% &J[\mathbf{k}_1^{k},...,\mathbf{k}_s^k] \approx \\
-% &\begin{bmatrix} M \\ & \ddots & \\ && M \end{bmatrix} - \delta t
-% 	\begin{bmatrix} a_{11}K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
-% 	a_{1j}\mathbf{k}_j^k\right) & ... & a_{1s}K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
-% 	a_{ij}\mathbf{k}_j^k\right) \\
-% 	\vdots & \ddots & \vdots \\
-% 	a_{s1}K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
-% 	a_{sj}\mathbf{k}_j^k\right) & ... & a_{ss}K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
-% 	a_{sj}\mathbf{k}_j^k\right)
-% 	\end{bmatrix}.
-% \end{align*}
-% %
-% Letting $\mathcal{L}_i := K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
-% a_{ij}\mathbf{k}_j^k\right)$ denote the approximate jacobian for the
-% $i$th row, we can proceed exactly as discussed in \Cref{sec:nonlinear}.
-
-% %
-% \begin{remark}[Picard as a Newton-like method]
-% Note, it is important to express Picard and fixed-point iterations in the 
-% form of a Newton-like method to use the preconditioning techniques developed
-% in this paper! By expressing it as a Newton-like method, we are approximating
-% the Jacobian and will still converge to the solution of the nonlinear functional
-% $\mathcal{F} = 0$ when adding levels of approximation as in \Cref{sec:nonlinear:gen}.
-% A traditional Picard iteration relies on converging exactly to the fixed-point
-% $\mathcal{G}(\mathbf{k}) = \mathbf{k}$ via iterates $\mathbf{k}^{k+1} =
-% \mathcal{G}(\mathbf{k}^k)$. Within this iteration there is delicate cancellation
-% that result from solving directly for $\mathbf{k}^{k+1}$ rather than a correction,
-% and approximating $\mathcal{G}$ would result in convergence to a different problem.
-% \end{remark}
-% %
-
-% ------------------------------------------------------------------------------------- %
-% ------------------------------------------------------------------------------------- %
-\subsection{Compressible Navier Stokes}\label{sec:numerics_nonlin:ns}
-
-
-
-
-
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -2148,371 +1657,9 @@ solution of fully implicit Runge-Kutta methods in numerical PDEs (without algebr
 constraints). A field-of-values analysis is derived to guarantee rapid Krylov
 convergence...\todo{finish}
 
-
-% % ------------------------------------------------------------------------------------- %
-% % ------------------------------------------------------------------------------------- %
-% % ------------------------------------------------------------------------------------- %
-% \section*{Appendix}
-
-% % ------------------------------------------------------------------------------------- %
-% % ------------------------------------------------------------------------------------- %
-% \subsection{Real Schur decomposition applied to general operators}
-
-% Here we write out $(Q_0^T\otimes I)\boldsymbol{\mathcal{L}}(Q_0\otimes I)$
-% in bracket notation, where, e.g., $\{a_1,a_2,a_3\}\mapsto a_1\mathcal{L}_1 + a_2\mathcal{L}_2 + 
-% a_3\mathcal{L}_3$. Note in the matrices below, the constants in diagonal brackets always
-% sum to one and off-diagonal sum to zero, wherein if $\mathcal{L}_i = \mathcal{L}_j$ for
-% all $i,j$, each of the following operators is the identity.
-
-% % ------------------------------------------------------------------------------------- %
-% \subsubsection*{Gauss}
-
-% %
-% \textbf{2-stage:}
-% \begin{align*}
-% \begin{bmatrix}
-% \{1,0\} & \{0,0\} \\
-%  \{0,0\} & \{0,1\} \\
-% \end{bmatrix}
-% \end{align*}
-% %
-% \textbf{3,-stage:}
-% \begin{align*}
-% \begin{bmatrix}
-% \{0.002,0.565,0.432\} & \{-0.038,-0.245,0.284\} & \{0.024,-0.430,0.405\}\\
-% \{-0.038,-0.245,0.284\} & \{0.705,0.107,0.187\} & \{-0.453,0.187,0.266\}\\
-% \{0.024,-0.430,0.405\} & \{-0.453,0.187,0.266\} & \{0.291,0.327,0.380\}\\
-% \end{bmatrix}
-% \end{align*}
-% %
-% \textbf{4,-stage:}
-% \begin{align*}
-% \begin{bmatrix}
-% \{0.002,0.014,0.012,0.970\} & \{0.001,-0.011,-0.110,0.120\} & \{-0.016,-0.113,0.010,0.119\} & \{-0.045,0.041,-0.005,0.009\}\\
-% \{0.001,-0.011,-0.110,0.120\} & \{0.000,0.008,0.975,0.014\} & \{-0.007,0.085,-0.093,0.014\} & \{-0.021,-0.031,0.051,0.001\}\\
-% \{-0.016,-0.113,0.010,0.119\} & \{-0.007,0.085,-0.093,0.014\} & \{0.113,0.863,0.008,0.014\} & \{0.316,-0.312,-0.004,0.001\}\\
-% \{-0.045,0.041,-0.005,0.009\} & \{-0.021,-0.031,0.051,0.001\} & \{0.316,-0.312,-0.004,0.001\} & \{0.883,0.113,0.002,0.000\}\\
-% \end{bmatrix}
-% \end{align*}
-
-
-% %,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-%
-% \subsubsection*{RadauIIA}
-
-% %
-% \textbf{2,-stage:}
-% \begin{align*}
-% \begin{bmatrix}
-% \{0.985,0.014\} & \{0.121,-0.121\}\\
-% \{0.121,-0.121\} & \{0.014,0.985\}\\
-% \end{bmatrix}
-% \end{align*}
-% %
-% \textbf{3,-stage:}
-% \begin{align*}
-% \begin{bmatrix}
-% \{0.019,0.052,0.928\} & \{0.006,0.222,-0.229\} & \{0.137,-0.017,-0.119\}\\
-% \{0.006,0.222,-0.229\} & \{0.002,0.941,0.056\} & \{0.045,-0.075,0.029\}\\
-% \{0.137,-0.017,-0.119\} & \{0.045,-0.075,0.029\} & \{0.978,0.006,0.015\}\\
-% \end{bmatrix}
-% \end{align*}
-% %
-% \textbf{4,-stage:}
-% \begin{align*}
-% \begin{bmatrix}
-% \{0.002,0.031,0.103,0.862\} & \{0.006,0.022,-0.301,0.272\} & \{0.052,-0.049,0.025,-0.028\} & \{-0.014,-0.166,-0.029,0.209\}\\
-% \{0.006,0.022,-0.301,0.272\} & \{0.015,0.016,0.882,0.085\} & \{0.120,-0.035,-0.075,-0.009\} & \{-0.032,-0.118,0.084,0.066\}\\
-% \{0.052,-0.049,0.025,-0.028\} & \{0.120,-0.035,-0.075,-0.009\} & \{0.915,0.077,0.006,0.000\} & \{-0.245,0.260,-0.007,-0.006\}\\
-% \{-0.014,-0.166,-0.029,0.209\} & \{-0.032,-0.118,0.084,0.066\} & \{-0.245,0.260,-0.007,-0.006\} & \{0.066,0.874,0.008,0.050\}\\
-% \end{bmatrix}
-% \end{align*}
-
 % ------------------------------------------------------------------------------- %
 \bibliographystyle{siamplain}
 \bibliography{refs2.bib}
 
 
 \end{document}
-
-
-ADJUGATE FORMS, b^T * A0^{-1} * Adj(Ms)
-Let M = A0^{-1}, with entries {m_ij}, b = b[b1,...,bs], and xx = spatial operator L
-
-Stiffly accurate RK (b0^TA0^{-1} = [0,...,0,1])
------------------------------------------------
-s = 2
-  -m21,
-  m11 - xx
-
-s = 3
-  -m22 m31 + m21 m32 + m31 xx, 
-  m12 m31 - m11 m32 + m32 xx,
-  -m12 m21 + m11 m22 - m11 xx - m22 xx + xx^2
-
-s = 4
-  m23 m32 m41 - m22 m33 m41 - m23 m31 m42 + m21 m33 m42 + m22 m31 m43 - 
-	 m21 m32 m43 + m22 m41 xx + m33 m41 xx - m21 m42 xx - m31 m43 xx - 
-	 m41 xx^2,
-  -m13 m32 m41 + m12 m33 m41 + m13 m31 m42 - m11 m33 m42 - 
-	 m12 m31 m43 + m11 m32 m43 - m12 m41 xx + m11 m42 xx + m33 m42 xx - 
-	 m32 m43 xx - m42 xx^2, 
-  m13 m22 m41 - m12 m23 m41 - m13 m21 m42 + m11 m23 m42 + m12 m21 m43 - 
-	 m11 m22 m43 - m13 m41 xx - m23 m42 xx + m11 m43 xx + m22 m43 xx - 
-	 m43 xx^2,
-  -m13 m22 m31 + m12 m23 m31 + m13 m21 m32 - m11 m23 m32 - 
-	 m12 m21 m33 + m11 m22 m33 + m12 m21 xx - m11 m22 xx + m13 m31 xx + 
-	 m23 m32 xx - m11 m33 xx - m22 m33 xx + m11 xx^2 + m22 xx^2 + 
-	 m33 xx^2 - xx^3
-
-s = 5
-  m24 m33 m42 m51 - m23 m34 m42 m51 - m24 m32 m43 m51 + 
-	  m22 m34 m43 m51 + m23 m32 m44 m51 - m22 m33 m44 m51 - 
-	  m24 m33 m41 m52 + m23 m34 m41 m52 + m24 m31 m43 m52 - 
-	  m21 m34 m43 m52 - m23 m31 m44 m52 + m21 m33 m44 m52 + 
-	  m24 m32 m41 m53 - m22 m34 m41 m53 - m24 m31 m42 m53 + 
-	  m21 m34 m42 m53 + m22 m31 m44 m53 - m21 m32 m44 m53 - 
-	  m23 m32 m41 m54 + m22 m33 m41 m54 + m23 m31 m42 m54 - 
-	  m21 m33 m42 m54 - m22 m31 m43 m54 + m21 m32 m43 m54 - 
-	  m23 m32 m51 xx + m22 m33 m51 xx - m24 m42 m51 xx - m34 m43 m51 xx + 
-	  m22 m44 m51 xx + m33 m44 m51 xx + m23 m31 m52 xx - m21 m33 m52 xx + 
-	  m24 m41 m52 xx - m21 m44 m52 xx - m22 m31 m53 xx + m21 m32 m53 xx + 
-	  m34 m41 m53 xx - m31 m44 m53 xx - m22 m41 m54 xx - m33 m41 m54 xx + 
-	  m21 m42 m54 xx + m31 m43 m54 xx - m22 m51 xx^2 - m33 m51 xx^2 - 
-	  m44 m51 xx^2 + m21 m52 xx^2 + m31 m53 xx^2 + m41 m54 xx^2 + 
-	  m51 xx^3,
-  -m14 m33 m42 m51 + m13 m34 m42 m51 + m14 m32 m43 m51 - 
-	  m12 m34 m43 m51 - m13 m32 m44 m51 + m12 m33 m44 m51 + 
-	  m14 m33 m41 m52 - m13 m34 m41 m52 - m14 m31 m43 m52 + 
-	  m11 m34 m43 m52 + m13 m31 m44 m52 - m11 m33 m44 m52 - 
-	  m14 m32 m41 m53 + m12 m34 m41 m53 + m14 m31 m42 m53 - 
-	  m11 m34 m42 m53 - m12 m31 m44 m53 + m11 m32 m44 m53 + 
-	  m13 m32 m41 m54 - m12 m33 m41 m54 - m13 m31 m42 m54 + 
-	  m11 m33 m42 m54 + m12 m31 m43 m54 - m11 m32 m43 m54 + 
-	  m13 m32 m51 xx - m12 m33 m51 xx + m14 m42 m51 xx - m12 m44 m51 xx - 
-	  m13 m31 m52 xx + m11 m33 m52 xx - m14 m41 m52 xx - m34 m43 m52 xx + 
-	  m11 m44 m52 xx + m33 m44 m52 xx + m12 m31 m53 xx - m11 m32 m53 xx + 
-	  m34 m42 m53 xx - m32 m44 m53 xx + m12 m41 m54 xx - m11 m42 m54 xx - 
-	  m33 m42 m54 xx + m32 m43 m54 xx + m12 m51 xx^2 - m11 m52 xx^2 - 
-	  m33 m52 xx^2 - m44 m52 xx^2 + m32 m53 xx^2 + m42 m54 xx^2 + 
-	  m52 xx^3, 
-  m14 m23 m42 m51 - m13 m24 m42 m51 - m14 m22 m43 m51 + 
-	  m12 m24 m43 m51 + m13 m22 m44 m51 - m12 m23 m44 m51 - 
-	  m14 m23 m41 m52 + m13 m24 m41 m52 + m14 m21 m43 m52 - 
-	  m11 m24 m43 m52 - m13 m21 m44 m52 + m11 m23 m44 m52 + 
-	  m14 m22 m41 m53 - m12 m24 m41 m53 - m14 m21 m42 m53 + 
-	  m11 m24 m42 m53 + m12 m21 m44 m53 - m11 m22 m44 m53 - 
-	  m13 m22 m41 m54 + m12 m23 m41 m54 + m13 m21 m42 m54 - 
-	  m11 m23 m42 m54 - m12 m21 m43 m54 + m11 m22 m43 m54 - 
-	  m13 m22 m51 xx + m12 m23 m51 xx + m14 m43 m51 xx - m13 m44 m51 xx + 
-	  m13 m21 m52 xx - m11 m23 m52 xx + m24 m43 m52 xx - m23 m44 m52 xx - 
-	  m12 m21 m53 xx + m11 m22 m53 xx - m14 m41 m53 xx - m24 m42 m53 xx + 
-	  m11 m44 m53 xx + m22 m44 m53 xx + m13 m41 m54 xx + m23 m42 m54 xx - 
-	  m11 m43 m54 xx - m22 m43 m54 xx + m13 m51 xx^2 + m23 m52 xx^2 - 
-	  m11 m53 xx^2 - m22 m53 xx^2 - m44 m53 xx^2 + m43 m54 xx^2 + 
-	  m53 xx^3,
-  -m14 m23 m32 m51 + m13 m24 m32 m51 + m14 m22 m33 m51 - 
-	  m12 m24 m33 m51 - m13 m22 m34 m51 + m12 m23 m34 m51 + 
-	  m14 m23 m31 m52 - m13 m24 m31 m52 - m14 m21 m33 m52 + 
-	  m11 m24 m33 m52 + m13 m21 m34 m52 - m11 m23 m34 m52 - 
-	  m14 m22 m31 m53 + m12 m24 m31 m53 + m14 m21 m32 m53 - 
-	  m11 m24 m32 m53 - m12 m21 m34 m53 + m11 m22 m34 m53 + 
-	  m13 m22 m31 m54 - m12 m23 m31 m54 - m13 m21 m32 m54 + 
-	  m11 m23 m32 m54 + m12 m21 m33 m54 - m11 m22 m33 m54 - 
-	  m14 m22 m51 xx + m12 m24 m51 xx - m14 m33 m51 xx + m13 m34 m51 xx + 
-	  m14 m21 m52 xx - m11 m24 m52 xx - m24 m33 m52 xx + m23 m34 m52 xx + 
-	  m14 m31 m53 xx + m24 m32 m53 xx - m11 m34 m53 xx - m22 m34 m53 xx - 
-	  m12 m21 m54 xx + m11 m22 m54 xx - m13 m31 m54 xx - m23 m32 m54 xx + 
-	  m11 m33 m54 xx + m22 m33 m54 xx + m14 m51 xx^2 + m24 m52 xx^2 + 
-	  m34 m53 xx^2 - m11 m54 xx^2 - m22 m54 xx^2 - m33 m54 xx^2 + 
-	  m54 xx^3, 
-  m14 m23 m32 m41 - m13 m24 m32 m41 - m14 m22 m33 m41 + 
-	  m12 m24 m33 m41 + m13 m22 m34 m41 - m12 m23 m34 m41 - 
-	  m14 m23 m31 m42 + m13 m24 m31 m42 + m14 m21 m33 m42 - 
-	  m11 m24 m33 m42 - m13 m21 m34 m42 + m11 m23 m34 m42 + 
-	  m14 m22 m31 m43 - m12 m24 m31 m43 - m14 m21 m32 m43 + 
-	  m11 m24 m32 m43 + m12 m21 m34 m43 - m11 m22 m34 m43 - 
-	  m13 m22 m31 m44 + m12 m23 m31 m44 + m13 m21 m32 m44 - 
-	  m11 m23 m32 m44 - m12 m21 m33 m44 + m11 m22 m33 m44 + 
-	  m13 m22 m31 xx - m12 m23 m31 xx - m13 m21 m32 xx + m11 m23 m32 xx + 
-	  m12 m21 m33 xx - m11 m22 m33 xx + m14 m22 m41 xx - m12 m24 m41 xx + 
-	  m14 m33 m41 xx - m13 m34 m41 xx - m14 m21 m42 xx + m11 m24 m42 xx + 
-	  m24 m33 m42 xx - m23 m34 m42 xx - m14 m31 m43 xx - m24 m32 m43 xx + 
-	  m11 m34 m43 xx + m22 m34 m43 xx + m12 m21 m44 xx - m11 m22 m44 xx + 
-	  m13 m31 m44 xx + m23 m32 m44 xx - m11 m33 m44 xx - m22 m33 m44 xx - 
-	  m12 m21 xx^2 + m11 m22 xx^2 - m13 m31 xx^2 - m23 m32 xx^2 + 
-	  m11 m33 xx^2 + m22 m33 xx^2 - m14 m41 xx^2 - m24 m42 xx^2 - 
-	  m34 m43 xx^2 + m11 m44 xx^2 + m22 m44 xx^2 + m33 m44 xx^2 - 
-	  m11 xx^3 - m22 xx^3 - m33 xx^3 - m44 xx^3 + xx^4
-
-Full implicit RK
-----------------
-s = 2
-  -b1 m12 m21 + b1 m11 m22 - b1 m11 xx - b2 m21 xx,
-  -b2 m12 m21 + b2 m11 m22 - b1 m12 xx - b2 m22 xx
-
-s = 3
-  -b1 m13 m22 m31 + b1 m12 m23 m31 + b1 m13 m21 m32 - b1 m11 m23 m32 -
-     b1 m12 m21 m33 + b1 m11 m22 m33 + b1 m12 m21 xx - b1 m11 m22 xx + 
-     b1 m13 m31 xx - b3 m22 m31 xx + b2 m23 m31 xx + b3 m21 m32 xx - 
-     b1 m11 m33 xx - b2 m21 m33 xx + b1 m11 xx^2 + b2 m21 xx^2 + 
-     b3 m31 xx^2,
-  -b2 m13 m22 m31 + b2 m12 m23 m31 + b2 m13 m21 m32 - 
-     b2 m11 m23 m32 - b2 m12 m21 m33 + b2 m11 m22 m33 + b2 m12 m21 xx - 
-     b2 m11 m22 xx + b3 m12 m31 xx - b3 m11 m32 xx + b1 m13 m32 xx + 
-     b2 m23 m32 xx - b1 m12 m33 xx - b2 m22 m33 xx + b1 m12 xx^2 + 
-     b2 m22 xx^2 + b3 m32 xx^2,
-  -b3 m13 m22 m31 + b3 m12 m23 m31 + 
-     b3 m13 m21 m32 - b3 m11 m23 m32 - b3 m12 m21 m33 + b3 m11 m22 m33 +
-     b2 m13 m21 xx - b1 m13 m22 xx - b2 m11 m23 xx + b1 m12 m23 xx + 
-     b3 m13 m31 xx + b3 m23 m32 xx - b3 m11 m33 xx - b3 m22 m33 xx + 
-     b1 m13 xx^2 + b2 m23 xx^2 + b3 m33 xx^2
-
-s = 4
-  b1 m14 m23 m32 m41 - b1 m13 m24 m32 m41 - b1 m14 m22 m33 m41 + 
-	  b1 m12 m24 m33 m41 + b1 m13 m22 m34 m41 - b1 m12 m23 m34 m41 - 
-	  b1 m14 m23 m31 m42 + b1 m13 m24 m31 m42 + b1 m14 m21 m33 m42 - 
-	  b1 m11 m24 m33 m42 - b1 m13 m21 m34 m42 + b1 m11 m23 m34 m42 + 
-	  b1 m14 m22 m31 m43 - b1 m12 m24 m31 m43 - b1 m14 m21 m32 m43 + 
-	  b1 m11 m24 m32 m43 + b1 m12 m21 m34 m43 - b1 m11 m22 m34 m43 - 
-	  b1 m13 m22 m31 m44 + b1 m12 m23 m31 m44 + b1 m13 m21 m32 m44 - 
-	  b1 m11 m23 m32 m44 - b1 m12 m21 m33 m44 + b1 m11 m22 m33 m44 + 
-	  b1 m13 m22 m31 xx - b1 m12 m23 m31 xx - b1 m13 m21 m32 xx + 
-	  b1 m11 m23 m32 xx + b1 m12 m21 m33 xx - b1 m11 m22 m33 xx + 
-	  b1 m14 m22 m41 xx - b1 m12 m24 m41 xx + b4 m23 m32 m41 xx - 
-	  b3 m24 m32 m41 xx + b1 m14 m33 m41 xx - b4 m22 m33 m41 xx + 
-	  b2 m24 m33 m41 xx - b1 m13 m34 m41 xx + b3 m22 m34 m41 xx - 
-	  b2 m23 m34 m41 xx - b1 m14 m21 m42 xx + b1 m11 m24 m42 xx - 
-	  b4 m23 m31 m42 xx + b3 m24 m31 m42 xx + b4 m21 m33 m42 xx - 
-	  b3 m21 m34 m42 xx - b1 m14 m31 m43 xx + b4 m22 m31 m43 xx - 
-	  b2 m24 m31 m43 xx - b4 m21 m32 m43 xx + b1 m11 m34 m43 xx + 
-	  b2 m21 m34 m43 xx + b1 m12 m21 m44 xx - b1 m11 m22 m44 xx + 
-	  b1 m13 m31 m44 xx - b3 m22 m31 m44 xx + b2 m23 m31 m44 xx + 
-	  b3 m21 m32 m44 xx - b1 m11 m33 m44 xx - b2 m21 m33 m44 xx - 
-	  b1 m12 m21 xx^2 + b1 m11 m22 xx^2 - b1 m13 m31 xx^2 + 
-	  b3 m22 m31 xx^2 - b2 m23 m31 xx^2 - b3 m21 m32 xx^2 + 
-	  b1 m11 m33 xx^2 + b2 m21 m33 xx^2 - b1 m14 m41 xx^2 + 
-	  b4 m22 m41 xx^2 - b2 m24 m41 xx^2 + b4 m33 m41 xx^2 - 
-	  b3 m34 m41 xx^2 - b4 m21 m42 xx^2 - b4 m31 m43 xx^2 + 
-	  b1 m11 m44 xx^2 + b2 m21 m44 xx^2 + b3 m31 m44 xx^2 - b1 m11 xx^3 - 
-	  b2 m21 xx^3 - b3 m31 xx^3 - b4 m41 xx^3, 
-   b2 m14 m23 m32 m41 - b2 m13 m24 m32 m41 - b2 m14 m22 m33 m41 + 
-	  b2 m12 m24 m33 m41 + b2 m13 m22 m34 m41 - b2 m12 m23 m34 m41 - 
-	  b2 m14 m23 m31 m42 + b2 m13 m24 m31 m42 + b2 m14 m21 m33 m42 - 
-	  b2 m11 m24 m33 m42 - b2 m13 m21 m34 m42 + b2 m11 m23 m34 m42 + 
-	  b2 m14 m22 m31 m43 - b2 m12 m24 m31 m43 - b2 m14 m21 m32 m43 + 
-	  b2 m11 m24 m32 m43 + b2 m12 m21 m34 m43 - b2 m11 m22 m34 m43 - 
-	  b2 m13 m22 m31 m44 + b2 m12 m23 m31 m44 + b2 m13 m21 m32 m44 - 
-	  b2 m11 m23 m32 m44 - b2 m12 m21 m33 m44 + b2 m11 m22 m33 m44 + 
-	  b2 m13 m22 m31 xx - b2 m12 m23 m31 xx - b2 m13 m21 m32 xx + 
-	  b2 m11 m23 m32 xx + b2 m12 m21 m33 xx - b2 m11 m22 m33 xx + 
-	  b2 m14 m22 m41 xx - b2 m12 m24 m41 xx - b4 m13 m32 m41 xx + 
-	  b3 m14 m32 m41 xx + b4 m12 m33 m41 xx - b3 m12 m34 m41 xx - 
-	  b2 m14 m21 m42 xx + b2 m11 m24 m42 xx + b4 m13 m31 m42 xx - 
-	  b3 m14 m31 m42 xx - b4 m11 m33 m42 xx + b1 m14 m33 m42 xx + 
-	  b2 m24 m33 m42 xx + b3 m11 m34 m42 xx - b1 m13 m34 m42 xx - 
-	  b2 m23 m34 m42 xx - b4 m12 m31 m43 xx + b4 m11 m32 m43 xx - 
-	  b1 m14 m32 m43 xx - b2 m24 m32 m43 xx + b1 m12 m34 m43 xx + 
-	  b2 m22 m34 m43 xx + b2 m12 m21 m44 xx - b2 m11 m22 m44 xx + 
-	  b3 m12 m31 m44 xx - b3 m11 m32 m44 xx + b1 m13 m32 m44 xx + 
-	  b2 m23 m32 m44 xx - b1 m12 m33 m44 xx - b2 m22 m33 m44 xx - 
-	  b2 m12 m21 xx^2 + b2 m11 m22 xx^2 - b3 m12 m31 xx^2 + 
-	  b3 m11 m32 xx^2 - b1 m13 m32 xx^2 - b2 m23 m32 xx^2 + 
-	  b1 m12 m33 xx^2 + b2 m22 m33 xx^2 - b4 m12 m41 xx^2 + 
-	  b4 m11 m42 xx^2 - b1 m14 m42 xx^2 - b2 m24 m42 xx^2 + 
-	  b4 m33 m42 xx^2 - b3 m34 m42 xx^2 - b4 m32 m43 xx^2 + 
-	  b1 m12 m44 xx^2 + b2 m22 m44 xx^2 + b3 m32 m44 xx^2 - b1 m12 xx^3 - 
-	  b2 m22 xx^3 - b3 m32 xx^3 - b4 m42 xx^3, 
-   b3 m14 m23 m32 m41 - b3 m13 m24 m32 m41 - b3 m14 m22 m33 m41 + 
-	  b3 m12 m24 m33 m41 + b3 m13 m22 m34 m41 - b3 m12 m23 m34 m41 - 
-	  b3 m14 m23 m31 m42 + b3 m13 m24 m31 m42 + b3 m14 m21 m33 m42 - 
-	  b3 m11 m24 m33 m42 - b3 m13 m21 m34 m42 + b3 m11 m23 m34 m42 + 
-	  b3 m14 m22 m31 m43 - b3 m12 m24 m31 m43 - b3 m14 m21 m32 m43 + 
-	  b3 m11 m24 m32 m43 + b3 m12 m21 m34 m43 - b3 m11 m22 m34 m43 - 
-	  b3 m13 m22 m31 m44 + b3 m12 m23 m31 m44 + b3 m13 m21 m32 m44 - 
-	  b3 m11 m23 m32 m44 - b3 m12 m21 m33 m44 + b3 m11 m22 m33 m44 + 
-	  b3 m13 m22 m31 xx - b3 m12 m23 m31 xx - b3 m13 m21 m32 xx + 
-	  b3 m11 m23 m32 xx + b3 m12 m21 m33 xx - b3 m11 m22 m33 xx + 
-	  b4 m13 m22 m41 xx - b4 m12 m23 m41 xx + b2 m14 m23 m41 xx - 
-	  b2 m13 m24 m41 xx + b3 m14 m33 m41 xx - b3 m13 m34 m41 xx - 
-	  b4 m13 m21 m42 xx + b4 m11 m23 m42 xx - b1 m14 m23 m42 xx + 
-	  b1 m13 m24 m42 xx + b3 m24 m33 m42 xx - b3 m23 m34 m42 xx + 
-	  b4 m12 m21 m43 xx - b2 m14 m21 m43 xx - b4 m11 m22 m43 xx + 
-	  b1 m14 m22 m43 xx + b2 m11 m24 m43 xx - b1 m12 m24 m43 xx - 
-	  b3 m14 m31 m43 xx - b3 m24 m32 m43 xx + b3 m11 m34 m43 xx + 
-	  b3 m22 m34 m43 xx + b2 m13 m21 m44 xx - b1 m13 m22 m44 xx - 
-	  b2 m11 m23 m44 xx + b1 m12 m23 m44 xx + b3 m13 m31 m44 xx + 
-	  b3 m23 m32 m44 xx - b3 m11 m33 m44 xx - b3 m22 m33 m44 xx - 
-	  b2 m13 m21 xx^2 + b1 m13 m22 xx^2 + b2 m11 m23 xx^2 - 
-	  b1 m12 m23 xx^2 - b3 m13 m31 xx^2 - b3 m23 m32 xx^2 + 
-	  b3 m11 m33 xx^2 + b3 m22 m33 xx^2 - b4 m13 m41 xx^2 - 
-	  b4 m23 m42 xx^2 + b4 m11 m43 xx^2 - b1 m14 m43 xx^2 + 
-	  b4 m22 m43 xx^2 - b2 m24 m43 xx^2 - b3 m34 m43 xx^2 + 
-	  b1 m13 m44 xx^2 + b2 m23 m44 xx^2 + b3 m33 m44 xx^2 - b1 m13 xx^3 - 
-	  b2 m23 xx^3 - b3 m33 xx^3 - b4 m43 xx^3, 
-   b4 m14 m23 m32 m41 - b4 m13 m24 m32 m41 - b4 m14 m22 m33 m41 + 
-	  b4 m12 m24 m33 m41 + b4 m13 m22 m34 m41 - b4 m12 m23 m34 m41 - 
-	  b4 m14 m23 m31 m42 + b4 m13 m24 m31 m42 + b4 m14 m21 m33 m42 - 
-	  b4 m11 m24 m33 m42 - b4 m13 m21 m34 m42 + b4 m11 m23 m34 m42 + 
-	  b4 m14 m22 m31 m43 - b4 m12 m24 m31 m43 - b4 m14 m21 m32 m43 + 
-	  b4 m11 m24 m32 m43 + b4 m12 m21 m34 m43 - b4 m11 m22 m34 m43 - 
-	  b4 m13 m22 m31 m44 + b4 m12 m23 m31 m44 + b4 m13 m21 m32 m44 - 
-	  b4 m11 m23 m32 m44 - b4 m12 m21 m33 m44 + b4 m11 m22 m33 m44 + 
-	  b3 m14 m22 m31 xx - b2 m14 m23 m31 xx - b3 m12 m24 m31 xx + 
-	  b2 m13 m24 m31 xx - b3 m14 m21 m32 xx + b1 m14 m23 m32 xx + 
-	  b3 m11 m24 m32 xx - b1 m13 m24 m32 xx + b2 m14 m21 m33 xx - 
-	  b1 m14 m22 m33 xx - b2 m11 m24 m33 xx + b1 m12 m24 m33 xx + 
-	  b3 m12 m21 m34 xx - b2 m13 m21 m34 xx - b3 m11 m22 m34 xx + 
-	  b1 m13 m22 m34 xx + b2 m11 m23 m34 xx - b1 m12 m23 m34 xx + 
-	  b4 m14 m22 m41 xx - b4 m12 m24 m41 xx + b4 m14 m33 m41 xx - 
-	  b4 m13 m34 m41 xx - b4 m14 m21 m42 xx + b4 m11 m24 m42 xx + 
-	  b4 m24 m33 m42 xx - b4 m23 m34 m42 xx - b4 m14 m31 m43 xx - 
-	  b4 m24 m32 m43 xx + b4 m11 m34 m43 xx + b4 m22 m34 m43 xx + 
-	  b4 m12 m21 m44 xx - b4 m11 m22 m44 xx + b4 m13 m31 m44 xx + 
-	  b4 m23 m32 m44 xx - b4 m11 m33 m44 xx - b4 m22 m33 m44 xx - 
-	  b2 m14 m21 xx^2 + b1 m14 m22 xx^2 + b2 m11 m24 xx^2 - 
-	  b1 m12 m24 xx^2 - b3 m14 m31 xx^2 - b3 m24 m32 xx^2 + 
-	  b1 m14 m33 xx^2 + b2 m24 m33 xx^2 + b3 m11 m34 xx^2 - 
-	  b1 m13 m34 xx^2 + b3 m22 m34 xx^2 - b2 m23 m34 xx^2 - 
-	  b4 m14 m41 xx^2 - b4 m24 m42 xx^2 - b4 m34 m43 xx^2 + 
-	  b4 m11 m44 xx^2 + b4 m22 m44 xx^2 + b4 m33 m44 xx^2 - b1 m14 xx^3 - 
-	  b2 m24 xx^3 - b3 m34 xx^3 - b4 m44 xx^3
-
-
-Computing A0^{-1} = det(A0)^{-1}Adj(A0)
----------------------------------------
-From Wikpedia, The adjugate of A is the n×n matrix whose (i,j) entry is the (j,i)
-cofactor of A, (-1)^{i+j} * M_ij, where M_ij is the determinant of the principle
-minor of A that comes form deleting rows i and j. Moreover, using the Laplace
-formula, computing these minors also yields det(A):
-	https://en.wikipedia.org/wiki/Determinant#Laplace's_formula_and_the_adjugate_matrix
-I think we should make functions that take an MFEM dense matrix and compute determinants
-for a given set of rows and columns, e.g., write the following function for 2,3, and 4
-sets of rows/columns:
-
-getMinorDet(DenseMatrix A, int row1, int row2, int col1, int col2)
-{
-	if (row2 >= A.Height() || col2 >0 A.Width()) {
-		error
-	}
-	return A[row1,col1]*A[row2,col2] - A[row1,col2]*A[row2,col1];
-}
-
-Using Laplace formula and adjugate/determinant formula for inverse, these would provide
-algebraic inverses for RK tableauxs up to s = 5 with minimal code (could go higher, just
-need to add more determinants; 5 stages is probably plenty to start).
-
-Det of 3x3:
--m13 m22 m31 + m12 m23 m31 + m13 m21 m32 - m11 m23 m32 - m12 m21 m33 +
-  m11 m22 m33
-
-Det of 4x4:
-m14 m23 m32 m41 - m13 m24 m32 m41 - m14 m22 m33 m41 + 
- m12 m24 m33 m41 + m13 m22 m34 m41 - m12 m23 m34 m41 - 
- m14 m23 m31 m42 + m13 m24 m31 m42 + m14 m21 m33 m42 - 
- m11 m24 m33 m42 - m13 m21 m34 m42 + m11 m23 m34 m42 + 
- m14 m22 m31 m43 - m12 m24 m31 m43 - m14 m21 m32 m43 + 
- m11 m24 m32 m43 + m12 m21 m34 m43 - m11 m22 m34 m43 - 
- m13 m22 m31 m44 + m12 m23 m31 m44 + m13 m21 m32 m44 - 
- m11 m23 m32 m44 - m12 m21 m33 m44 + m11 m22 m33 m44
-
-

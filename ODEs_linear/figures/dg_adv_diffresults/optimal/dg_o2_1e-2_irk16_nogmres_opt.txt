@@ -1,0 +1,375 @@
+Options used:
+   --mesh /g/g19/bs/mfem/data/inline-quad.mesh
+   --refine 4
+   --refine 4
+   --order 2
+   --kappa 9
+   --epsilon 0.01
+   --time-step 0.1
+   --final-time 1
+   --irk 16
+   --use-air 8
+   --no-visualization
+   --use-gmres -1
+   --mag-prec 1
+dt = 0.1, hmin = 0.000976562, hmax = 0.000976562
+time order = 6, space order = 2
+time acc. = 1e-06, space acc. = 9.53674e-07
+Number of unknowns/proc: 32256
+Total number of unknowns: 9437184
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 3
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 7
+t = 0.100
+t = 0.100
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 3
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 7
+t = 0.200
+t = 0.200
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 3
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 7
+t = 0.300
+t = 0.300
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 3
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 7
+t = 0.400
+t = 0.400
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 3
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 7
+t = 0.500
+t = 0.500
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 3
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 7
+t = 0.600
+t = 0.600
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 3
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 7
+t = 0.700
+t = 0.700
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 3
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 7
+t = 0.800
+t = 0.800
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 3
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 7
+t = 0.900
+t = 0.900
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 3
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 7
+t = 1.000
+t = 1.000
+Options used:
+   --mesh /g/g19/bs/mfem/data/inline-quad.mesh
+   --refine 4
+   --refine 4
+   --order 2
+   --kappa 9
+   --epsilon 0.01
+   --time-step 0.1
+   --final-time 1
+   --irk 16
+   --use-air 7
+   --no-visualization
+   --use-gmres -1
+   --mag-prec 1
+dt = 0.1, hmin = 0.000976562, hmax = 0.000976562
+time order = 6, space order = 2
+time acc. = 1e-06, space acc. = 9.53674e-07
+Number of unknowns/proc: 32256
+Total number of unknowns: 9437184
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 3
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 8
+t = 0.100
+t = 0.100
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 3
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 8
+t = 0.200
+t = 0.200
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 3
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 8
+t = 0.300
+t = 0.300
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 3
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 8
+t = 0.400
+t = 0.400
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 3
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 8
+t = 0.500
+t = 0.500
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 3
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 8
+t = 0.600
+t = 0.600
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 3
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 8
+t = 0.700
+t = 0.700
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 3
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 8
+t = 0.800
+t = 0.800
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 3
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 8
+t = 0.900
+t = 0.900
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 3
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 8
+t = 1.000
+t = 1.000
+Options used:
+   --mesh /g/g19/bs/mfem/data/inline-quad.mesh
+   --refine 4
+   --refine 4
+   --order 2
+   --kappa 9
+   --epsilon 0.01
+   --time-step 0.1
+   --final-time 1
+   --irk 16
+   --use-air 6
+   --no-visualization
+   --use-gmres -1
+   --mag-prec 1
+dt = 0.1, hmin = 0.000976562, hmax = 0.000976562
+time order = 6, space order = 2
+time acc. = 1e-06, space acc. = 9.53674e-07
+Number of unknowns/proc: 32256
+Total number of unknowns: 9437184
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 4
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 9
+t = 0.100
+t = 0.100
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 4
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 9
+t = 0.200
+t = 0.200
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 4
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 9
+t = 0.300
+t = 0.300
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 4
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 9
+t = 0.400
+t = 0.400
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 4
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 9
+t = 0.500
+t = 0.500
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 4
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 9
+t = 0.600
+t = 0.600
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 4
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 9
+t = 0.700
+t = 0.700
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 4
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 9
+t = 0.800
+t = 0.800
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 4
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 9
+t = 0.900
+t = 0.900
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 4
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 9
+t = 1.000
+t = 1.000
+Options used:
+   --mesh /g/g19/bs/mfem/data/inline-quad.mesh
+   --refine 4
+   --refine 4
+   --order 2
+   --kappa 9
+   --epsilon 0.01
+   --time-step 0.1
+   --final-time 1
+   --irk 16
+   --use-air 5
+   --no-visualization
+   --use-gmres -1
+   --mag-prec 1
+dt = 0.1, hmin = 0.000976562, hmax = 0.000976562
+time order = 6, space order = 2
+time acc. = 1e-06, space acc. = 9.53674e-07
+Number of unknowns/proc: 32256
+Total number of unknowns: 9437184
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 4
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 11
+t = 0.100
+t = 0.100
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 4
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 11
+t = 0.200
+t = 0.200
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 4
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 11
+t = 0.300
+t = 0.300
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 4
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 11
+t = 0.400
+t = 0.400
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 4
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 11
+t = 0.500
+t = 0.500
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 4
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 11
+t = 0.600
+t = 0.600
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 4
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 11
+t = 0.700
+t = 0.700
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 4
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 11
+t = 0.800
+t = 0.800
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 4
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 11
+t = 0.900
+t = 0.900
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 4
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 11
+t = 1.000
+t = 1.000
+Options used:
+   --mesh /g/g19/bs/mfem/data/inline-quad.mesh
+   --refine 4
+   --refine 4
+   --order 2
+   --kappa 9
+   --epsilon 0.01
+   --time-step 0.1
+   --final-time 1
+   --irk 16
+   --use-air 4
+   --no-visualization
+   --use-gmres -1
+   --mag-prec 1
+dt = 0.1, hmin = 0.000976562, hmax = 0.000976562
+time order = 6, space order = 2
+time acc. = 1e-06, space acc. = 9.53674e-07
+Number of unknowns/proc: 32256
+Total number of unknowns: 9437184
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 5
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 16
+t = 0.100
+t = 0.100
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 5
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 16
+t = 0.200
+t = 0.200
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 5
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 16
+t = 0.300
+t = 0.300
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 5
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 16
+t = 0.400
+t = 0.400
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 5
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 16
+t = 0.500
+t = 0.500
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 5
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 16
+t = 0.600
+t = 0.600
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 5
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 16
+t = 0.700
+t = 0.700
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 5
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 16
+t = 0.800
+t = 0.800
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 5
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 16
+t = 0.900
+t = 0.900
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 5
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 16
+t = 1.000
+t = 1.000
+Options used:
+   --mesh /g/g19/bs/mfem/data/inline-quad.mesh
+   --refine 4
+   --refine 4
+   --order 2
+   --kappa 9
+   --epsilon 0.01
+   --time-step 0.1
+   --final-time 1
+   --irk 16
+   --use-air 3
+   --no-visualization
+   --use-gmres -1
+   --mag-prec 1
+dt = 0.1, hmin = 0.000976562, hmax = 0.000976562
+time order = 6, space order = 2
+time acc. = 1e-06, space acc. = 9.53674e-07
+Number of unknowns/proc: 32256
+Total number of unknowns: 9437184
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 6
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 41
+t = 0.100
+t = 0.100
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 6
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 41
+t = 0.200
+t = 0.200
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 6
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 41
+t = 0.300
+t = 0.300
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 6
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 41
+t = 0.400
+t = 0.400
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 6
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 41
+t = 0.500
+t = 0.500
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 6
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 41
+t = 0.600
+t = 0.600
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 6
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 41
+t = 0.700
+t = 0.700
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 6
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 41
+t = 0.800
+t = 0.800
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 6
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 41
+t = 0.900
+t = 0.900
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 6
+  System 2 of 2 (degree=2):  Number of FGMRES iterations: 41
+t = 1.000
+t = 1.000
+Options used:
+   --mesh /g/g19/bs/mfem/data/inline-quad.mesh
+   --refine 4
+   --refine 4
+   --order 2
+   --kappa 9
+   --epsilon 0.01
+   --time-step 0.1
+   --final-time 1
+   --irk 16
+   --use-air 2
+   --no-visualization
+   --use-gmres -1
+   --mag-prec 1
+dt = 0.1, hmin = 0.000976562, hmax = 0.000976562
+time order = 6, space order = 2
+time acc. = 1e-06, space acc. = 9.53674e-07
+Number of unknowns/proc: 32256
+Total number of unknowns: 9437184
+  System 1 of 2 (degree=1):  Number of FGMRES iterations: 8
+  System 2 of 2 (degree=2):  FGMRES: No convergence!
