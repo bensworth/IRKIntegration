@@ -19,6 +19,8 @@ irk_DAE.pdf
 *.o
 driver
 implementation.pdf
-irk.pdf
+irk_lin.pdf
 code/FDadv_dif/convergence/tex/results.pdf
 ODEs_linear/figures/ParaviewFiles
+analysis/fov.pdf
+irk_nl.pdf
