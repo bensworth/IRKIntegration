@@ -19,6 +19,7 @@
 \usepackage[numbers,sort]{natbib}
 \usepackage{cleveref}
 \usepackage[belowskip=-5pt]{subcaption}
+\usepackage{grffile}
 
 \newsiamremark{remark}{Remark}
 \newsiamremark{assumption}{Assumption}
@@ -1459,6 +1460,41 @@ The main task here is going to be computing the action of the degree $s-1$ polyn
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
 \subsection{Finite-difference advection-diffusion}\label{sec:numerics:fd}
+\todo{Is it relevant that I ran these tests on my laptop using 4 procs; is this something that should be added in?}
+
+In this section, we consider a constant-coefficient advection-diffusion problem discretized in space with high-order finite-differences. An exact solution to this problem is used to demonstrate the high-order accuracy of the IRK methods, and the robustness of the algorithms developed in the previous section with respect to mesh resolution. Specifically, we solve the PDE
+\begin{align} \label{eq:FD_ex}
+u_t + 0.85 u_x + u_y = 0.3 u_{xx} + 0.25 u_{yy} + s(x,y,t),
+\quad (x,y,t) \in (-1,1)^2 \times (0,2],
+\end{align}
+on a periodic spatial domain. The source term $s(x,y,t)$ is chosen such that the solution of the PDE is $u(x,y,t)=\sin^4(\pi/2[x-1-0.85t]) \sin^4(\pi/2 [y-1-t]) \exp(-[0.3+0.25]t)$. 
+
+We consider tests using IRK methods of orders three, four, seven, and eight. The 3rd- and 4th-order IRK methods are paired with 4th-order central-finite-differences in space, and the 7th- and 8th-order methods with 8th-order central-finite-differences in space. In all cases, a time-step of $\delta t = 2 h$ is used, with $h$ denoting the spatial mesh size. Due to the non-SPD nature of the spatial discretization, we apply GMRES(30) as the linear solver, for which absolute and relative stopping tolerances of $10^{-13}$ are employed. To precondition solves involving matrices of the form $\gamma_* I - \delta t {\cal L}$, a single iteration of \textit{hypre}'s Boomer AMG (interfaced through \textit{mfem}) is used. Boomer AMG is employed with classical interpolation (type 0), Falgout coarsening (type 6) with a strength tolerance $\theta_C = 0.25$ and zero levels of aggressive coarsening, and $L_1$-Gauss--Seidel relaxation (type 8). 
+
+In Fig. \ref{fig:FD_ex}, discretization errors are shown for these test problems, alongside the average number of AMG iterations needed per time step. The expected asymptotic convergence rates are observed for all discretizations\footnote{An exception here is A--SDIRK(4), which appears to be converging with a rate closer to three than four; however, further decreasing $\delta t$ (not shown here) confirms 4th-order convergence is achieved eventually.} since the curves have the same slopes as the black, dashed reference lines with slopes three, four, seven, and eight shown in the left panel of the figure. 
+
+The preconditioner appears robust with respect to mesh and problem size, since the average number of AMG iterations per time step (which is a proxy for the number of GMRES iterations) remains roughly constant as the the mesh is refined.
+%
+Of the fully implicit methods, Gauss appears to be the most efficient since it requires the fewest AMG iterations. The Gauss methods are closely followed by the Radau IIA methods, with the Lobatto IIC methods somewhat slower. This is consistent with the earlier described theoretical results (see Table \ref{tab:beta}). Note that while Gauss and Radau IIA methods have very similar iteration counts, Gauss converges at one order faster, which can be seen in the left-hand panel of the figure.
+%
+Considering the lower-order methods in the top row of Fig. \ref{fig:FD_ex}, L--SDIRK(4), a 5-stage, 4th-order, L-stable SDIRK method requires the most AMG iterations of all methods. A--SDIRK(4), a 3-stage, 4th-order, A-stable SDIRK method, requires far fewer AMG iterations than L--SDIRK(4).  However, A--SDIRK(4) yields a significantly larger discretization error than the other 4th-order schemes, and takes longer to reach its asymptotic convergence rate. Thus, in terms of work done per accuracy, A--SDIRK(4) is certainly not competitive with Gauss(4) for this particular test problem.
+
+\begin{figure}[!htb]
+%\begin{figure}[H]
+\centerline{
+\includegraphics[width = 0.475\textwidth]{figures/FD_ex/errors_iters_14_34_23_-14_4_d2_ex1.pdf}
+\quad
+\includegraphics[width = 0.475\textwidth]{figures/FD_ex/amg_iters_14_34_23_-14_4_d2_ex1.pdf}
+}
+\centerline{
+\includegraphics[width = 0.475\textwidth]{figures/FD_ex/errors_iters_18_38_27_d2_ex1.pdf}
+\quad
+\includegraphics[width = 0.475\textwidth]{figures/FD_ex/amg_iters_18_38_27_d2_ex1.pdf}
+}
+\caption{Finite-difference advection-diffusion problem \eqref{eq:FD_ex}. At left, $L_{\infty}$-discretization errors at $t = 2$ as a function of time-step $\delta t$ for various discretizations of approximately 4th order (top) and 8th order (bottom). Black, dashed lines with slopes of three and four are shown (top), as are those with slopes of seven and eight (bottom). At right, average number of iterations per time step of the AMG preconditioner.
+\label{fig:FD_ex}
+}
+\end{figure}
 
 
 
