@@ -522,72 +522,10 @@ to guarantee fast Krylov convergence of the proposed methods.
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
-\section{Theory}\label{sec:theory}
-
-%
-\begin{theorem}[Preconditioned field of values]\label{th:fov}
-Suppose Assumptions \ref{ass:eig} and \ref{ass:fov} hold, that is, $\eta > 0$
-and $W(\mathcal{L}) \leq 0$ \eqref{eq:fov}. Let $\mathcal{P}_\eta$ denote the
-preconditioned operator, where $((\eta + i\beta)I -
-\widehat{\mathcal{L}})((\eta - i\beta)I - \widehat{\mathcal{L}})$ is
-preconditioned with $(\eta I - \widehat{\mathcal{L}})^{-2}$. Then 
-$W(\mathcal{P}_\eta)$ is bounded by $\Omega$ as shown in \Cref{fig:bound}.
-\begin{figure}[h!]
-\centering
-\includegraphics[width = 0.3\textwidth]{./figures/fov.pdf}
-\caption{}
-\label{fig:bound}
-\end{figure}
-\end{theorem}
-
 % ------------------------------------------------------------------------------------- %
-\begin{theorem}[Conditioning of preconditioned operator]\label{th:cond}
-Suppose Assumptions \ref{ass:eig} and \ref{ass:fov} hold, that is, $\eta > 0$
-and $W(\mathcal{L}) \leq 0$ \eqref{eq:fov}. Let $\eta \leq \gamma \leq \
-\tfrac{\eta^2+\beta^2}{\eta}$ and let
-$\mathcal{P}_\gamma$ denote the preconditioned operator, where $((\eta + i\beta)I -
-\widehat{\mathcal{L}})((\eta - i\beta)I - \widehat{\mathcal{L}})$ is
-preconditioned with $(\gamma I - \widehat{\mathcal{L}})^{-2}$. Then,
-\begin{align}\label{eq:cond1}
-\textnormal{cond}(\mathcal{P}_\gamma) \leq (1 + \alpha\overline{\alpha})
-		\left(1 + \frac{\alpha\overline{\alpha}}{(1 - \alpha)(1 - \overline{\alpha})}\right)
-	% \begin{cases} 
-	% \frac{1 + \alpha\overline{\alpha}} {(1 - \alpha)(1 - \overline{\alpha})}
-	% 	& \eta\gamma \geq \eta^2+\beta^2, \\
-	% (1 + \alpha\overline{\alpha})
-	% 	\left(1 + \frac{\alpha\overline{\alpha}}{(1 - \alpha)(1 - \overline{\alpha})}\right)
-	% 	& \eta\gamma < \eta^2+\beta^2,
-	% \end{cases}
-\end{align}
-with $\alpha$ and $\overline{\alpha}$ defined as in \eqref{eq:alpha}.
-\end{theorem}
+\section{Nonlinear iterations}\label{sec:nonlinear}
 
-%
-\begin{corollary}[Conditioning independent of $\eta$ and $\beta$]\label{cor:independent}
-Preconditioning $\mathcal{Q}_\eta$ \eqref{eq:imag1} with
-$(\gamma_* I - \widehat{\mathcal{L}})^{-2}$, 
-
-\begin{align}\label{eq:cond_eta}
-\textnormal{cond}(\mathcal{P}_{\gamma = \eta}) & \leq 1 + 2\frac{\beta^2}{\eta^2}, \\
-\textnormal{cond}(\mathcal{P}_{\gamma_*}) & \leq
-	\left(3 - 2\frac{\eta}{\sqrt{\eta^2+\beta^2}}\right)^2, \\
-\textnormal{cond}\left(\mathcal{P}_{\gamma = \frac{\eta^2+\beta^2}{\eta}}\right) & \leq
-	\left(1 + \frac{\beta^2}{\eta^2}\right) \left(1 + \frac{\beta^2}{\beta^2 + \eta^2}\right), \\
-\end{align}
-
-\end{corollary}
-%
-It is also worth pointing out that as $\beta \to 0$, $\gamma \to \eta$
-in all three of the above cases, and (as expected) \eqref{eq:cond_eta},
-\eqref{eq:cond_upper}, and \eqref{eq:cond_opt} all $\to 1$.
-
-
-% ------------------------------------------------------------------------------------- %
-% ------------------------------------------------------------------------------------- %
-% ------------------------------------------------------------------------------------- %
-\section{The nonlinear setting}\label{sec:nonlinear}
-
-For linear problems, the method developed in \Cref{sec:solve} can be applied on the
+In \todo{cite}, an IRK preconditioning method is developed that can be applied on the
 solution level, rather than solving for all stages and updating the solution
 by summing over stages.
 This is beneficial from a memory perspective, being able to achieve very
@@ -998,6 +936,261 @@ in memory for multiple $i$, but is also the best approximation to an exact Newto
 Picard iteration.
 
 \end{enumerate}
+
+
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+\section{Linear preconditioning theory}\label{sec:theory}
+
+%
+\begin{theorem}[Preconditioned field of values]\label{th:fov}
+Suppose Assumptions \ref{ass:eig} and \ref{ass:fov} hold, that is, $\eta > 0$
+and $W(\mathcal{L}) \leq 0$ \eqref{eq:fov}. Let $\mathcal{P}_\eta$ denote the
+preconditioned operator, where $((\eta + i\beta)I -
+\widehat{\mathcal{L}})((\eta - i\beta)I - \widehat{\mathcal{L}})$ is
+preconditioned with $(\eta I - \widehat{\mathcal{L}})^{-2}$. Then 
+$W(\mathcal{P}_\eta)$ is bounded by $\Omega$ as shown in \Cref{fig:bound}.
+\begin{figure}[h!]
+\centering
+\includegraphics[width = 0.3\textwidth]{./figures/fov.pdf}
+\caption{}
+\label{fig:bound}
+\end{figure}
+\end{theorem}
+%
+
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+\subsection{Conditioning}\label{sec:theory:cond}
+
+Consider the Schur complement for two operators,
+%
+\begin{align}\label{eq:Schur}
+S & := \eta I - \widehat{\mathcal{L}}_2 + \beta^2 (\eta I - \widehat{\mathcal{L}}_1)^{-1} \\
+& = \left[\left(\eta I - \widehat{\mathcal{L}}_2\right)\left(\eta I - \widehat{\mathcal{L}}_1\right)
+	+ \beta^2 I\right]\left(\eta I - \widehat{\mathcal{L}}_1\right)^{-1} \label{eq:Schur1}\\
+& = \left(\eta I - \widehat{\mathcal{L}}_1\right)^{-1} \left[\left(\eta I - \widehat{\mathcal{L}}_1\right)
+	\left(\eta I - \widehat{\mathcal{L}}_2\right) + \beta^2 I\right]. \label{eq:Schur2}
+\end{align}
+
+
+
+%
+\begin{theorem}[Conditioning of preconditioned operator]\label{th:cond}
+Suppose Assumptions \ref{ass:eig} and \ref{ass:fov} hold, that is, $\eta > 0$
+and $W(\mathcal{L}) \leq 0$ \eqref{eq:fov}. Let $\eta \leq \gamma \leq \
+\tfrac{\eta^2+\beta^2}{\eta}$ and let
+$\mathcal{P}_\gamma$ denote the preconditioned operator, where $((\eta + i\beta)I -
+\widehat{\mathcal{L}})((\eta - i\beta)I - \widehat{\mathcal{L}})$ is
+preconditioned with $(\gamma I - \widehat{\mathcal{L}})^{-2}$. Then,
+\begin{align}\label{eq:cond1}
+\textnormal{cond}(\mathcal{P}_\gamma) \leq (1 + \alpha\overline{\alpha})
+		\left(1 + \frac{\alpha\overline{\alpha}}{(1 - \alpha)(1 - \overline{\alpha})}\right)
+	% \begin{cases} 
+	% \frac{1 + \alpha\overline{\alpha}} {(1 - \alpha)(1 - \overline{\alpha})}
+	% 	& \eta\gamma \geq \eta^2+\beta^2, \\
+	% (1 + \alpha\overline{\alpha})
+	% 	\left(1 + \frac{\alpha\overline{\alpha}}{(1 - \alpha)(1 - \overline{\alpha})}\right)
+	% 	& \eta\gamma < \eta^2+\beta^2,
+	% \end{cases}
+\end{align}
+with $\alpha$ and $\overline{\alpha}$ defined as in \eqref{eq:alpha}.
+\end{theorem}
+\begin{proof}
+The proof proceeds as follows: first, we factor $\mathcal{P}_\gamma$ \eqref{eq:prec_k},
+and proceed to use the factored form to derive an upper bound on 
+$\|\mathcal{P}_\gamma\|$ and $\|\mathcal{P}_\gamma^{-1}\|$, which immediately
+yields a bound on
+%
+\begin{align}\label{eq:cond0}
+\textnormal{cond}(\mathcal{P}_\gamma) = \|\mathcal{P}_\gamma\|\|\mathcal{P}_\gamma^{-1}\|.
+\end{align}
+%
+Note that following from the discussion in \Cref{sec:solve:inv} and \Cref{th:fov},
+for real $k>0$, $W\left[\left(I - \tfrac{1}{k}\mathcal{L}\right)^{-1}\right]$ and
+$W\left[\left(I - \tfrac{1}{k}\mathcal{L}\right)^{-2}\right]$ are contained in
+the positive half unit circle, and $\|(I - \tfrac{1}{\gamma}\mathcal{L})^{-1}\| \leq 1$
+(see proof of \Cref{th:fov}).
+
+We start with $\|\mathcal{P}_\gamma\|$, where
+%
+\begin{align}\label{eq:CS}
+\|\mathcal{P}_\gamma\| & \leq 
+	\Big\|I - \overline{\alpha}\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\Big\|
+	\Big\|I - \alpha\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\Big\|.
+\end{align}
+%
+Recalling that $W\left[(I - \tfrac{1}{k}\mathcal{L})^{-1}\right] \geq 0$
+and $\|(I - \tfrac{1}{\gamma}\mathcal{L})^{-1}\| \leq 1$, and using the
+assumption $\gamma \geq \eta$, we can expand the norm squared in inner-product
+form, yielding
+%
+\begin{align*}
+&\hspace{-5ex}
+\Big\|I - \overline{\alpha}\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\Big\|^2 \\
+	& = 1 + \max_{\mathbf{x}\neq\mathbf{0}} \left( \alpha\overline{\alpha}
+		\frac{\left\|\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\mathbf{x}\right\|^2
+		}{\|\mathbf{x}\|^2}
+	- (\alpha + \overline{\alpha})\frac{\textnormal{Re}\left(\left\langle\left(I -
+		\tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\mathbf{x}, \mathbf{x}\right\rangle\right)}
+		{\|\mathbf{x}\|^2}\right) \\
+& \leq 1 + \alpha\overline{\alpha}\left\|\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\right\|^2 \\
+& \leq 1 + \alpha\overline{\alpha}.
+\end{align*}
+%
+Note that the above derivation is identical for $\alpha$ and $\overline{\alpha}$,
+which yields
+%
+\begin{align} \label{eq:upper_alpha}
+\|\mathcal{P}_\gamma\| & \leq 1 + \alpha\overline{\alpha}.
+\end{align}
+%
+
+To bound $\|\mathcal{P}_\gamma^{-1}\|$, we use an analogous approach as above
+\eqref{eq:CS}, developing bounds on the two polynomial factors separately.
+First, note that
+%
+\begin{align}\nonumber
+\left[I - \alpha\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\right]^{-1}
+	& = \left(I - \tfrac{1}{\gamma}\mathcal{L}\right)
+		\left[(1-\alpha)I - \tfrac{1}{\gamma}\mathcal{L}\right]^{-1} \nonumber\\
+& = \left[\alpha I + ((1-\alpha)I - \tfrac{1}{\gamma}\mathcal{L})\right]
+		\left[(1-\alpha)I - \tfrac{1}{\gamma}\mathcal{L}\right]^{-1} \nonumber\\
+& = I + \alpha \left[(1-\alpha)I - \tfrac{1}{\gamma}\mathcal{L}\right]^{-1} \nonumber\\
+& = I + \frac{\alpha}{1-\alpha} \left(I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L}\right)^{-1}.
+	\label{eq:inv_factor}
+\end{align}
+%
+For condensed notation, let $c_\alpha := \tfrac{\alpha}{1-\alpha}$, and note that 
+%
+\begin{align*} 
+c_\alpha+\overline{c_\alpha} & = \frac{\alpha + \overline{\alpha} - 2\alpha\overline{\alpha}}
+	{1 + \alpha\overline{\alpha} - (\alpha + \overline{\alpha})} 
+= \frac{2\eta\gamma - 2(\eta^2+\beta^2)}{\eta^2+\beta^2},
+\end{align*}
+%
+which is $< 0$ when $\eta\gamma \leq (\eta^2+\beta^2)$ and $<0$ otherwise. 
+
+Expanding the squared norm of \eqref{eq:inv_factor} in inner-product form, we have
+%
+\begin{align}\label{eq:pinv0}
+& \hspace{-5ex}
+1 + \max_{\mathbf{x}\neq\mathbf{0}} \left[ (c_\alpha+\overline{c_\alpha})
+	\frac{\textnormal{Re}\left(\left\langle (I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L})^{-1}\mathbf{x},
+		\mathbf{x}\right\rangle\right)}{\|\mathbf{x}\|^2} + 
+	c_\alpha\overline{c_\alpha}
+	\frac{\left\|(I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L})^{-1}\mathbf{x}\right\|^2}
+		{\|\mathbf{x}\|^2} \right].
+\end{align}
+%
+Bounding the norm term in \eqref{eq:pinv0} requires care because $\alpha$ is
+complex. Note that the norm is the maximum singular value, which is equivalent to one
+over the minimum nonzero singular value of the inverse. The squared minimum nonzero
+singular value of the inverse of the inverse is given by
+%
+\begin{align*}
+&\hspace{-5ex}
+\min_{\mathbf{x}\neq\mathbf{0}} \frac{\left\|\left(I - \tfrac{1}{\gamma(1-\alpha)}
+	\mathcal{L}\right)\mathbf{x}\right\|^2}{\|\mathbf{x}\|^2} \\
+& = 1 + \min_{\mathbf{x}\neq\mathbf{0}} \left[ \frac{1}{|\gamma(1-\alpha)|^2}
+	\frac{\left\|\mathcal{L}\mathbf{x}\right\|^2}{\|\mathbf{x}\|^2}
+	- \left(\frac{1}{\gamma(1-\alpha)} + \frac{1}{\overline{\gamma}(1-\overline{\alpha})}\right)
+	\frac{\textnormal{Re}\left(\left\langle\mathcal{L}\mathbf{x},\mathbf{x}\right\rangle\right)}
+		{\|\mathbf{x}\|^2}\right].
+\end{align*}
+%
+Noting that Re$\left(\langle\mathcal{L}\mathbf{x},\mathbf{x}\rangle\right) \leq 0$,
+$\gamma \geq \eta > 0$, and Re$(1-\alpha) \geq 0$, it follows that the squared minimum
+singular value above is $\geq 1$, which implies $\|(I - \tfrac{1}{\gamma(1-\alpha)}
+\mathcal{L})^{-1}\| \leq 1$.
+
+% ------> Old extra derivation for \gamma larger than currently considered
+% ------------------------------------------------------------------------
+% Plugging into \eqref{eq:pinv1} and noting
+% that an identical derivation and result holds for $\overline{\alpha}$, we have
+% for $(c_\alpha+\overline{c_\alpha}) \geq 0$,
+% %
+% \begin{align}\nonumber
+% \|\mathcal{P}_\gamma^{-1}\| & \leq 
+% 	\Big\|\Big(I - \overline{\alpha}\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\Big)^{-1}\Big\|
+% 	\Big\|\Big(I - \alpha\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\Big)^{-1}\Big\| \\
+% & \leq \left(1 + \frac{\alpha}{1-\alpha}\right)
+% 	\left(1 + \frac{\overline{\alpha}}{1-\overline{\alpha}}\right) \nonumber\\
+% & = \frac{1}{(1 - \alpha)(1 - \overline{\alpha})}. \label{eq:lower_alpha1}
+% \end{align}
+% %
+
+Returning to \eqref{eq:pinv0}, consider the inner-product term with leading
+constant $(c_\alpha+\overline{c_\alpha}) \leq 0$. Note that letting
+$\mathbf{x}:= (I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L})\mathbf{y}$,
+we have
+%
+\begin{align*}
+\frac{\left\langle (I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L})^{-1}\mathbf{x},
+		\mathbf{x}\right\rangle}{\|\mathbf{x}\|^2}
+& = \frac{\left\langle \mathbf{y}, (I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L})\mathbf{y}
+	\right\rangle}{\|(I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L})\mathbf{y}\|^2}
+= \frac{\|\mathbf{y}\|^2 - \frac{1}{\gamma (1 - \overline{\alpha})}
+	\left\langle \mathbf{y},\mathcal{L}\mathbf{y} \right\rangle}
+	{\|(I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L})\mathbf{y}\|^2}.
+\end{align*}
+%
+By assumption, Re$\left(\langle \mathbf{y},\mathcal{L}\mathbf{y}\rangle\right) \leq 0$,
+while $\gamma\geq 0$ and Re$(1-\alpha) \geq 0$. It follows that
+%
+\begin{align*}
+\textnormal{Re}\left(\frac{\left\langle (I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L})^{-1}\mathbf{x},
+	\mathbf{x}\right\rangle}{\|\mathbf{x}\|^2}\right) \geq 0.
+\end{align*}
+%
+Thus in \eqref{eq:pinv0} because $(c_\alpha+\overline{c_\alpha}) \leq 0$, we can drop
+the corresponding term for an upper bound of
+%
+\begin{align*}
+\left\|\left[I - \alpha\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\right]^{-1}\right\|^2 
+	& \leq 1 + c_\alpha\overline{c_\alpha}
+		\left\|(I - \tfrac{1}{\gamma(1-\alpha)}\mathcal{L})^{-1}\right\|^2 \\
+& \leq 1 + c_\alpha\overline{c_\alpha} \\
+& = 1 + \frac{\alpha\overline{\alpha}}{(1 - \alpha)(1 - \overline{\alpha})}.
+\end{align*}
+%
+Again noting that analogous derivations holds for $\overline{\alpha}$ with
+identical bounds, we have for $(c_\alpha+\overline{c_\alpha}) < 0$,
+%
+\begin{align}
+\|\mathcal{P}_\gamma^{-1}\| & \leq 1 + 
+	\frac{\alpha\overline{\alpha}}{(1 - \alpha)(1 - \overline{\alpha})}. \label{eq:lower_alpha2}
+\end{align}
+% 
+
+Combining \eqref{eq:cond0}, \eqref{eq:upper_alpha},
+and \eqref{eq:lower_alpha2} completes the proof.
+\end{proof}
+%
+
+
+
+%
+\begin{corollary}[Conditioning independent of $\eta$ and $\beta$]\label{cor:independent}
+Preconditioning $\mathcal{Q}_\eta$ \eqref{eq:imag1} with
+$(\gamma_* I - \widehat{\mathcal{L}})^{-2}$, 
+
+\begin{align}\label{eq:cond_eta}
+\textnormal{cond}(\mathcal{P}_{\gamma = \eta}) & \leq 1 + 2\frac{\beta^2}{\eta^2}, \\
+\textnormal{cond}(\mathcal{P}_{\gamma_*}) & \leq
+	\left(3 - 2\frac{\eta}{\sqrt{\eta^2+\beta^2}}\right)^2, \\
+\textnormal{cond}\left(\mathcal{P}_{\gamma = \frac{\eta^2+\beta^2}{\eta}}\right) & \leq
+	\left(1 + \frac{\beta^2}{\eta^2}\right) \left(1 + \frac{\beta^2}{\beta^2 + \eta^2}\right), \\
+\end{align}
+
+\end{corollary}
+%
+It is also worth pointing out that as $\beta \to 0$, $\gamma \to \eta$
+in all three of the above cases, and (as expected) \eqref{eq:cond_eta},
+\eqref{eq:cond_upper}, and \eqref{eq:cond_opt} all $\to 1$.
+
+
 
 
 % ------------------------------------------------------------------------------------- %
