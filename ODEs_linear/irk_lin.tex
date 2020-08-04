@@ -98,7 +98,6 @@ M\mathbf{u}'(t) =  \mathcal{L}(t)\mathbf{u} + \mathbf{f}(t)
 %
 where $M$ is a mass matrix, $\mathcal{L}(t)\in\mathbb{R}^{N\times N}$ a discrete
 linear operator, and $\mathbf{f}(t)$ a time-dependent forcing function.
-
 \footnote{Note,
 PDEs with an algebraic constraint, for example, the divergence-free
 constraint in Navier Stokes, instead yield a differential algebraic equation (DAE), which
@@ -166,7 +165,8 @@ time-dependent domains, unstructured meshes in space-time, and adaptive mesh
 refinement in space and time. However, for so-called slab-based meshing in time with
 discontinuous Galerkin finite elements, where
 the time domain is discretized using spatial slabs (that is, the same time step is
-applied to the entire spatial domain), the resulting linear systems that must be
+applied to the entire spatial domain, analogous to more traditional time-stepping
+techniques), the resulting linear systems that must be
 solved for each time step take the same structure as \eqref{eq:k0} (for example,
 see \cite{hn}). A handful of works have looked at linear solvers for such
 discretizations, primarily for parabolic problems, including block preconditioning
@@ -175,21 +175,18 @@ approaches \cite{exh,8jp,27n}, and direct space-time multigrid methods
 
 Although this paper focuses on fully implicit Runge-Kutta, the algorithms developed
 here can be directly applied to discontinuous Galerkin discretizations in time on
-fixed slab-based meshes. In fact, the principles used in this paper are similar
+fixed slab-based meshes. In fact, some of the principles used in this paper are similar
 to those used in \cite{exh} for space-time DG discretizations of linear parabolic
-problems, and some of the theory derived therein...
-
-but here we consider much more general settings, including both
-non-parabolic and nonlinear problems.
+problems, and some of the theory derived therein is generalized to
+non-parabolic/non-SPD operators in this paper. 
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
 \subsection{Outline}\label{sec:intro:outline}
 
 This paper develops fast, parallel preconditioning techniques for the solution of
-fully implicit Runge-Kutta methods in numerical PDEs. Although we focus on implicit
-Runge-Kutta, the techniques developed extend naturally to DG
-finite elements in time as well, as discussed in \Cref{sec:intro:dg}. 
+fully implicit Runge-Kutta methods and discontinuous Galerkin discretizations in time
+for linear numerical PDEs.
 First, \Cref{sec:intro:hist} provides background on why IRK methods are desirable
 over the simpler and more commonly used DIRK methods, and also provides a
 historical context for the preconditioners developed in this work.
@@ -197,7 +194,7 @@ historical context for the preconditioners developed in this work.
 a method-of-lines perspective and introduces two key elements that will be
 used throughout the paper. 
 
-\Cref{sec:solve} introduces an effective method to solve for the IRK update
+\Cref{sec:solve} then introduces a new method to solve for the IRK update
 \eqref{eq:update} directly for linear operators $\mathcal{L}$ that are independent of time,
 such as those that typically arise in linear PDEs. The new method effectively
 requires the preconditioning of $s$ real-valued matrices along the lines of
@@ -208,13 +205,19 @@ the proposed algorithm here (i) is amenable to short-term Krylov recursion (conj
 gradient (CG)/MINRES) if $\eta M - \mathcal{L}$ is, and (ii) only operates on the solution,
 thus not requiring the storage of each stage vector. Theory is developed
 that guarantees rapid convergence of GMRES and CG under basic assumptions
-on stability from \Cref{sec:intro:stab}. Numerical results for the
-linear setting are provided in \Cref{sec:numerics}, demonstrating
-up to 10th-order accuracy using Gauss integration with a variety of problems
-and preconditioners. In addition, by using the new method with 2-stage Gauss
-integration, we are able to halve the number of AMG preconditioning iterations
-necessary to obtain 4th-order accuracy on an advection-diffusion example
-compared with standard 4th-order SDIRK schemes.
+on stability from \Cref{sec:intro:stab} (\Cref{sec:solve:prec}). A slight
+modification of the method is then developed, and the resulting preconditioned
+operator proven to have condition number $<9$, independent of the number of
+stages/polynomial order in time (\Cref{sec:solve:gamma}). 
+
+Numerical results are provided in \Cref{sec:numerics}, demonstrating the new
+method for a variety of problems and corresponding preconditioners, including
+high-order finite-difference and DG (spatial) discretizations of
+advection(-diffusion), and very high-order matrix-free continuous Galerkin
+discretizations of diffusion. The method is shown to be fast and scalable
+up to 10th-order accuracy in time, and, in addition, for one example requires
+roughly half the AMG iterations to obtain 4th-order accuracy using Gauss
+integration compared with standard 4th-order SDIRK schemes.
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -399,14 +402,6 @@ lack the robustness of fully implicit methods.
 % 	applied to the bidomain equations.
 % \end{itemize}
 
-% Xie (2011)
-% \begin{itemize}
-% 	\item Proposes a modified simplified Newton for the time-dependent cast, where the Jacobian is
-% 	formed based on a least squares approximation to the true RK coefficients, evaluating all entries
-% 	at a single time point. In example problems, modified Jacobian typically converged faster
-% 	than simplified (evaluated at previous time step), up to 2x less iterations/time. 
-% \end{itemize}
-
 % Hao Chen:
 % \begin{itemize}
 % 	\item (2014) Develops a splitting iterative method to precondition IRK matrices, similar to ADI schemes.
@@ -419,11 +414,6 @@ lack the robustness of fully implicit methods.
 % Pazner
 % \begin{itemize}
 % 	\item
-% \end{itemize}
-
-% \begin{itemize}
-% 	\item if the underlying IRK methods are A-stable, irreducible, and have invertible coefficientmatrixA, such as Gauss, RadauIIA, and LobattoIIIC (cf., e.g., [Hairer]), then the real partsof the eigenvalues ofAare positive,
-% 	\item One benefit of this method is ability to use PCG or GMRES on smaller system, not full system. 
 % \end{itemize}
 
 % ------------------------------------------------------------------------------------- %
@@ -718,7 +708,7 @@ as a measure of the preconditioning, and \Cref{cor:gmres,cor:cg} extend this
 preconditioning to prove fast convergence of GMRES and conjugate gradient (CG).
 
 %
-\begin{remark}[Convergence independent number of stages/DG polynomial order]
+\begin{remark}[Convergence independent of number of stages/polynomial order]
 \textnormal{ }\newline
 It turns out the conditioning of $\mathcal{P}_\eta$ has some dependence on the ratio
 $\beta^2/\eta^2$, particularly for $\beta > \eta$, which typically increases
@@ -955,9 +945,9 @@ to spatial solvers that achieve convergence independent of spatial mesh and
 discretization order. This section is motivated by \cite{exh}, where a similar
 algorithm is developed for linear parabolic problems using the real Schur
 decomposition, and, for SPD operators, a modified constant $\eta \mapsto
-\sqrt{\eta^2+\beta^2}$ is proven to be optimal in terms of minimizing the
-condition number of the preconditioned operator. In this section, we derive
-bounds on the condition number of the preconditioned operator for
+\sqrt{\eta^2+\beta^2}$ is derived, where the preconditioned operator has
+condition number $<2$, independent of $\eta$ and $\beta$. In this section,
+we derive bounds on the condition number of the preconditioned operator for
 preconditioner $(\gamma I - \widehat{\mathcal{L}})^{-2}$, $\gamma\neq \eta$,
 and general operators satisfying \Cref{ass:fov} (\Cref{th:cond}). A corollary
 then proves that the constant 
@@ -970,7 +960,7 @@ yields a preconditioned operator with condition number $<9$, independent
 of $\eta$ and $\beta$ (\Cref{cor:independent}).
 
 Consider a similar preconditioner as in
-\Cref{sec:solve:inv}, but with some modified constant $\gamma \mapsto
+\Cref{sec:solve:inv}, but with some constant $\gamma \mapsto
 (\gamma I - \widehat{\mathcal{L}})^{-2}$. The resulting preconditioned
 operator takes the form
 %
@@ -978,8 +968,8 @@ operator takes the form
 \mathcal{P}_\gamma & = 
 (\gamma I - \mathcal{L})^{-2}\Big[(nI - \mathcal{L})^2 + \beta^2 I\Big] \\ \nonumber
 & = (\gamma I - \mathcal{L})^{-2}\Big[((\eta-\gamma)I + (\gamma I - \mathcal{L}))^2 + \beta^2 I\Big] \\
-& = (\gamma I - \mathcal{L})^{-2}\Big[(\gamma-\eta)^2I - 2(\gamma-\eta)(\gamma I - \mathcal{L}) +
-	(\gamma I - \mathcal{L})^2 + \beta^2 I\Big] \nonumber\\
+% & = (\gamma I - \mathcal{L})^{-2}\Big[(\gamma-\eta)^2I - 2(\gamma-\eta)(\gamma I - \mathcal{L}) +
+% 	(\gamma I - \mathcal{L})^2 + \beta^2 I\Big] \nonumber\\
 & = I - 2(\gamma-\eta)(\gamma I - \mathcal{L})^{-1} + (\beta^2 + (\gamma-\eta)^2)(\gamma I - 
 	\mathcal{L})^{-2} \nonumber\\
 & = I - 2\frac{\gamma-\eta}{\gamma}\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1} +
@@ -1026,8 +1016,8 @@ Moving forward we will limit ourselves to considering $\eta \leq \gamma \leq \
 \tfrac{\eta^2+\beta^2}{\eta}$, which limits to the natural case of $\gamma = \eta$
 as $\beta \to 0$. Similar analysis can be performed for $\gamma$ outside of
 this range, but the derivations are different and there does not appear to
-be any good reason for $\gamma$ outside of this range (see discussion
-following \Cref{th:cond}).
+be any good reason to use $\gamma$ outside of this range (see discussion
+following \Cref{th:cond}, and in \cite{exh} for SPD operators).
 
 %
 \begin{theorem}[Conditioning of preconditioned operator]\label{th:cond}
@@ -1224,8 +1214,11 @@ and \eqref{eq:lower_alpha2} completes the proof.
 
 In \cite{exh}, a similar analysis as \Cref{th:cond} is done under the assumption
 that $-\mathcal{L}$ is SPD, in which case the conditioning can be derived based on
-eigenvalues. There, they derive the (exact) conditioning of the preconditioned
-operator for $\gamma = \eta$ to be cond$(\mathcal{P}_\eta) = 1 + \tfrac{\beta^2}{\eta^2}$.
+eigenvalues. There, they effectively derive the conditioning of the preconditioned
+operator for $\gamma = \eta$ to be cond$(\mathcal{P}_\eta) = 1 + \tfrac{\beta^2}{\eta^2}$
+(using notation of this paper, as the spectrum of $(I - \tfrac{1}{\eta}\mathcal{L})^{-1}
+\mapsto [0,1]$, as would likely happen with refinement of a parabolic problem,
+the result in \cite{exh} is exact).
 If we let $\gamma = \eta$, from \eqref{eq:alpha_eq} we have
 $\alpha+\overline{\alpha} = 0$, $\alpha\overline{\alpha} =
 \frac{\beta^2}{\eta^2}$, and \Cref{th:cond} yields the bound
@@ -1248,10 +1241,10 @@ Considering the upper limit on $\gamma$ in \Cref{th:cond}, $\gamma \mapsto
 Note, in both \eqref{eq:cond_eta} and \eqref{eq:cond_upper} we see a dependence
 on $\eta$ and $\beta$.
 
-Using the tight derivation of conditioning of the preconditioned operator in
-\cite{exh}, they also derive an optimal constant to minimize the condition
-number for SPD matrices, $\gamma _* := \sqrt{\eta^2+\beta^2}$ \eqref{eq:gam_opt}.
-Considering $\gamma_*$ here, \eqref{eq:alpha_eq} yields
+In \cite{exh}, they also derive a constant to minimize certain bounds on condition
+number for SPD matrices, $\gamma _* := \sqrt{\eta^2+\beta^2}$ \eqref{eq:gam_opt}
+(also the exact minimizer as the spectrum of $(I - \tfrac{1}{\eta}\mathcal{L})^{-1}
+\mapsto [0,1]$). Considering $\gamma_*$ here, \eqref{eq:alpha_eq} yields
 $\alpha+\overline{\alpha} = \alpha\overline{\alpha} =
 2 - 2\frac{\eta}{\sqrt{\eta^2+\beta^2}}$, and \Cref{th:cond} yields the bound
 %
@@ -1264,7 +1257,8 @@ Noting that $\textnormal{cond}(\mathcal{P}_{\gamma_*}) < 9$ for all $\eta>0,
 \beta\geq 0$, we have the following corollary.
 
 %
-\begin{corollary}[Conditioning independent of $\eta$ and $\beta$]\label{cor:independent}
+\begin{corollary}[Conditioning independent of $\eta$ \& $\beta$]\label{cor:independent}
+\textnormal{ }
 Preconditioning $\mathcal{Q}_\eta$ \eqref{eq:imag1} with
 $(\gamma_* I - \widehat{\mathcal{L}})^{-2}$, for $\gamma_* = \sqrt{\eta^2+\beta^2}$
 yields a preconditioned operator $\mathcal{P}_{\gamma_*}$ such that
@@ -1272,9 +1266,11 @@ $\textnormal{cond}(\mathcal{P}_{\gamma_*}) < 9$,
 independent of $\eta$ and $\beta$.
 \end{corollary}
 %
-It is also worth pointing out that as $\beta \to 0$, $\gamma \to \eta$
+It is worth pointing out that as $\beta \to 0$, $\gamma \to \eta$
 in all three of the above cases, and (as expected) \eqref{eq:cond_eta},
-\eqref{eq:cond_upper}, and \eqref{eq:cond_opt} all $\to 1$.
+\eqref{eq:cond_upper}, and \eqref{eq:cond_opt} all $\to 1$. Also, in
+practice, \eqref{eq:cond_opt} typically yields an upper bound on
+conditioning $\sim 1-5$ for realistic values of $\eta$ and $\beta$.
 
 %
 \begin{remark}[``Optimal'' $\gamma$]
@@ -1299,14 +1295,14 @@ f'(\gamma_*) = \frac{2(\sqrt{\eta^2+\beta^2} - \eta)}{\eta^2+\beta^2} > 0.
 Thus there exists a critical point $\gamma \in(\eta,\gamma_*)$, and it is 
 likely not advantageous to choose $\gamma > \gamma_*$. The equation
 for the root is a quartic polynomial and is not examined analytically here,
-however, depending on $\eta$ and $\beta$, the sign change (and, thus, root) is
-likely between $0.8\gamma_* - 0.9\gamma_*$ , suggesting $\gamma_*$ is indeed
-a good approximation to the optimal $\gamma$ with respect to \eqref{eq:cond1}.
-
-Moreover, the analysis from \cite{exh} proves that $\gamma_*$ \eqref{eq:gam_opt}
-\textit{is} optimal for SPD operators, and we prove $\gamma_*$ also provides
-very good preconditioning independent of the number of stages/order of integration
-in the more general setting (\Cref{cor:independent}).
+however, depending on $\eta$ and $\beta$, testing indicates the sign change
+(and, thus, root) is likely between $0.8\gamma_* - 0.9\gamma_*$, suggesting 
+$\gamma_*$ is indeed a good approximation to the optimal $\gamma$ with
+respect to \eqref{eq:cond1}.
+% Moreover, the analysis from \cite{exh} proves that $\gamma_*$ \eqref{eq:gam_opt}
+% \textit{is} optimal for SPD operators, and we prove $\gamma_*$ also provides
+% very good preconditioning independent of the number of stages/order of integration
+% in the more general setting (\Cref{cor:independent}).
 \end{remark}
 %
 
@@ -1321,6 +1317,24 @@ in the more general setting (\Cref{cor:independent}).
 \subsubsection{Choosing $\gamma$}
 
 
+% ------------------------------------------------------------------------------------- %
+\subsubsection{Mass matrices}
+
+Recall in the finite element context where mass matrices are involved, we defined
+$\widehat{\mathcal{L}} := \delta t M^{-1}\mathcal{L}$. For a given conjugate pair
+of eigenvalues, the quadratic polynomial \eqref{eq:imag1} can be expressed as
+%
+\begin{align}\label{eq:scaleM}
+\mathcal{Q}_\eta = M^{-1}((\eta + i\beta)M - \delta t{\mathcal{L}})M^{-1}((\eta - i\beta)M -
+	\delta t\widehat{\mathcal{L}}).
+\end{align}
+%
+In this context, it is best to first scale both sides of the linear system by $M$.
+This halves the number of times $M^{-1}$ must applied for each Krylov iteration,
+and if $M$ and $\mathcal{L}$ are Hermitian, the resulting quadratic system is SPD
+and can be solved using preconditioned conjugate gradient or MINRES, preconditioned
+with one application of a preconditioner, the action of $M$, and a second application
+of the preconditioner.
 
 % ------------------------------------------------------------------------------------- %
 \subsubsection{Inexact preconditioning}
@@ -1366,24 +1380,6 @@ numerical example is shown where the proposed method diverges using a single inn
 fixed-point iteration as a preconditioner for $(\eta I - \widehat{\mathcal{L}})$, but
 three (or more) inner fixed-point iterations yields fast, scalable convergence.
 
-% ------------------------------------------------------------------------------------- %
-\subsubsection{Mass matrices}
-
-Recall in the finite element context where mass matrices are involved, we defined
-$\widehat{\mathcal{L}} := \delta t M^{-1}\mathcal{L}$. For a given conjugate pair
-of eigenvalues, the quadratic polynomial \eqref{eq:imag1} can be expressed as
-%
-\begin{align}\label{eq:scaleM}
-\mathcal{Q}_\eta = M^{-1}((\eta + i\beta)M - \delta t{\mathcal{L}})M^{-1}((\eta - i\beta)M -
-	\delta t\widehat{\mathcal{L}}).
-\end{align}
-%
-In this context, it is best to first scale both sides of the linear system by $M$.
-This halves the number of times $M^{-1}$ must applied for each Krylov iteration,
-and if $M$ and $\mathcal{L}$ are Hermitian, the resulting quadratic system is SPD
-and can be solved using preconditioned conjugate gradient or MINRES, preconditioned
-with one application of a preconditioner, the action of $M$, and a second application
-of the preconditioner.
 
 
 % ------------------------------------------------------------------------------------- %
@@ -1529,9 +1525,37 @@ diffusion coefficient $\kappa = 10^{-6}$.
 \end{figure}
 
 % ------------------------------------------------------------------------------------- %
+\subsubsection{Preconditioning with $\eta$ vs. $\gamma_*$}\label{sec:numerics:dg:const}
+
+First, we demonstrate the effectiveness of using $\gamma_*$ (\Cref{sec:solve:gamma})
+instead of $\eta$ in the preconditioner. 
+
+{
+% \renewcommand{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.15}
+\begin{table}[!ht]
+  \centering
+  \begin{tabular}{| c | cc | cc | ccc |}  % chktex 44
+  \hline
+\multicolumn{8}{|c|}{Gauss}\\\hline
+2 & \multicolumn{2}{c}{3} & \multicolumn{2}{|c}{4} & \multicolumn{3}{|c|}{5} \\\hline
+1 & . & . & . & . & . & . & . \\\hline\hline
+\multicolumn{8}{|c|}{RadauIIA}\\\hline
+2 & \multicolumn{2}{c}{3} & \multicolumn{2}{|c}{4} & \multicolumn{3}{|c|}{5} \\\hline
+1 \\\hline\hline
+\multicolumn{8}{|c|}{LobattoIIIC}\\\hline
+2 & \multicolumn{2}{c}{3} & \multicolumn{2}{|c}{4} & \multicolumn{3}{|c|}{5} \\\hline
+  \hline
+  \end{tabular}
+  \caption{.}\label{tab:gamma}
+\end{table}
+}
+
+
+% ------------------------------------------------------------------------------------- %
 \subsubsection{High-order \& advection-dominated}\label{sec:numerics:dg:adv}
 
-First, we demonstrate high-order IRK integration applied to the advection-dominated
+This section demonstrates high-order IRK integration applied to the advection-dominated
 problem in \Cref{fig:ad_advdiff}, using AIR as a preconditioner for the linear
 systems. AIR was originally designed for upwind DG discretizations of advection
 and is well-suited for this problem. We use the \textit{hypre} implementation,
@@ -1546,9 +1570,9 @@ for 8th-order integration we choose $\delta t = \sqrt{h}$, for mesh spacing
 $h$, so that $\delta t^8 = h^4$. All linear systems are solved to a relative
 tolerance of $10^{-12}$.
 
-\Cref{fig:dg_o4_abs} shows the total numer of AIR iterations required to
+\Cref{fig:dg_o4_abs} shows the total number of AIR iterations required to
 compute one time step using six different Runge-Kutta schemes, from 4th
-to 10th order, as a funciton of mesh spacing $h$. Note that as $h\to 0$,
+to 10th order, as a function of mesh spacing $h$. Note that as $h\to 0$,
 there is only modest growth in the number of AIR iterations per time step,
 indicating good (but not perfect) scalability.
 Moreover, note that there is small growth in the number of iterations for
@@ -1563,13 +1587,13 @@ then SDIRK4 uses $\delta t_4 = 0.01$ and Gauss8 uses $\delta t_8 =
 achieve comparable accuracy. Note that as $h\to 0$, this factor becomes progressively
 larger. For quite moderate $h$, we see how very high-order integration
 can quickly lead to a reduction in total AIR iterations compared to a
-standard SDIRK4 iteration. Gauss8, for example, requires $\approx 29\%$
-of the total number of AIR iterations as SDIRK4 at $h =\delta t_4 = 1/256$,
+standard SDIRK4 iteration. Gauss8 and Radau9, for example, require almost
+$7\times$ less AIR iterations than SDIRK4 at $h =\delta t_4 = 1/256$,
 and this ratio continues to decrease for smaller $\delta t$. Although this
-does not account for additional setup time, where Gauss8 requires solving
-two different linear systems and SDIRK4 only one, very high-order integration
-permitted through the new preconditioning still offers the opportunity
-for significant speedups.
+does not account for additional setup time, where Gauss8 and Radau9 require
+solving two different linear systems and SDIRK4 only one, very high-order
+integration permitted through the new preconditioning still offers the
+opportunity for significant speedups.
 
 %
 \begin{figure}[!h]
@@ -1609,12 +1633,12 @@ DG finite elements, a time step of $\delta t = 0.1$, and three-stage 6th-order
 Gauss integration. Altogether, this yields equal orders of accuracy, with time and
 space error $\sim10^{-6}$. FGMRES \cite{saad1993flexible} is used for the
 outer iteration, which allows for GMRES to be applied in an inner iteration
-as a preconditioner for $(\eta M - \mathcal{L})$. \Cref{fig:dg_o2} plots the
+as a preconditioner for $(\gamma_* M - \mathcal{L})$. \Cref{fig:dg_o2} plots the
 total number of AIR iterations per time step as a function of the number of
 AIR iterations applied for each application of the preconditioner, using an
 inner GMRES or an inner fixed-point iteration. 
 
-Recall we have three stages, one of which is a single linear system coresponding
+Recall we have three stages, one of which is a single linear system corresponding
 to a real eigenvalue, and the other corresponding to a pair of complex conjugate
 eigenvalues, which we precondition as in \Cref{sec:solve}. The latter ends up being
 the more difficult problem to solve -- using one AIR iteration as a preconditioner,
@@ -1635,6 +1659,7 @@ AIR iterations applied for each application of the preconditioner.}
 \label{fig:dg_o2}
 \end{figure}
 
+\todo{Add similar plot for $\kappa 10^{-6}$.}
 
 
 
