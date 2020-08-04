@@ -98,7 +98,7 @@ struct AMGParams {
     double theta     = 0.25; // strength threshold: 0.25, 0.5, 0.8
 
     // AMG interpolation options:
-    int interp_type  = 6;    // 6 = extended+i, 0 = classical
+    int interp_type  = 0;    // 6 = extended+i, 0 = classical
 
     // AMG relaxation options:
     int relax_type   = 8;    // 8 = l1-GS, 6 = symm. GS, 3 = GS, 18 = l1-Jacobi
@@ -287,7 +287,7 @@ int main(int argc, char *argv[])
     /// --- Solver parameters --- ///   
     /* AMG parameters */
     args.AddOption(&use_AIR_temp, "-air", "--AMG-use-air", "AMG: 0=standard (default), 1=AIR");    
-    args.AddOption(&AMG.coarsen_type, "-ac", "--AMG-print", "AMG: Coarsen type");
+    args.AddOption(&AMG.coarsen_type, "-ac", "--AMG-coarseing", "AMG: Coarsen type");
     args.AddOption(&AMG.agg_levels, "-ag", "--AMG-aggressive-coarseing", "AMG: Levels of aggressive coarsening");
     args.AddOption(&AMG.theta, "-at", "--AMG-theta", "AMG: Strength threshold");
     args.AddOption(&AMG.interp_type, "-ai", "--AMG-interp", "AMG: Interpolation");
