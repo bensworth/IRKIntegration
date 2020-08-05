@@ -1577,6 +1577,8 @@ application of IRK integration (\Cref{sec:numerics:dg:diff}).
 \todo{Will, can you please add a problem/FEM discretization description here?}
 
 
+\todo{cite MFEM}.
+
 \Cref{fig:ad_advdiff} plots the velocity field $\Omega(x,y)$ followed by the spatial
 solution at five points in time (including the initial condition at $t=0$) using
 diffusion coefficient $\kappa = 10^{-6}$.
@@ -1622,39 +1624,17 @@ diffusion coefficient $\kappa = 10^{-6}$.
 \end{figure}
 
 % ------------------------------------------------------------------------------------- %
-\subsubsection{Preconditioning with $\eta$ vs. $\gamma_*$}\label{sec:numerics:dg:const}
+\subsubsection{A hyperbolic example, and preconditioning with $\eta$ vs. $\gamma_*$}
+\label{sec:numerics:dg:const}
 
 First, we demonstrate the effectiveness of using $\gamma_*$ (\Cref{sec:solve:gamma})
-instead of $\eta$ in the preconditioner. 
+instead of $\eta$ in the preconditioner, as well as the robustness of the proposed
+method on a fully hyperbolic problem, where most papers have only discussed parabolic
+PDEs (for example, \cite{8jp,27n}. Thus, we set the diffusion coefficient $\kappa = 0$,
+and apply AMG based on approximate ideal restriction (AIR) \cite{Manteuffel:2019,Manteuffel:2018}
+as a preconditioner for individual systems $(\gamma M - \delta t\mathcal{L})$.
 
-{
-% \renewcommand{\tabcolsep}{4pt}
-\renewcommand{\arraystretch}{1.15}
-\begin{table}[!ht]
-  \centering
-  \begin{tabular}{| c | cc | cc | ccc |}  % chktex 44
-  \hline
-\multicolumn{8}{|c|}{Gauss}\\\hline
-2 & \multicolumn{2}{c}{3} & \multicolumn{2}{|c}{4} & \multicolumn{3}{|c|}{5} \\\hline
-1 & . & . & . & . & . & . & . \\\hline\hline
-\multicolumn{8}{|c|}{RadauIIA}\\\hline
-2 & \multicolumn{2}{c}{3} & \multicolumn{2}{|c}{4} & \multicolumn{3}{|c|}{5} \\\hline
-1 \\\hline\hline
-\multicolumn{8}{|c|}{LobattoIIIC}\\\hline
-2 & \multicolumn{2}{c}{3} & \multicolumn{2}{|c}{4} & \multicolumn{3}{|c|}{5} \\\hline
-  \hline
-  \end{tabular}
-  \caption{.}\label{tab:gamma}
-\end{table}
-}
-
-
-% ------------------------------------------------------------------------------------- %
-\subsubsection{High-order \& advection-dominated}\label{sec:numerics:dg:adv}
-
-This section demonstrates high-order IRK integration applied to the advection-dominated
-problem in \Cref{fig:ad_advdiff}, using AIR as a preconditioner for the linear
-systems. AIR was originally designed for upwind DG discretizations of advection
+AIR was originally designed for upwind DG discretizations of advection
 and is well-suited for this problem. We use the \textit{hypre} implementation,
 with distance 1.5 restriction with strength tolerance $\theta_R=0.01$, one-point
 interpolation (type 100), Falgout coarsening (type 6) with strength tolerance
@@ -1665,7 +1645,57 @@ structured mesh, and the time step for each integration scheme is chosen
 such that the spatial and temporal orders of accuracy match; for example,
 for 8th-order integration we choose $\delta t = \sqrt{h}$, for mesh spacing
 $h$, so that $\delta t^8 = h^4$. All linear systems are solved to a relative
-tolerance of $10^{-12}$.
+tolerance of $10^{-12}$. There are a total of 1,638,400 spatial degrees-of-freedom
+(DOFs), and the simulations are run on 288 processors on the Quartz machine at
+Lawrence Livermore National Lab, resulting in 5600 DOFs/processor.
+
+Table \Cref{tab:gamma} shows the average number of AIR iterations to solve for
+each stage of an IRK method using $\eta$ and $\gamma_*$ as the preconditioning
+constants. Iteration counts are shown for Gauss, RadauIIA, and LobattoIIIC integration,
+with 2-5 stages, and the (factor of) reduction in iteration count achieved using $\gamma_*$
+vs. $\eta$ is also shown. For 5-stage LobattoIIIC integration, $\gamma_*$ yields
+almost a $6\times$ reduction in total inner AIR iterations to solve for the
+``hard'' stage ($\beta > \eta$), while in no cases is there an increase in
+iteration count when using $\gamma_*$.
+
+{
+% \renewcommand{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.15}
+\begin{table}[!ht]
+  \centering
+  \begin{tabular}{|l || r | rr | rr | rrr |}  % chktex 44
+  \hline
+\multicolumn{9}{|c|}{Gauss}\\\hline
+Stages/Order & 2/4 & \multicolumn{2}{c}{3/6} & \multicolumn{2}{|c}{4/8} & \multicolumn{3}{|c|}{5/10} \\\hline
+Iterations$(\eta)$ & 17 & 6 & 30 & 11  & 47 & 8 & 16 & 70 \\
+Iterations$(\gamma_*)$ & 11 & 6 & 15 & 10 & 19 & 8 & 13 & 23 \\\hline
+Speedup & 1.5 & 1.0 & 2.0 & 1.1 & 2.5 & 1.0 & 1.2 & 3.0 \\\hline\hline
+\multicolumn{9}{|c|}{RadauIIA}\\\hline
+Stages/Order & 2/3 & \multicolumn{2}{c}{3/5} & \multicolumn{2}{|c}{4/7} & \multicolumn{3}{|c|}{5/9} \\\hline
+Iterations$(\eta)$ & 12 & 5 & 39 & 11 & 64 & 8 & 16 & 97 \\
+Iterations$(\gamma_*)$ & 12 & 5 & 18 & 9 & 21 & 8 & 12 & 25 \\\hline
+Speedup & 1.0 & 1.0 & 2.2 & 1.2 & 3.0 & 1.0 & 1.3 & 3.9 \\\hline\hline
+\multicolumn{9}{|c|}{LobattoIIIC}\\\hline
+Stages/Order & 2/2 & \multicolumn{2}{c}{3/4} & \multicolumn{2}{|c}{4/6} & \multicolumn{3}{|c|}{5/8} \\\hline
+Iterations$(\eta)$ & 8 & 3 & 67 & 11 & 113 & 7 & 17 & 175 \\
+Iterations$(\gamma_*)$ & 8 & 3 & 22 & 9 & 26 & 7 & 12 & 30 \\\hline
+Speedup & 1.0 & 1.0 & 3.0 & 1.2 & 4.3 & 1.0 & 1.4 & 5.8 \\\hline\hline
+  \end{tabular}
+  \caption{Average AIR iterations to solve for each stage in an implicit
+  Runge-Kutta method using preconditioners $(\eta M - \mathcal{L})^{-2}$ and
+  $(\gamma_* M - \mathcal{L})^{-2}$ \eqref{eq:gam_opt}. The ratio of
+  iterations$(\gamma_*)$/iterations$(\eta)$ is shown in the ``Speedup'' rows.}
+  \label{tab:gamma}
+\end{table}
+}
+
+
+% ------------------------------------------------------------------------------------- %
+\subsubsection{High-order \& advection-dominated}\label{sec:numerics:dg:adv}
+
+This section demonstrates high-order IRK integration applied to the advection-dominated
+problem in \Cref{fig:ad_advdiff}, using AIR as a preconditioner for the linear
+systems. 
 
 \Cref{fig:dg_o4_abs} shows the total number of AIR iterations required to
 compute one time step using six different Runge-Kutta schemes, from 4th
@@ -1733,30 +1763,46 @@ outer iteration, which allows for GMRES to be applied in an inner iteration
 as a preconditioner for $(\gamma_* M - \mathcal{L})$. \Cref{fig:dg_o2} plots the
 total number of AIR iterations per time step as a function of the number of
 AIR iterations applied for each application of the preconditioner, using an
-inner GMRES or an inner fixed-point iteration. 
+inner GMRES or an inner fixed-point iteration. An advection-dominated problem
+with $\kappa = 10^{-6}$ is also shown for comparison.
 
 Recall we have three stages, one of which is a single linear system corresponding
 to a real eigenvalue, and the other corresponding to a pair of complex conjugate
 eigenvalues, which we precondition as in \Cref{sec:solve}. The latter ends up being
-the more difficult problem to solve -- using one AIR iteration as a preconditioner,
+the more difficult problem to solve -- for $\kappa =0.01$ (\Cref{fig:dg_o2_1e-2}),
 the outer FGMRES iteration for the complex conjugate quadratic does not converge in
-1000 iterations. If two AIR iterations with GMRES are used as a preconditioner,
+1000 iterations when using one AIR iteration as a preconditioner.
+If two AIR iterations with GMRES are used as a preconditioner,
 the FGMRES iteration converges in approximately 130 iterations, each of which
 requires two applications of GMRES preconditioned with two AIR iterations,
 yielding just over 500 total AIR iterations to converge. Further increasing
 the number of AIR iterations per preconditioning yields nice convergence
 using inner fixed-point or GMRES, with 150 and 112 total AIR iterations per
-time step, respectively. 
+time step, respectively. In contrast, \Cref{fig:dg_o2_1e-6} shows that
+additional AIR iterations for the advection-dominated case are generally
+detrimental to overall computational cost (although the outer iteration
+converges slightly faster, it does not make up for the additional linear
+solves/iteration).
 
 \begin{figure}[h!]
 \centering
-\includegraphics[width = 0.55\textwidth]{./figures/dg_advdiff_o2_1e-2.pdf}
+
+  \centering
+  \begin{subfigure}[b]{0.475\textwidth}
+	\includegraphics[width = \textwidth]{./figures/dg_advdiff_o2_1e-6.pdf}
+	\caption{$\kappa = 10^{-6}$.}
+	\label{fig:dg_o2_1e-6}
+  \end{subfigure}
+   \begin{subfigure}[b]{0.475\textwidth}
+	\includegraphics[width = \textwidth]{./figures/dg_advdiff_o2_1e-2.pdf}
+	\caption{$\kappa = 0.01$.}
+	\label{fig:dg_o2_1e-2}
+  \end{subfigure}
 \caption{AIR iterations per time step as a function of the number of
 AIR iterations applied for each application of the preconditioner.}
 \label{fig:dg_o2}
 \end{figure}
 
-\todo{Add similar plot for $\kappa 10^{-6}$.}
 
 
 
