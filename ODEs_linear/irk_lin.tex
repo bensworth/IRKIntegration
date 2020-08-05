@@ -130,8 +130,9 @@ Runge-Kutta methods update the solution using a sum over stage vectors,
 %
 \begin{align}\label{eq:update}
 \mathbf{u}_{n+1} & = \mathbf{u}_n + \delta t \sum_{i=1}^s b_i\mathbf{k}_i, \\
-M\mathbf{k}_i & = \mathcal{L}\left(\mathbf{u}_n + \delta t\sum_{j=1}^s a_{ij}\mathbf{k}_j,
-	t_n+\delta tc_i\right) + \mathbf{f}(t_n+\delta tc_i).\label{eq:stages}
+M\mathbf{k}_i & = \mathcal{L}(t_n+\delta tc_i)\cdot
+	\left(\mathbf{u}_n + \delta t\sum_{j=1}^s a_{ij}\mathbf{k}_j\right) +
+	\mathbf{f}(t_n+\delta tc_i).\label{eq:stages}
 \end{align}
 %
 Expanding, solving for the stages $\mathbf{k}$ can then be expressed as the
