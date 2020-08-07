@@ -23,7 +23,7 @@ EXEC_FILES    = heat
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 # Recompile executables if cpp files or object dependencies have changed
-$(EXEC_FILES): $(OBJECT_FILES)
+$(EXEC_FILES): $(OBJECT_FILES) solver_lib/libas.a
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJECT_FILES) $(LDFLAGS) $(LDLIBS)
 
 # Specify that 'make' compiles all examples.

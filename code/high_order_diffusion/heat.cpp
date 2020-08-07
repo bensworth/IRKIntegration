@@ -8,25 +8,29 @@
 
 #include "as.hpp"
 #include "IRK.hpp"
+#include "mesh_util.hpp"
 
 using namespace std;
 using namespace mfem;
 
 int n_applications = 0;
 
-double ic_fn(const Vector &xvec)
+double u_ex_fn(const Vector &xvec, double t)
 {
    double x = xvec[0];
    double y = xvec[1];
    double r2 = pow(x-0.25,2) + pow(y-0.25,2);
-   return 0.25 * sin(8*M_PI*x)*sin(8*M_PI*y);
+   // return sin(2*M_PI*x)*cos(2*M_PI*y)*exp(-t);
+   return sin(2*M_PI*x)*cos(2*M_PI*y)*(2 + sin(t));
 }
 
-double f_fn(const Vector &xvec)
+double f_fn(const Vector &xvec, double t)
 {
    double x = xvec[0];
    double y = xvec[1];
-   return cos(4*M_PI*x)*cos(4*M_PI*y);
+   // return 8*M_PI*M_PI*sin(2*M_PI*x)*cos(2*M_PI*y);
+   // return exp(-t)*(8*M_PI*M_PI - 1)*sin(2*M_PI*x)*cos(2*M_PI*y);
+   return cos(2*M_PI*y)*(cos(t) + 8*pow(M_PI,2)*(2 + sin(t)))*sin(2*M_PI*x);
 }
 
 struct BackwardEulerPreconditioner : Solver
@@ -87,22 +91,32 @@ struct HeatIRKOperator : IRKOperator
    BackwardEulerPreconditioner *current_prec;
    IntegrationRules irs;
 
+   FunctionCoefficient f_coeff;
+   ParLinearForm b;
+   Vector B;
+
    HeatOperator oper;
 
+   bool use_inner_cg;
    CGSolver inner_cg;
 
-   Vector B;
    mutable Vector z;
 
 public:
-   HeatIRKOperator(ParFiniteElementSpace &fes_, double eps)
-      : IRKOperator(fes_.GetComm(), fes_.GetTrueVSize(), 0.0, IMPLICIT),
-        fes(fes_),
-        diff_coeff(-eps),
-        a(&fes),
-        m(&fes),
-        irs(0, Quadrature1D::GaussLobatto),
-        oper(A, M)
+   HeatIRKOperator(
+      ParFiniteElementSpace &fes_,
+      double eps,
+      bool use_inner_cg_ = false)
+   : IRKOperator(fes_.GetComm(), fes_.GetTrueVSize(), 0.0, IMPLICIT),
+      fes(fes_),
+      diff_coeff(-eps),
+      a(&fes),
+      m(&fes),
+      irs(0, Quadrature1D::GaussLobatto),
+      oper(A, M),
+      f_coeff(f_fn),
+      b(&fes),
+      use_inner_cg(use_inner_cg_)
    {
       a.AddDomainIntegrator(new DiffusionIntegrator(diff_coeff));
       a.SetAssemblyLevel(AssemblyLevel::PARTIAL);
@@ -112,7 +126,8 @@ public:
       if (mesh.bdr_attributes.Size())
       {
          ess_bdr.SetSize(mesh.bdr_attributes.Max());
-         ess_bdr = 1;
+         // ess_bdr = 1;
+         ess_bdr = 0;
          fes.GetEssentialTrueDofs(ess_bdr, ess_tdof_list);
       }
       a.FormSystemMatrix(ess_tdof_list, A);
@@ -129,8 +144,6 @@ public:
 
       Minv.reset(new OperatorJacobiSmoother(m, ess_tdof_list));
 
-      ParLinearForm b(&fes);
-      FunctionCoefficient f_coeff(f_fn);
       b.AddDomainIntegrator(new DomainLFIntegrator(f_coeff));
       b.Assemble();
       B.SetSize(fes.GetTrueVSize());
@@ -140,11 +153,19 @@ public:
 
       current_prec = nullptr;
 
-      inner_cg.SetRelTol(1e-1);
-      inner_cg.SetAbsTol(1e-1);
-      inner_cg.SetMaxIter(5);
+      inner_cg.SetRelTol(1e-3);
+      inner_cg.SetAbsTol(1e-3);
+      inner_cg.SetMaxIter(20);
       inner_cg.SetPrintLevel(0);
       inner_cg.SetOperator(oper);
+   }
+
+   virtual void SetTime(const double t_) override
+   {
+      t = t_;
+      f_coeff.SetTime(t);
+      b.Assemble();
+      b.ParallelAssemble(B);
    }
 
    // Compute the right-hand side of the ODE system.
@@ -178,8 +199,14 @@ public:
    inline void ImplicitPrec(const Vector &x, Vector &y) const override
    {
       MFEM_VERIFY(current_prec != NULL, "Must call SetSystem before ImplicitPrec");
-      // current_prec->Mult(x, y);
-      inner_cg.Mult(x, y);
+      if (use_inner_cg)
+      {
+         inner_cg.Mult(x, y);
+      }
+      else
+      {
+         current_prec->Mult(x, y);
+      }
    }
 
    /** Ensures that this->ImplicitPrec() preconditions (\gamma*M - dt*L)
@@ -232,11 +259,13 @@ int run_heat(int argc, char *argv[])
    const char *mesh_file = MFEM_DIR "data/inline-quad.mesh";
    int ref_levels = 3;
    int order = 1;
-   double eps = 1e-2;
+   double eps = 1.0;
    double dt = 1e-2;
    double tf = 0.1;
    int irk_method = 16;
-   bool visualization = false;
+   int mag_prec = 0;
+   bool visualization = true;
+   bool use_inner_cg = false;
 
    OptionsParser args(argc, argv);
    args.AddOption(&mesh_file, "-m", "--mesh",
@@ -250,7 +279,11 @@ int run_heat(int argc, char *argv[])
    args.AddOption(&tf, "-tf", "--final-time", "Final time.");
    args.AddOption(&irk_method, "-i", "--irk", "ID of IRK method.");
    args.AddOption(&visualization, "-vis", "--visualization", "-no-vis", "--no-visualization",
-                  "Use IRK solver.");
+                  "Enable ParaView visualization");
+   args.AddOption(&use_inner_cg, "-cg", "--use-cg", "-no-cg", "--dont-use-cg",
+                  "Use inner CG iteration");
+   args.AddOption(&mag_prec, "-mag", "--mag-prec",
+                  "0 -> gamma = eta, 1 -> gamma = sqrt(eta^2+beta^2).");
    args.Parse();
    if (!args.Good())
    {
@@ -259,7 +292,8 @@ int run_heat(int argc, char *argv[])
    }
    if (root) { args.PrintOptions(std::cout); }
 
-   Mesh *serial_mesh = new Mesh(mesh_file, 1, 1);
+   // Mesh *serial_mesh = new Mesh(mesh_file, 1, 1);
+   Mesh *serial_mesh = new Mesh(3, 3, Element::QUADRILATERAL, false, 1.0, 1.0, false);
    int dim = serial_mesh->Dimension();
    if (ref_levels < 0)
    {
@@ -269,8 +303,27 @@ int run_heat(int argc, char *argv[])
    {
       serial_mesh->UniformRefinement();
    }
-   ParMesh mesh(MPI_COMM_WORLD, *serial_mesh);
-   delete serial_mesh;
+
+   Mesh *periodic_mesh;
+   {
+      Vector tx(2), ty(2);
+      tx = 0.0;
+      ty = 0.0;
+      tx[0] = 1.0;
+      ty[1] = 1.0;
+      std::vector<Vector> translations = {tx, ty};
+      Array<int> v2v;
+      IdentifyPeriodicMeshVertices(*serial_mesh,
+                                   translations,
+                                   v2v,
+                                   0);
+      periodic_mesh = MakePeriodicMesh(serial_mesh, v2v, 0);
+      periodic_mesh->RemoveInternalBoundaries();
+      delete serial_mesh;
+   }
+
+   ParMesh mesh(MPI_COMM_WORLD, *periodic_mesh);
+   delete periodic_mesh;
 
    // Print mesh size
    double hmin, hmax, kmin, kmax;
@@ -288,8 +341,8 @@ int run_heat(int argc, char *argv[])
 
    Vector u;
    ParGridFunction u_gf(&fes);
-   FunctionCoefficient ic_coeff(ic_fn);
-   u_gf.ProjectCoefficient(ic_coeff);
+   FunctionCoefficient u_ex_coeff(u_ex_fn);
+   u_gf.ProjectCoefficient(u_ex_coeff);
    u_gf.GetTrueDofs(u);
 
    ParaViewDataCollection dc("Heat", &mesh);
@@ -305,20 +358,25 @@ int run_heat(int argc, char *argv[])
       dc.Save();
    }
 
-   HeatIRKOperator heat(fes, eps);
+   HeatIRKOperator heat(fes, eps, use_inner_cg);
 
    double t = 0.0;
 
    RKData::Type irk_type = RKData::Type(irk_method);
    // Can adjust rel tol, abs tol, maxiter, kdim, etc.
    IRK::KrylovParams krylov_params;
-   krylov_params.printlevel = 2;
+   krylov_params.printlevel = 1;
    krylov_params.kdim = 50;
-   krylov_params.maxiter = 200;
-   // krylov_params.solver = IRK::KrylovMethod::CG;
-   krylov_params.solver = IRK::KrylovMethod::FGMRES;
+   krylov_params.maxiter = 2000;
+   krylov_params.reltol = 1e-16;
+   krylov_params.abstol = 1e-16;
+   // krylov_params.abstol = 0.0;
+   // If we use an inner CG iteration, have to use outer FGRMRES (technically
+   // FCG would work, but don't have MFEM implementation). If not, we can use
+   // CG as outer iteration.
+   krylov_params.solver = (use_inner_cg) ? IRK::KrylovMethod::FGMRES : IRK::KrylovMethod::CG;
    // Build IRK object using spatial discretization
-   IRK irk(&heat, irk_type);
+   IRK irk(&heat, irk_type, mag_prec);
    // Set GMRES settings
    irk.SetKrylovParams(krylov_params);
    // Initialize solver
@@ -336,16 +394,16 @@ int run_heat(int argc, char *argv[])
    }
 
    int nsteps = 0;
-   bool done = false;
-   while (!done)
+   // bool done = false;
+   while (t < tf - 1e-8*dt)
    {
       ++nsteps;
       double dt_real = min(dt, tf - t);
       irk.Step(u, t, dt_real);
-      done = (t >= tf - 1e-8*dt);
+      bool done = (t >= tf - 1e-8*dt);
       if (t - t_vis > vis_int || done)
       {
-         if (root) { printf("t = %4.3f\n", t); }
+         if (root) { printf("t = %20.16f\n", t); }
          if (visualization)
          {
             u_gf.SetFromTrueDofs(u);
@@ -357,59 +415,84 @@ int run_heat(int argc, char *argv[])
       }
    }
 
-   std::map<int,std::string> irk_names;
+   u_ex_coeff.SetTime(t);
+   double err = u_gf.ComputeL2Error(u_ex_coeff);
 
-   irk_names[-13] = "asdirk3";
-   irk_names[-14] = "asdirk4";
+   ParGridFunction u_ex(&fes);
+   u_ex.ProjectCoefficient(u_ex_coeff);
+   u_gf -= u_ex;
 
-   irk_names[01] = "dirk1";
-   irk_names[02] = "dirk2";
-   irk_names[03] = "dirk3";
-   irk_names[04] = "dirk4";
+   dc.SetCycle(dc.GetCycle()+1);
+   dc.SetTime(dc.GetTime()+1);
+   dc.Save();
 
-   irk_names[12] = "gauss2";
-   irk_names[14] = "gauss4";
-   irk_names[16] = "gauss6";
-   irk_names[18] = "gauss8";
-   irk_names[110] = "gauss10";
+   u_gf.ProjectCoefficient(u_ex_coeff);
 
-   irk_names[23] = "radau3";
-   irk_names[25] = "radau5";
-   irk_names[27] = "radau7";
-   irk_names[29] = "radau9";
+   dc.SetCycle(dc.GetCycle()+1);
+   dc.SetTime(dc.GetTime()+1);
+   dc.Save();
 
-   irk_names[32] = "lobatto2";
-   irk_names[34] = "lobatto4";
-   irk_names[36] = "lobatto6";
-   irk_names[38] = "lobatto8";
-
-   std::vector<int> avg_iter, type;
-   std::vector<double> eig_ratio;
-   irk.GetSolveStats(avg_iter, type, eig_ratio);
-
-   std::map<std::string,picojson::value> dict;
-   dict.emplace("irk_method", irk_names[irk_method]);
-   dict.emplace("ref", double(ref_levels));
-   dict.emplace("dt", dt);
-   dict.emplace("order", double(order));
-   dict.emplace("num_systems", double(avg_iter.size()));
-
-   std::vector<picojson::value> sys_info;
-   for (int i=0; i<avg_iter.size(); ++i)
+   if (root)
    {
-      std::map<std::string,picojson::value> sys;
-      sys.emplace("avg_iter", double(avg_iter[i])/nsteps);
-      sys.emplace("degree", double(type[i]));
-      sys.emplace("eig_ratio", eig_ratio[i]);
-      sys_info.emplace_back(sys);
+      printf("L2 error: %20.16e\n", err);
+
+      std::map<int,std::string> irk_names;
+      irk_names[-13] = "asdirk3";
+      irk_names[-14] = "asdirk4";
+
+      irk_names[01] = "dirk1";
+      irk_names[02] = "dirk2";
+      irk_names[03] = "dirk3";
+      irk_names[04] = "dirk4";
+
+      irk_names[12] = "gauss2";
+      irk_names[14] = "gauss4";
+      irk_names[16] = "gauss6";
+      irk_names[18] = "gauss8";
+      irk_names[110] = "gauss10";
+
+      irk_names[23] = "radau3";
+      irk_names[25] = "radau5";
+      irk_names[27] = "radau7";
+      irk_names[29] = "radau9";
+
+      irk_names[32] = "lobatto2";
+      irk_names[34] = "lobatto4";
+      irk_names[36] = "lobatto6";
+      irk_names[38] = "lobatto8";
+
+      std::vector<int> avg_iter, type;
+      std::vector<double> eig_ratio;
+      irk.GetSolveStats(avg_iter, type, eig_ratio);
+
+      std::map<std::string,picojson::value> dict;
+      dict.emplace("irk_method", irk_names[irk_method]);
+      dict.emplace("ref", double(ref_levels));
+      dict.emplace("dt", dt);
+      dict.emplace("order", double(order));
+      dict.emplace("mag_prec", double(mag_prec));
+      dict.emplace("num_systems", double(avg_iter.size()));
+      dict.emplace("inner_cg", use_inner_cg);
+      dict.emplace("total_prec_applications", double(n_applications));
+      dict.emplace("error", err);
+
+      std::vector<picojson::value> sys_info;
+      for (int i=0; i<avg_iter.size(); ++i)
+      {
+         std::map<std::string,picojson::value> sys;
+         sys.emplace("avg_iter", double(avg_iter[i])/nsteps);
+         sys.emplace("degree", double(type[i]));
+         sys.emplace("eig_ratio", eig_ratio[i]);
+         sys_info.emplace_back(sys);
+      }
+      dict.emplace("sys_info", sys_info);
+
+      std::ofstream f("results/" + irk_names[irk_method] + ".json");
+      f << picojson::value(dict);
+      f << std::endl;
+
+      std::cout << "TOTAL PREC APPLICATIONS: " << n_applications << '\n';
    }
-   dict.emplace("sys_info", sys_info);
-
-   std::ofstream f("results/" + irk_names[irk_method] + ".txt");
-   f << picojson::value(dict);
-   f << std::endl;
-
-   std::cout << "TOTAL PREC APPLICATIONS: " << n_applications << '\n';
 
    return 0;
 }
