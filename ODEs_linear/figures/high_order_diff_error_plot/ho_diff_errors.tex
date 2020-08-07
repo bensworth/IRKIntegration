@@ -1,0 +1,88 @@
+\documentclass[tikz]{standalone}
+\usepackage{pgfplots}
+\usepackage{stmaryrd}
+\usepackage{amsmath}
+
+%%% START MACRO FOR ANNOTATION OF TRIANGLE WITH SLOPE %%%.
+\newcommand{\logLogSlopeTriangle}[5]
+{
+    % #1. Relative offset in x direction.
+    % #2. Relative offset in y direction.
+    % #3. Slope d(y)/d(log10(x)).
+    % #4. Plot options.
+    \pgfplotsextra
+    {
+        \pgfkeys{/pgf/fpu}
+
+        \pgfkeysgetvalue{/pgfplots/xmin}{\xmin}
+        \pgfkeysgetvalue{/pgfplots/xmax}{\xmax}
+        \pgfkeysgetvalue{/pgfplots/ymin}{\ymin}
+        \pgfkeysgetvalue{/pgfplots/ymax}{\ymax}
+
+        \pgfmathsetmacro{\triWidth}{exp(0.15*(\xmax-\xmin))}
+        \pgfmathsetmacro{\triHeight}{\triWidth^#3}
+
+        \pgfmathsetmacro{\xAAbs}{#1}
+        \pgfmathsetmacro{\yAAbs}{#2}
+
+        \pgfmathsetmacro{\xBAbs}{\xAAbs * \triWidth}
+        \pgfmathsetmacro{\yBAbs}{\yAAbs}
+
+        \pgfmathsetmacro{\xCAbs}{\xAAbs * \triWidth}
+        \pgfmathsetmacro{\yCAbs}{\yAAbs * \triHeight}
+
+        \pgfkeys{/pgf/fpu=false}
+
+        \coordinate (A) at (axis cs: \xAAbs, \yAAbs);
+        \coordinate (B) at (axis cs: \xBAbs, \yBAbs);
+        \coordinate (C) at (axis cs: \xCAbs, \yCAbs);
+
+        % Draw slope triangle.
+        \draw[#4]   (A)-- node[pos=0.5,anchor=north] {\tiny1}
+                    (B)-- node[midway,anchor=west] {\tiny#3}
+                    (C)--
+                    cycle;
+    }
+}
+%%% END MACRO FOR ANNOTATION OF TRIANGLE WITH SLOPE %%%.
+
+
+\definecolor{RYB2}{RGB}{31,120,180}   % Dark blue
+\definecolor{RYB4}{RGB}{51,160,44}    % Dark green
+
+\begin{document}
+\pgfplotscreateplotcyclelist{will}{%
+  RYB4!50!black,every mark/.append style={fill=RYB4},mark=*\\%
+  RYB2!50!black,every mark/.append style={fill=RYB2},mark=square*\\%
+}
+
+\begin{tikzpicture}
+\begin{loglogaxis}[
+    width=3in,
+    ylabel={Relative $L^2$ error},
+    xlabel={$\delta t$},
+    cycle list name=will,
+    legend cell align=left,
+    legend style={row sep=6pt},
+    legend pos=outer north east,
+    xtick={0.1,0.05,0.025},
+    xticklabels={0.1,0.05,0.025},
+    legend entries={Gauss, Radau IIA}
+]
+
+\addplot table[x index=1,y index=2,skip first n=1] {errors.txt};
+\addplot table[x index=1,y index=3,skip first n=1] {errors.txt};
+\addplot table[x index=1,y index=4,skip first n=1] {errors.txt};
+\addplot table[x index=1,y index=5,skip first n=1] {errors.txt};
+\addplot table[x index=1,y index=6,skip first n=1] {errors.txt};
+\addplot table[x index=1,y index=7,skip first n=1] {errors.txt};
+\addplot table[x index=1,y index=8,skip first n=1] {errors.txt};
+\addplot table[x index=1,y index=9,skip first n=1] {errors.txt};
+\addplot table[x index=1,y index=10,skip first n=1] {errors.txt};
+
+\logLogSlopeTriangle{0.0625}{2e-12}{10}{gray,fill=lightgray};
+
+\end{loglogaxis}
+
+\end{tikzpicture}
+\end{document}
