@@ -15,10 +15,10 @@ class ILU0 : public Solver
    Array<int> ID, p;
    mutable Vector y;
 public:
-   ILU0(SparseMatrix &A);
+   ILU0(SparseMatrix &A, double shift=0.0);
 
    virtual void SetOperator(const Operator &op);
-   void Factorize(const SparseMatrix *A);
+   void Factorize(const SparseMatrix *A, double shift);
    virtual void Mult(const Vector &b, Vector &x) const;
    SparseMatrix *GetLU();
 };

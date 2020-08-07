@@ -602,10 +602,17 @@ GhostMesh::GhostMesh(ParMesh &pmesh_) : pmesh(pmesh_)
    }
    int nbdr = bdr_attr.size();
 
-   int local_max_attr = pmesh.bdr_attributes.Max();
+   int local_max_attr = pmesh.bdr_attributes.Size()
+                      ? pmesh.bdr_attributes.Max() : 0;
    int dummy_attr;
    MPI_Allreduce(&local_max_attr, &dummy_attr, 1, MPI_INT, MPI_MAX, comm);
    ++dummy_attr;
+
+   bool discont = false;
+   if (pmesh.GetNodalFESpace())
+   {
+      discont = pmesh.GetNodalFESpace()->IsDGSpace();
+   }
 
    mesh.reset(new GhostMeshGen(
                  dim, sdim, nv_combined, v_combined.data(),
@@ -613,7 +620,7 @@ GhostMesh::GhostMesh(ParMesh &pmesh_) : pmesh(pmesh_)
                  nbdr, bdr_idx.data(), bdr_attr.data(), dummy_attr));
 
    // Set the nodes for curved meshes
-   mesh->SetCurvature(order, false, -1, Ordering::byNODES);
+   mesh->SetCurvature(order, discont, -1, Ordering::byNODES);
    GridFunction *new_nodes = mesh->GetNodes();
    // Force grid function on host
    new_nodes->HostReadWrite();

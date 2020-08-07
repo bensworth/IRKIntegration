@@ -1,9 +1,9 @@
 #include "ilu.hpp"
 #include "util.hpp"
 
-ILU0::ILU0(SparseMatrix &A)
+ILU0::ILU0(SparseMatrix &A, double shift)
 {
-   Factorize(&A);
+   Factorize(&A, shift);
 }
 
 void ILU0::SetOperator(const Operator &op)
@@ -13,16 +13,15 @@ void ILU0::SetOperator(const Operator &op)
    {
       MFEM_ABORT("ILU0 must be created using a sparse matrix")
    }
-   Factorize(A);
+   Factorize(A, 0.0);
 }
 
-void ILU0::Factorize(const SparseMatrix *A)
+void ILU0::Factorize(const SparseMatrix *A, double shift)
 {
    MFEM_ASSERT(A->Finalized(), "Matrix must be finalized for ILU0");
 
    n = A->Height();
    LU.reset(new SparseMatrix(*A));
-   // LU->UseDevice(false); // This probably is unecessary
    // Note: MDFOrdering overwrites LU
    MDFOrdering(*LU, p);
    Array<int> pinv(n);
@@ -53,6 +52,7 @@ void ILU0::Factorize(const SparseMatrix *A)
 
          J[I[i] + jj] = j;
          V[I[i] + jj] = VA[IA[pi] + jj];
+         if (i == j) { V[I[i] + jj] += shift; }
       }
    }
 

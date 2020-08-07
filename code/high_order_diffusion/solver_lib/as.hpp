@@ -78,7 +78,7 @@ protected:
    HypreParMatrix A0;
    HypreBoomerAMG A0_amg;
    std::unique_ptr<Solver> A0_solv;
-   std::unique_ptr<AdditiveSchwarz> as_prec;
+   std::unique_ptr<Solver> as_prec;
 
    void InitGhostEssBdr(Array<int>& ess_bdr);
    void InitCoarseSolver();

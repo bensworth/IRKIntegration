@@ -23,7 +23,7 @@ CoarseSolver::CoarseSolver(
    {
       if (is_dof_ess0[i])
       {
-         R->EliminateCol(i, Matrix::DIAG_ZERO);
+         R->EliminateCol(i, Operator::DIAG_ZERO);
       }
    }
 
@@ -32,7 +32,7 @@ CoarseSolver::CoarseSolver(
       bool is_true_dof = (fes.GetLocalTDofNumber(i) >= 0);
       if (!is_true_dof || is_dof_ess[i])
       {
-         R->EliminateRow(i, Matrix::DIAG_ZERO);
+         R->EliminateRow(i, Operator::DIAG_ZERO);
       }
    }
 
@@ -167,7 +167,13 @@ void ScalarAssembleDiffusion(BilinearForm &a, OpT &A,
                              Coefficient &diff_coeff,
                              const Array<int>& ess_bdr)
 {
-   a.AddDomainIntegrator(new MassIntegrator(mass_coeff));
+   IntegrationRules irs(0, Quadrature1D::GaussLobatto);
+   const FiniteElement *fe = fes.GetFE(0);
+   int order = fe->GetOrder();
+   Geometry::Type geom = fe->GetGeomType();
+   const IntegrationRule &ir = irs.Get(geom, 2*(order-1));
+
+   a.AddDomainIntegrator(new MassIntegrator(mass_coeff, &ir));
    a.AddDomainIntegrator(new DiffusionIntegrator(diff_coeff));
    a.Assemble();
 
@@ -198,11 +204,7 @@ HighOrderASPreconditioner::HighOrderASPreconditioner(
      ess_bdr(_ess_bdr),
      npatches(_npatches)
 {
-   int pure_neumann_local = (ess_bdr.Sum() == 0);
-   int pure_neumann_global;
-   MPI_Allreduce(&pure_neumann_local, &pure_neumann_global,
-                 1, MPI_INT, MPI_SUM, pmesh_ho->GetComm());
-   bool pure_neumann = (pure_neumann_global != 0);
+   bool pure_neumann = false;
 
    // Modify essential boundaries to include ghost boundaries
    InitGhostEssBdr(ess_bdr);
@@ -215,20 +217,27 @@ HighOrderASPreconditioner::HighOrderASPreconditioner(
    ScalarAssembleDiffusion(*a_ghost_lor, A_ghost_lor, glor.fes,
       mass_coeff, diff_coeff, ess_bdr);
 
+   // a_ghost_lor.reset(new BilinearForm(&fes_ho));
+   // ScalarAssembleDiffusion(*a_ghost_lor, A_ghost_lor, fes_ho,
+   //    mass_coeff, diff_coeff, ess_bdr);
+
    // Setup coarse solver
    InitCoarseSolver();
 
    // Finalize Additive Schwarz preconditioner
-   as_prec.reset(new AdditiveSchwarz(fespace_lor, fespace_coarse, glor, ess_bdr,
-                                     A_ghost_lor, *A0_solv, true, true, npatches,
-                                     pure_neumann));
+   // as_prec.reset(new AdditiveSchwarz(fespace_lor, fespace_coarse, glor, ess_bdr,
+   //                                   A_ghost_lor, *A0_solv, true, true, npatches,
+   //                                   pure_neumann));
+   as_prec.reset(new UMFPackSolver(A_ghost_lor));
 }
 
 void HighOrderASPreconditioner::InitGhostEssBdr(Array<int>& ess_bdr)
 {
    int previous_size = ess_bdr.Size();
    // Grow our internal copy of ess_bdr
-   ess_bdr.SetSize(glor.mesh_lor.bdr_attributes.Max());
+   int nattr = glor.mesh_lor.bdr_attributes.Size()
+             ? glor.mesh_lor.bdr_attributes.Max() : 0;
+   ess_bdr.SetSize(nattr);
    // and append ghost BCs as essential (homogeneous Dirichlet)
    for (int i = previous_size; i < ess_bdr.Size(); ++i)
    {
@@ -262,51 +271,3 @@ void HighOrderASPreconditioner::SetOperator(const Operator &op)
 {
    MFEM_ABORT("HighOrderASPreconditioner cannot call SetOperator.");
 }
-
-/*
-VectorHOASPreconditioner::VectorHOASPreconditioner(
-   ParFiniteElementSpace& fes_ho,
-   Coefficient& lap_coeff,
-   const Array<int> &ess_bdr,
-   bool unsteady,
-   int npatches)
-   : Solver(fes_ho.GetTrueVSize()),
-     vdim(fes_ho.GetVDim()),
-     scalar_fes(fes_ho.GetParMesh(), fes_ho.FEColl()),
-     scalar_prec(scalar_fes, lap_coeff, ess_bdr, unsteady, npatches)
-{
-   MFEM_ASSERT(fes_ho.GetOrdering() == Ordering::byNODES,
-               "VectorHOASPreconditioner only supports Ordering::byNODES!");
-}
-
-int VectorHOASPreconditioner::GetVDim() const
-{
-   return vdim;
-}
-
-void VectorHOASPreconditioner::Mult(const Vector &b, Vector &x) const
-{
-   int scalarSize = width/vdim;
-   b.HostRead();
-   x.HostReadWrite();
-   Vector xScalar{nullptr, scalarSize};
-   Vector bScalar{nullptr, scalarSize};
-   for (int i = 0; i < vdim; ++i)
-   {
-      // bScalar, xScalar are scalar references within vector Vectors to avoid copies
-      bScalar.SetData(b.GetData() + i*scalarSize);
-      xScalar.SetData(x.GetData() + i*scalarSize);
-      scalar_prec.Mult(bScalar, xScalar);
-   }
-}
-
-void VectorHOASPreconditioner::SetOperator(const Operator &op)
-{
-   MFEM_ABORT("VectorHOASPreconditioner cannot call SetOperator.");
-}
-
-void VectorHOASPreconditioner::SetParameters(double dt)
-{
-   scalar_prec.SetParameters(dt);
-}
-*/

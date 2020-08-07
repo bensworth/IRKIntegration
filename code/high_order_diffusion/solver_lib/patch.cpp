@@ -304,11 +304,11 @@ PatchSolver::PatchSolver(const PatchInfo &info, LORGhostMesh &glor,
       if (ilevel == nlevels)
       {
          int coarse_system_size = As[ilevel]->Width();
-         int threshold = 1e3;
+         int threshold = 1e4;
          if (coarse_system_size > threshold && multilevel)
          {
-            std::cout << "Coarse system size: " << coarse_system_size << "\n"
-                      << "Poisson preconditioner falling back to ILU(0)\n";
+            // std::cout << "Coarse system size: " << coarse_system_size << "\n"
+            //           << "Poisson preconditioner falling back to ILU(0)\n";
             Ss[ilevel] = new ILU0(*As[ilevel]);
          }
          else
@@ -321,9 +321,9 @@ PatchSolver::PatchSolver(const PatchInfo &info, LORGhostMesh &glor,
       else
       {
          //Ss[ilevel] = new GSSmoother(*As[ilevel]);
-         //Ss[ilevel] = new UMFPackSolver(*As[ilevel]);
+         // Ss[ilevel] = new UMFPackSolver(*As[ilevel]);
          //Ss[ilevel] = new DSmoother(*As[ilevel], 1);
-         Ss[ilevel] = new ILU0(*As[ilevel]);
+         Ss[ilevel] = new ILU0(*As[ilevel], 0.25);
       }
    }
 
