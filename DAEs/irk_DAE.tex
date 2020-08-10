@@ -151,6 +151,28 @@ $A_0^{-1}$ to the matrix yields the equivalent system
 \end{align}
 %
 
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+\section{Index-1 DAEs}
+
+\begin{itemize}
+	\item For index-1 DAEs, can eliminate constraint and yield system of ODEs. 
+	\item Under reasonable assumptions on stability of resulting system of ODEs,
+	same theory from linear paper can be applied to the reduced system.
+	\item Try to show that directly applying IRK block preconditioning to reduced
+	ODE system equivalent to applying similar preconditioning to DAE form (think
+	this should hold). Then, algorithm seamlessly extends to index-1 DAEs.
+	\item Use KHI model as example problem in paper.
+
+	\item For nonlinear constraint, what is relation between elimination of
+	linearized constraint in block preconditioning form and elimination of
+	nonlinear constraint to form reduced ODE system? 
+
+\end{itemize}
+
+
+
 
 % ---------------------------------------------------------------------------------------------- %
 % ---------------------------------------------------------------------------------------------- %

@@ -105,8 +105,8 @@ M\mathbf{u}'(t) =  \mathcal{L}(t)\mathbf{u} + \mathbf{f}(t)
 \end{align}
 %
 where $M$ is a mass matrix, $\mathcal{L}(t)\in\mathbb{R}^{N\times N}$ a discrete
-linear operator, and $\mathbf{f}(t)$ a time-dependent forcing function.
-\footnote{Note,
+linear operator, and $\mathbf{f}(t)$ a time-dependent forcing
+function.\footnote{Note,
 PDEs with an algebraic constraint, for example, the divergence-free
 constraint in Navier Stokes, instead yield a differential algebraic equation (DAE), which
 requires separate careful treatment and will be the subject of a forthcoming paper.}
@@ -214,11 +214,11 @@ the proposed algorithm here (i) is amenable to short-term Krylov recursion (conj
 gradient (CG)/MINRES) if $\eta M - \mathcal{L}$ is, and (ii) only operates on the solution,
 thus not requiring the storage of each stage vector. Theory is developed
 that guarantees rapid convergence of GMRES and CG under basic assumptions
-on stability from \Cref{sec:intro:stab} (\Cref{sec:solve:prec}). A slight
+on stability from \Cref{sec:intro:stab} (see \Cref{sec:solve:prec}). A slight
 modification of the method is then developed, and the resulting preconditioned
-operator proven to have condition number $<9$ (and typically $\sim1-4$ for
+operator is proven to have condition number $<9$ (and typically $\sim1-4$ for
 realistic parameters), independent of the number of
-stages/polynomial order in time (\Cref{sec:solve:gamma}).
+stages/polynomial order in time (see \Cref{sec:solve:gamma}).
 
 Numerical results are provided in \Cref{sec:numerics}, demonstrating the new
 method for a variety of problems and corresponding preconditioners, including
@@ -234,198 +234,66 @@ integration compared with standard 4th-order SDIRK schemes.
 % ------------------------------------------------------------------------------------- %
 \subsection{Why fully implicit and previous work}\label{sec:intro:hist}
 
-\todo{Add citations}
-Although difficult to solve, there are a number of desirable properties of IRK schemes,
-particularly in terms of accuracy and stabillity (\todo{why stability?}).
 In practice, people typically use
-diagonally implicit Runge-Kutta (DIRK) methods, where $A_0$ is lower triangular, or
-singly implicit Runge Kutta (SIRK) methods, where $A_0$ has exactly one positive real
-eigenvalue. For such schemes, the solution of \eqref{eq:k0} only requires $s$ linear
-solves along the lines of $M - \delta ta_{ii}\mathcal{L}_i$. Unfortunately, SIRK and DIRK
+diagonally implicit Runge-Kutta (DIRK) methods, where $A_0$ is lower triangular.
+For such schemes, the solution of \eqref{eq:k0} only requires $s$ linear
+solves along the lines of $M - \delta ta_{ii}\mathcal{L}_i$. Unfortunately, DIRK
 schemes suffer from stage-order one (stage-order two with one explicit stage; see
-EDIRK methods), and for
-stiff nonlinear PDEs, the observed global order of accuracy in practice can be limited to
-$\approx \min\{ p, q+1\}$, for integration order $p$ and stage-order $q$. Thus, even
-a 6th-order DIRK method may only yield 2nd-order accuracy. Accuracy is even worse for
-index-2 DAEs, where the algebraic variable is limited to first-order accuracy with
-DIRK methods \todo{cite Hairer} (which will be addressed as a follow-up to this paper).
-In contrast, IRK methods yield high stage order and, thus, formally high-order accuracy
-on stiff, nonlinear problems, and even index-2 DAEs. Furthermore, for less stiff
+EDIRK methods \cite{butcher00}). For stiff nonlinear PDEs or DAEs, the observed
+global order of accuracy
+in practice can be limited to $\approx \min\{ p, q+1\}$ or $q$, respectively, for
+integration order $p$ and stage-order $q$ \cite{hairer96,kennedy16}. Thus, even a
+6th-order DIRK method may only yield 1st- or 2nd-order accuracy. In contrast, IRK
+methods yield high stage order and, thus, formally high-order accuracy on stiff,
+nonlinear problems, and even index-2 DAEs. Although the focus of this paper is 
+linear PDEs with no algebraic constraint, we do want to highlight that the theory
+and framework developed in this paper is fundamental to a forthcoming paper on
+nonlinear PDEs and DAEs. Furthermore, for less stiff
 problems, IRK methods can yield accuracy as high as order $2s$ for an $s$ stage method,
 compared with a maximum of $s$ or $s+1$ for SDIRK methods with reasonable stability
 properties \cite[Section IV.6]{hairer96}.
 
-One simplification for using IRK methods in practice is to assume $\mathcal{L}_i =
-\mathcal{L}_j$ for all $i,j$, that is, $\mathcal{L}$ has no dependence on time. Such
-an assumption is natural for linear problems with no time-dependence in the spatial
-differential components, or when applying a simplified Newton method to nonlinear
-problems, where the Jacobian is only evaluated at one time-point per outer RK time
-step. Either case yields a simplified form of \eqref{eq:k0} that can be expressed in
+One simplification for using IRK methods is to assume $\mathcal{L}_i =
+\mathcal{L}_j$ for all $i,j$, in which case \eqref{eq:k0} can be expressed in
 Kronecker product form,
 %
 \begin{align}\label{eq:kron1}
-(I\otimes M - \delta t A_0\otimes \mathcal{L})\mathbf{k} & = \mathbf{f},
+(I\otimes M - \delta t A_0\otimes \mathcal{L})\mathbf{k} & = \mathbf{f}.
 \end{align}
 %
-where $\mathcal{L}$ is a fixed real-valued spatial operator or Jacobian.
+Such an assumption is natural for linear problems with no time-dependent differential
+components and, for the most part, covers the type of problems studied in this paper.
+Many papers have considered the solution of \eqref{eq:kron1}, with Butcher
+\cite{butcher76} and Bickart's \cite{bickart77} being some of the earliest works,
+which develop ways to transform \eqref{eq:kron1} to a simpler form.\footnote{
+In Kronecker form \eqref{eq:kron1}, SIRK methods \cite{norsett1976runge} are also
+relatively straightforward to solve using existing preconditioning techniques.
+But, although SIRK method offer some advantages over DIRK methods, they still lack
+the favorable stability and accuracy properties of IRK methods \cite{burrage82,orel91}.}
+There, and in many of the works that followed the goal was to minimize the cost of LU
+decompositions used to solve \eqref{eq:kron1}, typically in the context of ODEs.
 
-% To avoid complex arithmetic, one can pose each complex
-% system as a real $2\times 2$ block system,
-% Because eigenvalues come in conjugate pairs, we will
-% instead consider inverting conjugate pairs $(\overline{\lambda_i}I - \mathcal{L})^{-1}
-% = \overline{(\lambda_iI - \mathcal{L})^{-1}}$, and thus the same solver/preconditioner
-% could be used for conjugate pairs of eigenvalues \todo{cite}. However, this does not
-% solve the underlying problem of constructing complex solvers/preconditioners in
-% practice.
+For large-scale simulation of PDEs, particularly on modern computing architectures, 
+LU decompositions (or other direct inverses) are typically not feasible. In this
+vein, a number of people have considered preconditioning techniques for \eqref{eq:kron1}
+or approximations to \eqref{eq:kron1} on the nonlinear iteration level or time
+discretization level. In addition to the DG-in-time methods discussed in
+\Cref{sec:intro:dg}, various block preconditioning/approximation techniques
+have been studied, primarily for parabolic problems
+\cite{houwen97b,Houwen97c,nissen11,mardel07,staff06,hoffmann97,jay00}, and
+multigrid methods for IRK and parabolic problems were developed in \cite{vanlent05}. 
+New ADI-type preconditioners for IRK methods were developed for parabolic problems
+in \cite{chen14} with spectral radius shown to be $<1$ under reasonable assumptions,
+and the method extended to the viscous wave equation in first-order form in
+\cite{chen16}. More recently, block-ILU preconditioners were successfully applied
+to a transformed version of \eqref{eq:kron1} in \cite{pazner17} on more difficult
+nonlinear compressible fluids problems.
 
-Many papers have considered the solution of \eqref{eq:kron1}. In 1976,
-Butcher \cite{butcher76} used the Jordan normal form, $A_0 = U_0L_0U_0^{-1}$, where
-$L_0$ is lower triangular with eigenvalues of $A_0$ on the diagonal, to transform
-\eqref{eq:kron1} to the problem
-$(I\otimes M - \delta t L_0\otimes \mathcal{L})(U_0^{-1}\otimes I)\mathbf{k} =
-(U_0\otimes I)^{-1}\mathbf{f}$, where the inner operator is now block lower triangular.
-Such a transformation reduces the solution of an $Ns\times Ns$ system to $s$ linear
-systems of size $N\times N$ in a block forward solve. The downside is that
-IRK schemes with greater accuracy and stability than DIRK schemes have at most one real
-eigenvalue \cite{hairer96,butcher2016numerical}.
-Thus, for IRK methods such as Gauss or Radau integration, the original real-valued
-system is transformed into a set of smaller but primarily complex systems. There are various
-ways to handle the complex systems,
-but for numerial PDEs, the overhead in computational cost and implementation is typically
-too high to make the transformation a practical approach.
-
-Published shortly after (and independently from) Butcher, Bickart proposed a similar
-way to invert \eqref{eq:kron1} \cite{bickart77}. If we define $Q_s(x)$ as
-the characteristic polynomial of $A_0$, then the inverse of \eqref{eq:kron1} can be computed
-via a specific set of matrix-vector multiplications in addition to the action of
-$Q_s(\mathcal{L})^{-1}$.
-In principle this is similar to Butcher's result, as one can invert
-$Q_s(\mathcal{L})$ by inverting
-each term in the factored polynomial, $(\mu_1 I-\mathcal{L})^{-1}$,
-$(\mu_2 I-\mathcal{L})^{-1}$, ..., for eigenvalues $\{\mu_i\}_{i=1}^s$ of $A_0$.
-Although Bickart's paper received less attention than Butcher's over time (currently $2.5\times$
-less citations), the polynomial form provides a more natural way to handle complex eigenvalues,
-particularly for numerical PDEs in the modern high-performance computing landscape,
-where direct LU inverses are rare and most linear systems are solved via preconditioning
-and/or Krylov methods. We present a similar result in \Cref{lem:inv} and use this to
-develop an effective preconditioning for linear problems in \Cref{sec:solve:prec}.
-
-Because significant research has been done on IRK methods, it is worth briefly
-reviewing some of the literature to put this work in context. In the field of time
-integration, SIRK and DIRK methods overcome the difficulty of solving IRK methods
-\cite{alexander1977diagonally,norsett1976runge}.
-In \cite{orel91}, it is shown that in considering RK methods with all real eigenvalues
-(wherein the Butcher transformation \cite{butcher76} remains real-valued), the best
-approximation to exponential is obtained by having all eigenvalues equal (SIRK
-methods \cite{norsett1976runge}).
-Although SIRK methods offer some advantages over DIRK methods, they generally lack
-the favorable stability and accuracy of IRK methods \cite{burrage82,orel91}. ESIRK methods
-use one explicit stage and can offer stage-order two \cite{butcher00} (one higher
-than standard SIRK methods), which provide an improved practical option, but still
-lack the robustness of fully implicit methods.
-
-
-
-
-% Simplified newton scheme uses fixed Jacobian for all stages
-% Single step Newton (Cooper (83/90), Gonzales-Pinto (95/97)
-% ---------------- ODEs and LU ---------------- %
-% Varah (79):
-% \begin{itemize}
-% 	\item Much better description of Butcher's method. Transforms coordinate system of Jacobian tensor.
-% 	Still relies on this tensor structure to do said transformation.
-% 	\item Transforms Jacobian to Hessenberg form to avoid repeated action computing LU of a shifted
-% 	Jacobian.
-% \end{itemize}
-
-% Cooper:
-% \begin{itemize}
-% 	\item (83,90,93): develops single Newton scheme using SOR or various matrix splittings,
-% 	applied to ODEs. This is a single-step
-% 	Newton method, where the actual Jacobian solve is replaced with an SOR iteration. Here, Butcher
-% 	matrix A is replaced with an approximate matrix with one positive real eigenvalue.
-% \end{itemize}
-
-% Pinto:
-% \begin{itemize}
-% 	\item (95) Mostly ODEs, do consider 1d-space-1d-time burgers on a very small grid.
-% 	\item (96) additional iteration of single Newton, makes it quasi-Newton like.
-% 	\item (01) Analysis of single Newton (SOR) w/ simplified Newton for higer order.
-% \end{itemize}
-
-% Brugano (2014) and Antonana (2018)
-% \begin{itemize}
-% 	\item New splitting and IRK techniques for Hamiltonian problems where conservation is
-% 	important. Used for ODEs.
-% \end{itemize}
-
-
-% % ---------------- PDEs ---------------- %
-
-% Jay
-% \begin{itemize}
-% 	\item 1999: develops a preconditioning technique based on W-transformation. W-transformation
-% 	yields a real-valued block-tridiagonal matrix. This can be solved using LU, but the inverses
-% 	have a recursive nature (like Schur complements). They precondition w/ an approximate LU,
-% 	where each formal inverse in LU is approximated, $H_i = I +
-% 	\zeta_{i-1}^2\delta t^2 JH_{i-1}^{-1}J$, for Jacobian $J$ and matrix $H$ that must be
-% 	inverted in LU, with $\hat{H}_i = I - \gamma_i\delta tJ$, for a certain \gamma_i$.
-
-% 	\item 2000: Analyzes simplified Newton to approximate time-dependent Jacobian with
-% 	Kronecker product form.
-% \end{itemize}
-
-% Houwen
-% \begin{itemize}
-% \item TRIANGULARLY(1997): Uses crout factorization to pick lower triangular preconditioner.
-% \item Paralell(97):
-% \end{itemize}
-
-% Hoffman
-% \begin{itemize}
-% \item (97): Also uses triangular preocnditioner on the nonlinear level.
-% \end{itemize}
-
-
-% Van Lent (2004)
-% \begin{itemize}
-% 	\item Multigrid for IRK?
-% \end{itemize}
-
-% Staff \& Mardal (2006)
-% \begin{itemize}
-% 	\item One of first paper to consider preconditioning the fully implicit RK system.
-% 	Use block Jacobi and block lower triangular preconditioners for the diffusion equation.
-% 	Use multigrid V-cycles and full Newton time-dependent Jacobian. Upper triangular is
-% 	bad compared to block Jacobi and lower triangular (this has appeared elsewhere in
-% 	literature -- $A_0$ is dominant in lower triangular part -- Crout factorization
-% 	in I think Messina or Van der Houwen; comes up again in Brugano (2015)).
-% \end{itemize}
-% Mardal (2007)
-% \begin{itemize}
-% 	\item Analyze block-diagonal preconditioners in a Sobolev setting, demonstrate
-% 	conditioning of the preconditioned operator to be optimal in the independent of
-% 	$h$ sense. Use multigrid w/ diffusion as example.
-% \end{itemize}
-% Nilssen (2011)
-% \begin{itemize}
-% 	\item Analogous to above, Sobolev analysis for block-diagonal preconditioning
-% 	applied to the bidomain equations.
-% \end{itemize}
-
-% Hao Chen:
-% \begin{itemize}
-% 	\item (2014) Develops a splitting iterative method to precondition IRK matrices, similar to ADI schemes.
-% 	Proves that for definite spatial operators and Butcher matrices (that is, eignvalues have positive
-% 	or negative real parts), $\rho(T) < 1$, where $T$ is the fixed-point iteration matrix. Look at
-% 	diffusion equation with IRK and BVMs.
-% 	\item (2016) Analogous to above, extended to wave equation.
-% \end{itemize}
-
-% Pazner
-% \begin{itemize}
-% 	\item
-% \end{itemize}
+Despite many papers considering the efficient solution of IRK methods, very little
+has been done in the development and analysis of preconditioning techniques for
+non-parabolic problems/non-SPD spatial operators, particularly methods that are
+amenable to combine with existing fast, parallel preconditioners. Addressing each
+of these challenges for linear PDEs is the focus of this work. 
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -1034,7 +902,7 @@ following \Cref{th:cond}, and in \cite{exh} for SPD operators).
 \begin{theorem}[Conditioning of preconditioned operator]\label{th:cond}
 Suppose Assumptions \ref{ass:eig} and \ref{ass:fov} hold, that is, $\eta > 0$
 and $W(\mathcal{L}) \leq 0$ \eqref{eq:fov}. Let $\eta \leq \gamma \leq \
-\tfrac{\eta^2+\beta^2}{\eta}$ and let
+\tfrac{\eta^2+\beta^2}{\eta}$ for $\gamma\in\mathbb{R}$ and let
 $\mathcal{P}_\gamma$ denote the preconditioned operator, where $((\eta + i\beta)I -
 \widehat{\mathcal{L}})((\eta - i\beta)I - \widehat{\mathcal{L}})$ is
 preconditioned with $(\gamma I - \widehat{\mathcal{L}})^{-2}$. Then,
@@ -1124,7 +992,7 @@ c_\alpha+\overline{c_\alpha} & = \frac{\alpha + \overline{\alpha} - 2\alpha\over
 = \frac{2\eta\gamma - 2(\eta^2+\beta^2)}{\eta^2+\beta^2},
 \end{align*}
 %
-which is $< 0$ when $\eta\gamma \leq (\eta^2+\beta^2)$ and $<0$ otherwise.
+which is $\leq 0$ when $\eta\gamma \leq (\eta^2+\beta^2)$ and $>0$ otherwise.
 
 Expanding the squared norm of \eqref{eq:inv_factor} in inner-product form, we have
 %
@@ -1149,7 +1017,7 @@ singular value of the inverse of the inverse is given by
 	\mathcal{L}\right)\mathbf{x}\right\|^2}{\|\mathbf{x}\|^2} \\
 & = 1 + \min_{\mathbf{x}\neq\mathbf{0}} \left[ \frac{1}{|\gamma(1-\alpha)|^2}
 	\frac{\left\|\mathcal{L}\mathbf{x}\right\|^2}{\|\mathbf{x}\|^2}
-	- \left(\frac{1}{\gamma(1-\alpha)} + \frac{1}{\overline{\gamma}(1-\overline{\alpha})}\right)
+	- \left(\frac{1}{\gamma(1-\alpha)} + \frac{1}{{\gamma}(1-\overline{\alpha})}\right)
 	\frac{\textnormal{Re}\left(\left\langle\mathcal{L}\mathbf{x},\mathbf{x}\right\rangle\right)}
 		{\|\mathbf{x}\|^2}\right].
 \end{align*}
@@ -1282,6 +1150,11 @@ in all three of the above cases, and (as expected) \eqref{eq:cond_eta},
 \eqref{eq:cond_upper}, and \eqref{eq:cond_opt} all $\to 1$. Also, in
 practice, \eqref{eq:cond_opt} typically yields an upper bound on
 conditioning $\sim 1-5$ for realistic values of $\eta$ and $\beta$.
+Finally, although the difference in conditioning between \eqref{eq:cond_eta}
+and \eqref{eq:cond_opt} does not appear large for reasonable values of
+$\eta$ and $\beta$, examples in \Cref{sec:numerics:dg} demonstrate up to
+a $5.8\times$ reduction in iteration count achieved by using $\gamma_*$
+instead of $\eta$.
 
 %
 \begin{remark}[``Optimal'' $\gamma$]

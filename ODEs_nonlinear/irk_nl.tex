@@ -1191,12 +1191,17 @@ in all three of the above cases, and (as expected) \eqref{eq:cond_eta},
 \eqref{eq:cond_upper}, and \eqref{eq:cond_opt} all $\to 1$.
 
 
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+\section{Differential algebraic equations}\label{sec:dae}
 
 
+
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
-\section{Numerical results: the nonlinear setting}\label{sec:numerics_nonlin}
+\section{Numerical results}\label{sec:numerics_nonlin}
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -1204,101 +1209,101 @@ in all three of the above cases, and (as expected) \eqref{eq:cond_eta},
 
 
 
-% % ------------------------------------------------------------------------------------- %
-% % ------------------------------------------------------------------------------------- %
-% \subsection{Nonlinear heat conduction}\label{sec:numerics_nonlin:heat}
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+\subsection{Nonlinear heat conduction}\label{sec:numerics_nonlin:heat}
 
-% Consider Example 16p in MFEM, which solves a nonlinear heat conduction equation
-% %
-% \begin{align*}
-% u_t  & = \nabla\cdot (\kappa + \alpha u) \nabla u.
-% \end{align*}
-% %
-% Let us express the diffusion as a nonlinear matrix-valued operator $K(u)$ with
-% potential forcing function $f(t)$. Discretizing in space we can express the semidiscrete 
-% system as the nonlinear set of equations
-% %
-% \begin{align*}
-% M\mathbf{u}_t & = K(\mathbf{u})\mathbf{u} + \mathbf{f}.
-% \end{align*}
-% %
-% Here we demonstrate how a typical Picard linearization can fit into the 
-% framework developed above. Let $\mathbf{u}_i$ denote $\mathbf{u}$ at the $i$th
-% time step, and consider a backward Euler step,
-% %
-% \begin{align*}
-% M\mathbf{u}_{i+1} & = M\mathbf{u}_i + \delta tK(\mathbf{u}_{i+1}) + \mathbf{f}.
-% \end{align*}
-% %
-% Rearranging yields a nonlinear system $\mathcal{F}(\mathbf{u}_{i+1}) = \mathbf{0}$,
-% where
-% %
-% \begin{align*}
-% \mathcal{F}(\mathbf{u}_{i+1}) := 
-% 	(M - \delta t K(\mathbf{u}_{i+1}))\mathbf{u}_{i+1} - M\mathbf{u}_i - \mathbf{f}.
-% \end{align*}
-% %
-% We can invert the matrix-valued operator as a linear preconditioning, leading
-% to an equivalent nonlinear system $\mathcal{H}(\mathbf{u}_{i+1}) = \mathbf{0}$,
-% where
-% %
-% \begin{align*}
-% \mathcal{H}(\mathbf{u}_{i+1}) := 
-% 	(M - \delta t K(\mathbf{u}_{i+1}))^{-1}(M\mathbf{u}_i + \mathbf{f}) - \mathbf{u}_{i+1}.
-% \end{align*}
-% %
-% Finally, we formulate a Picard iteration by defining $\mathcal{G}(\mathbf{u}_{i+1}) :=
-% \mathcal{H}(\mathbf{u}_{i+1}) + \mathbf{u}_{i+1}$, and noting that
-% $\mathbf{G}(\mathbf{u}_{i+1}) = \mathbf{u}_{i+1}$ if and only if
-% $\mathcal{F}(\mathbf{u}_{i+1}) = \mathbf{0}$. Fixed-point iterations are then
-% given by 
-% %
-% \begin{align*}
-% \mathbf{u}_{i+1}^{k+1} & = \mathcal{G}(\mathbf{u}_{i+1}^k) \\
-% & = (M - \delta t K(\mathbf{u}_{i+1}^k))^{-1}(M\mathbf{u}_i + \mathbf{f}), \\
-% \Longleftrightarrow\hspace{5ex}
-% (M - \delta t K(\mathbf{u}_{i+1}^k))\mathbf{u}_{i+1}^k& = M\mathbf{u}_i + \mathbf{f}.\
-% \end{align*}
-% %
+Consider Example 16p in MFEM, which solves a nonlinear heat conduction equation
+%
+\begin{align*}
+u_t  & = \nabla\cdot (\kappa + \alpha u) \nabla u.
+\end{align*}
+%
+Let us express the diffusion as a nonlinear matrix-valued operator $K(u)$ with
+potential forcing function $f(t)$. Discretizing in space we can express the semidiscrete 
+system as the nonlinear set of equations
+%
+\begin{align*}
+M\mathbf{u}_t & = K(\mathbf{u})\mathbf{u} + \mathbf{f}.
+\end{align*}
+%
+Here we demonstrate how a typical Picard linearization can fit into the 
+framework developed above. Let $\mathbf{u}_i$ denote $\mathbf{u}$ at the $i$th
+time step, and consider a backward Euler step,
+%
+\begin{align*}
+M\mathbf{u}_{i+1} & = M\mathbf{u}_i + \delta tK(\mathbf{u}_{i+1}) + \mathbf{f}.
+\end{align*}
+%
+Rearranging yields a nonlinear system $\mathcal{F}(\mathbf{u}_{i+1}) = \mathbf{0}$,
+where
+%
+\begin{align*}
+\mathcal{F}(\mathbf{u}_{i+1}) := 
+	(M - \delta t K(\mathbf{u}_{i+1}))\mathbf{u}_{i+1} - M\mathbf{u}_i - \mathbf{f}.
+\end{align*}
+%
+We can invert the matrix-valued operator as a linear preconditioning, leading
+to an equivalent nonlinear system $\mathcal{H}(\mathbf{u}_{i+1}) = \mathbf{0}$,
+where
+%
+\begin{align*}
+\mathcal{H}(\mathbf{u}_{i+1}) := 
+	(M - \delta t K(\mathbf{u}_{i+1}))^{-1}(M\mathbf{u}_i + \mathbf{f}) - \mathbf{u}_{i+1}.
+\end{align*}
+%
+Finally, we formulate a Picard iteration by defining $\mathcal{G}(\mathbf{u}_{i+1}) :=
+\mathcal{H}(\mathbf{u}_{i+1}) + \mathbf{u}_{i+1}$, and noting that
+$\mathbf{G}(\mathbf{u}_{i+1}) = \mathbf{u}_{i+1}$ if and only if
+$\mathcal{F}(\mathbf{u}_{i+1}) = \mathbf{0}$. Fixed-point iterations are then
+given by 
+%
+\begin{align*}
+\mathbf{u}_{i+1}^{k+1} & = \mathcal{G}(\mathbf{u}_{i+1}^k) \\
+& = (M - \delta t K(\mathbf{u}_{i+1}^k))^{-1}(M\mathbf{u}_i + \mathbf{f}), \\
+\Longleftrightarrow\hspace{5ex}
+(M - \delta t K(\mathbf{u}_{i+1}^k))\mathbf{u}_{i+1}^k& = M\mathbf{u}_i + \mathbf{f}.\
+\end{align*}
+%
 
-% In fact, this is exactly a Newton-like iteration approximating the Jacobian of
-% $\mathcal{F}(\mathbf{u}_{i+1})$ evaluated at $\mathbf{u}_{i+1}^k$ as
-% $J[\mathbf{u}_{i+1}^k] \approx (M - \delta t K(\mathbf{u}_{i+1}^k))$. We use
-% this observation to extend the same principle to IRK methods, approximating
-% the Jacobian for the stage equations \eqref{eq:stages} evaluated at the previous
-% stage vectors as
-% %
-% \begin{align*}
-% &J[\mathbf{k}_1^{k},...,\mathbf{k}_s^k] \approx \\
-% &\begin{bmatrix} M \\ & \ddots & \\ && M \end{bmatrix} - \delta t
-% 	\begin{bmatrix} a_{11}K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
-% 	a_{1j}\mathbf{k}_j^k\right) & ... & a_{1s}K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
-% 	a_{ij}\mathbf{k}_j^k\right) \\
-% 	\vdots & \ddots & \vdots \\
-% 	a_{s1}K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
-% 	a_{sj}\mathbf{k}_j^k\right) & ... & a_{ss}K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
-% 	a_{sj}\mathbf{k}_j^k\right)
-% 	\end{bmatrix}.
-% \end{align*}
-% %
-% Letting $\mathcal{L}_i := K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
-% a_{ij}\mathbf{k}_j^k\right)$ denote the approximate jacobian for the
-% $i$th row, we can proceed exactly as discussed in \Cref{sec:nonlinear}.
+In fact, this is exactly a Newton-like iteration approximating the Jacobian of
+$\mathcal{F}(\mathbf{u}_{i+1})$ evaluated at $\mathbf{u}_{i+1}^k$ as
+$J[\mathbf{u}_{i+1}^k] \approx (M - \delta t K(\mathbf{u}_{i+1}^k))$. We use
+this observation to extend the same principle to IRK methods, approximating
+the Jacobian for the stage equations \eqref{eq:stages} evaluated at the previous
+stage vectors as
+%
+\begin{align*}
+&J[\mathbf{k}_1^{k},...,\mathbf{k}_s^k] \approx \\
+&\begin{bmatrix} M \\ & \ddots & \\ && M \end{bmatrix} - \delta t
+	\begin{bmatrix} a_{11}K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
+	a_{1j}\mathbf{k}_j^k\right) & ... & a_{1s}K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
+	a_{ij}\mathbf{k}_j^k\right) \\
+	\vdots & \ddots & \vdots \\
+	a_{s1}K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
+	a_{sj}\mathbf{k}_j^k\right) & ... & a_{ss}K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
+	a_{sj}\mathbf{k}_j^k\right)
+	\end{bmatrix}.
+\end{align*}
+%
+Letting $\mathcal{L}_i := K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
+a_{ij}\mathbf{k}_j^k\right)$ denote the approximate jacobian for the
+$i$th row, we can proceed exactly as discussed in \Cref{sec:nonlinear}.
 
-% %
-% \begin{remark}[Picard as a Newton-like method]
-% Note, it is important to express Picard and fixed-point iterations in the 
-% form of a Newton-like method to use the preconditioning techniques developed
-% in this paper! By expressing it as a Newton-like method, we are approximating
-% the Jacobian and will still converge to the solution of the nonlinear functional
-% $\mathcal{F} = 0$ when adding levels of approximation as in \Cref{sec:nonlinear:gen}.
-% A traditional Picard iteration relies on converging exactly to the fixed-point
-% $\mathcal{G}(\mathbf{k}) = \mathbf{k}$ via iterates $\mathbf{k}^{k+1} =
-% \mathcal{G}(\mathbf{k}^k)$. Within this iteration there is delicate cancellation
-% that result from solving directly for $\mathbf{k}^{k+1}$ rather than a correction,
-% and approximating $\mathcal{G}$ would result in convergence to a different problem.
-% \end{remark}
-% %
+%
+\begin{remark}[Picard as a Newton-like method]
+Note, it is important to express Picard and fixed-point iterations in the 
+form of a Newton-like method to use the preconditioning techniques developed
+in this paper! By expressing it as a Newton-like method, we are approximating
+the Jacobian and will still converge to the solution of the nonlinear functional
+$\mathcal{F} = 0$ when adding levels of approximation as in \Cref{sec:nonlinear:gen}.
+A traditional Picard iteration relies on converging exactly to the fixed-point
+$\mathcal{G}(\mathbf{k}) = \mathbf{k}$ via iterates $\mathbf{k}^{k+1} =
+\mathcal{G}(\mathbf{k}^k)$. Within this iteration there is delicate cancellation
+that result from solving directly for $\mathbf{k}^{k+1}$ rather than a correction,
+and approximating $\mathcal{G}$ would result in convergence to a different problem.
+\end{remark}
+%
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
