@@ -903,7 +903,6 @@ private:
     mutable Vector temp_scalar; // Auxillary vector
     bool identity;              // Use identity preconditioner. Useful as a comparison.
     
-    
     // Extra data required for 2x2 blocks
     double R10;                 
     Vector Y10;
@@ -1194,7 +1193,7 @@ public:
                                                         row,  // Precondition (row,row) block with IRKOper.ImplicitPrec(row,.,.)
                                                         row+1,// Precondition (row+1,row+1) block with IRKOper.ImplicitPrec(row+1,.,.)
                                                         identity);                                
-                    }                                
+                    }
                     
                 } else {
                     DiagBlock[block]     = new JacDiagBlock(offsets_2, *(StageOper.IRKOper), 
@@ -1372,15 +1371,17 @@ private:
             // Update parameters for diagonal blocks
             DiagBlock[diagBlock]->SetTimeStep(StageOper.GetTimeStep());
             
-            
-            // Compute constant gamma used to precondition Schur complement
-            double gamma = 0., eta = R(row,row), beta = std::sqrt(-R(row,row+1)*R(row+1,row));
-            if (gamma_idx == 0) {
-                gamma = eta;
-            } else if (gamma_idx == 1) {
-                gamma = eta + beta*beta/eta;
-            } else {
-                mfem_error("gamma must be 0 or 1");
+            // Compute constant gamma used to precondition Schur complement of 2x2 block
+            double gamma = 0.;
+            if (size[diagBlock] == 2) {
+                double eta = R(row,row), beta = std::sqrt(-R(row,row+1)*R(row+1,row));
+                if (gamma_idx == 0) {
+                    gamma = eta;
+                } else if (gamma_idx == 1) {
+                    gamma = eta + beta*beta/eta;
+                } else {
+                    mfem_error("gamma must be 0 or 1");
+                }
             }
             
             // Assemble preconditioner(s) for diag block

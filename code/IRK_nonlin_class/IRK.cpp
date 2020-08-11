@@ -137,8 +137,9 @@ void IRK::SetSolvers()
         
         m_jac_solverSparsity->Sparsify(static_cast<int>(m_newton_params.jac_solver_sparsity));
         m_jac_precSparsity->Sparsify(static_cast<int>(m_newton_params.jac_prec_sparsity));
-        
     }
+    
+    
     
     // Create Jacobian solver
     // User requested different Krylov solvers for 1x1 and 2x2 blocks
