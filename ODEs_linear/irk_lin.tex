@@ -58,7 +58,7 @@
   	Australia (\url{oliver.krzysik@monash.edu}),
   	\url{https://orcid.org/0000-0001-7880-6512}}
 \and
-  	Will Pazner\thanks{Lawrence Livermore National Laboratory,
+  	Will Pazner\thanks{Center for Applied Scientific Computing, Lawrence Livermore National Laboratory,
     U.S.A. (\url{pazner1@llnl.gov})}
 \and
     Hans De Sterck\thanks{Department of Applied Mathematics,
@@ -233,7 +233,7 @@ in practice can be limited to $\approx \min\{ p, q+1\}$ or $q$, respectively, fo
 integration order $p$ and stage-order $q$ \cite{hairer96,kennedy16}. Thus, even a
 6th-order DIRK method may only yield 1st- or 2nd-order accuracy. In contrast, IRK
 methods yield high stage order and, thus, formally high-order accuracy on stiff,
-nonlinear problems, and even index-2 DAEs. Although the focus of this paper is 
+nonlinear problems, and even index-2 DAEs. Although the focus of this paper is
 linear PDEs with no algebraic constraint, we want to highlight that the theory
 and framework developed here is fundamental to a forthcoming paper on
 nonlinear PDEs and DAEs. Furthermore, for less stiff
@@ -261,7 +261,7 @@ the favorable stability and accuracy properties of IRK methods \cite{burrage82,o
 There, and in many of the works that followed, the goal was to minimize the cost of LU
 decompositions used to solve \eqref{eq:kron1}, typically in the context of ODEs.
 
-For large-scale simulation of PDEs, particularly on modern computing architectures, 
+For large-scale simulation of PDEs, particularly on modern computing architectures,
 LU decompositions (or other direct inverses) are typically not feasible. In this
 vein, a number of people have considered preconditioning techniques for \eqref{eq:kron1}
 or approximations to \eqref{eq:kron1} on the nonlinear iteration level or time
@@ -269,7 +269,7 @@ discretization level. In addition to the DG-in-time methods discussed in
 \Cref{sec:intro:dg}, various block preconditioning/approximation techniques
 have been studied, primarily for parabolic problems
 \cite{houwen97b,Houwen97c,nissen11,mardel07,staff06,hoffmann97,jay00}, and
-multigrid methods for IRK and parabolic problems were developed in \cite{vanlent05}. 
+multigrid methods for IRK and parabolic problems were developed in \cite{vanlent05}.
 New ADI-type preconditioners for IRK methods were developed for parabolic problems
 in \cite{chen14} with spectral radius shown to be $<1$ under reasonable assumptions,
 and the method extended to the viscous wave equation in first-order form in
@@ -308,7 +308,7 @@ Assume that all eigenvalues of $A_0$ have positive real part.
 \end{assumption}
 %
 Recall that if an IRK method is A-stable, irreducible, and $A_0$ is invertible
-(which includes Gauss, RadauIIA, and LobattoIIIC integration, among others),
+(which includes Gauss, Radau IIA, and Lobatto IIIC integration, among others),
 then \Cref{ass:eig} holds \cite{hairer96}; that is, this assumption is
 straightforward to satisfy in practice.
 
@@ -484,7 +484,7 @@ $\widehat{\mathcal{L}}_i\neq\widehat{\mathcal{L}}_j$)
 and off-diagonal terms are polynomials in $\widehat{\mathcal{L}}$ of degree $s-2$.
 
 Returning to \eqref{eq:update2}, we consider two cases. First, if a given Runge-Kutta
-scheme is stiffly accurate (for example, RadauIIA methods),
+scheme is stiffly accurate (for example, Radau IIA methods),
 then $\mathbf{b}_0^TA_0^{-1} = [0,...,0,1]$. This yields
 the nice simplification that computing the update in \eqref{eq:update2} only requires
 applying the last row of $\textnormal{adj}(\mathcal{M}_s)$ to $\mathbf{f}$ (in a
@@ -725,7 +725,7 @@ the proof.
 %
 
 \Cref{tab:beta} provides the values of $\eta$, $\beta^2/\eta^2$, and the CG and GMRES
-bounds from \Cref{cor:gmres} and \Cref{cor:cg} for Gauss, RadauIIA, and LobattoIIIC
+bounds from \Cref{cor:gmres} and \Cref{cor:cg} for Gauss, Radau IIA, and Lobatto IIIC
 integration.
 
 %
@@ -742,12 +742,12 @@ integration.
 &$\beta^2/\eta^2$ & 0.33 & 0 & 0.91 & 1.59 & 0.09 & 0 & 2.36 & 0.27 \\
 &CG & 0.072 & 0 & 0.160 & 0.234 & 0.022 & 0 & 0.294 & 0.060 \\
 &GMRES & 0.143 & 0 & 0.313 & 0.444 & 0.043 & 0 & 0.541 & 0.119  \\\hline
-\multirow{ 3}{*}{RadauIIA}
+\multirow{ 3}{*}{Radau IIA}
 &$\eta$ & 2.0 & 3.64 & 2.68 & 3.21 & 4.79 & 6.29 & 3.66 & 5.70 \\
 &$\beta^2/\eta^2$ & 0.50 & 0 & 1.29 & 2.21 & 0.11 & 0 & 3.20 & 0.32	\\
 &CG & 0.101 & 0 & 0.205 & 0.283 & 0.025 & 0 & 0.344 & 0.069 \\
 &GMRES & 0.2 & 0 & 0.393 & 0.525 & 0.051 & 0 & 0.616 & 0.137 \\\hline
-\multirow{ 3}{*}{LobattoIIIC}
+\multirow{ 3}{*}{Lobatto IIIC}
 &$\eta$ & 1.0 & 2.63 & 1.69 & 2.22 & 3.78 & 5.28 & 2.66 & 4.70 \\
 &$\beta^2/\eta^2$ & 1 & 0 & 2.21 & 3.51 & 0.13 & 0 & 4.88 & 0.38 \\
 &CG & 0.172 & 0 & 0.284 & 0.360 & 0.031 & 0 & 0.416 & 0.081 \\
@@ -756,7 +756,7 @@ integration.
   \end{tabular}
   \caption{$\eta$, $\beta^2/\eta^2$, and the convergence factors in \Cref{cor:gmres}
   and \Cref{cor:cg} for GMRES and CG, respectively (without the leading constants of
-  2) for Gauss, RadauIIA, and LobattoIIIC integration,
+  2) for Gauss, Radau IIA, and Lobatto IIIC integration,
   with 2--5 stages. Each column within a given set of stage columns corresponds to a
   conjugate pair of eigenvalues of $A_0^{-1}$. For odd numbers of stages, one eigenvalue
   is real, corresponding to the column where $\beta^2/\eta^2 = 0/\eta^2 = 0$.}\label{tab:beta}
@@ -766,7 +766,7 @@ integration.
 % 3: 0, 3.508761919567443^2/3.677814645373916^2			(4.644370709252176)
 % 4: 5.31483608371350543^2/4.20757879435925566^2, 1.73446825786900750^2/5.79242120564074434^2
 % 5: 0, 7.14204584067595280^2/4.64934860636329045^2, 3.48532283236639545^2/6.70391279830706629^2, 		(7.29347719065928652)
-% RadauIIA
+% Radau IIA
 % 2: 1.414213562373095^2/2^2
 % 3: 0, 3.050430199247409^2/2.681082873627745^2	(3.637834252744503)
 % 4: 4.77308743327664250^2/3.21280689687153398^2, 1.56747641689520812^2/4.78719310312846602^2
@@ -1118,7 +1118,7 @@ independent of $\eta$ and $\beta$.
 It is worth pointing out that as $\beta \to 0$, $\gamma \to \eta$
 in all three of the above cases, and (as expected) \eqref{eq:cond_eta},
 \eqref{eq:cond_upper}, and \eqref{eq:cond_opt} all $\to 1$. \Cref{tab:cond}
-provides condition number bounds for Gauss, RadauIIA, and LobattoIIIC
+provides condition number bounds for Gauss, Radau IIA, and Lobatto IIIC
 Runge-Kutta methods.
 Finally, although the difference in conditioning between \eqref{eq:cond_eta}
 and \eqref{eq:cond_opt} does not appear large for reasonable values of
@@ -1136,12 +1136,12 @@ instead of $\eta$.
   \hline
 Stages & 2 & \multicolumn{2}{c}{3} & \multicolumn{2}{|c}{4} & \multicolumn{3}{|c|}{5} \\\hline\hline
 Gauss & 1.61 & 1 & 2.41 & 1.17 & 3.09 & 1 & 1.50 & 3.64 \\
-RadauIIA & 1.87 & 1 & 2.82 & 1.21 & 3.55 & 1 & 1.58 & 4.10 \\
-LobattoIIIC & 2.51 & 1 & 3.55 & 1.26 & 4.24 & 1 & 1.69 & 4.73  \\\hline
+Radau IIA & 1.87 & 1 & 2.82 & 1.21 & 3.55 & 1 & 1.58 & 4.10 \\
+Lobatto IIIC & 2.51 & 1 & 3.55 & 1.26 & 4.24 & 1 & 1.69 & 4.73  \\\hline
   \end{tabular}
   \caption{Condition number bounds using constant $\gamma=\gamma_*$ \eqref{eq:cond_opt}
-  for preconditioned operators $\mathcal{P}_{\gamma_*}$ arising in Gauss, RadauIIA, and
-  LobattoIIIC integration, with 2--5 stages. Each column within a given set of stage columns corresponds to a conjugate pair of eigenvalues of $A_0^{-1}$. For odd numbers of stages,
+  for preconditioned operators $\mathcal{P}_{\gamma_*}$ arising in Gauss, Radau IIA, and
+  Lobatto IIIC integration, with 2--5 stages. Each column within a given set of stage columns corresponds to a conjugate pair of eigenvalues of $A_0^{-1}$. For odd numbers of stages,
   one eigenvalue is real, corresponding to the column with conditioning 1.}\label{tab:cond}
 \end{table}
 }
@@ -1548,9 +1548,9 @@ Lawrence Livermore National Lab, resulting in $\sim$5600 DOFs/processor.
 
 Table \Cref{tab:gamma} shows the average number of AIR iterations to solve for
 each stage of an IRK method using $\eta$ and $\gamma_*$ as the preconditioning
-constants. Iteration counts are shown for Gauss, RadauIIA, and LobattoIIIC integration,
+constants. Iteration counts are shown for Gauss, Radau IIA, and Lobatto IIIC integration,
 with 2-5 stages, and the (factor of) reduction in iteration count achieved using $\gamma_*$
-vs. $\eta$ is also shown. For 5-stage LobattoIIIC integration, $\gamma_*$ yields
+vs. $\eta$ is also shown. For 5-stage Lobatto IIIC integration, $\gamma_*$ yields
 almost a $6\times$ reduction in total inner AIR iterations to solve for the
 ``hard'' stage ($\beta > \eta$), while in no cases is there an increase in
 iteration count when using $\gamma_*$.
@@ -1567,12 +1567,12 @@ Stages/Order & 2/4 & \multicolumn{2}{c}{3/6} & \multicolumn{2}{|c}{4/8} & \multi
 Iterations$(\eta)$ & 17 & 6 & 30 & 11  & 47 & 8 & 16 & 70 \\
 Iterations$(\gamma_*)$ & 11 & 6 & 15 & 10 & 19 & 8 & 13 & 23 \\\hline
 Speedup & 1.5 & 1.0 & 2.0 & 1.1 & 2.5 & 1.0 & 1.2 & 3.0 \\\hline\hline
-\multicolumn{9}{|c|}{RadauIIA}\\\hline
+\multicolumn{9}{|c|}{Radau IIA}\\\hline
 Stages/Order & 2/3 & \multicolumn{2}{c}{3/5} & \multicolumn{2}{|c}{4/7} & \multicolumn{3}{|c|}{5/9} \\\hline
 Iterations$(\eta)$ & 12 & 5 & 39 & 11 & 64 & 8 & 16 & 97 \\
 Iterations$(\gamma_*)$ & 12 & 5 & 18 & 9 & 21 & 8 & 12 & 25 \\\hline
 Speedup & 1.0 & 1.0 & 2.2 & 1.2 & 3.0 & 1.0 & 1.3 & 3.9 \\\hline\hline
-\multicolumn{9}{|c|}{LobattoIIIC}\\\hline
+\multicolumn{9}{|c|}{Lobatto IIIC}\\\hline
 Stages/Order & 2/2 & \multicolumn{2}{c}{3/4} & \multicolumn{2}{|c}{4/6} & \multicolumn{3}{|c|}{5/8} \\\hline
 Iterations$(\eta)$ & 8 & 3 & 67 & 11 & 113 & 7 & 17 & 175 \\
 Iterations$(\gamma_*)$ & 8 & 3 & 22 & 9 & 26 & 7 & 12 & 30 \\\hline
@@ -1732,7 +1732,7 @@ which corresponds to the exact solution
 \[
 	u(x, y, t) = \sin(2\pi x)\cos(2\pi y)(2 + \sin(t)).
 \]
-We begin with a very coarse $3 \times 3$ mesh, and integrate in time until $t=0.1$ using the Gauss and RadauIIA methods of orders 2 through 10.
+We begin with a very coarse $3 \times 3$ mesh, and integrate in time until $t=0.1$ using the Gauss and Radau IIA methods of orders 2 through 10.
 For each test case, the finite element polynomial degree is set to $k-1$, where $k$ is the order of accuracy of the time integration method, resulting in $k$th order convergence in both space and time.
 The mesh and time step are refined by factors of two to confirm the high-order convergence in space and time of the method.
 The relative $L^2$ error, obtained by comparing against the exact solution, is shown in \Cref{fig:high-order-diff-errors}.
@@ -1741,13 +1741,12 @@ We also use this test case to study the effect of inner iterations on the conver
 As discussed in Section \ref{sec:inexact-precond}, it is important that the underlying preconditioner provide a good approximation of the inverse of the operator.
 For that reason, we consider the use of an inner Krylov solver at every iteration.
 Since this corresponds to using a variable preconditioner at each iteration, a flexible Krylov method may have be used for the outer iteration, although in practice good convergence is often still observed using the standard conjugate gradient method \cite{Notay2000}.
-In particular, we compare the total number of preconditioner applications required to converge the outer iteration to a relative tolerance of $10^{-8}$, both with and without an inner Krylov solver.
-For the inner Krylov solver, we use a conjugate gradient iteration with a relative tolerance of $10^{-4}$ and at most 5 iterations.
+In particular, we compare the total number of preconditioner applications required to converge the outer iteration to a relative tolerance of $10^{-10}$, both with and without an inner Krylov solver.
+For the inner Krylov solver, we use a conjugate gradient iteration with the same relative tolerance as the outer iteration in order to give a good approximation to the inverse of the operator.
 The iteration counts are displayed in \Cref{fig:high-order-diff-iters}.
-We note that for the fully implicit IRK methods, using an inner Krylov solver can reduce the total number of preconditioner applications by a factor of between 1.5 and 2.
-For DIRK methods, the use of inner iterations did not reduce the total number of preconditioner applications.
-
-\todo{Comment on number of iterations for 4th-order accuracy using Gauss/Lobatto vs. SDIRK}
+We note that for the fully implicit IRK methods, using an inner Krylov solver can reduce the total number of preconditioner applications by about a factor of 1.5, although this depends on the type of method and order of accuracy.
+For DIRK methods, the use of inner iterations does not reduce the total number of preconditioner applications.
+For this test case, the total number of preconditioner applications required for the second and fourth order Gauss IRK methods is between 1.3 and 2 times smaller than those required for the corresponding equal-order DIRK methods.
 
 \begin{figure}
 	\centering
@@ -1765,7 +1764,7 @@ For DIRK methods, the use of inner iterations did not reduce the total number of
 	\includegraphics{figures/high_order_diff_iters/high_order_diff_iters}
 	\caption{
 		Comparison of number of iterations with and without inner iterations, using the high-order finite element diffusion test problem.
-		The inner conjugate gradient iteration is converged to a relative tolerance of $10^{-4}$, and the outer iteration is converged to a relative tolerance of $10^{-8}$.
+		Both the outer iteration and the inner conjugate gradient iteration are converged to a relative tolerance of $10^{-10}$.
 	}
 	\label{fig:high-order-diff-iters}
 \end{figure}
