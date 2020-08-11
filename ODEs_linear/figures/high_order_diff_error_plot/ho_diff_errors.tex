@@ -63,11 +63,12 @@
     xlabel={$\delta t$},
     cycle list name=will,
     legend cell align=left,
+    legend style={cells={align=left}},
     legend style={row sep=6pt},
     legend pos=outer north east,
     xtick={0.1,0.05,0.025},
     xticklabels={0.1,0.05,0.025},
-    legend entries={Gauss, Radau IIA}
+    legend entries={{Gauss \\(orders 2, 4, 6, 8, 10)}, {Radau IIA \\(orders 3, 5, 7, 9)}}
 ]
 
 \addplot table[x index=1,y index=2,skip first n=1] {errors.txt};
