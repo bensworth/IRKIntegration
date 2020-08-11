@@ -144,13 +144,13 @@ void IRK::SetSolvers()
     // User requested different Krylov solvers for 1x1 and 2x2 blocks
     if (m_krylov2) {
         m_tri_jac_solver = new TriJacSolver(*m_stageOper, 
-                                m_newton_params.jac_update_rate,
+                                m_newton_params.jac_update_rate, m_newton_params.gamma_idx,
                                 m_krylov_params, m_krylov_params2, 
                                 m_jac_solverSparsity, m_jac_precSparsity);
     // Use same Krylov solvers for 1x1 and 2x2 blocks
     } else {
         m_tri_jac_solver = new TriJacSolver(*m_stageOper, 
-                                    m_newton_params.jac_update_rate,
+                                    m_newton_params.jac_update_rate, m_newton_params.gamma_idx,
                                     m_krylov_params, 
                                     m_jac_solverSparsity, m_jac_precSparsity);
     }
