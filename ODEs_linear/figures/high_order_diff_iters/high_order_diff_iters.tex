@@ -29,6 +29,9 @@
     legend pos=outer north east,
     xtick={2,3,4,5,6,7,8,9,10},
     title={Gauss Methods},
+    xmin=1,
+    xmax=11,
+    ymin=0,
     ymax=220,
 ]
 \addplot table[x index=0,y index=1,skip first n=1] {gauss_inner_iter.txt};
@@ -47,7 +50,10 @@
     legend style={row sep=6pt},
     legend pos=outer north east,
     xtick={2,3,4,5,6,7,8,9,10},
-    title={Lobatto Methods},
+    title={LobattoIIIC Methods},
+    xmin=1,
+    xmax=11,
+    ymin=0,
     ymax=220,
 ]
 \addplot table[x index=0,y index=1,skip first n=1] {lobatto_inner_iter.txt};
@@ -67,6 +73,9 @@
     legend pos=outer north east,
     xtick={2,3,4,5,6,7,8,9,10},
     title={Radau IIA Methods},
+    xmin=1,
+    xmax=11,
+    ymin=0,
     ymax=220,
 ]
 \addplot table[x index=0,y index=1,skip first n=1] {radau_inner_iter.txt};
@@ -86,8 +95,10 @@
     legend pos=outer north east,
     xtick={2,3,4,5,6,7,8,9,10},
     title={DIRK Methods},
+    xmin=1,
+    xmax=11,
+    ymin=0,
     ymax=220,
-    xmax=10,
     legend to name=grouplegend,
     legend entries={No Inner Iteration, Inner CG Iteration},
     legend columns=2,
