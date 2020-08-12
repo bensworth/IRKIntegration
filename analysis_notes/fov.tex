@@ -194,7 +194,7 @@ L_P := \begin{bmatrix} \eta I - \widehat{\mathcal{L}} & \mathbf{0} \\ -\frac{\be
 This raises the natural question as to how do we approximate $S^{-1}?$ An easy first
 choice is to let $\widehat{S} := \eta I - \widehat{\mathcal{L}}$. Then the FOV analysis
 from the linear case immediately applies, and we know it is robust. Such an approach has
-the additional benefit of only requiring one preconditioner for both stages. Unfortunately,
+the additional benefit of only requiring one preconditioner for both stages \tcb{[OAK: This is true only for the simplified Newton case though; in the quasi-Newton algorithm, diagonal blocks in the $2 \times 2$ operator are different, so they don't use the same preconditioner anyway.]}. Unfortunately,
 tests have also shown this choice to be suboptimal as the number of stages gets large,
 that is, convergence gets slower for higher order.
 
@@ -307,6 +307,17 @@ where $\lambda_{\min}$ is the smallest eigenvalue of $\mathcal{L}$ (which includ
 a factor of $\delta t$ and $M^{-1}$). Unless $\delta t$ is quite large, I think
 this is likely to be a poor bound.
 
+
+
+\tcb{OAK: Shouldn't \eqref{eq:gamma0} be
+\begin{align}
+I - \gamma (\gamma - \eta) ( I- \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{-1} + 
+	\frac{\beta^2}{\gamma\eta}( I- \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{-1}
+		( I- \tfrac{1}{\eta}\widehat{\mathcal{L}})^{-1},
+\end{align}
+i.e., the second term multiplied by a $\gamma$ and not divided by a $\gamma$? Anyway, how do you arrive at \eqref{eq:eig_gamma} from this (can you include some more intermediate steps)?
+}
+ 
 
 % ---------------------------------------------------------------------------------------------- %
 % ---------------------------------------------------------------------------------------------- %
