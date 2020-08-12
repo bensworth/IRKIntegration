@@ -30,6 +30,7 @@
 \newtheorem{corollary}{Corollary}
 
 \newcommand{\tcb}{\textcolor{blue}}
+\newcommand{\tcr}{\textcolor{red}}
 \newcommand{\todo}[1]{\textcolor{red}{[TODO\@: #1]}}
 
 
@@ -272,200 +273,388 @@ some $\gamma \neq \eta$? The preconditioned operator then takes the form
 \begin{align}\nonumber
 (\gamma I- \widehat{\mathcal{L}})^{-1}S & = (\gamma I - \widehat{\mathcal{L}})^{-1}
 	\left[ (\gamma I - \widehat{\mathcal{L}}) + (\eta-\gamma)I + \beta^2 (\eta I - \widehat{\mathcal{L}})^{-1}\right] \\
+& = I - (\gamma - \eta)( \gamma I- \widehat{\mathcal{L}})^{-1} + 
+	\beta^2( \gamma I- \widehat{\mathcal{L}})^{-1}
+		( \eta I-\widehat{\mathcal{L}})^{-1} \nonumber\\
 & = I - \frac{\gamma - \eta}{\gamma} ( I- \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{-1} + 
 	\frac{\beta^2}{\gamma\eta}( I- \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{-1}
 		( I- \tfrac{1}{\eta}\widehat{\mathcal{L}})^{-1}.\label{eq:gamma0}
 \end{align}
 %
-Suppose $-\mathcal{L}$ is SPD with a spectrum $\subset (0,\infty)$. Then the
-spectrum of \eqref{eq:gamma0} is given by
+Suppose $-\mathcal{L}$ is SPD with a spectrum $\subset (0,\infty)$.
+Then the spectrum of \eqref{eq:gamma0} is given by
 %
 \begin{align}\label{eq:eig_gamma}
-1 + \frac{1}{(\gamma-\eta)\lambda + (\eta \gamma - \eta^2+\beta^2)},
+\mathcal{F}(\gamma,\lambda) :&= 
+	1 - \frac{\gamma-\eta}{\gamma + \lambda} + \frac{\beta^2}{(\gamma + \lambda)(\eta+\lambda)},
 \end{align}
 %
-where $\lambda\in\sigma(-\mathcal{L})$. The conditioning is given by the ratio of
-the minimum to maximum eigenvalue. For $\gamma \in(\eta,\tfrac{\eta^2+\beta^2}{\eta})$,
-there exists a singularity in \eqref{eq:eig_gamma} for $\lambda\in(0,\infty)$, which
-will obviously destroy the conditioning. Thus the only natural options are the endpoints,
-$\gamma = \eta$ or $\gamma = \tfrac{\eta^2+\beta^2}{\eta}$. The $\gamma=\eta$ choice
-yields reasonable preconditioning, but with dependence on $\eta$ and $\beta$,
+where $\lambda\in\sigma(-\mathcal{L})$. If we additionally choose $\gamma$
+such that \eqref{eq:gamma0} is also SPD ($\gamma$ such that this does not hold
+would be a poor choice in terms of conditioning), the condition number of
+\eqref{eq:gamma0} is given by
 %
-\begin{align*}
-\textnormal{cond}\left[(\gamma I- \widehat{\mathcal{L}})^{-1}S\right]
-	= 1+\frac{\beta^2}{\eta^2}.
-\end{align*}
-%
-Choosing the upper limit $\gamma = \tfrac{\eta^2+\beta^2}{\eta}$ yields
-%
-\begin{align*}
-\textnormal{cond}\left[(\gamma I- \widehat{\mathcal{L}})^{-1}S\right]
-	= 1+\frac{\eta}{\beta^2\lambda_{\min}},
-\end{align*}
-%
-where $\lambda_{\min}$ is the smallest eigenvalue of $\mathcal{L}$ (which includes
-a factor of $\delta t$ and $M^{-1}$). Unless $\delta t$ is quite large, I think
-this is likely to be a poor bound.
-
-
-
-\tcb{OAK: Shouldn't \eqref{eq:gamma0} be
-\begin{align}
-I - \gamma (\gamma - \eta) ( I- \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{-1} + 
-	\frac{\beta^2}{\gamma\eta}( I- \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{-1}
-		( I- \tfrac{1}{\eta}\widehat{\mathcal{L}})^{-1},
-\end{align}
-i.e., the second term multiplied by a $\gamma$ and not divided by a $\gamma$? Anyway, how do you arrive at \eqref{eq:eig_gamma} from this (can you include some more intermediate steps)?
-}
- 
-
-% ---------------------------------------------------------------------------------------------- %
-% ---------------------------------------------------------------------------------------------- %
-% ---------------------------------------------------------------------------------------------- %
-\section{A better constant}
-
-{\color{blue}
-\textbf{This section is outdated and did not yield anything useful.}
-}
-
-
-Note that for real $k>0$, $W\left[\left(I - \tfrac{1}{k}\mathcal{L}\right)^{-1}\right]$ and
-$W\left[\left(I - \tfrac{1}{k}\mathcal{L}\right)^{-2}\right]$ are contained in
-the positive half unit circle. Now consider the more general preconditioning
-%
-\begin{align}\nonumber
-(kI - \mathcal{L})^{-2}\Big[(nI - \mathcal{L})^2 + \beta^2 I\Big] 
-	& = (kI - \mathcal{L})^{-2}\Big[(\eta-k)I + (kI - \mathcal{L}))^2 + \beta^2 I\Big] \\
-& = (kI - \mathcal{L})^{-2}\Big[(k-\eta)^2I - 2(k-\eta)(kI - \mathcal{L}) + (kI - \mathcal{L})^2 + \beta^2 I\Big] \nonumber\\
-& = I - 2(k-\eta)(kI - \mathcal{L})^{-1} + (\beta^2 + (k-\eta)^2)(kI - \mathcal{L})^{-2} \nonumber\\
-& = I - 2\frac{k-\eta}{k}\left(I - \tfrac{1}{k}\mathcal{L}\right)^{-1} + \frac{\beta^2 + (k-\eta)^2}{k^2}
-	\left(I - \tfrac{1}{k}\mathcal{L}\right)^{-2}.\label{eq:gen1}
+\begin{align}\label{eq:cond0}
+\textnormal{cond}\left((\gamma I- \widehat{\mathcal{L}})^{-1}S\right) & =
+	\frac{\lambda_{\max}\left((\gamma I- \widehat{\mathcal{L}})^{-1}S\right)}
+		{\lambda_{\min}\left((\gamma I- \widehat{\mathcal{L}})^{-1}S\right)}.
 \end{align}
 %
-Note that we have a quadratic polynomial in $\left(I - \tfrac{1}{k}\mathcal{L}\right)^{-1}$.
-Working out the roots of the corresponding polynomial, one can see they come in
-conjugate pairs,
+Again assuming that eigenvalues $\lambda\in\sigma\left(\widehat{\mathcal{L}}\right)$ take
+on values $\lambda\in(0,\infty)$, the condition number \eqref{eq:cond0} can be expressed
+precisely as $h,\delta t\to 0$ via
 %
-\begin{align*}
-\frac{ 2\frac{k-\eta}{k} \pm \sqrt{4\frac{(k-\eta)^2}{k^2} - 4\frac{\beta^2}{k^2} -
-	4\frac{(k-\eta)^2}{k^2}}}{ 2\frac{\beta^2 + (k-\eta)^2}{k^2}} 
-= \frac{k(k-\eta) \pm \mathrm{i} k\beta}{\beta^2 + (k-\eta)^2}.
-\end{align*}
-%
-Let $\alpha$ denote the inverse of thees roots. Then \eqref{eq:gen1} can
-be expressed in factored form as
-%
-\begin{align*}
-(kI - \mathcal{L})^{-2}\Big[(nI - \mathcal{L})^2 + \beta^2 I\Big] 
-	& = \Big[I - \overline{\alpha}\left(I - \tfrac{1}{k}\mathcal{L}\right)^{-1}\Big]
-	\Big[I - \alpha\left(I - \tfrac{1}{k}\mathcal{L}\right)^{-1}\Big],
-\end{align*}
-%
-where $\alpha + \overline{\alpha} = 2\tfrac{k-\eta}{k}$ and $\alpha\overline{\alpha}
-= \tfrac{\beta^2 + (k-\eta)^2}{k^2}$. For ease of notation, let us denote
-$\mathcal{P} := \left(I - \tfrac{1}{k}\mathcal{L}\right)^{-1}$,
-and consider the field of values of 
-%
-\begin{align*}
-\mathcal{Z} := (I - \overline{\alpha}\mathcal{P})(I - {\alpha}\mathcal{P}).
-\end{align*}
-%
-
-We start by considering the real part of $\mathcal{Z}$ to bound the FOV along the real axis,
-%
-\begin{align*}
-\frac{1}{2}(\mathcal{Z} + \mathcal{Z}^*)
-	& = \frac{1}{2}\Big[ 2I - (\alpha + \overline{\alpha})(\mathcal{P}+\mathcal{P}^T) +
-		\alpha\overline{\alpha}(\mathcal{P}^2 + (\mathcal{P}^T)^2)\Big] \\
-& = \frac{1}{2}\Big[ \Big(I - (\alpha + \overline{\alpha})(\mathcal{P}+\mathcal{P}^T) +
-		\alpha\overline{\alpha}(\mathcal{P} + \mathcal{P}^T)^2\Big) +
-		\Big(I - \alpha\overline{\alpha}(\mathcal{P}\mathcal{P}^T + \mathcal{P}^T\mathcal{P})\Big) \Big].
-\end{align*}
-%
-Note that $(\mathcal{P}+\mathcal{P}^T)$, $\mathcal{P}\mathcal{P}^T$, and
-$\mathcal{P}^T\mathcal{P}$ are all SPD with eigenvalues $\lambda\in(0,2)$
-for $(\mathcal{P}+\mathcal{P}^T)$ and $\lambda\in(0,1)$ for the others.
-If $\mathcal{P}=\mathcal{P}^T$ is symmetric, the two operators above would
-share eigenvectors as well, and we could get tighter bounds. As is, we have
-to assume worst case that the eigenvectors of
-$\mathcal{P}^T\mathcal{P} + \mathcal{P}\mathcal{P}^T$ corresponding to the
-largest eigenvalues correspond to the smallest of $(\mathcal{P}+\mathcal{P}^T$,
-and vice versa. In this case, we have bounds 
-%
-\begin{align}
-\lambda_{\max}\left(\frac{1}{2}(\mathcal{Z} + \mathcal{Z}^*)\right) & \leq 
-	\frac{1}{2}\Big(2 - (\alpha + \overline{\alpha})\lambda +
-		\alpha\overline{\alpha}\lambda^2\Big) \label{eq:lam_max}.
-% & = \frac{1}{2}\Big(1 + (1 -\alpha\lambda)(1 -\overline{\alpha}\lambda)\Big).
+\begin{align}\label{eq:cond1}
+\textnormal{cond}\left((\gamma I- \widehat{\mathcal{L}})^{-1}S\right) & =
+	\frac{\max_{\lambda\in(0,\infty)} \mathcal{F}(\gamma,\lambda)}
+		{\min_{\lambda\in(0,\infty)} \mathcal{F}(\gamma,\lambda)}.
 \end{align}
 %
-for $\lambda\in(0,2)$. Finding the critical point $\lambda_* =
-\tfrac{\alpha+\overline{\alpha}}{2\alpha\overline{\alpha}}$, the maximum will
-be obtained at be evaluating \eqref{eq:lam_max} for $\lambda\in\{0,2,\lambda_*\}$.
-Note, the difference between here and the symmetric case is for symmetric we only
-evaluate to $\lambda = 1$ I think.
 
-Letting $k := \sqrt{\eta^2+\beta^2}$, we have
+With this closed form, it is natural to pose a minimization problem to find the
+optimal $\gamma$ in terms of minimizing the condition number \eqref{eq:cond0}.
+We make the assumption that $\eta \leq \gamma \leq \eta^2+\beta^2$, and consider
+the problem
 %
-\begin{align*}
-\alpha + \overline{\alpha} & = 2\frac{\sqrt{\eta^2+\beta^2} - \eta}{\sqrt{\eta^2+\beta^2}}
-	= 2 - 2\frac{\eta}{\sqrt{\eta^2+\beta^2}}, \\
-|\alpha|^2 & = \alpha\overline{\alpha} = \frac{\beta^2 + \left(\sqrt{\eta^2+\beta^2} - \eta\right)^2}{\eta^2+\beta^2} \\
-& = 2 - 2\frac{\eta}{\sqrt{\eta^2+\beta^2}}.
-\end{align*}
-%
-Noting that here we have $\alpha + \overline{\alpha} = \alpha\overline{\alpha}$, 
-\eqref{eq:lam_max} simplifies to
-%
-\begin{align*}
-\lambda_{\max}\left(\frac{1}{2}(\mathcal{Z} + \mathcal{Z}^*)\right) & \leq 
-	\frac{1}{2}\Big(2 + \alpha \overline{\alpha}(\lambda^2 - \lambda)\Big),
-\end{align*}
-%
-and $\lambda_* = \frac{\alpha + \overline{\alpha}}{2\alpha\overline{\alpha}} = \frac{1}{2}$.
-Evaluating \eqref{eq:lam_max} at $\lambda\in\{0,2,\lambda_*\}$, where now
-$\lambda_* = \tfrac{1}{2}$, yields
-%
-\begin{align*}
-\lambda & = 0 \mapsto \frac{1}{2}(2), \\
-\lambda & = 1 \mapsto \frac{1}{2}(2), \\
-\lambda & = 2 \mapsto 3 - \frac{\eta}{\sqrt{\eta^2+\beta^2}}, \\
-\lambda_* & = \frac{1}{2} \mapsto \frac{1}{2}\Big(\frac{3}{2} + \frac{\eta}{2\sqrt{\eta^2+\beta^2}} \Big)
-\end{align*}
-%
-
-For the minimum eigenvalue, the best we can do is
-%
-\begin{align}
-\lambda_{\min}\left(\frac{1}{2}(\mathcal{Z} + \mathcal{Z}^*)\right) & \geq 
-	\frac{1}{2}\Big(2 - (\alpha + \overline{\alpha})\lambda +
-		\alpha\overline{\alpha}\lambda^2 - 2\alpha\overline{\alpha}\Big) \nonumber\\
-& = \frac{1}{2}\Big(2 + \alpha\overline{\alpha}(\lambda^2 - \lambda - 2)\Big).\label{eq:lam_min}
+\begin{align}\label{eq:gam_opt}
+\gamma_* & = \textnormal{argmin}_{\gamma \geq \eta}
+	\frac{\max_{\lambda\in(0,\infty)} \mathcal{F}(\gamma,\lambda)}
+		{\min_{\lambda\in(0,\infty)} \mathcal{F}(\gamma,\lambda)}.
 \end{align}
 %
-Here we again have a critical point at $\lambda_* = \tfrac{1}{2}$. Evaluating
-\eqref{eq:lam_min} yields
+Minima and maxima in $\lambda$ may be obtained at one of the endpoints,
+$\lambda = 0$ or $\lambda\to\infty$, or at a critical point of \eqref{eq:eig_gamma}
+in $\lambda$. Taking the partial with respect to $\lambda$, we have
+%
+\begin{align}\label{eq:partial_l}
+\frac{\partial\mathcal{F}}{\partial\lambda} & =
+	\frac{(\gamma-\eta)(\eta+\lambda)^2 - \beta^2(\gamma+\eta+2\lambda)}
+		{(\gamma+\lambda)^2(\eta+\lambda)^2}.
+\end{align}
+%
+Noting that the denominator is nonnegative for $\eta,\gamma,\lambda > 0$, the
+critical points are obtained at zeros of the numerator in \eqref{eq:partial_l},
+which can be written as a quadratic polynomial in $\lambda$:
 %
 \begin{align*}
-\lambda & = 0 \mapsto -1 + 2\frac{\eta}{\sqrt{\eta^2+\beta^2}}, \\
-\lambda & = 1 \mapsto -1 + 2\frac{\eta}{\sqrt{\eta^2+\beta^2}}, \\
-\lambda & = 2 \mapsto \frac{1}{2}(2), \\
-\lambda_* & = \frac{1}{2} \mapsto 
+(\gamma-\eta)\lambda^2 - 2(\eta^2+\beta^2 - \eta\gamma)\lambda + 
+	\gamma(\eta^2-\beta^2) - \eta(\eta^2+\beta^2) = 0.
+\end{align*}
+%
+Working through the algebra, for $\gamma > \eta$ the roots are given by
+%
+\begin{align}\label{eq:roots}
+\lambda_{\pm} & := \frac{\beta^2 + \eta^2 - \gamma\eta \pm \beta\sqrt{\eta^2+\beta^2 + \gamma^2 - 2\gamma\eta}}{\gamma-\eta}.
+\end{align}
+%
+For $\beta > 0$, it is straightforward to show that $\eta^2+\beta^2 + \gamma^2 - 2\gamma\eta$
+is a positive quadratic in $\gamma$ with no real roots, which implies \eqref{eq:roots}
+defines two real roots.
+
+Thus, we have four potential points at which a maximum or minimum in $\lambda$
+can be achieved, $\{0,\infty, \lambda_\pm\}$. Working through the algebra yields
+%
+\begin{align*}
+\mathcal{F}(\gamma,\infty) & = 1, \hspace{20ex}
+\mathcal{F}(\gamma,\lambda_+) = \frac{2\beta}{\beta + \sqrt{\beta^2 + (\gamma-\eta)^2}}, \\
+\mathcal{F}(\gamma,0) & = 1 + \frac{\eta^2+\beta^2-\gamma^2}{\eta\gamma},
+\hspace{4ex}
+\mathcal{F}(\gamma,\lambda_-) = \frac{2\beta}{\beta - \sqrt{\beta^2 + (\gamma-\eta)^2}}.
+\end{align*}
+%
+In choosing $\gamma$, note that $\mathcal{F}(\gamma,\lambda_-) < 0$, which contradicts
+the assumption of positive definiteness. Thus, we must make an additional assumption
+that $\lambda_-\not\in(0,\infty)$. From \eqref{eq:roots}, this is equivalent to saying that
+%
+\begin{align*}
+\beta^2-\eta(\gamma-\eta) & < \beta\sqrt{\beta^2+(\gamma-\eta)^2}, \\
+\Longleftrightarrow\hspace{19.5ex}
+\left(\beta^2-\eta(\gamma-\eta)\right)^2& < \beta^2\left(\beta^2+(\gamma-\eta)^2\right), \\
+\Longleftrightarrow\hspace{5ex}
+(\gamma-\eta)\left[\beta^2(\gamma+\eta) - \eta^2(\gamma-\eta)\right] & > 0, \\
+\Longleftrightarrow\hspace{24ex}
+\frac{\beta^2}{\eta^2} > \frac{\gamma-\eta}{\gamma+\eta}.
+\end{align*}
+%
+Noting that $\tfrac{\gamma-\eta}{\gamma+\eta} < 1$, the above constraint clearly holds
+for $\beta > \eta$, which is the only regime in which we need a better constant anyways.
+
+Assume now that $\beta > \eta$, in which case maxima and minima of
+$\mathcal{F}(\gamma,\lambda)$ in $\lambda$ can be obtained at
+$\lambda\in\{0,\lambda_+,\infty\}$. Note for $\gamma < \sqrt{\eta^2+\beta^2}$,
+%
+\begin{align*}
+\max_{\lambda\in[0,\infty)} \mathcal{F}(\gamma,\lambda) & =
+	1 + \frac{\eta^2+\beta^2 - \gamma^2}{\eta\gamma} > 1, \\
+\min_{\lambda\in[0,\infty)} \mathcal{F}(\gamma,\lambda) & =
+	\frac{2\beta}{\beta + \sqrt{\beta^2 + (\gamma-\eta)^2}},
+\end{align*}
+%
+while for $\gamma \geq \sqrt{\eta^2+\beta^2}$,
+%
+\begin{align*}
+\max_{\lambda\in[0,\infty)} \mathcal{F}(\gamma,\lambda) & = 1, \\
+\min_{\lambda\in[0,\infty)} \mathcal{F}(\gamma,\lambda) & =
+	\min\left\{\mathcal{F}(\gamma,0),\mathcal{F}(\gamma,\lambda_+)\right\}.
 \end{align*}
 %
 
-{\color{blue}0 and 1 only positive for $\beta < \sqrt{3}\eta$ =(.
-
-Current approach can be seen as using spectral equivalence
+Returning to \eqref{eq:gam_opt}, let us start with the case
+$\gamma \geq \sqrt{\eta^2+\beta^2}$. We will do show by showing that both
+$\tfrac{1}{\mathcal{F}(\gamma,0)}$ and $\tfrac{1}{\mathcal{F}(\gamma,\lambda_+)}$
+are minimized over $\gamma \geq \sqrt{\eta^2+\beta^2}$ at
+$\gamma = \sqrt{\eta^2+\beta^2}$ (because the maximum eigenvalue is 1).
+For $\mathcal{F}(\gamma,\lambda_+)$, taking the partial of
+$\tfrac{1}{\mathcal{F}(\gamma,\lambda_+)}$ with respect to $\gamma$ yields
 %
 \begin{align*}
-P^2 + (P^T)^2 & = (P+P^T)^2 - (PP^T + P^TP) \geq (P+P^T)^2.
+\frac{\gamma-\eta}{2\beta\sqrt{\beta^2+(\gamma-\eta)^2}} > 0,
 \end{align*}
 %
-This is too rough of an estimate. Need better spectral equivalence
-to replace 
+which implies the minimum is obtained at the beginning of the interval, in
+this case $\gamma = \sqrt{\eta^2+\beta^2}$. Analogous derivations hold when
+evaluating at $\lambda=0$, yielding the optimal $\gamma \geq \sqrt{\eta^2+\beta^2}$
+with respect to \eqref{eq:gam_opt} given by $\gamma = \sqrt{\eta^2+\beta^2}$.
 
-}
+For $\gamma < \sqrt{\eta^2+\beta^2}$, we will also consider the derivative
+of \eqref{eq:gam_opt} in $\gamma$ to minimize, but without explicit construction.
+Consider $\gamma_*$ as a product rule of $\lambda_{\max}(\gamma)\cdot
+\lambda_{\min}(\gamma)$, where
+%
+\begin{align*}
+\lambda_{\max}(\gamma) := 1 + \frac{\eta^2+\beta^2 - \gamma^2}{\eta\gamma}, \hspace{5ex}
+\lambda_{\min}(\gamma) := \frac{\beta + \sqrt{\beta^2 + (\gamma-\eta)^2}}{2\beta}.
+\end{align*}
+%
+It is straightforward to verify that for all $\gamma\in(\eta,\sqrt{\eta^2+\beta^2})$,
+$\lambda_{\max}(\gamma) > 0$, $\lambda_{\min}(\gamma) > 0$, $\lambda_{\min}'(\gamma) > 0$,
+and $\lambda_{\max}'(\gamma) < 0$. The derivative of \eqref{eq:gam_opt} is then
+given by 
+%
+\begin{align*}
+\mathcal{D}(\gamma) := \lambda_{\max}(\gamma)\lambda_{\min}'(\gamma) +
+	\lambda_{\max}'(\gamma)\lambda_{\min}(\gamma),
+\end{align*}
+%
+and to show $\mathcal{D}(\gamma) < 0$ for $\gamma\in(\eta,\sqrt{\eta^2+\beta^2})$,
+it is sufficient to show that
+%
+\begin{equation*}
+-\lambda_{\max}'(\gamma)\lambda_{\min}(\gamma) > \lambda_{\max}(\gamma)\lambda_{\min}'(\gamma).
+\end{equation*}
+%
+Plugging in, we want to show
+%
+\begin{align*}
+\left(\frac{1}{\eta} + \frac{\eta^2+\beta^2}{\eta\gamma^2}\right)
+	\left(\frac{\beta + \sqrt{\beta^2 + (\gamma-\eta)^2}}{2\beta}\right) 
+& > \left(\frac{\gamma-\eta}{2\beta\sqrt{\beta^2+(\gamma-\eta)^2}} \right)
+	\left(\frac{\eta\gamma+\eta^2+\beta^2-\gamma^2}{\eta\gamma}\right), \\
+\left(\eta^2+\beta^2+\gamma^2\right)
+	\left(\beta^2 + (\gamma-\eta)^2 + \beta\sqrt{\beta^2+(\gamma-\eta)^2}\right)
+& > \gamma(\gamma-\eta)\left(\eta\gamma+\eta^2+\beta^2-\gamma^2\right).
+\end{align*}
+%
+Then note that for the first term on each side,
+%
+\begin{align*}
+2\gamma(\gamma-\eta) = 2\gamma^2 - 2\gamma\eta < 2\gamma^2 \leq \eta^2+\beta^2 + \gamma^2.
+\end{align*}
+%
+For the second, first note that $\beta\sqrt{\beta^2+(\gamma-\eta)^2} < \beta^2$.
+Then we want to show that
+%
+\begin{align*}
+2\beta^2 + (\gamma-\eta)^2 & > \frac{1}{2}\left(\eta\gamma+\eta^2+\beta^2-\gamma^2\right), \\
+4\beta^2 + 2\gamma^2 + 2\eta^2 - 4\gamma\eta & > \eta\gamma+\eta^2+\beta^2-\gamma^2, \\
+3\beta^2 + 3\gamma^2 + \eta^2 & > 5 \gamma\eta.
+\end{align*}
+%
+Noting that $5\gamma\eta < 5\gamma^2$, it is sufficient to show that 
+%
+\begin{align*}
+3\beta^2 + 3\gamma^2 + \eta^2 & > 5 \gamma^2, \\
+3\beta^2 + \eta^2 & > 2 \gamma^2.
+\end{align*}
+%
+Finally, by assumption that $\gamma < \sqrt{\eta^2+\beta^2}$ and $\beta > \eta$,
+we have $2\gamma^2 < 2\eta^2+2\beta^2 < 3\beta^2+\eta^2$.
+
+Altogether, we have that for $\gamma \in(\eta,\sqrt{\eta^2+\beta^2})$,
+%
+\begin{align*}
+\frac{\partial}{\partial\gamma}\left[ 
+	\frac{\max_{\lambda\in[0,\infty)} \mathcal{F}(\gamma,\lambda)}
+	{\min_{\lambda\in[0,\infty)} \mathcal{F}(\gamma,\lambda)} \right] < 0
+\end{align*}
+%
+meaning the optimal $\gamma \in(\eta,\sqrt{\eta^2+\beta^2})$ with respect to
+\eqref{eq:gam_opt} is given by the maximum $\gamma = \sqrt{\eta^2+\beta^2}$.
+Plugging in, we can evaluate our resulting bound as
+%
+\begin{align}\label{eq:cond_opt}
+\textnormal{cond}\left((\gamma_* I- \widehat{\mathcal{L}})^{-1}S\right) & =
+	\frac{1}{2} + \frac{\sqrt{(\eta^2+\beta^2) - \eta\sqrt{\eta^2+\beta^2}}}{\sqrt{2}\beta}.
+\end{align}
+%
+\tcb{This seems to small, need to check closer/make sure algebra is correct
+and the resulting condition numbers are reasonable.}
+
+
+
+\end{document}
+
+
+
+
+
+% % ---------------------------------------------------------------------------------------------- %
+% % ---------------------------------------------------------------------------------------------- %
+% % ---------------------------------------------------------------------------------------------- %
+% \section{A better constant}
+
+% {\color{blue}
+% \textbf{This section is outdated and did not yield anything useful.}
+% }
+
+
+% Note that for real $k>0$, $W\left[\left(I - \tfrac{1}{k}\mathcal{L}\right)^{-1}\right]$ and
+% $W\left[\left(I - \tfrac{1}{k}\mathcal{L}\right)^{-2}\right]$ are contained in
+% the positive half unit circle. Now consider the more general preconditioning
+% %
+% \begin{align}\nonumber
+% (kI - \mathcal{L})^{-2}\Big[(nI - \mathcal{L})^2 + \beta^2 I\Big] 
+% 	& = (kI - \mathcal{L})^{-2}\Big[(\eta-k)I + (kI - \mathcal{L}))^2 + \beta^2 I\Big] \\
+% & = (kI - \mathcal{L})^{-2}\Big[(k-\eta)^2I - 2(k-\eta)(kI - \mathcal{L}) + (kI - \mathcal{L})^2 + \beta^2 I\Big] \nonumber\\
+% & = I - 2(k-\eta)(kI - \mathcal{L})^{-1} + (\beta^2 + (k-\eta)^2)(kI - \mathcal{L})^{-2} \nonumber\\
+% & = I - 2\frac{k-\eta}{k}\left(I - \tfrac{1}{k}\mathcal{L}\right)^{-1} + \frac{\beta^2 + (k-\eta)^2}{k^2}
+% 	\left(I - \tfrac{1}{k}\mathcal{L}\right)^{-2}.\label{eq:gen1}
+% \end{align}
+% %
+% Note that we have a quadratic polynomial in $\left(I - \tfrac{1}{k}\mathcal{L}\right)^{-1}$.
+% Working out the roots of the corresponding polynomial, one can see they come in
+% conjugate pairs,
+% %
+% \begin{align*}
+% \frac{ 2\frac{k-\eta}{k} \pm \sqrt{4\frac{(k-\eta)^2}{k^2} - 4\frac{\beta^2}{k^2} -
+% 	4\frac{(k-\eta)^2}{k^2}}}{ 2\frac{\beta^2 + (k-\eta)^2}{k^2}} 
+% = \frac{k(k-\eta) \pm \mathrm{i} k\beta}{\beta^2 + (k-\eta)^2}.
+% \end{align*}
+% %
+% Let $\alpha$ denote the inverse of thees roots. Then \eqref{eq:gen1} can
+% be expressed in factored form as
+% %
+% \begin{align*}
+% (kI - \mathcal{L})^{-2}\Big[(nI - \mathcal{L})^2 + \beta^2 I\Big] 
+% 	& = \Big[I - \overline{\alpha}\left(I - \tfrac{1}{k}\mathcal{L}\right)^{-1}\Big]
+% 	\Big[I - \alpha\left(I - \tfrac{1}{k}\mathcal{L}\right)^{-1}\Big],
+% \end{align*}
+% %
+% where $\alpha + \overline{\alpha} = 2\tfrac{k-\eta}{k}$ and $\alpha\overline{\alpha}
+% = \tfrac{\beta^2 + (k-\eta)^2}{k^2}$. For ease of notation, let us denote
+% $\mathcal{P} := \left(I - \tfrac{1}{k}\mathcal{L}\right)^{-1}$,
+% and consider the field of values of 
+% %
+% \begin{align*}
+% \mathcal{Z} := (I - \overline{\alpha}\mathcal{P})(I - {\alpha}\mathcal{P}).
+% \end{align*}
+% %
+
+% We start by considering the real part of $\mathcal{Z}$ to bound the FOV along the real axis,
+% %
+% \begin{align*}
+% \frac{1}{2}(\mathcal{Z} + \mathcal{Z}^*)
+% 	& = \frac{1}{2}\Big[ 2I - (\alpha + \overline{\alpha})(\mathcal{P}+\mathcal{P}^T) +
+% 		\alpha\overline{\alpha}(\mathcal{P}^2 + (\mathcal{P}^T)^2)\Big] \\
+% & = \frac{1}{2}\Big[ \Big(I - (\alpha + \overline{\alpha})(\mathcal{P}+\mathcal{P}^T) +
+% 		\alpha\overline{\alpha}(\mathcal{P} + \mathcal{P}^T)^2\Big) +
+% 		\Big(I - \alpha\overline{\alpha}(\mathcal{P}\mathcal{P}^T + \mathcal{P}^T\mathcal{P})\Big) \Big].
+% \end{align*}
+% %
+% Note that $(\mathcal{P}+\mathcal{P}^T)$, $\mathcal{P}\mathcal{P}^T$, and
+% $\mathcal{P}^T\mathcal{P}$ are all SPD with eigenvalues $\lambda\in(0,2)$
+% for $(\mathcal{P}+\mathcal{P}^T)$ and $\lambda\in(0,1)$ for the others.
+% If $\mathcal{P}=\mathcal{P}^T$ is symmetric, the two operators above would
+% share eigenvectors as well, and we could get tighter bounds. As is, we have
+% to assume worst case that the eigenvectors of
+% $\mathcal{P}^T\mathcal{P} + \mathcal{P}\mathcal{P}^T$ corresponding to the
+% largest eigenvalues correspond to the smallest of $(\mathcal{P}+\mathcal{P}^T$,
+% and vice versa. In this case, we have bounds 
+% %
+% \begin{align}
+% \lambda_{\max}\left(\frac{1}{2}(\mathcal{Z} + \mathcal{Z}^*)\right) & \leq 
+% 	\frac{1}{2}\Big(2 - (\alpha + \overline{\alpha})\lambda +
+% 		\alpha\overline{\alpha}\lambda^2\Big) \label{eq:lam_max}.
+% % & = \frac{1}{2}\Big(1 + (1 -\alpha\lambda)(1 -\overline{\alpha}\lambda)\Big).
+% \end{align}
+% %
+% for $\lambda\in(0,2)$. Finding the critical point $\lambda_* =
+% \tfrac{\alpha+\overline{\alpha}}{2\alpha\overline{\alpha}}$, the maximum will
+% be obtained at be evaluating \eqref{eq:lam_max} for $\lambda\in\{0,2,\lambda_*\}$.
+% Note, the difference between here and the symmetric case is for symmetric we only
+% evaluate to $\lambda = 1$ I think.
+
+% Letting $k := \sqrt{\eta^2+\beta^2}$, we have
+% %
+% \begin{align*}
+% \alpha + \overline{\alpha} & = 2\frac{\sqrt{\eta^2+\beta^2} - \eta}{\sqrt{\eta^2+\beta^2}}
+% 	= 2 - 2\frac{\eta}{\sqrt{\eta^2+\beta^2}}, \\
+% |\alpha|^2 & = \alpha\overline{\alpha} = \frac{\beta^2 + \left(\sqrt{\eta^2+\beta^2} - \eta\right)^2}{\eta^2+\beta^2} \\
+% & = 2 - 2\frac{\eta}{\sqrt{\eta^2+\beta^2}}.
+% \end{align*}
+% %
+% Noting that here we have $\alpha + \overline{\alpha} = \alpha\overline{\alpha}$, 
+% \eqref{eq:lam_max} simplifies to
+% %
+% \begin{align*}
+% \lambda_{\max}\left(\frac{1}{2}(\mathcal{Z} + \mathcal{Z}^*)\right) & \leq 
+% 	\frac{1}{2}\Big(2 + \alpha \overline{\alpha}(\lambda^2 - \lambda)\Big),
+% \end{align*}
+% %
+% and $\lambda_* = \frac{\alpha + \overline{\alpha}}{2\alpha\overline{\alpha}} = \frac{1}{2}$.
+% Evaluating \eqref{eq:lam_max} at $\lambda\in\{0,2,\lambda_*\}$, where now
+% $\lambda_* = \tfrac{1}{2}$, yields
+% %
+% \begin{align*}
+% \lambda & = 0 \mapsto \frac{1}{2}(2), \\
+% \lambda & = 1 \mapsto \frac{1}{2}(2), \\
+% \lambda & = 2 \mapsto 3 - \frac{\eta}{\sqrt{\eta^2+\beta^2}}, \\
+% \lambda_* & = \frac{1}{2} \mapsto \frac{1}{2}\Big(\frac{3}{2} + \frac{\eta}{2\sqrt{\eta^2+\beta^2}} \Big)
+% \end{align*}
+% %
+
+% For the minimum eigenvalue, the best we can do is
+% %
+% \begin{align}
+% \lambda_{\min}\left(\frac{1}{2}(\mathcal{Z} + \mathcal{Z}^*)\right) & \geq 
+% 	\frac{1}{2}\Big(2 - (\alpha + \overline{\alpha})\lambda +
+% 		\alpha\overline{\alpha}\lambda^2 - 2\alpha\overline{\alpha}\Big) \nonumber\\
+% & = \frac{1}{2}\Big(2 + \alpha\overline{\alpha}(\lambda^2 - \lambda - 2)\Big).\label{eq:lam_min}
+% \end{align}
+% %
+% Here we again have a critical point at $\lambda_* = \tfrac{1}{2}$. Evaluating
+% \eqref{eq:lam_min} yields
+% %
+% \begin{align*}
+% \lambda & = 0 \mapsto -1 + 2\frac{\eta}{\sqrt{\eta^2+\beta^2}}, \\
+% \lambda & = 1 \mapsto -1 + 2\frac{\eta}{\sqrt{\eta^2+\beta^2}}, \\
+% \lambda & = 2 \mapsto \frac{1}{2}(2), \\
+% \lambda_* & = \frac{1}{2} \mapsto 
+% \end{align*}
+% %
+
+% {\color{blue}0 and 1 only positive for $\beta < \sqrt{3}\eta$ =(.
+
+% Current approach can be seen as using spectral equivalence
+% %
+% \begin{align*}
+% P^2 + (P^T)^2 & = (P+P^T)^2 - (PP^T + P^TP) \geq (P+P^T)^2.
+% \end{align*}
+% %
+% This is too rough of an estimate. Need better spectral equivalence
+% to replace 
+
+% }
 
 % % ---------------------------------------------------------------------------------------------- %
 % % ---------------------------------------------------------------------------------------------- %
@@ -553,16 +742,12 @@ to replace
 % }
 
 
+% % ------------------------------------------------------------------- %
+% % ------------------------------ WRONG ------------------------------
+% % ------------------------------------------------------------------- %
+% \section{Old analysis different consatnts, SPD operators}
 
-\end{document}
-
-
-
-
-% ------------------------------------------------------------------- %
-% ------------------------------ WRONG ------------------------------
-% ------------------------------------------------------------------- %
-% \subsubsection{SPD operators}
+% \tcr{THIS IS WRONG BECAUSE CANNOT POSE AS QUADRATIC POLYNOMIAL WITH DIFFERENT CONSTANTS}
 
 % Suppose $\widehat{\mathcal{L}}$ is symmetric negative definite and, thus, has an orthogonal
 % basis of eigenvectors, and consider the conditioning of \eqref{eq:gamma0}. Assume that the
@@ -740,6 +925,4 @@ to replace
 % the product of the two constants, $\eta\gamma_* = \eta^2+\beta^2$, we have
 % the same as when we use a single constant twice in \eqref{eq:gamma_opt0},
 % $\gamma_\times^2 = (\sqrt{\eta^2+\beta^2})^2 = \eta^2+\beta^2$.
-
-
 
