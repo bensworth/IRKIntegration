@@ -313,7 +313,7 @@ precisely as $h,\delta t\to 0$ via
 
 With this closed form, it is natural to pose a minimization problem to find the
 optimal $\gamma$ in terms of minimizing the condition number \eqref{eq:cond0}.
-We make the assumption that $\eta \leq \gamma \leq \eta^2+\beta^2$, and consider
+We make the assumption that $\gamma \geq \eta $, and consider
 the problem
 %
 \begin{align}\label{eq:gam_opt}
@@ -387,7 +387,7 @@ $\lambda\in\{0,\lambda_+,\infty\}$. Note for $\gamma < \sqrt{\eta^2+\beta^2}$,
 \max_{\lambda\in[0,\infty)} \mathcal{F}(\gamma,\lambda) & =
 	1 + \frac{\eta^2+\beta^2 - \gamma^2}{\eta\gamma} > 1, \\
 \min_{\lambda\in[0,\infty)} \mathcal{F}(\gamma,\lambda) & =
-	\frac{2\beta}{\beta + \sqrt{\beta^2 + (\gamma-\eta)^2}},
+	\frac{2\beta}{\beta + \sqrt{\beta^2 + (\gamma-\eta)^2}} < 1,
 \end{align*}
 %
 while for $\gamma \geq \sqrt{\eta^2+\beta^2}$,

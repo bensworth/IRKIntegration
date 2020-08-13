@@ -45,8 +45,8 @@
 	Galerkin in time for numerical PDEs, Part I: the linear setting}
 \newcommand{\TheAuthors}{B.S. Southworth, O.A. Krzysik, W. Pazner, and H. De Sterck}
 \headers{Parallel solution of fully implict Runge-Kutta and DG in time I}{\TheAuthors}
-\title{{\TheTitle}\thanks{This research was conducted ...
-  }}
+\title{{\TheTitle}\thanks{This work was  performed under the auspices of the U.S.
+Department of Energy under contract DE-AC52-07NA27344 and Lawrence Livermore National Laboratory under  contract B639443.}}
 
 \author{
 	Ben S. Southworth\thanks{Department of Applied Mathematics,
@@ -82,7 +82,25 @@
 \allowdisplaybreaks
 
 \begin{abstract}
-
+This paper introduces a theoretical and algorithmic framework for the fast, parallel
+solution of fully implicit Runge-Kutta methods in linear numerical PDEs (without algebraic
+constraints), which also naturally applies to discontinuous Galerkin discretizations
+in time. The new
+method can be used with arbitrary existing preconditioners for backward-Euler type
+time stepping schemes, and is amenable to the use of three-term recursion Krylov
+methods when the underlying spatial discretization is. 
+A field of values analysis is derived to guarantee rapid Krylov convergence under
+quite general assumptions on the spatial discretization that yield stable time integration.
+A modified constant is introduced to the preconditioner, and the resulting preconditioned
+operator proven to have condition number $\mathcal{O}(1)$ (and $<9$), independent of
+the number of stages or polynomial order.
+The new method is demonstrated to be effective
+on various high-order finite-difference and finite-element discretizations of linear
+parabolic and hyperbolic problems, 
+demonstrating fast, scalable solution of up to 10th order accuracy. In several
+cases, the new method can achieve 4th-order accuracy using Gauss integration
+with roughly half the number of preconditioner applications as required using
+standard SDIRK techniques.
 \end{abstract}
 
 
@@ -168,14 +186,8 @@ methods are even less likely to yield acceptable performance in solving \eqref{e
 % ------------------------------------------------------------------------------------- %
 \subsection{Discontinuous Galerkin in time}\label{sec:intro:dg}
 
-The use of finite element and Galerkin methods for the temporal discretization of numerical PDEs has seen growing interest.
-Some of the more interesting features of using finite elements in time is the natural ability to handle time-dependent geometries, unstructured space-time meshes, and both spatial and temporal adaptive mesh refinement.
-However, for so-called slab-based meshing in time with discontinuous Galerkin (DG) finite elements, where the time domain is discretized using spatial slabs (that is, the same time step is applied to the entire spatial domain, analogous to more traditional method of lines time-stepping techniques), the resulting linear systems that must be solved for each time step take the same structure as \eqref{eq:k0} (for example, see \cite{hn,Akrivis2011}).
-In fact, for specific choices of quadrature, discontinuous Galerkin time discretizations are equivalent to certain collocation Runge-Kutta methods \cite{Lasaint1974}.
-In particular, the degree-$p$ discontinuous Galerkin method using $(p+1)$-point Radau quadrature, which is exact for polynomials of degree $2p$, is equivalent to the Radau IIA collocation method \cite{Makridakis2006}.
-A handful of works have studied linear solvers for such discretizations, primarily for parabolic problems, including block preconditioning approaches \cite{exh,8jp,27n}, and direct space-time multigrid methods \cite{gander2016analysis}.
-
-In general, discontinuous Galerkin in time discretizations of systems of linear ordinary differential equations give rise to linear algebraic systems of the form
+Discontinuous Galerkin (DG) in time discretizations of systems of linear
+ODEs give rise to linear algebraic systems of the form
 \begin{equation} \label{eq:dg-in-time}
 	\left( \begin{bmatrix}
 		\delta_{11} M  & & \delta_{1s} M \\
@@ -190,11 +202,22 @@ In general, discontinuous Galerkin in time discretizations of systems of linear 
 		\begin{bmatrix} \mathbf{u}_1 \\ \vdots \\ \mathbf{u}_s \end{bmatrix}
 		= \begin{bmatrix} \mathbf{r}_1 \\ \vdots \\ \mathbf{r}_s \end{bmatrix}.
 \end{equation}
-The coefficients $m_{ij}$ correspond to a temporal mass matrix, the coefficients $\delta_{ij}$ correspond to a DG weak derivative with upwind numerical flux, and the unknowns $\mathbf{u}_i$ are the coefficients of the polynomial expansion of the approximate solution.
-Both of the coefficient matrices $m_{ij}$ and $\delta_{ij}$ are invertible.
-It can be seen that the algebraic form of the DG in time discretization is closely related to the implicit Runge-Kutta system \eqref{eq:k0}, and in fact \eqref{eq:dg-in-time} can be recast in the form of \eqref{eq:k0} using the invertibility of the matrix $\delta_{ij}$.
-Although the remainder of this paper focuses on fully implicit Runge-Kutta, the algorithms developed here can also be applied to DG discretizations in time on fixed slab-based meshes.
-In fact, some of the principles used in this paper are similar to those used in \cite{exh} for space-time DG discretizations of linear parabolic problems, and some of the theory derived therein is generalized to non-parabolic/non-SPD operators in this paper.
+The coefficients $m_{ij}$ correspond to a temporal mass matrix, the coefficients
+$\delta_{ij}$ correspond to a DG weak derivative with upwind numerical flux, and
+the unknowns $\mathbf{u}_i$ are the coefficients of the polynomial expansion of
+the approximate solution (for example, see \cite{hn,Akrivis2011,Lasaint1974,Makridakis2006}).
+Both of the coefficient matrices $\{m_{ij}\}$ and $\{\delta_{ij}\}$ are
+invertible. It can be seen that the algebraic form of the DG in time
+discretization is closely related to the implicit Runge-Kutta system
+\eqref{eq:k0} and, in fact, \eqref{eq:dg-in-time} can be recast in the form of
+\eqref{eq:k0} using the invertibility of the matrix $\{\delta_{ij}\}$. In
+particular, the degree-$p$ DG method using $(p+1)$-point
+Radau quadrature, which is exact for polynomials of degree $2p$, is equivalent
+to the Radau IIA collocation method \cite{Makridakis2006}, which is used for
+many of the numerical results in \Cref{sec:numerics}.
+Thus, although the remainder of this paper focuses on fully implicit Runge-Kutta,
+the algorithms developed here can also be applied to DG discretizations in time on
+fixed slab-based meshes.
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -233,8 +256,8 @@ high-order finite-difference and DG (spatial) discretizations of
 advection(-diffusion), and very high-order matrix-free continuous Galerkin
 discretizations of diffusion. The method is shown to be fast and scalable
 up to 10th-order accuracy in time, effective on fully advective (hyperbolic)
-problems, and, for one example, can obtain 4th-order accuracy with Gauss
-integration using roughly half the algebraic multigrid (AMG) iterations
+problems, and, for multiple examples, can obtain 4th-order accuracy with Gauss
+integration using roughly half preconditioning iterations
 as needed by standard 4th-order SDIRK schemes.
 
 % ------------------------------------------------------------------------------------- %
@@ -284,8 +307,7 @@ For large-scale simulation of PDEs, particularly on modern computing architectur
 LU decompositions (or other direct inverses) are typically not feasible. In this
 vein, a number of people have considered preconditioning techniques for \eqref{eq:kron1}
 or approximations to \eqref{eq:kron1} on the nonlinear iteration level or time
-discretization level. In addition to the DG-in-time methods discussed in
-\Cref{sec:intro:dg}, various block preconditioning/approximation techniques
+discretization level. Various block preconditioning/approximation techniques
 have been studied, primarily for parabolic problems
 \cite{houwen97b,Houwen97c,nissen11,mardel07,staff06,hoffmann97,jay00}, and
 multigrid methods for IRK and parabolic problems were developed in \cite{vanlent05}.
@@ -295,10 +317,17 @@ and the method extended to the viscous wave equation in first-order form in
 \cite{chen16}. More recently, block-ILU preconditioners were successfully applied
 to a transformed version of \eqref{eq:kron1} in \cite{pazner17} on more difficult
 nonlinear compressible fluids problems.
+A handful of works have also studied linear solvers for DG-in-time discretizations,
+primarily for parabolic problems, including block preconditioning approaches
+\cite{exh,8jp,27n}, and direct space-time multigrid methods
+\cite{gander2016analysis}. In fact, some of the principles used in this paper
+are similar to those used in \cite{exh} for space-time DG discretizations of
+linear parabolic problems, and some of the theory derived therein is generalized
+to non-parabolic/non-SPD operators in this paper.
 
-Despite many papers considering the efficient solution of IRK methods, very little
-has been done in the development and analysis of preconditioning techniques for
-non-parabolic problems/non-SPD spatial operators, particularly methods that are
+Despite many papers considering the efficient solution of IRK/DG-in time methods,
+very little has been done in the development and analysis of preconditioning techniques
+for non-parabolic problems/non-SPD spatial operators, particularly methods that are
 amenable to combine with existing fast, parallel preconditioners. Addressing each
 of these challenges for linear PDEs is the focus of this work.
 
@@ -1284,7 +1313,7 @@ practice, but \textit{it is important that the underlying preconditioner provide
 inverse approximation}. Fortunately, for difficult problems with only okay preconditioners,
 it is straightforward to apply either multiple inner fixed-point iterations or an
 inner Krylov iteration (wrapped with a flexible outer Krylov method
-\cite{notay2000flexible,saad1993flexible}) to ensure robust (outer) iterations, analogous
+\cite{Notay2000,saad1993flexible}) to ensure robust (outer) iterations, analogous
 to techniques used in block preconditioning. In \Cref{sec:numerics:dg:diff}, a
 numerical example is shown where the proposed method diverges using a single inner
 fixed-point iteration as a preconditioner for $(\eta I - \widehat{\mathcal{L}})$, but
@@ -1389,8 +1418,8 @@ central-finite-differences in space, and the 7th- and 8th-order methods with
 8th-order central-finite-differences in space. In all cases, a time-step of
 $\delta t = 2 h$ is used, with $h$ denoting the spatial mesh size. Due to the
 diffusive, but non-SPD nature of the spatial discretization, we apply GMRES(30)
-preconditioned by a classical AMG method in the \textit{hypre} library
-\cite{Falgout:2002vu}. Specifically, we
+preconditioned by a classical algebraic multigrid (AMG) method in the
+\textit{hypre} library \cite{Falgout:2002vu}. Specifically, we
 use classical interpolation (type 0), Falgout coarsening (type 6) with a strength
 tolerance $\theta_C = 0.25$, zero levels of aggressive coarsening, and
 $L_1$-Gauss--Seidel relaxation (type 8), with an absolute and relative stopping
@@ -1449,8 +1478,8 @@ of the commonly used L-stable SDIRK4 scheme.
 % ------------------------------------------------------------------------------------- %
 \subsection{DG advection(-diffusion)}\label{sec:numerics:dg}
 
-This section considers a more difficult advection-diffusion problem, discretized
-using a high-order DG finite element method. In particular, we demonstrate
+Here we consider a more difficult advection-diffusion problem, discretized
+using high-order DG finite elements. In particular, we demonstrate
 the effectiveness and scalability of the new preconditioning on more complex flows and
 DG discretizations (\Cref{fig:ad_advdiff} and \Cref{sec:numerics:dg:adv}),
 the reduction in computational work that can be achieved using large time steps and
@@ -1629,8 +1658,8 @@ then SDIRK4 uses $\delta t_4 = 0.01$ and Gauss8 uses $\delta t_8 =
 \sqrt{0.01} = 0.1 = 10\delta t_4$, that is, $10\times$ less time steps to
 achieve comparable accuracy. Note that as $h\to 0$, this factor becomes progressively
 larger. For quite moderate $h$, we see how very high-order integration
-can quickly lead to a reduction in total AIR iterations compared to a
-standard SDIRK4 iteration. Gauss8 and Radau9, for example, require almost
+can quickly lead to a reduction in total preconditioning iterations compared to a
+standard SDIRK4 scheme. Gauss8 and Radau9, for example, require almost
 $7\times$ less AIR iterations than SDIRK4 at $h =\delta t_4 = 1/256$,
 and this ratio continues to decrease for smaller $\delta t$. Although this
 does not account for additional setup time, where Gauss8 and Radau9 require
@@ -1679,7 +1708,7 @@ outer iteration, which allows for GMRES to be applied in an inner iteration
 as a preconditioner for $(\gamma_* M - \mathcal{L})$. \Cref{fig:dg_o2} plots the
 total number of AIR iterations per time step as a function of the number of
 AIR iterations applied for each application of the preconditioner, using an
-inner GMRES or an inner fixed-point iteration. An advection-dominated problem
+inner GMRES or an inner fixed-point. An advection-dominated problem
 with $\varepsilon = 10^{-6}$ is also shown for comparison.
 
 Recall we have three stages, one of which is a single linear system corresponding
@@ -1720,13 +1749,11 @@ AIR iterations applied for each application of the preconditioner.}
 \end{figure}
 
 
-
-
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
 \subsection{High-order matrix-free diffusion}
 
-In this example, we illustrate the use high-order IRK methods coupled with high-order finite element spatial discretizations.
+In this example, we illustrate the use of high-order IRK methods coupled with high-order finite element spatial discretizations.
 It is well-known that matrix assembly becomes prohibitively expensive for high-order finite elements.
 Naive algorithms typically require $\mathcal{O}(p^{3d})$ operations to assemble the resulting system matrix, where $p$ is the polynomial degree and $d$ is the spatial dimension.
 Techniques such as sum factorization can reduce this cost on tensor-product elements to $\mathcal{O}(p^{2d+1})$, however this cost can still be prohibitive for large values of $p$ \cite{Melenk2001}.
@@ -1756,18 +1783,7 @@ For each test case, the finite element polynomial degree is set to $k-1$, where 
 The mesh and time step are refined by factors of two to confirm the high-order convergence in space and time of the method.
 The relative $L^2$ error, obtained by comparing against the exact solution, is shown in \Cref{fig:high-order-diff-errors}.
 
-We also use this test case to study the effect of inner iterations on the convergence of the iteration solver.
-As discussed in Section \ref{sec:inexact-precond}, it is important that the underlying preconditioner provide a good approximation of the inverse of the operator.
-For that reason, we consider the use of an inner Krylov solver at every iteration.
-Since this corresponds to using a variable preconditioner at each iteration, a flexible Krylov method may have be used for the outer iteration, although in practice good convergence is often still observed using the standard conjugate gradient method \cite{Notay2000}.
-In particular, we compare the total number of preconditioner applications required to converge the outer iteration to a relative tolerance of $10^{-10}$, both with and without an inner Krylov solver.
-For the inner Krylov solver, we use a conjugate gradient iteration with the same relative tolerance as the outer iteration in order to give a good approximation to the inverse of the operator.
-The iteration counts are displayed in \Cref{fig:high-order-diff-iters}.
-We note that for the fully implicit IRK methods, using an inner Krylov solver can reduce the total number of preconditioner applications by about a factor of 1.5, although this depends on the type of method and order of accuracy.
-For DIRK methods, the use of inner iterations does not reduce the total number of preconditioner applications.
-For this test case, the total number of preconditioner applications required for the second and fourth order Gauss IRK methods is between 1.3 and 2 times smaller than those required for the corresponding equal-order DIRK methods.
-
-\begin{figure}
+\begin{figure}[!ht]
 	\centering
 	\includegraphics{figures/high_order_diff_error_plot/ho_diff_errors}
 	\caption{
@@ -1778,12 +1794,25 @@ For this test case, the total number of preconditioner applications required for
 	\label{fig:high-order-diff-errors}
 \end{figure}
 
-\begin{figure}
+We also use this test case to study the effect of inner iterations on the convergence of the iteration solver.
+As discussed in Section \ref{sec:inexact-precond}, it is important that the underlying preconditioner provide a good approximation of the inverse of the operator.
+For that reason, we consider the use of an inner Krylov solver at every iteration.
+Since this corresponds to using a variable preconditioner at each iteration, a flexible Krylov method may have be used for the outer iteration, although in practice good convergence is often still observed using the standard CG method \cite{Notay2000}.
+In particular, we compare the total number of preconditioner applications required to converge the outer iteration to a relative tolerance of $10^{-10}$, both with and without an inner Krylov solver.
+For the inner Krylov solver, we use a CG iteration with the same relative tolerance as the outer iteration in order to give a good approximation to the inverse of the operator.
+The iteration counts are displayed in \Cref{fig:high-order-diff-iters}.
+We note that for the fully implicit IRK methods, using an inner Krylov solver can reduce the total number of preconditioner applications by about a factor of 1.5, although this depends on the type of method and order of accuracy.
+As expected, the use of inner iterations does not reduce the total number of preconditioner applications for DIRK methods.
+In addition, for this test case, the total number of preconditioner applications required for the second and fourth order Gauss IRK methods is between 1.3 and 2 times smaller than those required for the corresponding equal-order DIRK methods.
+
+\begin{figure}[!ht]
 	\centering
 	\includegraphics{figures/high_order_diff_iters/high_order_diff_iters}
 	\caption{
-		Comparison of number of iterations with and without inner iterations, using the high-order finite element diffusion test problem.
-		Both the outer iteration and the inner conjugate gradient iteration are converged to a relative tolerance of $10^{-10}$.
+		Comparison of total number of preconditioner applications with and without
+		inner iterations.
+		Both the outer iteration and the inner CG iteration are converged to a
+		relative tolerance of $10^{-10}$.
 	}
 	\label{fig:high-order-diff-iters}
 \end{figure}
@@ -1793,10 +1822,21 @@ For this test case, the total number of preconditioner applications required for
 % ------------------------------------------------------------------------------------- %
 \section{Conclusions}\label{sec:conc}
 
-This paper introduced a theoretical and algorithmic framework for the fast, parallel
-solution of fully implicit Runge-Kutta methods in numerical PDEs (without algebraic
-constraints). A field of values analysis is derived to guarantee rapid Krylov
-convergence...\todo{finish}
+This paper introduces a theoretical and algorithmic framework for the fast, parallel
+solution of fully implicit Runge-Kutta and DG discretizations in time for linear
+numerical PDEs. Theory is developed to guarantee rapid Krylov convergence and 
+$\mathcal{O}(1)$ conditioning under general assumptions on the spatial
+discretization that yield stable time integration.
+Numerical results demonstrate the new method on various high-order finite-difference
+and finite-element discretizations of linear parabolic and hyperbolic problems, 
+demonstrating fast, scalable solution of up to 10th order accuracy. In several
+cases, the new method can achieve 4th-order accuracy using Gauss integration
+with roughly half the number of preconditioner applications as required using
+standard SDIRK techniques. Ongoing work involves addressing fully nonlinear
+problems and algebraic constraints, in particular, without assuming that the
+linear system \eqref{eq:k0} can be expressed in Kronecker-product form (thus
+allowing for a true Newton or better Newton-like method compared with the
+commonly used/analyzed simplified Newton approach).
 
 % ------------------------------------------------------------------------------- %
 \bibliographystyle{siamplain}
