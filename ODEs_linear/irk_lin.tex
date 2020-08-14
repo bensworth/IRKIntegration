@@ -35,8 +35,9 @@
 \newcommand{\tcp}{\textcolor{purple}}
 \newcommand{\todo}[1]{\textcolor{red}{[TODO\@: #1]}}
 
-\newcommand{\mdet}{\operatorname{det}}
-\newcommand{\madj}{\operatorname{adj}}
+\newcommand{\WP}[1]{\textcolor{red}{WP: #1}}
+
+\DeclareMathOperator{\adj}{adj}
 
 % ------------------------------------------------------------------------------------ %
 % ------------------------------------------------------------------------------------ %
@@ -88,7 +89,7 @@ constraints), which also naturally applies to discontinuous Galerkin discretizat
 in time. The new
 method can be used with arbitrary existing preconditioners for backward-Euler type
 time stepping schemes, and is amenable to the use of three-term recursion Krylov
-methods when the underlying spatial discretization is. 
+methods when the underlying spatial discretization is.
 A field of values analysis is derived to guarantee rapid Krylov convergence under
 quite general assumptions on the spatial discretization that yield stable time integration.
 A modified constant is introduced to the preconditioner, and the resulting preconditioned
@@ -96,7 +97,7 @@ operator proven to have condition number $\mathcal{O}(1)$ (and $<9$), independen
 the number of stages or polynomial order.
 The new method is demonstrated to be effective
 on various high-order finite-difference and finite-element discretizations of linear
-parabolic and hyperbolic problems, 
+parabolic and hyperbolic problems,
 demonstrating fast, scalable solution of up to 10th order accuracy. In several
 cases, the new method can achieve 4th-order accuracy using Gauss integration
 with roughly half the number of preconditioner applications as required using
@@ -153,8 +154,8 @@ M\mathbf{k}_i & = \mathcal{L}(t_n+\delta tc_i)\cdot
 	\mathbf{f}(t_n+\delta tc_i).\label{eq:stages}
 \end{align}
 %
-Expanding, solving for the stage vectors $\{\mathbf{k}_i\}$ can then be expressed
-as the solution of the block linear system,
+The stage vectors $\{\mathbf{k}_i\}$ can then be expressed as the solution of the block linear
+system,
 %
 \begin{align}\label{eq:k0}
 \left( \begin{bmatrix} M  & & \mathbf{0} \\ & \ddots \\ \mathbf{0} & & M\end{bmatrix}
@@ -167,7 +168,7 @@ as the solution of the block linear system,
 where $\mathcal{L}_i := \mathcal{L}(t_n+\delta tc_i)$ and $\mathbf{f}_i :=
 \mathbf{f}(t_n+\delta tc_i)$. Primarily this paper
 focuses on spatial operators that are independent of time; however, some of
-the results hold for commuting operators, such as may arise in, for example,
+the results hold for commuting operators, such as those that may arise from, for example,
 a time-dependent reaction term, so for now we maintain this generality.
 
 The difficulty in fully implicit Runge-Kutta methods (which we will denote IRK) lies in
@@ -223,20 +224,17 @@ fixed slab-based meshes.
 % ------------------------------------------------------------------------------------- %
 \subsection{Outline}\label{sec:intro:outline}
 
-This paper develops fast, parallel preconditioning techniques for the solution of
-fully implicit Runge-Kutta methods and DG discretizations in time
-for linear numerical PDEs.
-First, \Cref{sec:intro:hist} provides background on why IRK methods are desirable
-over the simpler and more commonly used DIRK methods, and also provides some
-historical context for the preconditioners developed in this work.
-\Cref{sec:intro:stab} then briefly discusses stable integration from
-a method-of-lines perspective and introduces two key elements that will be
+This paper develops fast, parallel preconditioning techniques for the solution of fully implicit
+Runge-Kutta methods and DG discretizations in time for linear numerical PDEs. First,
+\Cref{sec:intro:hist} provides background on why IRK methods are desirable over the simpler and more
+commonly used digonally implicit Runge-Kutta (DIRK) methods, and also provides some historical
+context for the preconditioners developed in this work. \Cref{sec:intro:stab} then briefly discusses
+stable integration from a method-of-lines perspective and introduces two key elements that will be
 used throughout the paper.
 
 \Cref{sec:solve} introduces a new method to solve for the IRK update
 \eqref{eq:update} for linear operators $\mathcal{L}$ that are independent of time.
-The new method effectively
-requires the preconditioning of $s$ real-valued matrices along the lines of
+This new method requires the preconditioning of $s$ real-valued matrices of the form
 $\eta M - \delta t\mathcal{L}$, for some $\eta > 1$, and is easily implemented
 using existing preconditioners and parallel software libraries.
 In contrast to other works that have considered the preconditioning of \eqref{eq:kron1},
@@ -252,9 +250,9 @@ stages/polynomial order in time (see \Cref{sec:solve:gamma}).
 
 Numerical results are provided in \Cref{sec:numerics}, demonstrating the new
 method for a variety of problems and corresponding preconditioners, including
-high-order finite-difference and DG (spatial) discretizations of
-advection(-diffusion), and very high-order matrix-free continuous Galerkin
-discretizations of diffusion. The method is shown to be fast and scalable
+high-order finite-difference and discontinuous Galerkin spatial discretizations of
+advection-diffusion equations, and very high-order matrix-free continuous Galerkin
+discretizations of diffusion equations. The method is shown to be fast and scalable
 up to 10th-order accuracy in time, effective on fully advective (hyperbolic)
 problems, and, for multiple examples, can obtain 4th-order accuracy with Gauss
 integration using roughly half preconditioning iterations
@@ -264,22 +262,24 @@ as needed by standard 4th-order SDIRK schemes.
 % ------------------------------------------------------------------------------------- %
 \subsection{Why fully implicit and previous work}\label{sec:intro:hist}
 
-In practice, people typically use
-diagonally implicit Runge-Kutta (DIRK) methods, where $A_0$ is lower triangular.
-For such schemes, the solution of \eqref{eq:k0} only requires $s$ linear
-solves along the lines of $ M - \delta ta_{ii}\mathcal{L}_i$. Unfortunately, DIRK
-schemes suffer from stage-order one (stage-order two with one explicit stage; see
-EDIRK methods \cite{butcher00}). For stiff nonlinear PDEs or DAEs, the observed
+Diagonally implicit Runge-Kutta (DIRK) methods, where $A_0$ is lower triangular,
+are commonly used in practice.
+For such schemes, the solution of \eqref{eq:k0} using a block substitution algorithm
+requires only $s$ linear
+solves of systems of the form $ M - \delta ta_{ii}\mathcal{L}_i$. Unfortunately, DIRK
+schemes suffer from order reduction. The stage-order of a DIRK method is at most one
+(EDIRK methods, with one explicit stage, have a maximum stage order of two) \cite{butcher00}.
+For stiff nonlinear PDEs or DAEs, the observed
 global order of accuracy
 in practice can be limited to $\approx \min\{ p, q+1\}$ or $q$, respectively, for
-integration order $p$ and stage-order $q$ \cite{hairer96,kennedy16}. Thus, even a
+integration order $p$ and stage-order $q$ \cite{hairer96,kennedy16} \WP{the previous sentence was not so clear}. Thus, even a
 6th-order DIRK method may only yield 1st- or 2nd-order accuracy. In contrast, IRK
-methods yield high stage order and, thus, formally high-order accuracy on stiff,
+methods may have arbitrarily high stage order and, thus, formally high-order accuracy on stiff,
 nonlinear problems, and even index-2 DAEs. Although the focus of this paper is
-linear PDEs with no algebraic constraint, we want to highlight that the theory
+linear PDEs without algebraic constraints, we want to highlight that the theory
 and framework developed here is fundamental to a forthcoming paper on
 nonlinear PDEs and DAEs. Furthermore, for less stiff
-problems, IRK methods can yield accuracy as high as order $2s$ for an $s$ stage method,
+problems, IRK methods can yield accuracy as high as order $2s$ for an $s$-stage method,
 compared with a maximum of $s$ or $s+1$ for SDIRK methods with reasonable stability
 properties \cite[Section IV.6]{hairer96}.
 
@@ -304,7 +304,7 @@ There, and in many of the works that followed, the goal was to minimize the cost
 decompositions used to solve \eqref{eq:kron1}, typically in the context of ODEs.
 
 For large-scale simulation of PDEs, particularly on modern computing architectures,
-LU decompositions (or other direct inverses) are typically not feasible. In this
+LU decompositions (or other direct factorizations) are typically not feasible. In this
 vein, a number of people have considered preconditioning techniques for \eqref{eq:kron1}
 or approximations to \eqref{eq:kron1} on the nonlinear iteration level or time
 discretization level. Various block preconditioning/approximation techniques
@@ -402,7 +402,7 @@ $\|e^{t\mathcal{L}}\|\leq 1$ for all $t\geq 0$ if and only if $W(\mathcal{L}) \l
 This is analogous to the ``strong stability'' discussed by Leveque
 \cite[Chapter 9.5]{leveque2007finite}, as opposed to the weaker (but still
 sufficient) condition $\|e^{t\mathcal{L}}\|\leq C$ for all $t\geq 0$ and
-some constant $C$. In practice, \Cref{ass:fov} is likely to hold when
+some constant $C$. In practice, \Cref{ass:fov} often holds when
 simulating numerical PDEs, and in \Cref{sec:solve:prec}, it is proven that
 \Cref{ass:eig} and \ref{ass:fov} provide sufficient conditions to guarantee
 fast Krylov convergence of the proposed methods.
@@ -413,7 +413,7 @@ fast Krylov convergence of the proposed methods.
 \section{Fast parallel preconditioning}\label{sec:solve}
 
 For ease of notation, let us scale both sides of \eqref{eq:keq} by a
-block-diagonal mass matrix inverse, and let
+block-diagonal mass matrix inverse \WP{why is the mass matrix block diagonal?}, and let
 %
 \begin{equation*}
 \widehat{\mathcal{L}}_i := \delta t M^{-1}\mathcal{L}_i,
@@ -429,9 +429,9 @@ Then, solving \eqref{eq:k0} can be effectively reduced to inverting the operator
 %
 \begin{align}\nonumber
 \mathcal{M}_s & := A_0^{-1}\otimes I - \begin{bmatrix} \widehat{\mathcal{L}}_1  & \\ & \ddots \\ && \widehat{\mathcal{L}}_s\end{bmatrix} \\
-& = \begin{bmatrix} \alpha_{11}I - \widehat{\mathcal{L}}_1 & \alpha_{12}I & ... & \alpha_{1s}I \\
-	\alpha_{21}I & \alpha_{22}I - \widehat{\mathcal{L}}_2 & & \alpha_{2s}I \\
-	\ddots & & \ddots & \vdots \\ \alpha_{s1}I & ... & \alpha_{s(s-1)}I & \alpha_{ss}I - \widehat{\mathcal{L}}_s \end{bmatrix}.
+& = \begin{bmatrix} \alpha_{11}I - \widehat{\mathcal{L}}_1 & \alpha_{12}I & \cdots & \alpha_{1s}I \\
+	\alpha_{21}I & \alpha_{22}I - \widehat{\mathcal{L}}_2 & \cdots & \alpha_{2s}I \\
+	\vdots & \vdots & \ddots & \vdots \\ \alpha_{s1}I & \cdots & \cdots & \alpha_{ss}I - \widehat{\mathcal{L}}_s \end{bmatrix}.
 	\label{eq:k1}
 \end{align}
 %
@@ -461,11 +461,11 @@ $\{\widehat{\mathcal{L}}_i\}_{i=1}^s$ are commuting operators. Define $\mathcal{
 % 	\ddots & & \ddots & \vdots \\ \alpha_{s1}I & ... & \alpha_{s(s-1)}I & \alpha_{ss}I - \widehat{\mathcal{L}}_s \end{bmatrix},
 % \end{align*}
 as in \eqref{eq:k1},
-let det$(\mathcal{M}_s)$ be the determinant of $\mathcal{M}_s$ (in this case a block-diagonal
-matrix), and let adj$(\mathcal{M}_s)$ be the adjugate of $\mathcal{M}_s$. Then, $\mathcal{M}_s$
-is invertible if and only if det$(\mathcal{M}_s)$ is invertible, and
+let $\det(\mathcal{M}_s)$ be the determinant of $\mathcal{M}_s$ (in this case a block-diagonal
+matrix), and let $\adj(\mathcal{M}_s)$ be the adjugate of $\mathcal{M}_s$. Then, $\mathcal{M}_s$
+is invertible if and only if $\det(\mathcal{M}_s)$ is invertible, and
 \begin{align*}
-\mathcal{M}_s^{-1} = \textnormal{det}(\mathcal{M}_s)^{-1}\textnormal{adj}(\mathcal{M}_s).
+\mathcal{M}_s^{-1} = \det(\mathcal{M}_s)^{-1}\textnormal{adj}(\mathcal{M}_s).
 \end{align*}
 %
 
@@ -485,7 +485,7 @@ classical result in matrix analysis tells us that
 %
 \begin{align*}
 \textnormal{adj}(\mathcal{M}_s)\mathcal{M}_s = \mathcal{M}_s\textnormal{adj}(\mathcal{M}_s)
-	= \textnormal{det}(\mathcal{M}_s)I.
+	= \det(\mathcal{M}_s)I.
 \end{align*}
 %
 Moreover, $\mathcal{M}_s$ is invertible if and only if the determinant of $\mathcal{M}_s$
@@ -502,18 +502,18 @@ Returning to \eqref{eq:keq}, we can express the direct solution for the set of a
 stage vectors ${\mathbf{k}} = [\mathbf{k}_1; ...; \mathbf{k}_s]$ as
 %
 \begin{align*}
-\mathbf{k} &:= \textnormal{det}(\mathcal{M}_s)^{-1}
+\mathbf{k} &:= \det(\mathcal{M}_s)^{-1}
 	(A_0^{-1}\otimes I)\textnormal{adj}(\mathcal{M}_s)\mathbf{f},
 \end{align*}
 %
 where $\mathbf{f} = [\mathbf{f}_1; ...; \mathbf{f}_s]$ (note that
-$A_0\otimes I$ commutes with $\textnormal{det}(\mathcal{M}_s)^{-1}$). Excusing the slight
-abuse in notation, let $\textnormal{det}(\mathcal{M}_s)^{-1}$ now denote just the diagonal
+$A_0\otimes I$ commutes with $\det(\mathcal{M}_s)^{-1}$). Excusing the slight
+abuse in notation, let $\det(\mathcal{M}_s)^{-1}$ now denote just the diagonal
 block (rather than a block-diagonal matrix). The Runge-Kutta update is then given by
 %
 \begin{align}\nonumber
 \mathbf{u}_{n+1} & = \mathbf{u}_n + \delta t\sum_{i=1}^s b_i{\mathbf{k}}_i \\
-& = \mathbf{u}_n + \delta t\textnormal{det}(\mathcal{M}_s)^{-1}
+& = \mathbf{u}_n + \delta t\det(\mathcal{M}_s)^{-1}
 	(\mathbf{b}_0^TA_0^{-1}\otimes I)\textnormal{adj}(\mathcal{M}_s)\mathbf{f}.\label{eq:update2}
 \end{align}
 %
@@ -536,7 +536,7 @@ scheme is stiffly accurate (for example, Radau IIA methods),
 then $\mathbf{b}_0^TA_0^{-1} = [0,...,0,1]$. This yields
 the nice simplification that computing the update in \eqref{eq:update2} only requires
 applying the last row of $\textnormal{adj}(\mathcal{M}_s)$ to $\mathbf{f}$ (in a
-dot-product sense) and applying $\textnormal{det}(\mathcal{M}_s)^{-1}$ to the result. From
+dot-product sense) and applying $\det(\mathcal{M}_s)^{-1}$ to the result. From
 the discussion above regarding the adjugate structure, applying the last row of
 $\textnormal{adj}(\mathcal{M}_s)$ requires $(s-2)(s-1) + (s-1) = (s-1)^2$ matrix-vector
 multiplications. Because this only happens once, followed by the linear solve(s),
@@ -557,9 +557,9 @@ accurate schemes, but still typically of marginal overall computational cost.
 \subsection{Preconditioning by conjugate pairs}\label{sec:solve:prec}
 
 Following the discussion and algorithm developed in \Cref{sec:solve:inv}, the key
-outstanding point is inverting $\textnormal{det}(\mathcal{M}_s)^{-1}$. Moving forward, we
+outstanding point is inverting $\det(\mathcal{M}_s)^{-1}$. Moving forward, we
 restrict our attention to the case $\widehat{\mathcal{L}}_i = \widehat{\mathcal{L}}_j$ for all $i,j$,
-in which case $\textnormal{det}(\mathcal{M}_s)^{-1} = P_s(\widehat{\mathcal{L}})^{-1}$, where
+in which case $\det(\mathcal{M}_s)^{-1} = P_s(\widehat{\mathcal{L}})^{-1}$, where
 $P_s(x)$ is the characteristic polynomial of $A_0^{-1}$ (see \Cref{lem:inv}).
 
 In contrast to much of the original work on solving IRK systems, where LU factorizations
@@ -614,7 +614,7 @@ preconditioning to prove fast convergence of GMRES and CG.
 %
 \begin{remark}[Convergence independent of number of stages/polynomial order]
 \textnormal{ }\newline
-It turns out the conditioning of $\mathcal{P}_\eta$ has some dependence on the ratio
+The conditioning of $\mathcal{P}_\eta$ depends on the ratio
 $\beta^2/\eta^2$, particularly for $\beta > \eta$, which typically increases
 with number of stages/DG polynomial order. \Cref{sec:solve:gamma} introduces
 a modification that yields conditioning independent of $\beta$ and $\eta$
@@ -626,7 +626,8 @@ analysis of GMRES convergence than provided for $\mathcal{P}_\eta$ in this secti
 %
 \begin{theorem}[Preconditioned field of values]\label{th:fov}
 Suppose Assumptions \ref{ass:eig} and \ref{ass:fov} hold, that is, $\eta > 0$
-and $W(\mathcal{L}) \leq 0$ \eqref{eq:fov}. Let $\mathcal{P}_\eta$ denote the
+and $W(\mathcal{L}) \leq 0$, where $W(\mathcal{L})$ is defined by \eqref{eq:fov}.
+Let $\mathcal{P}_\eta$ denote the
 preconditioned operator, where $((\eta + i\beta)I -
 \widehat{\mathcal{L}})((\eta - i\beta)I - \widehat{\mathcal{L}})$ is
 preconditioned with $(\eta I - \widehat{\mathcal{L}})^{-2}$. Then
@@ -647,7 +648,7 @@ radius as $r(B) = \sup \{ |\lambda| : \lambda \in W(B) \}$. Recall
 the following properties of $W(B)$ \cite{gustafson1997numerical,mees1979domains}:
 %
 \begin{enumerate}
-	\item $Bs \leq 0$ in the symmetric negative semi-definite sense
+	\item $B_s \leq 0$ in the symmetric negative semi-definite sense
 	if and only if $W(B) \leq 0$.
 
 	\item $W(B)\subset [\sigma_{\textnormal{min}}(B_s), \sigma_{\textnormal{max}}(B_s)] \times
@@ -715,7 +716,7 @@ unit circle in the complex plane, which completes the proof.
 
 %
 \begin{corollary}[GMRES convergence bounds]\label{cor:gmres}
-Let $\pi_k$ denote the set of consistent polynomials of degree $k$. Then the ideal GMRES bound
+Let $\pi_k$ denote the set of consistent polynomials of degree $k$ \WP{Define consistent polynomials?}. Then the ideal GMRES bound
 (an upper bound in operator norm of worst-case convergence) on convergence after $k$ iterations
 applied to the preconditioned operator $\mathcal{P}_\eta$ \eqref{eq:prec1} is bounded by
 \begin{align*}
@@ -724,7 +725,7 @@ applied to the preconditioned operator $\mathcal{P}_\eta$ \eqref{eq:prec1} is bo
 \end{corollary}
 \begin{proof}
 For operator $B$, let $\nu(B)$ denote the distance of $W(B)$ from the origin and define
-$\cos(\zeta) := \nu(B) / r(B)$. In \cite{liesen2012field}, new convergence
+$\cos(\zeta) := \nu(B) / r(B)$. In \cite{liesen2012field}, convergence
 estimates are derived for GMRES based on the field of values. Combining Equations (3.6)
 and (3.9) in \cite{liesen2012field} yields a worst-case convergence bound for GMRES
 applied to operator $B$ as
@@ -756,7 +757,7 @@ $\mathcal{Q}_\eta$-norm after $k$ iterations of preconditioned CG is bounded by
 \begin{proof}
 By assumption, $(\eta I - \widehat{\mathcal{L}})$ is SPD, which implies $\mathcal{Q}_\eta$
 and $(\eta I - \widehat{\mathcal{L}})$ are SPD. Then, recall that for preconditioned CG
-with preconditioned operator $\mathcal{P}_\eta$, error is bounded via \todo{find reference}
+with preconditioned operator $\mathcal{P}_\eta$, error is bounded by (cf.\ \cite{Trefethen1997})
 \begin{align}\label{eq:cg_th}
 \frac{\|\mathbf{e}_k\|_{A}}{\|\mathbf{e}_0\|_{A}}
 	\leq 2\left(\frac{\sqrt{\lambda_{max}(\mathcal{P}_\eta)/\lambda_{min}(\mathcal{P}_\eta)}-1}
@@ -836,7 +837,7 @@ GMRES is guaranteed to converge using such an approach, with bounds on convergen
 provided in \Cref{tab:beta}. However, one can note from \Cref{fig:bound} and
 \Cref{tab:beta} that convergence depends on values of $\beta$ and $\eta$ and, in
 particular, that convergence degrades as the number of stages increase. Ideally,
-we would like to observe convergence independent of $\beta$ and $\eta$, analogous
+we would like to obtain convergence independent of $\beta$ and $\eta$, analogous
 to spatial solvers that achieve convergence independent of spatial mesh and
 discretization order. This section is motivated by \cite{exh}, where a similar
 algorithm is developed for linear parabolic problems using the real Schur
@@ -875,7 +876,7 @@ operator takes the form
 Note that in \eqref{eq:prec_k} we have a quadratic polynomial in
 $(I - \tfrac{1}{\gamma}\mathcal{L})^{-1}$. Although this provides
 nice structure, the field of values analysis applied in \Cref{sec:solve:inv}
-becomes much more complicated due to no necessary relation between
+becomes much more complicated because there is no necessary relationship between
 $\langle A\mathbf{x},\mathbf{x}\rangle$ and
 $\langle A^2\mathbf{x},\mathbf{x}\rangle$ for general operators $A$. Thus, here
 we take a different approach, analyzing the condition number of the preconditioned
@@ -911,8 +912,8 @@ Moving forward we will limit ourselves to considering $\eta \leq \gamma \leq \
 \tfrac{\eta^2+\beta^2}{\eta}$, which limits to the natural case of $\gamma = \eta$
 as $\beta \to 0$. Similar analysis can be performed for $\gamma$ outside of
 this range, but the derivations are different and there does not appear to
-be any good reason to use $\gamma$ outside of this range (for some detail,s
-see discussion following \Cref{th:cond}, and in \cite{exh} for SPD operators).
+be any good reason to use $\gamma$ outside of this range (for details,
+see the discussion following \Cref{th:cond}, and in \cite{exh} for SPD operators).
 
 %
 \begin{theorem}[Conditioning of preconditioned operator]\label{th:cond}
@@ -1126,7 +1127,7 @@ $\alpha+\overline{\alpha} = 0$, $\alpha\overline{\alpha} =
 %
 In particular, this indicates that \Cref{th:cond} is fairly tight (it is unclear
 if the additional factor of 2 in \eqref{eq:cond_eta} is necessary for non-SPD
-operators, or a flaw in the line of proof).
+operators, or a flaw in the line of proof) \WP{Clarify this setence?}.
 Considering the upper limit on $\gamma$ in \Cref{th:cond}, $\gamma \mapsto
 \tfrac{\eta^2+\beta^2}{\eta}$, we have a bound
 %
@@ -1154,7 +1155,7 @@ Noting that $\textnormal{cond}(\mathcal{P}_{\gamma_*}) < 9$ for all $\eta>0,
 \beta\geq 0$, we have the following corollary.
 
 %
-\begin{corollary}[Conditioning independent of $\eta$ \& $\beta$]\label{cor:independent}
+\begin{corollary}[Conditioning independent of $\eta$ and $\beta$]\label{cor:independent}
 \textnormal{ }
 Preconditioning $\mathcal{Q}_\eta$ \eqref{eq:imag1} with
 $(\gamma_* I - \widehat{\mathcal{L}})^{-2}$, for $\gamma_* = \sqrt{\eta^2+\beta^2}$
@@ -1310,9 +1311,9 @@ Thus, theory developed in \Cref{sec:solve:prec} guarantees that the proposed alg
 will have robust and fairly rapid convergence under reasonable assumptions if each
 linear system is inverted exactly. Approximate inverses prove to be much faster in
 practice, but \textit{it is important that the underlying preconditioner provides a good
-inverse approximation}. Fortunately, for difficult problems with only okay preconditioners,
-it is straightforward to apply either multiple inner fixed-point iterations or an
-inner Krylov iteration (wrapped with a flexible outer Krylov method
+inverse approximation}. Fortunately, for difficult problems without highly effective
+preconditioners, it is straightforward to apply either multiple inner fixed-point iterations
+or an inner Krylov iteration (wrapped with a flexible outer Krylov method
 \cite{Notay2000,saad1993flexible}) to ensure robust (outer) iterations, analogous
 to techniques used in block preconditioning. In \Cref{sec:numerics:dg:diff}, a
 numerical example is shown where the proposed method diverges using a single inner
@@ -1326,7 +1327,7 @@ three (or more) inner fixed-point iterations yields fast, scalable convergence.
 \section{Implementation details:  The time-independent case}
 The basic idea is that we need to do the update
 \begin{align} \label{eq:RK_update}
-\bm{u}_{n+1}  = \bm{u}_n + \delta t \mdet({\cal M}_s)^{-1} \big( \bm{b}_0^\top A^{-1}_0 \otimes I \big) \madj({\cal M}_s) \bm{f},
+\bm{u}_{n+1}  = \bm{u}_n + \delta t \det({\cal M}_s)^{-1} \big( \bm{b}_0^\top A^{-1}_0 \otimes I \big) \adj({\cal M}_s) \bm{f},
 \end{align}
 where we have
 \begin{itemize}
@@ -1341,12 +1342,12 @@ Now we break \eqref{eq:RK_update} into two steps:
 \begin{enumerate}
 \item{Step 1:}\label{it:update_step1}Compute
 \begin{align} \label{eq:step1}
-\bm{z} = \big( \hat{\bm{b}}^\top_0 \otimes I \big) \madj ({\cal M}_s) \bm{f} \in \mathbb{R}^m
+\bm{z} = \big( \hat{\bm{b}}^\top_0 \otimes I \big) \adj ({\cal M}_s) \bm{f} \in \mathbb{R}^m
 \end{align}
 
 \item{Step 2:}\label{it:update_step2} Solve
 \begin{align} \label{eq:step2}
-\mdet( {\cal M}_s ) \bm{y} = \bm{z},
+\det( {\cal M}_s ) \bm{y} = \bm{z},
 \end{align}
 then update per \eqref{eq:RK_update}, $\bm{u}_{n+1} = \bm{u}_n + \delta t \bm{y}$
 \end{enumerate}
@@ -1356,7 +1357,7 @@ then update per \eqref{eq:RK_update}, $\bm{u}_{n+1} = \bm{u}_n + \delta t \bm{y}
 
 The adjugate of ${\cal M}_s$ is a matrix defined over degree  $s-1$ polynomials in ${\cal L} \in \mathbb{R}^{m \times m}$. More specifically, we write it as
 \begin{align}
-\madj ({\cal M}_s) =
+\adj ({\cal M}_s) =
 \begin{bmatrix}
 Q_{11}({\cal L}) & \cdots & Q_{1s}({\cal L}) \\
 \vdots & & \vdots \\
@@ -1369,7 +1370,7 @@ Q_{ij}({\cal L}) = \sum \limits_{k = 0}^{s-1} \hat{q}_{ijk} {\cal L}^k \in \math
 
 Now, the Kronecker product appearing in front of this matrix simply takes inner products over its columns to give a block rectangular matrix whose elements are therefore polynomials in ${\cal L}$ of degree $s-1$:
 \begin{align}
-\big( \bm{b}_0^\top A^{-1}_0 \otimes I \big) \madj({\cal M}_s)
+\big( \bm{b}_0^\top A^{-1}_0 \otimes I \big) \adj({\cal M}_s)
 =
 \begin{bmatrix}
 X_{1}({\cal L}), \, \cdots, \, X_{s}({\cal L})
@@ -1455,7 +1456,7 @@ the left for various discretizations of approximately 4th order (top) and 8th or
 The preconditioner appears robust with respect to mesh and problem size, since
 the average number of AMG iterations per time step (which is a proxy for the
 number of GMRES iterations) remains roughly constant as the the mesh is refined.
-Of the fully implicit methods, Gauss requires the fewest AMG iterations, closely
+Of the fully implicit methods, the Gauss methods require the fewest AMG iterations, closely
 followed by Radau IIA methods, with the Lobatto IIC methods requiring the most
 AMG iterations. This is
 consistent with the theoretical estimates in Tables \ref{tab:beta} and \ref{tab:cond}.
@@ -1476,7 +1477,7 @@ of the commonly used L-stable SDIRK4 scheme.
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
-\subsection{DG advection(-diffusion)}\label{sec:numerics:dg}
+\subsection{DG advection-diffusion}\label{sec:numerics:dg}
 
 Here we consider a more difficult advection-diffusion problem, discretized
 using high-order DG finite elements. In particular, we demonstrate
@@ -1493,7 +1494,7 @@ The governing equations in spatial domain $\Omega = [0,1] \times [0,1]$ are give
 	u_t + \nabla \cdot ( \bm\beta u  - \varepsilon \nabla u ) = f
 \end{equation}
 where $\bm\beta(x,y) : = (\cos(4\pi y), \sin(2 \pi x))^T$
-is the velocity field and $\varepsilon$ the diffusion coefficient.
+is the prescribed velocity field and $\varepsilon$ the diffusion coefficient.
 Periodic boundary conditions are enforced on $\partial\Omega$, and
 \eqref{eq:adv-diff} is discretized with an upwind DG method \cite{Cockburn2001},
 where diffusion terms are treated with the symmetric interior penalty method
@@ -1512,18 +1513,18 @@ $u_h \in V_h$ such that, for all $v_h \in V_h$,
 	\end{multlined}
 \]
 where $V_h$ is the DG finite element space consisting of piecewise polynomials of degree
-$p$ defined on elements of the computational mesh $\mathcal{T}$ of the domain $\Omega$.
-No continuity is enforced between mesh elements.
+$p$ defined on elements of the computational mesh $\mathcal{T}$ of the spatial domain
+$\Omega$. No continuity is enforced between mesh elements.
 Here, $\nabla_h$ is the broken gradient, $\Gamma$ denotes the skeleton of the mesh,
 and $\{ \cdot \}$ and $\llbracket \cdot \rrbracket$ denote the average and jump of a
 function across a mesh interface.
 $\widehat{u_h}$ is used to denote the upwind numerical flux.
 This discretization has been implemented in the MFEM finite element framework
 \cite{Anderson2020}, and uses AMG preconditioning with approximate ideal restriction
-(AIR) \cite{Manteuffel:2019,Manteuffel:2018} (after first scaling by the DG
-block-diagonal inverse).
+(AIR) \cite{Manteuffel:2019,Manteuffel:2018} (after first scaling by the inverse of the
+block-diagonal mass matrix).
 
-The DG method is particularly advantageous for advection-dominated problems.
+The DG method is particularly well-suited for advection-dominated problems.
 In the following subsections we vary $\varepsilon$ from $0$ (purely advective) to $0.01$.
 The velocity field, initial condition, and numerical solution for $\varepsilon = 10^{-6}$
 are shown in \Cref{fig:ad_advdiff}.
@@ -1789,7 +1790,7 @@ The relative $L^2$ error, obtained by comparing against the exact solution, is s
 	\caption{
 		High-order convergence in space and time for the matrix-free diffusion problem.
 		Gauss and Radau IIA methods of orders 2 through 10 are used.
-		The expected rates of convergence are recovered.
+		The dashed lines indicate the expected rates of convergence for each method.
 	}
 	\label{fig:high-order-diff-errors}
 \end{figure}
@@ -1824,11 +1825,11 @@ In addition, for this test case, the total number of preconditioner applications
 
 This paper introduces a theoretical and algorithmic framework for the fast, parallel
 solution of fully implicit Runge-Kutta and DG discretizations in time for linear
-numerical PDEs. Theory is developed to guarantee rapid Krylov convergence and 
+numerical PDEs. Theory is developed to guarantee rapid Krylov convergence and
 $\mathcal{O}(1)$ conditioning under general assumptions on the spatial
 discretization that yield stable time integration.
 Numerical results demonstrate the new method on various high-order finite-difference
-and finite-element discretizations of linear parabolic and hyperbolic problems, 
+and finite-element discretizations of linear parabolic and hyperbolic problems,
 demonstrating fast, scalable solution of up to 10th order accuracy. In several
 cases, the new method can achieve 4th-order accuracy using Gauss integration
 with roughly half the number of preconditioner applications as required using

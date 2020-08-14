@@ -81,7 +81,17 @@
 \addplot table[x index=1,y index=9,skip first n=1] {errors.txt};
 \addplot table[x index=1,y index=10,skip first n=1] {errors.txt};
 
-\logLogSlopeTriangle{0.0625}{2e-12}{10}{gray,fill=lightgray};
+\addplot[black,dashed] table[x index=1,y expr={3e1*\thisrowno{1}^2},skip first n=1] {errors.txt};
+\addplot[black,dashed] table[x index=1,y expr={3e1*\thisrowno{1}^3},skip first n=1] {errors.txt};
+\addplot[black,dashed] table[x index=1,y expr={3e1*\thisrowno{1}^4},skip first n=1] {errors.txt};
+\addplot[black,dashed] table[x index=1,y expr={3e1*\thisrowno{1}^5},skip first n=1] {errors.txt};
+\addplot[black,dashed] table[x index=1,y expr={3e1*\thisrowno{1}^6},skip first n=1] {errors.txt};
+\addplot[black,dashed] table[x index=1,y expr={3e1*\thisrowno{1}^7},skip first n=1] {errors.txt};
+\addplot[black,dashed] table[x index=1,y expr={2e1*\thisrowno{1}^8},skip first n=1] {errors.txt};
+\addplot[black,dashed] table[x index=1,y expr={1e1*\thisrowno{1}^9},skip first n=1] {errors.txt};
+\addplot[black,dashed] table[x index=1,y expr={5e0*\thisrowno{1}^10},skip first n=1] {errors.txt};
+
+% \logLogSlopeTriangle{0.0625}{2e-12}{10}{gray,fill=lightgray};
 
 \end{loglogaxis}
 
