@@ -36,6 +36,7 @@
 \newcommand{\todo}[1]{\textcolor{red}{[TODO\@: #1]}}
 
 \newcommand{\WP}[1]{\textcolor{red}{WP: #1}}
+\newcommand{\OK}[1]{\textcolor{blue}{[OK: #1]}}
 
 \DeclareMathOperator{\adj}{adj}
 
@@ -47,7 +48,7 @@
 \newcommand{\TheAuthors}{B.S. Southworth, O.A. Krzysik, W. Pazner, and H. De Sterck}
 \headers{Parallel solution of fully implict Runge-Kutta and DG in time I}{\TheAuthors}
 \title{{\TheTitle}\thanks{This work was  performed under the auspices of the U.S.
-Department of Energy under contract DE-AC52-07NA27344 and Lawrence Livermore National Laboratory under  contract B639443.}}
+Department of Energy under contract DE-AC52-07NA27344 and Lawrence Livermore National Laboratory under  contract B639443. OAK acknowledges the support of an Australian Government Research Training Program (RTP) Scholarship.}}
 
 \author{
 	Ben S. Southworth\thanks{Department of Applied Mathematics,
@@ -167,7 +168,7 @@ system,
 %
 where $\mathcal{L}_i := \mathcal{L}(t_n+\delta tc_i)$ and $\mathbf{f}_i :=
 \mathbf{f}(t_n+\delta tc_i)$. Primarily this paper
-focuses on spatial operators that are independent of time; however, some of
+focuses on spatial operators that are independent of time \OK{Is it clear to the reader that by `spatial operators' you mean ${\cal L}$ and not $f$?}; however, some of
 the results hold for commuting operators, such as those that may arise from, for example,
 a time-dependent reaction term, so for now we maintain this generality.
 
@@ -178,9 +179,9 @@ and $\mathcal{L}$ is highly ill-conditioned. In such cases, direct
 solution techniques to solve \eqref{eq:k0} are not a viable option, and fast, parallel
 iterative methods must be used. However, IRK methods are rarely employed in practice due
 to the difficulties of solving \eqref{eq:k0}. Even for relatively simple
-parabolic PDEs where $\mathcal{L}$ is symmetric positive definite (SPD), \eqref{eq:k0}
+parabolic PDEs where $\mathcal{L}$ is symmetric positive definite (SPD) \OK{Isn't $-{\cal L}$ SPD rather than ${\cal L}$?}, \eqref{eq:k0}
 instead yields a large nonsymmetric system with significant block coupling. For
-nonsymmetric systems $\mathcal{L}$ that already have variable coupling, fast iterative
+nonsymmetric systems $\mathcal{L}$ \OK{`systems' $\to$ `matrices'?} that already have variable coupling, fast iterative
 methods are even less likely to yield acceptable performance in solving \eqref{eq:k0}.
 
 % ------------------------------------------------------------------------------------- %
@@ -252,10 +253,10 @@ Numerical results are provided in \Cref{sec:numerics}, demonstrating the new
 method for a variety of problems and corresponding preconditioners, including
 high-order finite-difference and discontinuous Galerkin spatial discretizations of
 advection-diffusion equations, and very high-order matrix-free continuous Galerkin
-discretizations of diffusion equations. The method is shown to be fast and scalable
+discretizations of diffusion equations \OK{Is 10th-order CG really `very high order,' while 8th-order FD only `high order'?}. The method is shown to be fast and scalable
 up to 10th-order accuracy in time, effective on fully advective (hyperbolic)
 problems, and, for multiple examples, can obtain 4th-order accuracy with Gauss
-integration using roughly half preconditioning iterations
+integration using roughly half as many preconditioning iterations
 as needed by standard 4th-order SDIRK schemes.
 
 % ------------------------------------------------------------------------------------- %
@@ -295,8 +296,7 @@ Such an assumption is natural for linear problems with no time-dependent differe
 components and, for the most part, covers the type of problems studied in this paper.
 Many papers have considered the solution of \eqref{eq:kron1}, with Butcher
 \cite{butcher76} and Bickart's \cite{bickart77} being some of the earliest works,
-which develop ways to transform \eqref{eq:kron1} to a simpler form.\footnote{
-In Kronecker form \eqref{eq:kron1}, SIRK methods \cite{norsett1976runge} are also
+which develop ways to transform \eqref{eq:kron1} to a simpler form.\footnote{In Kronecker form \eqref{eq:kron1}, SIRK methods \cite{norsett1976runge} are also
 relatively straightforward to solve using existing preconditioning techniques.
 But, although SIRK method offer some advantages over DIRK methods, they still lack
 the favorable stability and accuracy properties of IRK methods \cite{burrage82,orel91}.}
@@ -358,7 +358,7 @@ Assume that all eigenvalues of $A_0$ have positive real part.
 Recall that if an IRK method is A-stable, irreducible, and $A_0$ is invertible
 (which includes Gauss, Radau IIA, and Lobatto IIIC integration, among others),
 then \Cref{ass:eig} holds \cite{hairer96}; that is, this assumption is
-straightforward to satisfy in practice.
+straightforward to satisfy in practice \OK{Should it be clarified that this assumption is also fulfilled for SDIRK methods? The reader may be left with the impression that it's only fulfilled for IRK methods.}.
 
 Stability must be taken into consideration when applying ODE solvers within a
 method-of-lines approach to numerical PDEs. The Dalhquist test problem extends
@@ -419,13 +419,13 @@ block-diagonal mass matrix inverse \WP{why is the mass matrix block diagonal?}, 
 \widehat{\mathcal{L}}_i := \delta t M^{-1}\mathcal{L}_i,
 \end{equation*}
 %
-for $i=1,..,s$. Now let $\alpha_{ij}$ denote the $ij$-element
+for $i=1,...,s$. Now let $\alpha_{ij}$ denote the $ij$-element
 of $A_0^{-1}$.\footnote{Note, there are
 methods with one explicit stage followed by several fully implicit stages \cite{butcher00}.
 In such cases, $A_0$ is not invertible, but the explicit stage can
 be eliminated from the system (by doing an explicit time step). The remaining operator
 can then be reformulated as in \eqref{eq:keq}.}
-Then, solving \eqref{eq:k0} can be effectively reduced to inverting the operator
+Then, solving \eqref{eq:k0} can be effectively reduced to inverting the operator \OK{Do you mean \eqref{eq:keq} rather than \eqref{eq:k0}?}
 %
 \begin{align}\nonumber
 \mathcal{M}_s & := A_0^{-1}\otimes I - \begin{bmatrix} \widehat{\mathcal{L}}_1  & \\ & \ddots \\ && \widehat{\mathcal{L}}_s\end{bmatrix} \\
@@ -447,7 +447,7 @@ strategy to apply this update using existing preconditioners.
 This section introduces a result similar to Bickart's \cite{bickart77},
 but using a different framework and generalized to hold for commuting
 operators. We consider $\mathcal{M}_s$ as a matrix over the commutative
-ring of linear combinations of $\{I, \widehat{\widehat{\mathcal{L}}}\}$,
+ring of linear combinations of $\{I, \widehat{\mathcal{L}}\}$,
 and the determinant and adjugate referred to in \Cref{lem:inv} are defined
 over matrix-valued elements rather than scalars.
 
@@ -477,6 +477,7 @@ all $i,j$, and let $P_s(x)$ be the characteristic polynomial of $A_0^{-1}$. Then
 where ``diag'' indicates a block diagonal matrix, with diagonal blocks given by $P_s(\widehat{\mathcal{L}})^{-1}$.
 \end{lemma}
 %
+\OK{I recall we had a discussion whether it was clearer to say the det of ${\cal M}_s$ was a block diagonal matrix, or to use the correct notation $\textnormal{diag}( \det({\cal M}_s))$; I said I thought the latter was less confusing and easier to understand, and you said you'd consider changing it. It's fine either way, I just wanted to remind you in case you forgot about it. See also my point on the next page about this.}
 \begin{proof}
 Notice in \eqref{eq:k1} that if $\widehat{\mathcal{L}}_i$ and $\widehat{\mathcal{L}}_j$ commute for all $i,j$,
 then $\mathcal{M}_s$ is a matrix over the commutative ring of linear combinations
@@ -558,9 +559,10 @@ accurate schemes, but still typically of marginal overall computational cost.
 
 Following the discussion and algorithm developed in \Cref{sec:solve:inv}, the key
 outstanding point is inverting $\det(\mathcal{M}_s)^{-1}$. Moving forward, we
-restrict our attention to the case $\widehat{\mathcal{L}}_i = \widehat{\mathcal{L}}_j$ for all $i,j$,
+restrict our attention to the case $\widehat{\mathcal{L}}_i = \widehat{\mathcal{L}}_j$ for all $i,j$, \OK{Should we clarify why this is the case? I.e., that we don't really know how to compute the det for time-dependent operators?}
 in which case $\det(\mathcal{M}_s)^{-1} = P_s(\widehat{\mathcal{L}})^{-1}$, where
-$P_s(x)$ is the characteristic polynomial of $A_0^{-1}$ (see \Cref{lem:inv}).
+$P_s(x)$ is the characteristic polynomial of $A_0^{-1}$ (see \Cref{lem:inv}). \OK{Relating to my earlier point on Lemma \ref{lem:inv}, this equation now makes moving from the first equation in the Lemma to the second inconsistent since there's a diag missing from around $P_s(\widehat{\mathcal{L}})^{-1}$.}
+
 
 In contrast to much of the original work on solving IRK systems, where LU factorizations
 were the dominant cost and system sizes relatively small, explicitly forming and inverting
@@ -588,6 +590,7 @@ that we must precondition, which take the form
 = (\eta I - \widehat{\mathcal{L}})^2 + \beta^2I.
 \end{split}
 \end{align}
+\OK{I think $\eta$ and $\beta$ need to be defined since they're central to the rest of the paper. So something like: `for $\lambda = \eta + i \beta$, where $\eta, \beta \in \mathbb{R}$.' should follow this equation?}
 %
 In practice, we typically do not want to directly form or precondition a quadratic
 operator like \eqref{eq:imag1}, due to (i) the overhead cost of large parallel matrix
@@ -625,7 +628,7 @@ analysis of GMRES convergence than provided for $\mathcal{P}_\eta$ in this secti
 
 %
 \begin{theorem}[Preconditioned field of values]\label{th:fov}
-Suppose Assumptions \ref{ass:eig} and \ref{ass:fov} hold, that is, $\eta > 0$
+Suppose Assumptions \ref{ass:eig} and \ref{ass:fov} hold, that is, $\eta > 0$ \OK{But this is not what Assumption 1 states: It says that the eigenvalues of $A_0$ have real positive part, not that those of $A_0^{-1}$ do. So maybe clarify that this assumption also implies that the eigenvalues $A_0^{-1}$ have such a property too?}
 and $W(\mathcal{L}) \leq 0$, where $W(\mathcal{L})$ is defined by \eqref{eq:fov}.
 Let $\mathcal{P}_\eta$ denote the
 preconditioned operator, where $((\eta + i\beta)I -
@@ -764,6 +767,7 @@ with preconditioned operator $\mathcal{P}_\eta$, error is bounded by (cf.\ \cite
 	{\sqrt{\lambda_{max}(\mathcal{P}_\eta)/\lambda_{min}(\mathcal{P}_\eta)}+1}\right)^{k},
 \end{align}
 %
+\OK{What is $A$ here?}
 for largest and smallest eigenvalues $\lambda_{max}$ and $\lambda_{min}$, respectively.
 Then, recall that eigenvalues of an operator are contained in the field of values, and
 from \Cref{th:fov}. This yields $\lambda_{max}(\mathcal{P}_\eta)/\lambda_{min}(\mathcal{P}_\eta)
@@ -841,9 +845,9 @@ we would like to obtain convergence independent of $\beta$ and $\eta$, analogous
 to spatial solvers that achieve convergence independent of spatial mesh and
 discretization order. This section is motivated by \cite{exh}, where a similar
 algorithm is developed for linear parabolic problems using the real Schur
-decomposition, and, for SPD operators, a modified constant $\eta \mapsto
-\sqrt{\eta^2+\beta^2}$ is derived, where the preconditioned operator has
-condition number $<2$, independent of $\eta$ and $\beta$. In this section,
+decomposition \OK{There is no Schur decomposition stuff in this paper; that's for the nonlinear/time-dependent one?}, and, for SPD operators, a modified constant $\eta \mapsto
+\sqrt{\eta^2+\beta^2}$ is derived, \OK{Maybe change to `a modified preconditioning constant'? It kind of reads like you're changing the value of $\eta$.} where the preconditioned operator has
+condition number $<2$ \OK{Is this really a 2, or should it be a 9?}, independent of $\eta$ and $\beta$. In this section,
 we derive bounds on the condition number of the preconditioned operator for
 preconditioner $(\gamma I - \widehat{\mathcal{L}})^{-2}$, $0 < \gamma\neq \eta$
 (\Cref{th:cond}). \Cref{cor:independent} then proves that the constant
@@ -853,7 +857,7 @@ preconditioner $(\gamma I - \widehat{\mathcal{L}})^{-2}$, $0 < \gamma\neq \eta$
 \end{align}
 %
 yields a preconditioned operator with condition number $<9$, independent
-of $\eta$ and $\beta$.
+of $\eta$ and $\beta$. \OK{Aren't these last few sentences just saying the same things twice?}
 
 Consider a similar preconditioner as in
 \Cref{sec:solve:inv}, but with some constant $\gamma \mapsto
@@ -1222,7 +1226,7 @@ for the root is a quartic polynomial and is not examined analytically here,
 however, depending on $\eta$ and $\beta$, testing on realistic values suggests
 the sign change (and, thus, root) is likely between $0.8\gamma_* - 0.9\gamma_*$,
 indicating $\gamma_*$ is indeed a good approximation to the optimal $\gamma$ with
-respect to \eqref{eq:cond1}.
+respect to \eqref{eq:cond1}. \OK{Just a thought: Have you tried out the optimal $\gamma$/at least looked at what the condition number bounds are (by numerically solving for it)? If so, is it much better than $\gamma_*$? It's probably worth adding an option into the code to do this; I can do it, just let me know if you think it's worthwhile.}
 % Moreover, the analysis from \cite{exh} proves that $\gamma_*$ \eqref{eq:gam_opt}
 % \textit{is} optimal for SPD operators, and we prove $\gamma_*$ also provides
 % very good preconditioning independent of the number of stages/order of integration
@@ -1242,11 +1246,11 @@ respect to \eqref{eq:cond1}.
 
 Theory from \Cref{sec:solve:gamma} indicates that for $\beta\leq \eta$, conditioning
 independent of $\eta$ and $\beta$ can be obtained by preconditioning with
-$(\eta I - \widehat{\mathcal{L}})^{-1}$. However, for $\beta > \eta$, conditioning
+$(\eta I - \widehat{\mathcal{L}})^{-1}$. \OK{Don't we precondition with $(\eta I - \widehat{\mathcal{L}})^{-2}$, or two applications of $(\eta I - \widehat{\mathcal{L}})^{-1}$, rather than by $(\eta I - \widehat{\mathcal{L}})^{-1}$?} However, for $\beta > \eta$, conditioning
 independent of these constants likely requires a different constant $\eta\mapsto\gamma$,
 with one such option being $\gamma_* = \sqrt{\eta^2+\beta^2}$ \eqref{eq:gam_opt}.
 In practice, we have found it simplest to always precondition with
-$(\gamma_* I - \widehat{\mathcal{L}})^{-1}$, regardless of $\eta$ and $\beta$.
+$(\gamma_* I - \widehat{\mathcal{L}})^{-1}$, \OK{As above, should it be $(\gamma_* I - \widehat{\mathcal{L}})^{-2}$?} regardless of $\eta$ and $\beta$.
 Although the modified constant is not necessary for $\beta \leq \eta$ (and,
 interestingly, also sometimes not necessary for $\beta > \eta$ in practice),
 we have observed \textit{no} cases where convergence is worse when using $\gamma_*$
@@ -1271,14 +1275,14 @@ of eigenvalues, the quadratic polynomial \eqref{eq:imag1} can be expressed as
 In this context, it is best to first scale both sides of the linear system by $M$.
 This halves the number of times $M^{-1}$ must applied for each Krylov iteration,
 and if $M$ and $\mathcal{L}$ are Hermitian, the resulting quadratic system is SPD
-and can be solved using preconditioned conjugate gradient or MINRES, preconditioned
+and can be solved using preconditioned conjugate gradient \OK{Why now `conjugate gradient' rather than `CG'?} or MINRES, preconditioned
 with one application of a preconditioner, the action of $M$, and a second application
 of the preconditioner.
 
 % ------------------------------------------------------------------------------------- %
 \subsubsection{Inexact preconditioning}
 \label{sec:inexact-precond}
-
+\OK{This section should be updated to use $\gamma$ rather than $\eta$ when discussing the preconditioner, including the equation below for $B^{-2}\mathcal{Q}_\eta$.}
 In practice, fully converging $(\eta I - \widehat{\mathcal{L}})^{-1}$ as a preconditioner
 is not desirable --  even if a Krylov method converges rapidly, if each iteration requires
 a full linear solve, the resulting method remains too expensive to be competitive in practice.
@@ -1427,7 +1431,7 @@ $L_1$-Gauss--Seidel relaxation (type 8), with an absolute and relative stopping
 tolerance of $10^{-13}$. A single iteration of AMG is applied to approximate
 $(\gamma_* I - \delta t {\cal L})^{-1}$.
 
-In Fig. \ref{fig:FD_ex}, discretization errors are shown for different IRK
+In \Cref{fig:FD_ex}, discretization errors are shown for different IRK
 methods, alongside the average number of AMG iterations needed per time step.
 The expected asymptotic convergence rates (black dashed lines in the left panel)
 are observed for all discretizations.\footnote{An exception here is A--SDIRK(4),
@@ -1457,15 +1461,15 @@ The preconditioner appears robust with respect to mesh and problem size, since
 the average number of AMG iterations per time step (which is a proxy for the
 number of GMRES iterations) remains roughly constant as the the mesh is refined.
 Of the fully implicit methods, the Gauss methods require the fewest AMG iterations, closely
-followed by Radau IIA methods, with the Lobatto IIC methods requiring the most
+followed by Radau IIA methods, with the Lobatto IIIC methods requiring the most
 AMG iterations. This is
-consistent with the theoretical estimates in Tables \ref{tab:beta} and \ref{tab:cond}.
+consistent with the theoretical estimates in \Cref{tab:beta,tab:cond}.
 Note that while Gauss and Radau IIA methods have very similar
 iteration counts, Gauss converges at one order faster, which can be seen in the
 left-hand panel of the figure.
 
 Considering the lower-order methods in the top
-row of Fig. \ref{fig:FD_ex}, L--SDIRK(4), a 5-stage, 4th-order, L-stable SDIRK
+row of \Cref{fig:FD_ex}, L--SDIRK(4), a 5-stage, 4th-order, L-stable SDIRK
 method requires the most AMG iterations of all methods. A--SDIRK(4), a 3-stage,
 4th-order, A-stable SDIRK method, requires far fewer AMG iterations than
 L--SDIRK(4). However, A--SDIRK(4) yields a significantly larger discretization
@@ -1485,7 +1489,7 @@ the effectiveness and scalability of the new preconditioning on more complex flo
 DG discretizations (\Cref{fig:ad_advdiff} and \Cref{sec:numerics:dg:adv}),
 the reduction in computational work that can be achieved using large time steps and
 very high-order integration (\Cref{sec:numerics:dg:adv}), and how
-using multiple ``inner'' preconditioning iterations to approximate $\widehat{L}^{-1}$
+using multiple ``inner'' preconditioning iterations to approximate $\widehat{L}^{-1}$ \OK{What is $\widehat{L}^{-1}$?}
 (or even inner Krylov acceleration) can be important for the fast, scalable
 application of IRK integration (\Cref{sec:numerics:dg:diff}).
 
@@ -1512,6 +1516,7 @@ $u_h \in V_h$ such that, for all $v_h \in V_h$,
 	= \int_\Omega f v_h \, dx,
 	\end{multlined}
 \]
+\OK{Is the $x$ on the top right really meant to be in bold?}
 where $V_h$ is the DG finite element space consisting of piecewise polynomials of degree
 $p$ defined on elements of the computational mesh $\mathcal{T}$ of the spatial domain
 $\Omega$. No continuity is enforced between mesh elements.
@@ -1562,7 +1567,7 @@ are shown in \Cref{fig:ad_advdiff}.
     \caption{$t = 7.0$}
   \end{subfigure}
   \\\vspace{2ex}
-      \caption{Advection-diffusion problem with velocity field shown in
+      \caption{\OK{Consider describing as `DG advection-diffusion problem' or something similar rather than just `advection-diffusion problem' to distinguish it from the FD advection-diffusion problem?} Advection-diffusion problem with velocity field shown in
       subplot (a) and the solution plotted for various time points from
       $t=0$ to $t = 7.0$ in subplots (b-f). Heatmap indicates solution in the
       2d domain, with blue $\mapsto 0$ and red $\mapsto 1$.}
@@ -1595,10 +1600,10 @@ tolerance of $10^{-12}$. There are a total of 1,638,400 spatial degrees-of-freed
 (DOFs), and the simulations are run on 288 processors on the Quartz machine at
 Lawrence Livermore National Lab, resulting in $\sim$5600 DOFs/processor.
 
-Table \Cref{tab:gamma} shows the average number of AIR iterations to solve for
+\Cref{tab:gamma} shows the average number of AIR iterations to solve for
 each stage of an IRK method using $\eta$ and $\gamma_*$ as the preconditioning
 constants. Iteration counts are shown for Gauss, Radau IIA, and Lobatto IIIC integration,
-with 2-5 stages, and the (factor of) reduction in iteration count achieved using $\gamma_*$
+with 2--5 stages, and the (factor of) reduction in iteration count achieved using $\gamma_*$
 vs. $\eta$ is also shown. For 5-stage Lobatto IIIC integration, $\gamma_*$ yields
 almost a $6\times$ reduction in total inner AIR iterations to solve for the
 ``hard'' stage ($\beta > \eta$), while in no cases is there an increase in
@@ -1628,8 +1633,8 @@ Iterations$(\gamma_*)$ & 8 & 3 & 22 & 9 & 26 & 7 & 12 & 30 \\\hline
 Speedup & 1.0 & 1.0 & 3.0 & 1.2 & 4.3 & 1.0 & 1.4 & 5.8 \\\hline\hline
   \end{tabular}
   \caption{Average AIR iterations to solve for each stage in an implicit
-  Runge-Kutta method using preconditioners $(\eta M - \mathcal{L})^{-2}$ and
-  $(\gamma_* M - \mathcal{L})^{-2}$ \eqref{eq:gam_opt}. The ratio of
+  Runge-Kutta method using preconditioners $(\eta M - \delta t \mathcal{L})^{-2}$ and
+  $(\gamma_* M - \delta t \mathcal{L})^{-2}$ \eqref{eq:gam_opt}. The ratio of
   iterations$(\eta)$/iterations$(\gamma_*)$ is shown in the ``Speedup'' rows.}
   \label{tab:gamma}
 \end{table}
@@ -1664,7 +1669,7 @@ standard SDIRK4 scheme. Gauss8 and Radau9, for example, require almost
 $7\times$ less AIR iterations than SDIRK4 at $h =\delta t_4 = 1/256$,
 and this ratio continues to decrease for smaller $\delta t$. Although this
 does not account for additional setup time, where Gauss8 and Radau9 require
-solving two different linear systems and SDIRK4 only one, very high-order
+solving two different linear systems and SDIRK4 only one, \OK{Radau9 solves 3 different systems, not 2?} very high-order
 integration permitted through the new preconditioning still offers the
 opportunity for significant speedups.
 
@@ -1696,7 +1701,7 @@ problems. However, the region of comparable levels of advection and diffusion
 remains the most difficult from a multigrid perspective. We use this to
 demonstrate how methods developed here require a ``good'' preconditioner
 for a backward Euler time step in order to converge on more general IRK
-methods. Fortunately, ensuring a preconditioner is sufficiently good can be
+methods. \OK{Besides the abstract, this is the only time you use the term `backward Euler time step'; Will the reader know what you mean?} Fortunately, ensuring a preconditioner is sufficiently good can be
 resolved by appealing to standard block preconditioning techniques, where an inner
 iteration is used that applies multiple AIR iterations as a single preconditioner.
 
@@ -1706,7 +1711,7 @@ DG finite elements, a time step of $\delta t = 0.1$, and three-stage 6th-order
 Gauss integration. Altogether, this yields equal orders of accuracy, with time and
 space error $\sim10^{-6}$. FGMRES \cite{saad1993flexible} is used for the
 outer iteration, which allows for GMRES to be applied in an inner iteration
-as a preconditioner for $(\gamma_* M - \mathcal{L})$. \Cref{fig:dg_o2} plots the
+as a preconditioner for $(\gamma_* M - \delta t \mathcal{L})$. \Cref{fig:dg_o2} plots the
 total number of AIR iterations per time step as a function of the number of
 AIR iterations applied for each application of the preconditioner, using an
 inner GMRES or an inner fixed-point. An advection-dominated problem
@@ -1745,7 +1750,7 @@ solves/iteration).
 	\label{fig:dg_o2_1e-2}
   \end{subfigure}
 \caption{AIR iterations per time step as a function of the number of
-AIR iterations applied for each application of the preconditioner.}
+AIR iterations applied for each application of the preconditioner. \OK{Describe what $\varepsilon$ means here/what its relevance is (e.g., left is advection-dominated, right is mixed)?}}
 \label{fig:dg_o2}
 \end{figure}
 
@@ -1798,7 +1803,7 @@ The relative $L^2$ error, obtained by comparing against the exact solution, is s
 We also use this test case to study the effect of inner iterations on the convergence of the iteration solver.
 As discussed in Section \ref{sec:inexact-precond}, it is important that the underlying preconditioner provide a good approximation of the inverse of the operator.
 For that reason, we consider the use of an inner Krylov solver at every iteration.
-Since this corresponds to using a variable preconditioner at each iteration, a flexible Krylov method may have be used for the outer iteration, although in practice good convergence is often still observed using the standard CG method \cite{Notay2000}.
+Since this corresponds to using a variable preconditioner at each iteration, a flexible Krylov method may have to be used for the outer iteration, although in practice good convergence is often still observed using the standard CG method \cite{Notay2000}.
 In particular, we compare the total number of preconditioner applications required to converge the outer iteration to a relative tolerance of $10^{-10}$, both with and without an inner Krylov solver.
 For the inner Krylov solver, we use a CG iteration with the same relative tolerance as the outer iteration in order to give a good approximation to the inverse of the operator.
 The iteration counts are displayed in \Cref{fig:high-order-diff-iters}.
