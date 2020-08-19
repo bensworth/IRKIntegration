@@ -548,7 +548,7 @@ public:
         JacSparsity jac_solver_sparsity = JacSparsity::DENSE;
         JacSparsity jac_prec_sparsity  = JacSparsity::DIAGONAL;
         
-        int gamma_idx = 0; // Constant used when preconditioning (2,2) block [0==eta, 1==(eta^2+beta^2)/eta].
+        int gamma_idx = 0; // Constant used when preconditioning (2,2) block [0==eta, 1==(eta^2+beta^2)/eta; 2==sqrt{eta^2+beta^2}].
     }; 
 
 private:    
@@ -1379,8 +1379,10 @@ private:
                     gamma = eta;
                 } else if (gamma_idx == 1) {
                     gamma = eta + beta*beta/eta;
+                } else if (gamma_idx == 2) {
+                    gamma = std::sqrt(eta*eta + beta*beta);    
                 } else {
-                    mfem_error("gamma must be 0 or 1");
+                    mfem_error("gamma must be 0, 1, or 2");
                 }
             }
             

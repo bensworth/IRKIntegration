@@ -37,6 +37,8 @@
 % \newtheorem{theorem}{Theorem}
 % \newtheorem{corollary}{Corollary}
 
+\newcommand{\rc}{\textcolor{red}{,}}
+
 \newcommand{\tcb}{\textcolor{blue}}
 \newcommand{\tcp}{\textcolor{purple}}
 \newcommand{\todo}[1]{\textcolor{red}{[TODO\@: #1]}}
@@ -520,7 +522,116 @@ Radau IIA(9)+C8 & \textbf{17}/1090 & \textbf{9}/596 & \textbf{9}/582 & \textbf{7
 
 \end{itemize}
 
+\newpage
+\subsection{Newer results}
 
+\begin{table}[H] 
+\caption{
+Number of Newton and AMG iterations. ``Simple'' = simplified Newton, ``Quasi(0),(1),(2)'' = quasi Newton with different approximations $\widetilde{P}$ with increasing cost per Newton iteration \tcb{using larger time step $\delta t = 10 \times h$}.
+\label{tb:iters_newer}
+}
+\begin{center}
+\begin{tabular}{|c V{3} cccc|} 
+\hline
+&
+\multicolumn{4}{c|}{\textbf{Newton iterations}/AMG iterations($\gamma = \eta$, $\gamma = \eta + \beta^2/\eta$)} 
+\\
+\hline
+Discretization
+&
+Simple
+& 
+Quasi(0)
+&
+Quasi(1)
+&
+Quasi(2)
+\\
+\Xhline{2\arrayrulewidth} 
+Gauss(4)+C4 & \textbf{17}/(296,268) & \textbf{4}/(84,76)  & --  & --  \\
+\hline 
+Lob IIIC(4)+C4 & \textbf{20}/(689,573) & \textbf{17}/(555,447) & \textbf{13}/(453,373) & \textbf{10}/(421,363)\\
+\hline 
+Radau IIA(5)+C4 & \textbf{19}/(604,490) & \textbf{9}/(300,246) & \textbf{9}/(296,244) & \textbf{6}/(244,208)\\
+\hline 
+\hline
+Gauss 8(8)+C8 & \textbf{17}/(794,656) & \textbf{8}/(414,344) & \textbf{8}/(412,342) & \textbf{6}/(364,310) \\
+\hline 
+Lob IIIC 8(8)+C8 & \textbf{18}/(1211,957) & \textbf{13}/(880,706) & \textbf{12}/(803,645) & \textbf{9}/(672,550) \\
+\hline 
+Radau IIA(9)+C8 & \textbf{17}/(1090,844) & \textbf{9}/(589,465) & \textbf{9}/(578,458) & \textbf{7}/(504,412) \\
+\hline 
+\end{tabular}
+\end{center}
+\end{table}
+
+\begin{table}[H] 
+\caption{
+Number of Newton and AMG iterations. ``Simple'' = simplified Newton, ``Quasi(0),(1),(2)'' = quasi Newton with different approximations $\widetilde{P}$ with increasing cost per Newton iteration \tcb{using smaller time step $\delta t = 1 \times h$}.
+\label{tb:iters_newer2}
+}
+\begin{center}
+\begin{tabular}{|c V{3} cccc|} 
+\hline
+&
+\multicolumn{4}{c|}{\textbf{Newton iterations}/AMG iterations($\gamma = \eta$, $\gamma = \eta + \beta^2/\eta$)} 
+\\
+\hline
+Discretization
+&
+Simple
+& 
+Quasi(0)
+&
+Quasi(1)
+&
+Quasi(2)
+\\
+\Xhline{2\arrayrulewidth} 
+Gauss(4)+C4 & \textbf{5}/(104,84) & \textbf{3}/(68,54)  & --  & --  \\
+\hline 
+Lob IIIC(4)+C4 & \textbf{6}/(265,168) & \textbf{5}/(232,152) & \textbf{5}/(235,151) & \textbf{5}/(225,145)\\
+\hline 
+Radau IIA(5)+C4 & \textbf{5}/(199,139) & \textbf{4}/(165,114) & \textbf{4}/(165,114) & \textbf{4}/(169,116)\\
+\hline 
+\hline
+Gauss 8(8)+C8 & \textbf{5}/(254,200) & \textbf{4}/(222,176) & \textbf{4}/(222,176) & \textbf{4}/(226,176) \\
+\hline 
+Lob IIIC 8(8)+C8 & \textbf{5}/(424,280) & \textbf{5}/(403,267) & \textbf{5}/(398,264) & \textbf{4}/(357,233) \\
+\hline 
+Radau IIA(9)+C8 & \textbf{5}/(365,261) & \textbf{4}/(301,215) & \textbf{4}/(301,215) & \textbf{4}/(299,219) \\
+\hline 
+\end{tabular}
+\end{center}
+\end{table}
+
+
+\renewcommand{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.15}
+\begin{table}[!ht]
+  \centering
+  \begin{tabular}{| c | c | c |}  % chktex 44
+  \hline
+Method & &  \\ \hline
+\multirow{ 3}{*}{Gauss(8)}
+&$\beta^2/\eta^2$ & 1.59 / 0.09 \\
+&$\gamma = \eta$  -- & 20 / 11\\
+&$\gamma = \gamma_*$ & 13 / 11\\ \hline
+\multirow{ 3}{*}{Radau IIA(9)}
+&$\beta^2/\eta^2$ & 0 / 3.20 / 0.32	\\
+&$\gamma = \eta$ &  8 / 24 / 13\\
+&$\gamma = \gamma_*$ & 8 / 14/ 11 \\ \hline
+\multirow{ 3}{*}{Lobatto IIIC(8)}
+&$\beta^2/\eta^2$ & 0 / 4.88 / 0.38 \\
+&$\gamma = \eta$ & 8 / 29 / 14\\
+&$\gamma = \gamma_*$ & 8 / 15 / 12\\
+  \hline
+  \end{tabular}
+  \caption{
+Number of GMRES iterations for each stage when solving $u_t = \Delta u + s$, with a single time step of $\delta t = h = 1/256$. Different values of $\gamma$ are used in the preconditoner, as indicated.
+}
+\label{tab:cond_iters}
+\end{table}
 
 \end{document}
 
