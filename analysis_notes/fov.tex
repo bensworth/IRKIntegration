@@ -800,7 +800,7 @@ and
 \frac{1}{2} \left( 1 + \sqrt{1 + \left( \frac{\beta}{\eta} \right)^2} \right).
 \end{align}
 
-While condition number \eqref{eq:cond_min} is not bounded w.r.t. $\beta/\eta$, it is very small in practice as shown in Table \ref{tab:cond}, where for the schemes we consider it's always less than 2. For example, the condition number is less than 2 for $(\beta/\eta)^2 < 8$. See also Figure \ref{fig:conds} for a comparison of the condition number using $\gamma_*$ vs. $\eta$.
+While condition number \eqref{eq:cond_min} is not bounded w.r.t. $\beta/\eta$, it is very small in practice as shown in Table \ref{tab:cond}, where for the schemes we consider it's always less than 2. For example, the condition number is less than 2 for $(\beta/\eta)^2 < 8$. See also Figure \ref{fig:conds} for a comparison of the condition number using $\gamma_*$ vs. $\eta$. Also, a numerical example is shown in Table \ref{tab:cond_iters} showing a reduction in the number of iterations using $\gamma_*$ vs. $\eta$.
 {
 \renewcommand{\tabcolsep}{4pt}
 \renewcommand{\arraystretch}{1.15}
@@ -832,6 +832,33 @@ Method & Stages & 2 & \multicolumn{2}{c}{3} & \multicolumn{2}{|c}{4} & \multicol
 \caption{Optimal ($\gamma = \gamma_*$) and non-optimal ($\gamma = \eta$) condition numbers \eqref{eq:c1_non-opt} and \eqref{eq:cond_min} as a function of $\beta^2/\eta^2$. }
 \label{fig:conds}
 \end{figure}
+
+\renewcommand{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.15}
+\begin{table}[!ht]
+  \centering
+  \begin{tabular}{| c | c | c |}  % chktex 44
+  \hline
+Method & &  \\ \hline
+\multirow{ 3}{*}{Gauss(8)}
+&$\beta^2/\eta^2$ & 1.59 / 0.09 \\
+&$\gamma = \eta$  -- & 20 / 11\\
+&$\gamma = \gamma_*$ & 13 / 11\\ \hline
+\multirow{ 3}{*}{Radau IIA(9)}
+&$\beta^2/\eta^2$ & 0 / 3.20 / 0.32	\\
+&$\gamma = \eta$ &  8 / 24 / 13\\
+&$\gamma = \gamma_*$ & 8 / 14/ 11 \\ \hline
+\multirow{ 3}{*}{Lobatto IIIC(8)}
+&$\beta^2/\eta^2$ & 0 / 4.88 / 0.38 \\
+&$\gamma = \eta$ & 8 / 29 / 14\\
+&$\gamma = \gamma_*$ & 8 / 15 / 12\\
+  \hline
+  \end{tabular}
+  \caption{
+Number of GMRES iterations for each stage when solving $u_t = \Delta u + s$, with a single time step of $\delta t = h = 1/256$. Different values of $\gamma$ are used in the preconditoner, as indicated.
+}
+\label{tab:cond_iters}
+\end{table}
 
 It's interesting to note that $\gamma_*$ does not depend on $\eta$ nor $\beta$. However, note that for $\beta < \eta$, we're unlikely to see any large difference in choosing $\gamma = \eta$ over $\gamma = \gamma_*$:
 \begin{align}
