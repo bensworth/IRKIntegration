@@ -73,29 +73,6 @@ Although the conditioning does not yield immediate GMRES bounds as the field of 
 analysis does (or as conditioning does for bounds on CG convergence), it still
 provides a robust measure of the effectiveness and scalability of the
 preconditioner.
-
-As a preliminary result, note that working out the roots of the polynomial
-in \eqref{eq:prec_k}, it can be expressed in factored form as
-%
-\begin{align*}
-\mathcal{P}_\gamma
-	& = \Big[I - \overline{\alpha}\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\Big]
-	\Big[I - \alpha\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\Big],
-\end{align*}
-%
-where
-%
-\begin{align}\label{eq:alpha}
-\alpha, \overline{\alpha} & := 1 - \frac{\eta}{\gamma} \pm \mathrm{i}\beta,
-\end{align}
-%
-and
-%
-\begin{align}\label{eq:alpha_eq}
-\alpha + \overline{\alpha} = 2(1 - \tfrac{\eta}{\gamma}), \hspace{5ex}
-\alpha\overline{\alpha} = \tfrac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}.
-\end{align}
-%
 Moving forward we will limit ourselves to considering $\eta \leq \gamma \leq \
 \tfrac{\eta^2+\beta^2}{\eta}$, which limits to the natural case of $\gamma = \eta$
 as $\beta \to 0$.
@@ -204,8 +181,6 @@ s_{\min}(\mathcal{P}_\gamma)^2 & = \min_{\mathbf{v}\neq\mathbf{0}}
 	{\|(I - \tfrac{1}{\gamma}\mathcal{L})^{2}\mathbf{w}\|^2} \\
 \end{align*}
 
-\tcb{Algebra gets complicated, maybe start by setting $\gamma = \sqrt{\eta^2+\beta^2}$
-or $\gamma = \eta$, where in each case one term drops and the analysis is simpler.}
 
 % ---------------------------------------------------------------------------------------------- %
 % ---------------------------------------------------------------------------------------------- %
