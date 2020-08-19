@@ -40,6 +40,175 @@
 % ---------------------------------------------------------------------------------------------- %
 % ---------------------------------------------------------------------------------------------- %
 % ---------------------------------------------------------------------------------------------- %
+\section{New linear theory}
+
+Consider a similar preconditioner as in
+\Cref{sec:solve:inv}, but with some constant $\gamma \mapsto
+(\gamma I - \widehat{\mathcal{L}})^{-2}$. The resulting preconditioned
+operator takes the form
+%
+\begin{align}\nonumber
+\mathcal{P}_\gamma & =
+(\gamma I - \mathcal{L})^{-2}\Big[(nI - \mathcal{L})^2 + \beta^2 I\Big] \\ \nonumber
+& = (\gamma I - \mathcal{L})^{-2}\Big[((\eta-\gamma)I + (\gamma I - \mathcal{L}))^2 + \beta^2 I\Big] \\
+% & = (\gamma I - \mathcal{L})^{-2}\Big[(\gamma-\eta)^2I - 2(\gamma-\eta)(\gamma I - \mathcal{L}) +
+% 	(\gamma I - \mathcal{L})^2 + \beta^2 I\Big] \nonumber\\
+& = I - 2(\gamma-\eta)(\gamma I - \mathcal{L})^{-1} + (\beta^2 + (\gamma-\eta)^2)(\gamma I -
+	\mathcal{L})^{-2} \nonumber\\
+& = I - 2\frac{\gamma-\eta}{\gamma}\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1} +
+	\frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}
+	\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-2}.\label{eq:prec_k}
+\end{align}
+%
+Note that in \eqref{eq:prec_k} we have a quadratic polynomial in
+$(I - \tfrac{1}{\gamma}\mathcal{L})^{-1}$. Although this provides
+nice structure, the field of values analysis applied in \Cref{sec:solve:inv}
+becomes much more complicated due to no necessary relation between
+$\langle A\mathbf{x},\mathbf{x}\rangle$ and
+$\langle A^2\mathbf{x},\mathbf{x}\rangle$ for general operators $A$. Thus, here
+we take a different approach, analyzing the condition number of the preconditioned
+operator, $\mathcal{P}_\gamma$, similar to as done for SPD matrices in \cite{exh}.
+Although the conditioning does not yield immediate GMRES bounds as the field of values
+analysis does (or as conditioning does for bounds on CG convergence), it still
+provides a robust measure of the effectiveness and scalability of the
+preconditioner.
+
+As a preliminary result, note that working out the roots of the polynomial
+in \eqref{eq:prec_k}, it can be expressed in factored form as
+%
+\begin{align*}
+\mathcal{P}_\gamma
+	& = \Big[I - \overline{\alpha}\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\Big]
+	\Big[I - \alpha\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\Big],
+\end{align*}
+%
+where
+%
+\begin{align}\label{eq:alpha}
+\alpha, \overline{\alpha} & := 1 - \frac{\eta}{\gamma} \pm \mathrm{i}\beta,
+\end{align}
+%
+and
+%
+\begin{align}\label{eq:alpha_eq}
+\alpha + \overline{\alpha} = 2(1 - \tfrac{\eta}{\gamma}), \hspace{5ex}
+\alpha\overline{\alpha} = \tfrac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}.
+\end{align}
+%
+Moving forward we will limit ourselves to considering $\eta \leq \gamma \leq \
+\tfrac{\eta^2+\beta^2}{\eta}$, which limits to the natural case of $\gamma = \eta$
+as $\beta \to 0$.
+
+First, consider bounding $\|\mathcal{P}_\gamma\|$:
+%
+\begin{align*}
+\|\mathcal{P}_\gamma\| & = \left\| I - 2\frac{\gamma-\eta}
+	{\gamma}\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1} +
+		\frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}
+		\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-2} \right\| \\
+& \leq \left\| I - 2\frac{\gamma-\eta}
+	{\gamma}\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\right\| +
+		\frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}\left\|
+		\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-2} \right\| \\
+& \leq \left\| I - 2\frac{\gamma-\eta}
+	{\gamma}\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\right\| +
+		\frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}\left\|
+		\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1} \right\|^2 \\
+& \leq \left\| I - 2\frac{\gamma-\eta}
+	{\gamma}\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\right\| +
+		\frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}.
+\end{align*}
+%
+For the first term, note that maximizing over $\mathbf{v}\in\mathbb{R}^n$ and
+letting $\mathbf{v} := (I - \tfrac{1}{\gamma}\mathcal{L})\mathbf{w}$,
+%
+\begin{align*}
+\left\| I - 2\tfrac{\gamma-\eta}
+	{\gamma}(I - \tfrac{1}{\gamma}\mathcal{L})^{-1}\right\|^2
+		& = \sup_{\mathbf{v}\neq\mathbf{0}} \frac{\left\| [I - 2\frac{\gamma-\eta}
+	{\gamma}(I - \tfrac{1}{\gamma}\mathcal{L})^{-1}]\mathbf{v}\right\|^2}{\|\mathbf{v}\|^2} \\
+& = \sup_{\mathbf{w}\neq\mathbf{0}} \frac{\left\| (I - \tfrac{1}{\gamma}\mathcal{L} -
+		2\frac{\gamma-\eta}{\gamma}I )\mathbf{w}\right\|^2}{\|(I - \tfrac{1}{\gamma}\mathcal{L})
+		\mathbf{w}\|^2} \\
+& = \sup_{\mathbf{w}\neq\mathbf{0}} \frac{\left\|[(1 - 2\frac{\gamma-\eta}{\gamma})
+	I - \tfrac{1}{\gamma}\mathcal{L}]\mathbf{w}\right\|^2}{\|(I - \tfrac{1}{\gamma}\mathcal{L})
+		\mathbf{w}\|^2} \\
+& = \sup_{\mathbf{w}\neq\mathbf{0}} \frac{|1 - 2\tfrac{\gamma-\eta}{\gamma}|^2\|\mathbf{w}\|^2
+	- \tfrac{1}{\gamma}(1 - 2\tfrac{\gamma-\eta}{\gamma})\langle (\mathcal{L} + \mathcal{L}^T)
+		\mathbf{w},\mathbf{w}\rangle + \tfrac{1}{\gamma}^2\|\mathcal{L}\mathbf{w}\|^2}
+	{\|\mathbf{w}\|^2 - \tfrac{1}{\gamma}\langle (\mathcal{L} + \mathcal{L}^T)
+		\mathbf{w},\mathbf{w}\rangle + \tfrac{1}{\gamma}^2\|\mathcal{L}\mathbf{w}\|^2}.
+\end{align*}
+%
+Note that by assumption, $\gamma \geq \eta$, which implies
+$0 \leq 2\tfrac{\gamma-\eta}{\gamma}  < 2$, and 
+$|1 - 2\tfrac{\gamma-\eta}{\gamma}| < 1$. In addition, we have that
+$\langle (\mathcal{L}+\mathcal{L}^T)\mathbf{w},\mathbf{w}\rangle \leq 0$ and
+$2\tfrac{\gamma-\eta}{\gamma^2} \geq 0$, which implies the term
+$2\tfrac{\gamma-\eta}{\gamma^2}\langle (\mathcal{L}+\mathcal{L}^T)
+	\mathbf{w},\mathbf{w}\rangle\leq 0$. Appealing to these two inequalities, we have
+%
+\begin{align*}
+\left\| I - 2\tfrac{\gamma-\eta}
+	{\gamma}(I - \tfrac{1}{\gamma}\mathcal{L})^{-1}\right\|^2
+& < \sup_{\mathbf{w}\neq\mathbf{0}} \frac{\|\mathbf{w}\|^2
+	- \tfrac{1}{\gamma}\langle (\mathcal{L} + \mathcal{L}^T)
+		\mathbf{w},\mathbf{w}\rangle + \tfrac{1}{\gamma}^2\|\mathcal{L}\mathbf{w}\|^2}
+	{\|\mathbf{w}\|^2 - \tfrac{1}{\gamma}\langle (\mathcal{L} + \mathcal{L}^T)
+		\mathbf{w},\mathbf{w}\rangle + \tfrac{1}{\gamma}^2\|\mathcal{L}\mathbf{w}\|^2} 
+= 1.
+\end{align*}
+%
+Together, this yields
+%
+\begin{align*}
+\|\mathcal{P}_\gamma\| \leq 1 + \frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}.
+\end{align*}
+%
+
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+\subsection{Inverse bounds}
+
+The factorization approach was interesting, but introducing the complex factored
+coefficients immediately means we have to deal with complex vectors in our norms,
+which is a pain. Thus instead, recall the 2-norm of a matrix is the maximum singular
+value, and the maximum singular value of the inverse is given by one over the minimum
+singular value of the operator. In addition, the minimum singular value of $A^{-1}$ is
+defined by
+%
+\begin{align*}
+s_{\max}(A^{-1}) & = \frac{1}{s_{\min}(A)}, \hspace{5ex}
+s_{\min}(A) = \min_{\mathbf{v}\neq\mathbf{0}} \frac{\|A\mathbf{v}\|}{\|\mathbf{v}\|}.
+\end{align*}
+%
+Then, consider the minimum singular value of $P_\gamma$. Letting $\mathbf{v} :=
+(I - \tfrac{1}{\gamma}\mathcal{L})^{2}\mathbf{w}$,
+%
+\begin{align*}
+s_{\min}(\mathcal{P}_\gamma)^2 & = \min_{\mathbf{v}\neq\mathbf{0}}
+	\frac{\left\| \left[I - 2\frac{\gamma-\eta}{\gamma}(I - \tfrac{1}{\gamma}
+		\mathcal{L})^{-1} + \frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}
+		(I - \tfrac{1}{\gamma}\mathcal{L})^{-2}\right]\mathbf{v} \right\|^2}
+	{\|\mathbf{v}\|^2} \\
+& = \min_{\mathbf{v}\neq\mathbf{0}}
+	\frac{\left\| \left[(I - \tfrac{1}{\gamma}\mathcal{L})^{2} - 2\frac{\gamma-\eta}{\gamma}
+		(I - \tfrac{1}{\gamma} \mathcal{L}) + \frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2} I
+		\right]\mathbf{w} \right\|^2}
+	{\|(I - \tfrac{1}{\gamma}\mathcal{L})^{2}\mathbf{w}\|^2} \\
+& = \min_{\mathbf{v}\neq\mathbf{0}}
+	\frac{\left\| \left[(I - \tfrac{1}{\gamma}\mathcal{L})^{2} + 
+		\tfrac{\eta^2+\beta^2-\gamma^2}{\gamma^2} I + 2\frac{\gamma-\eta}{\gamma^2}
+		\mathcal{L}) \right]\mathbf{w} \right\|^2}
+	{\|(I - \tfrac{1}{\gamma}\mathcal{L})^{2}\mathbf{w}\|^2} \\
+\end{align*}
+
+\tcb{Algebra gets complicated, maybe start by setting $\gamma = \sqrt{\eta^2+\beta^2}$
+or $\gamma = \eta$, where in each case one term drops and the analysis is simpler.}
+
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
 \section{Eigenvalue analysis}
 
 Consider preconditioning
