@@ -22,6 +22,7 @@
   citecolor   = red %Colour of citations
 }
 \usepackage{cleveref}
+\usepackage{multirow}
 
 
 \newtheorem{lemma}{Lemma}
@@ -450,7 +451,7 @@ some $\gamma \neq \eta$? The preconditioned operator then takes the form
 		( I- \tfrac{1}{\eta}\widehat{\mathcal{L}})^{-1}.\label{eq:gamma0}
 \end{align}
 %
-Suppose $-\mathcal{L}$ is SPD with a spectrum $\subset (0,\infty)$.
+Suppose $-\mathcal{L}$ is SPD\footnote{\tcb{OAK: I believe all the analysis holds when $-{\mathcal{L}}$ is SSPD too? I.e., there's no issues allowing $\lambda = 0$ too. It's just that this zero eigenvalue appears for periodic boundaries, so probably good to include.}} with a spectrum $\subset (0,\infty)$.
 Then the spectrum of \eqref{eq:gamma0} is given by
 %
 \begin{align}\label{eq:eig_gamma}
@@ -459,7 +460,7 @@ Then the spectrum of \eqref{eq:gamma0} is given by
 \end{align}
 %
 where $\lambda\in\sigma(-\mathcal{L})$. If we additionally choose $\gamma$
-such that \eqref{eq:gamma0} is also SPD ($\gamma$ such that this does not hold
+such that \eqref{eq:gamma0} is also SPD\footnote{\tcb{OAK: Working through the algebra, this is always true for $\gamma > 0$.}} ($\gamma$ such that this does not hold
 would be a poor choice in terms of conditioning), the condition number of
 \eqref{eq:gamma0} is given by
 %
@@ -469,7 +470,7 @@ would be a poor choice in terms of conditioning), the condition number of
 		{\lambda_{\min}\left((\gamma I- \widehat{\mathcal{L}})^{-1}S\right)}.
 \end{align}
 %
-Again assuming that eigenvalues $\lambda\in\sigma\left(\widehat{\mathcal{L}}\right)$ take
+Again assuming that eigenvalues $\lambda\in\sigma\left(-\widehat{\mathcal{L}}\right)$ take
 on values $\lambda\in(0,\infty)$, the condition number \eqref{eq:cond0} can be expressed
 precisely as $h,\delta t\to 0$ via
 %
@@ -482,7 +483,7 @@ precisely as $h,\delta t\to 0$ via
 
 With this closed form, it is natural to pose a minimization problem to find the
 optimal $\gamma$ in terms of minimizing the condition number \eqref{eq:cond0}.
-We make the assumption that $\gamma \geq \eta $, and consider
+We make the assumption that $\eta \leq \gamma \leq \eta^2+\beta^2$,\footnote{\tcb{OAK: What's the motivation for this, given that it's not required for the operator to remain definite? See also my analysis below, which holds for all $\gamma> 0$.}} and consider
 the problem
 %
 \begin{align}\label{eq:gam_opt}
@@ -530,10 +531,15 @@ can be achieved, $\{0,\infty, \lambda_\pm\}$. Working through the algebra yields
 \hspace{4ex}
 \mathcal{F}(\gamma,\lambda_-) = \frac{2\beta}{\beta - \sqrt{\beta^2 + (\gamma-\eta)^2}}.
 \end{align*}
+\tcb{OAK: I think there's a mistake here for your value of $\mathcal{F}(\gamma,0)$ which I think leads to you getting the incorrect result for $\gamma_*$. See my analysis that picks up from here after yours finishes in the following section.}
 %
+
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+\subsubsection{Remainder of Ben's analysis}
 In choosing $\gamma$, note that $\mathcal{F}(\gamma,\lambda_-) < 0$, which contradicts
 the assumption of positive definiteness. Thus, we must make an additional assumption
-that $\lambda_-\not\in(0,\infty)$. From \eqref{eq:roots}, this is equivalent to saying that
+that $\lambda_-\not\in(0,\infty)$.\footnote{\tcb{OAK: But why \textit{must} we assume that $\mathcal{F}(\gamma,\lambda_-) < 0$ implies/requires/means that $\lambda_- < 0$?}} From \eqref{eq:roots}, this is equivalent to saying that
 %
 \begin{align*}
 \beta^2-\eta(\gamma-\eta) & < \beta\sqrt{\beta^2+(\gamma-\eta)^2}, \\
@@ -670,13 +676,178 @@ Plugging in, we can evaluate our resulting bound as
 and the resulting condition numbers are reasonable.}
 
 
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+\subsubsection{Oliver's analysis}
+\tcb{OAK: I believe there's a mistake in your working: Looking at, $\mathcal{F}(\gamma,0)$, shouldn't it be
+\begin{align*}
+\mathcal{F}(\gamma,0) = 1 + \frac{\eta^2+\beta^2-\eta \gamma}{\eta\gamma} = \frac{1}{\gamma} \left( \eta + \frac{\beta^2}{\eta} \right)?
+\end{align*}}
+Then, we have
+\begin{align*}
+\mathcal{F}(\gamma,\lambda_+) = \frac{2\beta}{\beta + \sqrt{\beta^2 + (\gamma-\eta)^2}} = \frac{2}{1 + \sqrt{1 + (\gamma-\eta)^2/\beta^2}} < 1 = \mathcal{F}(\gamma,\infty),
+\end{align*}
+for all $\gamma \neq \eta$ (and they're equal for $\gamma = \eta$).
+%
+Since $\lambda_-$ is excluded as a valid critical point, the maximum of ${\cal F}(\gamma,\lambda)$ w.r.t. $\lambda$ must thus occur for $\lambda \in \{ 0, \infty \}$. Working through, we have
+\begin{align*}
+\max_{\lambda\in[0,\infty)} \mathcal{F}(\gamma,\lambda) & = 
+\begin{cases}
+\displaystyle
+\mathcal{F}(\gamma,0) 
+= 
+\frac{1}{\gamma} \left(\eta + \frac{\beta^2}{\eta} \right), 
+\quad 
+& 0 < \gamma \leq \eta +  \tfrac{\beta^2}{\eta}, \\
+\displaystyle
+\mathcal{F}(\gamma,\infty) 
+= 
+1, \quad & \eta + \tfrac{\beta^2}{\eta} \leq \gamma < \infty
+\end{cases}.
+\end{align*}
+
+Now how about the minimum of ${\cal F}$? Clearly this does not occur for $\lambda \to \infty$, since $\mathcal{F}(\gamma,\lambda_+) < \mathcal{F}(\gamma,\infty), \forall \gamma \neq \eta$. So, since $\lambda_-$ is excluded as a valid critical point, the minimum of ${\cal F}(\gamma,\lambda)$ w.r.t. $\lambda$ must then occur for $\lambda \in \{0, \lambda_+\}$. Clearly for $\gamma \geq \eta + \beta^2 / \eta$, ${\cal F}(\gamma, \lambda_+) < 1 \leq {\cal F}(\gamma, 0)$; but what about for $0 < \gamma < \eta + \beta^2 / \eta$?
+To this end, let's define
+\begin{align*}
+{\cal G}(\gamma) = \mathcal{F}(\gamma,0) -  \mathcal{F}(\gamma,\lambda_+), \quad 0 < \gamma \leq \eta + \beta^2 / \eta.
+\end{align*}
+To discern which value of ${\lambda} \in \{0, \lambda_+ \}$ minimizes ${\cal F}(\gamma, \lambda)$ we need to look at the sign of ${\cal G}$. From the analysis above, we know that ${\cal G} > 0$ for $\gamma = \eta + \beta^2/\eta$, but we need to see if this is true for all values of $0 < \gamma \leq \eta + \beta^2/\eta$. Thus, we look to see if any roots $\hat{\gamma}$ exist in this interval, such that ${\cal G}(\hat{\gamma}) = 0$. 
+%
+It is possible to show that if  any such roots exists, they must satisfy
+\begin{align*}
+\hat{\gamma} > \tfrac{1}{2} \big( \eta + \beta^2 / \eta).
+\end{align*}
+Furthermore, any such roots must satisfy the quadratic equation
+\begin{align*}
+z(\hat{\gamma}) = \big[ 4 \beta^2 \eta^2 - (\eta^2 + \beta^2)^2 \big] \hat{\gamma}^2 + 2 \eta (\eta^2 + \beta^2)(\eta^2 - \beta^2) \hat{\gamma} - \eta^2(\eta^2 + \beta^2)^2 = 0.
+\end{align*}
+Computing the discriminant of this quadratic, we see that it is identically zero, and, thus, the equation has only one real root. Carrying out the algebra we find this to be
+\begin{align} \label{eq:gamma_hat}
+\hat{\gamma} = \eta \frac{\eta^2 + \beta^2}{\eta^2 - \beta^2}. 
+\end{align}
+Clearly if $\eta < \beta$, then $\hat{\gamma} < 0$, which is outside of the range of $\gamma$. Conversely, for $\eta > \beta, \hat{\gamma} > 0$. However, for $\eta > \beta$ one can also easily show that
+\begin{align*}
+\eta \frac{\eta^2 + \beta^2}{\eta^2 - \beta^2} > \eta + \frac{\beta^2}{\eta},
+\end{align*}
+and so for $\eta > \beta$ this root is also outside of the range of $\gamma$ we care about.
+Thus, ${\cal G}$ has no roots within its domain, and therefore
+\begin{align*}
+{\cal F} (\gamma, \lambda_+) < {\cal F}(\gamma, 0), \quad 0 < \gamma \leq \eta + \beta^2/\eta.
+\end{align*}
+Combining with the earlier discussion, this means
+\begin{align*}
+\min_{\lambda\in[0,\infty)} \mathcal{F}(\gamma,\lambda) &=  \mathcal{F}(\gamma,\lambda_+) = \frac{2\beta}{\beta + \sqrt{\beta^2 + (\gamma-\eta)^2}} \quad 0 < \gamma < \infty.
+\end{align*}
+
+So, for the condition number \eqref{eq:cond1}, we have
+\begin{align}
+\label{eq:condc}
+c(\gamma) 
+\coloneqq
+\textnormal{cond}\left((\gamma I- \widehat{\mathcal{L}})^{-1}S\right)  
+=
+\begin{cases}
+\displaystyle
+\frac{1}{\gamma} \left(\eta + \tfrac{\beta^2}{\eta} \right) \frac{\beta + \sqrt{\beta^2 + (\gamma-\eta)^2}}{2\beta}
+\eqqcolon c_1(\gamma), 
+\quad & 0 < \gamma \leq \eta + \tfrac{\beta^2}{\eta},
+\\[3ex]
+\displaystyle
+\frac{\beta + \sqrt{\beta^2 + (\gamma-\eta)^2}}{2\beta}
+\eqqcolon c_2(\gamma), 
+\quad &\eta + \tfrac{\beta^2}{\eta} \leq \gamma < \infty 
+\end{cases}.
+\end{align}
+Now, we want to find the minimizer $\gamma_*$ of the condition number $c$ as defined in \eqref{eq:gam_opt}.\footnote{But now we don't restrict $\gamma$ to the interval $(\eta, \eta^2 + \beta^2)$, but only assume $\gamma > 0$.} Let's start with the easiest case, $c_2$. Clearly $c_2$ is an increasing function over the interval for which it is defined, and, so, it's minimum is achieved at the left boundary of its domain,
+\begin{align*}
+\eta + \frac{\beta^2}{\eta} = \underset{\eta + \tfrac{\beta^2}{\eta} \leq  \gamma < \infty}{\textnormal{argmin}} c_2(\gamma),
+\end{align*}
+and its minimum value is given by
+\begin{align} 
+\label{eq:c2_min}
+c_2\left(\eta + \frac{\beta^2}{\eta} \right) = \frac{1}{2} \left( 1 + \sqrt{1 + \left( \frac{\beta}{\eta} \right)^2} \right).
+\end{align}
+Now consider the other branch of $c$ \eqref{eq:condc}, $c_1$. 
+%
+Differentiating $c_1$ and solving for the roots of its derivative, we find the two following critical points of $c_1$:
+\begin{align*}
+\gamma = \eta, \quad {\rm and} \quad \gamma = \eta \frac{\eta^2 + \beta^2}{\eta^2 - \beta^2} = \hat{\gamma}.
+\end{align*}
+We can discard $\hat{\gamma}$ as a point of interest since it lies outside of $(0, \eta + \beta^2/\eta)$, as discussed previously when it arose earlier in the analysis in \eqref{eq:gamma_hat}.
+Evaluating the function at the first critical point $\gamma = \eta$ we have
+\begin{align}
+\label{eq:c1_non-opt}
+c_1(\eta) = 1 + \left( \frac{\beta}{\eta} \right)^2.
+\end{align}
+Now let's consider $c_2$ at the end points of its domain: $\lim_{\gamma \to 0} c_1(\gamma) \to \infty$, and, by the continuity of $c$ in  \eqref{eq:condc}, $c_1 = c_2$  at $\gamma = \eta + \beta^2/\eta$, which is given in \eqref{eq:c2_min}. 
+%
+Finally, note that
+\begin{align*}
+\frac{1}{2} \left( 1 + \sqrt{1 + \left( \frac{\beta}{\eta} \right)^2} \right) < 1 + \left( \frac{\beta}{\eta} \right)^2
+\end{align*}
+for all $\beta, \eta$.  As such, the piecewise defined condition number \eqref{eq:condc} is minimized along the boundary $\gamma = \eta + \beta^2 / \eta$ independently of $\beta$ and $\eta$. That is,
+\begin{align}
+\gamma_* 
+= 
+\underset{0 < \gamma < \infty}{\textnormal{argmin}} \; \textnormal{cond} \left((\gamma I- \widehat{\mathcal{L}})^{-1}S\right) 
+= 
+\eta + \frac{\beta^2}{\eta},
+\end{align}
+and
+\begin{align} \label{eq:cond_min}
+\textnormal{cond}\left((\gamma_* I- \widehat{\mathcal{L}})^{-1}S\right)
+=
+\frac{1}{2} \left( 1 + \sqrt{1 + \left( \frac{\beta}{\eta} \right)^2} \right).
+\end{align}
+
+While condition number \eqref{eq:cond_min} is not bounded w.r.t. $\beta/\eta$, it is very small in practice as shown in Table \ref{tab:cond}, where for the schemes we consider it's always less than 2. For example, the condition number is less than 2 for $(\beta/\eta)^2 < 8$. See also Figure \ref{fig:conds} for a comparison of the condition number using $\gamma_*$ vs. $\eta$.
+{
+\renewcommand{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.15}
+\begin{table}[!ht]
+  \centering
+  \begin{tabular}{| c | c | c | cc | cc | ccc |}  % chktex 44
+  \hline
+Method & Stages & 2 & \multicolumn{2}{c}{3} & \multicolumn{2}{|c}{4} & \multicolumn{3}{|c|}{5} \\\hline\hline
+\multirow{ 3}{*}{Gauss}
+&$\beta^2/\eta^2$ & 0.33 & 0 & 0.91 & 1.59 & 0.09 & 0 & 2.36 & 0.27 \\
+&$\textnormal{cond}\big((\gamma_* I- \widehat{\mathcal{L}})^{-1}S\big)$ & 1.077 & -- & 1.191 & 1.305 & 1.022 & -- & 1.43 & 1.064\\
+&$\textnormal{cond}\big((\eta I- \widehat{\mathcal{L}})^{-1}S\big)$ & 1.330 & -- & 1.910 & 2.590 & 1.090 & -- & 3.460 & 1.270\\\hline
+\multirow{ 3}{*}{Radau IIA}
+&$\beta^2/\eta^2$ & 0.50 & 0 & 1.29 & 2.21 & 0.11 & 0 & 3.20 & 0.32	\\
+&$\textnormal{cond}\big((\gamma_* I- \widehat{\mathcal{L}})^{-1}S\big)$ & 1.112 & -- & 1.257 & 1.396 & 1.027 & -- & 1.525 & 1.075\\
+&$\textnormal{cond}\big((\eta I- \widehat{\mathcal{L}})^{-1}S\big)$ & 1.500 & -- & 2.290 & 3.210 & 1.110 & -- & 4.200 & 1.320\\\hline
+\multirow{ 3}{*}{Lobatto IIIC}
+&$\beta^2/\eta^2$ & 1 & 0 & 2.21 & 3.51 & 0.13 & 0 & 4.88 & 0.38 \\
+&$\textnormal{cond}\big((\gamma_* I- \widehat{\mathcal{L}})^{-1}S\big)$ & 1.207 & -- & 1.396 & 1.562 & 1.032 & -- & 1.712 & 1.087\\
+&$\textnormal{cond}\big((\eta* I- \widehat{\mathcal{L}})^{-1}S\big)$ & 2.000 & -- & 3.210 & 4.510 & 1.130 & -- & 5.880 & 1.380\\
+  \hline
+  \end{tabular}
+  \caption{$\beta^2/\eta^2$, values of the optimal condition number $\textnormal{cond}\big((\gamma_* I- \widehat{\mathcal{L}})^{-1}S\big)$ as defined in \eqref{eq:cond_min}, and values of the non-optimal condition number $\textnormal{cond}\big((\eta I- \widehat{\mathcal{L}})^{-1}S\big)$. Entries for which $\beta =  0$ are marked with a ``--''.}\label{tab:cond}
+\end{table}
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width = 0.7\textwidth]{conds}
+\caption{Optimal ($\gamma = \gamma_*$) and non-optimal ($\gamma = \eta$) condition numbers \eqref{eq:c1_non-opt} and \eqref{eq:cond_min} as a function of $\beta^2/\eta^2$. }
+\label{fig:conds}
+\end{figure}
+
+It's interesting to note that $\gamma_*$ does not depend on $\eta$ nor $\beta$. However, note that for $\beta < \eta$, we're unlikely to see any large difference in choosing $\gamma = \eta$ over $\gamma = \gamma_*$:
+\begin{align}
+\textnormal{cond}\left((\eta I- \widehat{\mathcal{L}})^{-1}S\right)
+-
+\textnormal{cond}\left((\gamma_* I- \widehat{\mathcal{L}})^{-1}S\right)
+=
+\frac{3}{4} \left( \frac{\beta}{\eta} \right)^2 + {\cal O}\left( \frac{\beta}{\eta} \right)^4 = {\cal O} \left( \frac{\beta}{\eta} \right)^2.
+\end{align}
+If using a simplified Newton algorithm, or solving a linear problem using this $2 \times 2$ formulation, one could possibly save some work by setting $\gamma = \eta$ so that the preconditioner for the (1,1) block could also be used on this Schur complement.
+
 
 \end{document}
 
 
-
-
-
+ 
 % % ---------------------------------------------------------------------------------------------- %
 % % ---------------------------------------------------------------------------------------------- %
 % % ---------------------------------------------------------------------------------------------- %
