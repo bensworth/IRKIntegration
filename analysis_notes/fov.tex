@@ -140,7 +140,14 @@ $2\tfrac{\gamma-\eta}{\gamma^2}\langle (\mathcal{L}+\mathcal{L}^T)
 Together, this yields
 %
 \begin{align*}
-\|\mathcal{P}_\gamma\| \leq 1 + \frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}.
+\|\mathcal{P}_\gamma\| \leq 1 + \frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2},
+\end{align*}
+%
+with two particular cases of interest
+%
+\begin{align*}
+\|\mathcal{P}_\eta\| & \leq 1 + \frac{\beta^2}{\eta^2}, \\
+\|\mathcal{P}_{\gamma_*}\| & \leq 3 - 2\frac{\eta}{\sqrt{\eta^2+\beta^2}}.
 \end{align*}
 %
 
@@ -163,7 +170,7 @@ s_{\min}(A) = \min_{\mathbf{v}\neq\mathbf{0}} \frac{\|A\mathbf{v}\|}{\|\mathbf{v
 Then, consider the minimum singular value of $P_\gamma$. Letting $\mathbf{v} :=
 (I - \tfrac{1}{\gamma}\mathcal{L})^{2}\mathbf{w}$,
 %
-\begin{align*}
+\begin{align}\nonumber
 s_{\min}(\mathcal{P}_\gamma)^2 & = \min_{\mathbf{v}\neq\mathbf{0}}
 	\frac{\left\| \left[I - 2\frac{\gamma-\eta}{\gamma}(I - \tfrac{1}{\gamma}
 		\mathcal{L})^{-1} + \frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}
@@ -173,23 +180,274 @@ s_{\min}(\mathcal{P}_\gamma)^2 & = \min_{\mathbf{v}\neq\mathbf{0}}
 	\frac{\left\| \left[(I - \tfrac{1}{\gamma}\mathcal{L})^{2} - 2\frac{\gamma-\eta}{\gamma}
 		(I - \tfrac{1}{\gamma} \mathcal{L}) + \frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2} I
 		\right]\mathbf{w} \right\|^2}
-	{\|(I - \tfrac{1}{\gamma}\mathcal{L})^{2}\mathbf{w}\|^2} \\
+	{\|(I - \tfrac{1}{\gamma}\mathcal{L})^{2}\mathbf{w}\|^2} \nonumber\\
 & = \min_{\mathbf{v}\neq\mathbf{0}}
 	\frac{\left\| \left[(I - \tfrac{1}{\gamma}\mathcal{L})^{2} + 
 		\tfrac{\eta^2+\beta^2-\gamma^2}{\gamma^2} I + 2\frac{\gamma-\eta}{\gamma^2}
 		\mathcal{L}) \right]\mathbf{w} \right\|^2}
-	{\|(I - \tfrac{1}{\gamma}\mathcal{L})^{2}\mathbf{w}\|^2} \\
+	{\|(I - \tfrac{1}{\gamma}\mathcal{L})^{2}\mathbf{w}\|^2}.\label{eq:min0}
+\end{align}
+%
+Deriving bounds on the above operator for general $\gamma$ is quite difficult.
+However, we will consider two representative cases.
+
+
+% ---------------------------------------------------------------------------------------------- %
+\subsubsection{$\gamma = \sqrt{\eta^2+\beta^2}$}
+
+Consider the choice of $\gamma = \gamma_* = \sqrt{\eta^2+\beta^2}$. Recall $\gamma_*$
+is optimal when $\mathcal{L}$ is SPD with spectrum $\subset[0,\infty)$. It turns out,
+$\gamma_*$ provides a unique simplification here as well. From \eqref{eq:min0}, we have
+%
+\begin{align*}
+s_{\min}(\mathcal{P}_{\gamma_*})^2 & = \min_{\mathbf{w}\neq\mathbf{0}}
+	\frac{\left\| \left[(I - \tfrac{1}{\gamma_*}\mathcal{L})^{2} + 
+		2\frac{\gamma_*-\eta}{\gamma_*^2} \mathcal{L}) \right]\mathbf{w} \right\|^2}
+	{\|(I - \tfrac{1}{\gamma_*}\mathcal{L})^{2}\mathbf{w}\|^2} \\
+& = \min_{\mathbf{w}\neq\mathbf{0}}
+	\frac{\| (I - \tfrac{1}{\gamma_*}\mathcal{L})^{2}\mathbf{w}\|^2 + 
+		4(\frac{\gamma_*-\eta}{\gamma_*^2})^2\|\mathcal{L}\mathbf{w} \|^2 +
+	4\frac{\gamma_*-\eta}{\gamma_*^2}\left\langle (I - \tfrac{2}{\gamma_*}\mathcal{L}+
+		\tfrac{1}{\gamma_*^2}\mathcal{L}^2)\mathbf{w}, \mathcal{L}\mathbf{w}\right\rangle}
+	{\|(I - \tfrac{1}{\gamma_*}\mathcal{L})^{2}\mathbf{w}\|^2} \\
+& = \min_{\mathbf{w}\neq\mathbf{0}} 1 +
+	\frac{\left(4(\frac{\gamma_*-\eta}{\gamma_*^2})^2 - 8\frac{\gamma_*-\eta}{\gamma_*^3}\right)
+		\|\mathcal{L}\mathbf{w} \|^2 +
+	4\frac{\gamma_*-\eta}{\gamma_*^2}\langle\mathcal{L}\mathbf{w},\mathbf{w}\rangle 
+	+ 4\frac{\gamma_*-\eta}{\gamma_*^4}\langle\mathcal{L}(\mathcal{L}\mathbf{w}),
+		\mathcal{L}\mathbf{w}\rangle}
+	{\|\mathbf{w}\|^2 + \tfrac{4}{\gamma_*^2}\|\mathcal{L}\mathbf{w}\|^2 +
+		\frac{1}{\gamma_*^4}\|\mathcal{L}^2\mathbf{w}\|^2 - 
+		\tfrac{4}{\gamma_*}\langle\mathcal{L}\mathbf{w},\mathbf{w}\rangle +
+		\tfrac{2}{\gamma_*^2}\langle\mathcal{L}^2\mathbf{w},\mathbf{w}\rangle -
+		\tfrac{4}{\gamma_*^3}\langle\mathcal{L}(\mathcal{L}\mathbf{w}),\mathcal{L}\mathbf{w}\rangle}\\
+& = \min_{\mathbf{w}\neq\mathbf{0}} 1 -
+	\frac{\left(8\frac{\gamma_*-\eta}{\gamma_*^3} - 4(\frac{\gamma_*-\eta}{\gamma_*^2})^2\right)
+		\|\mathcal{L}\mathbf{w} \|^2
+	- 4\frac{\gamma_*-\eta}{\gamma_*^2}\langle\mathcal{L}\mathbf{w},\mathbf{w}\rangle 
+	- 4\frac{\gamma_*-\eta}{\gamma_*^4}\langle\mathcal{L}(\mathcal{L}\mathbf{w}),
+		\mathcal{L}\mathbf{w}\rangle}
+	{\|\mathbf{w}+\tfrac{1}{\gamma_*^2}\mathcal{L}^2\mathbf{w}\|^2 +
+		\tfrac{4}{\gamma_*^2}\|\mathcal{L}\mathbf{w}\|^2 -
+		\tfrac{4}{\gamma_*}\langle\mathcal{L}\mathbf{w},\mathbf{w}\rangle -
+		\tfrac{4}{\gamma_*^3}\langle\mathcal{L}(\mathcal{L}\mathbf{w}),\mathcal{L}\mathbf{w}\rangle}\\
+& \geq 1 - \max_{\mathbf{v}\not\in\textnormal{ker}(\mathcal{L})}
+	\frac{\left(8\frac{\gamma_*-\eta}{\gamma_*^3} - 4(\frac{\gamma_*-\eta}{\gamma_*^2})^2\right)
+		\|\mathcal{L}\mathbf{w} \|^2
+	- 4\frac{\gamma_*-\eta}{\gamma_*^2}\langle\mathcal{L}\mathbf{w},\mathbf{w}\rangle 
+	- 4\frac{\gamma_*-\eta}{\gamma_*^4}\langle\mathcal{L}(\mathcal{L}\mathbf{w}),
+		\mathcal{L}\mathbf{w}\rangle}
+	{\tfrac{4}{\gamma_*^2}\|\mathcal{L}\mathbf{w}\|^2 -
+		\tfrac{4}{\gamma_*}\langle\mathcal{L}\mathbf{w},\mathbf{w}\rangle -
+		\tfrac{4}{\gamma_*^3}\langle\mathcal{L}(\mathcal{L}\mathbf{w}),\mathcal{L}\mathbf{w}\rangle},
+\end{align*}
+%
+where in the last step we note that if $\mathcal{L}\mathbf{w} = \mathbf{0}$, the only
+nonzero term is $\|\mathbf{w}+\tfrac{1}{\gamma_*^2}\mathcal{L}^2\mathbf{w}\|^2 = \|\mathbf{w}\|^2$
+in the denominator, which yields one for the full equation.
+
+Now note that all of the terms in the numerator and denominator are non-negative,
+and we can bound the maximum from above by ensuring the leading numerator and
+denominator constants, say $c_n$ and $c_d$, satisfy $c_n/c_d \leq K$. For
+$\|\mathcal{L}\mathbf{w}\|^2$, we require
+%
+\begin{align}\nonumber
+\left(8\frac{\gamma_*-\eta}{\gamma_*^3} - 4\Big(\frac{\gamma_*-\eta}{\gamma_*^2}\Big)^2\right)
+	& \leq \frac{4}{\gamma_*^2}K, \\
+\Longleftrightarrow\hspace{5ex}
+\left(2\frac{\gamma_*-\eta}{\gamma_*} - \Big(\frac{\gamma_*-\eta}{\gamma_*}\Big)^2\right)
+	& \leq K
+	\hspace{5ex}\Longleftrightarrow\hspace{5ex}
+1 - \frac{\eta^2}{\gamma_*^2}\leq K.\label{eq:Kproof}
+\end{align}
+%
+Similarly, $\langle\mathcal{L}\mathbf{w},\mathbf{w}\rangle $ requires
+%
+\begin{align}
+4\frac{\gamma_*-\eta}{\gamma_*^2} & \leq \frac{4}{\gamma_*}K
+	\hspace{5ex}\Longleftrightarrow\hspace{5ex}
+	1 - \frac{\eta}{\gamma_*} \leq K, \label{eq:Kproof2}
+\end{align}
+%
+and $\langle\mathcal{L}(\mathcal{L}\mathbf{w}),\mathcal{L}\mathbf{w}\rangle $ requires
+%
+\begin{align*}
+4\frac{\gamma_*-\eta}{\gamma_*^4} & \leq \frac{4}{\gamma_*^3}K
+	\hspace{5ex}\Longleftrightarrow\hspace{5ex}
+	1 - \frac{\eta}{\gamma_*} \leq K.
 \end{align*}
 %
 
-\tcb{Come to think, suppose $\gamma = \eta$. This cancels the $\mathcal{L}$ 
-perturbation term in the numerator above and
-leaves an identity perturbation. But, if $(I - \tfrac{1}{\gamma}\mathcal{L})$ has
-purely imaginary eigenvalues, $(I - \tfrac{1}{\gamma}\mathcal{L})^{2}$ has
-negative eigenvalues, and we can construct one of magnitude
-$\tfrac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}$, which makes the 
-numerator zero.}
+Because $\gamma_* >\eta$, the largest $K$ is in \eqref{eq:Kproof}, where we define
+$K = \frac{\beta^2}{\eta^2+\beta^2} = 1 - \tfrac{\eta^2}{\gamma_*^2} >
+1 - \tfrac{\eta}{\gamma}$. Altogether, this yields
+$s_{\min}(P_{\gamma_*}^{-1})^2 \geq 1 - K$, and
+%
+\begin{align*}
+\|P_{\gamma_*}^{-1}\| & = \frac{1}{s_{\min}(P_{\gamma_*}^{-1})} 
+	\leq \frac{1}{\sqrt{1 - K}} 
+	= \sqrt{1 + \frac{\beta^2}{\eta^2}}.
+\end{align*}
+%
 
+It is worth noting that in practice, $\|P_{\gamma_*}^{-1}\|$ is likely
+smaller and more independent of $\eta$ and $\beta$.
+
+% ---------------------------------------------------------------------------------------------- %
+\subsubsection{General $\gamma$}
+
+Here we consider conditioning using general $\gamma$. For ease of notation, define
+%
+\begin{align*}
+c_I & := \tfrac{\eta^2+\beta^2-\gamma^2}{\gamma^2} , \hspace{5ex}
+c_{\mathcal{L}} := 2\frac{\gamma-\eta}{\gamma^2}.
+\end{align*}
+%
+Now, collect terms in \eqref{eq:min0} and expand the norm to yield
+%
+\begin{align*}
+& s_{\min}(\mathcal{P}_\gamma)^2 \\
+& = \min_{\mathbf{w}\neq\mathbf{0}}
+	\frac{\left\| \left[(1+c_I)I - (\tfrac{2}{\gamma}-c_{\mathcal{L}})\mathcal{L} +
+		\tfrac{1}{\gamma^2}\mathcal{L}^2\right]\mathbf{w} \right\|^2}
+	{\left\|\left(I - \tfrac{2}{\gamma}\mathcal{L} +
+		\tfrac{1}{\gamma^2}\mathcal{L}^2\right)\mathbf{w} \right\|^2} \\
+& =  \min_{\mathbf{w}\neq\mathbf{0}}
+	\frac{\|(1+c_I)\mathbf{w}+\tfrac{1}{\gamma^2}\mathcal{L}^2\mathbf{w}\|^2 +
+		(\tfrac{2}{\gamma}-c_{\mathcal{L}})^2\|\mathcal{L}\mathbf{w}\|^2 -
+		2(1+c_I)(\tfrac{2}{\gamma}-c_{\mathcal{L}})\langle\mathcal{L}\mathbf{w},\mathbf{w}\rangle -
+		2\tfrac{2-\gamma c_{\mathcal{L}}}{\gamma^3}\langle\mathcal{L}(\mathcal{L}\mathbf{w}),
+			\mathcal{L}\mathbf{w}\rangle}
+	{\|\mathbf{w}+\tfrac{1}{\gamma^2}\mathcal{L}^2\mathbf{w}\|^2 +
+		\tfrac{4}{\gamma^2}\|\mathcal{L}\mathbf{w}\|^2 -
+		\tfrac{4}{\gamma}\langle\mathcal{L}\mathbf{w},\mathbf{w}\rangle -
+		\tfrac{4}{\gamma^3}\langle\mathcal{L}(\mathcal{L}\mathbf{w}),\mathcal{L}\mathbf{w}\rangle}.
+\end{align*}
+%
+Note that by assumption on $\mathcal{L}\leq 0$, all terms in the numerator an
+denominator are non-negative. For numerator $\mathcal{N}$ and denominator
+$\mathcal{D}$, if $\widehat{K}\mathcal{N} \geq \mathcal{D}$, then
+$\mathcal{N}/\mathcal{D} \geq 1 / \widehat{K}$. For 
+$\|\mathcal{L}\mathbf{w}\|^2$, $\langle\mathcal{L}\mathbf{w},\mathbf{w}\rangle$,
+and $\langle\mathcal{L}(\mathcal{L}\mathbf{w}),\mathcal{L}\mathbf{w}\rangle$,
+we can directly bound the ratio of constants in the numerator and denominator.
+For $\|\mathcal{L}\mathbf{w}\|^2$, we have
+%
+\begin{align*}
+\widehat{K}(\tfrac{2}{\gamma}-c_{\mathcal{L}})^2 \geq \frac{4}{\gamma^2}
+	\hspace{5ex}\Longleftrightarrow\hspace{5ex}
+\widehat{K} \geq \frac{\gamma^2}{\eta^2},
+\end{align*}
+%
+while $\langle\mathcal{L}\mathbf{w},\mathbf{w}\rangle$ requires
+%
+\begin{align*}
+2\widehat{K}(1+c_I)(\tfrac{2}{\gamma}-c_{\mathcal{L}})\geq \frac{4}{\gamma},
+	\hspace{5ex}\Longleftrightarrow\hspace{5ex}
+\widehat{K} \geq \frac{\gamma^3}{\eta(\eta^2+\beta^2)},
+\end{align*}
+%
+and $\langle\mathcal{L}(\mathcal{L}\mathbf{w}),\mathcal{L}\mathbf{w}\rangle$
+requires
+%
+\begin{align*}
+2\widehat{K}\tfrac{2-\gamma c_{\mathcal{L}}}{\gamma^3} \leq \frac{4}{\gamma^3},
+	\hspace{5ex}\Longleftrightarrow\hspace{5ex}
+\widehat{K} \geq \frac{\gamma}{\eta}.
+\end{align*}
+%
+Because we want a lower bound on $\mathcal{N}/\mathcal{D} \geq 1/\widehat{K}$,
+we seek the maximum required $\widehat{K}$ of the above ratios. For
+$\gamma \in[\eta,\tfrac{\eta^2+\beta^2}{\eta}]$, the maximum of the
+above ratios ends up being $\widehat{K} := \tfrac{\gamma^2}{\eta^2}$.
+
+The difficult ratio ends
+up being $\|(1+c_I)\mathbf{w}+\tfrac{1}{\gamma^2}\mathcal{L}^2\mathbf{w}\|^2$ and the
+similar denominator term, $\|\mathbf{w}+\tfrac{1}{\gamma^2}\mathcal{L}^2\mathbf{w}\|^2$.
+Given we are minimizing over real vectors, we can write $\langle\mathcal{L}^2\mathbf{w},
+\mathbf{w} \rangle := \cos(\theta)\|\mathcal{L}^2\mathbf{w}\|\|\mathbf{w}\|$ for some
+angle $\theta$. Taking the ratio of these individual terms then yields
+%
+\begin{align}\label{eq:problem}
+\frac{\|(1+c_I)\mathbf{w}+\tfrac{1}{\gamma^2}\mathcal{L}^2\mathbf{w}\|^2}
+	{\|\mathbf{w}+\tfrac{1}{\gamma^2}\mathcal{L}^2\mathbf{w}\|^2}
+& = \frac{(1+c_I)^2\|\mathbf{w}\|^2+\tfrac{1}{\gamma^4}\|\mathcal{L}^2\mathbf{w}\|^2
+	+ 2\cos(\theta)(1+c_I)\|\mathcal{L}^2\mathbf{w}\|\|\mathbf{w}\|}
+	{\|\mathbf{w}\|^2+\tfrac{1}{\gamma^4}\|\mathcal{L}^2\mathbf{w}\|^2
+	+ 2\cos(\theta)\|\mathcal{L}^2\mathbf{w}\|\|\mathbf{w}\|}.
+\end{align}
+%
+Letting $x := \tfrac{\|\mathcal{L}\mathbf{w}\|}{\|\mathbf{w}\|}$, we can
+cancel a $1/\|\mathbf{w}\|^2$ from the numerator and denominator, and
+write \eqref{eq:problem} as a ratio of quadratic functions in $x \geq 0$:
+%
+\begin{align}\label{eq:x_simp}
+\frac{x^2 + 2\cos(\theta)(1+c_I)x + (1+c_I)^2}{x^2 + 2\cos(\theta)x + 1}.
+\end{align}
+%
+Clearly for $c_I\geq 0$ (corresponding to $\gamma \leq\sqrt{\eta^2+\beta^2}$)
+and $\cos(\theta)\geq 0$, \eqref{eq:x_simp} is $\geq 1$ for all $x$. It is
+also clear in \eqref{eq:x_simp} why choosing $\gamma > \sqrt{\eta^2+\beta^2}
+\implies c_I < 0$ does not appear to be advantageous, at least for this term,
+as the ratio in \eqref{eq:x_simp} is then $<1$ for all $x\geq 0$, which
+requires a larger $\widehat{K}$ and, thus, smaller bound on
+$s_{\min}(\mathcal{P}_\gamma)$.
+
+%%%%%
+\textbf{Positive $\mathcal{L}^2$}: Suppose $\mathcal{L}^2 \geq 0$ in a field
+of values sense and $\gamma \leq \sqrt{\eta^2+\beta^2}$. Then the ratio in
+\eqref{eq:problem} is always $\geq 1$ (that is, $\widehat{K}=1$ is sufficient
+to bound $\widehat{K}\mathcal{N} \geq \mathcal{D}$) and the maximum required
+$\widehat{K}$ is given by $\widehat{K} = \tfrac{\gamma^2}{\eta^2}$. Altogether,
+this yields
+%
+\begin{align}\label{eq:gen_bound}
+\|P_{\gamma}^{-1}\| & = \frac{1}{s_{\min}(P_{\gamma}^{-1})} 
+	\leq \frac{1}{1/\sqrt{\widehat{K}}} 
+	= \frac{\gamma}{\eta}.
+\end{align}
+
+%%%%%
+$\boldsymbol{\gamma_* = \sqrt{\eta^2+\beta^2}}$: Under this specific choice, we
+get the nice cancellation that $c_I = 0$. Then, \eqref{eq:x_simp} equals one,
+and we can again refer to the $\widehat{K}$ derived previously, and the bound
+in \eqref{eq:gen_bound}
+%
+\begin{align}\label{eq:gammas_bound}
+\|P_{\gamma}^{-1}\| & = \frac{\sqrt{\eta^2+\beta^2}}{\eta} =
+	\sqrt{1+\frac{\beta^2}{\eta^2}}.
+\end{align}
+%
+Fortunately, this is consistent with the previous section where we specifically
+focus on $\gamma_* = \sqrt{\eta^2+\beta^2}$ using a slightly modified derivation.
+
+
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+\subsection{Combining bounds}
+
+For $\mathcal{L}^2 \geq 0$ or $\gamma = \gamma_* = \sqrt{\eta^2+\beta^2}$
+(regardless of properties of $\mathcal{L}^2$), we have
+%
+\begin{align*}
+\textnormal{cond}(\mathcal{P}_\gamma) \leq \frac{\gamma}{\eta}
+	\left(1 + \frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}\right).
+\end{align*}
+%
+For the specific choice $\gamma = \gamma_*$, this simplifies to
+%
+\begin{align*}
+\textnormal{cond}(\mathcal{P}_{\gamma_*}) \leq 
+	3\sqrt{1+\frac{\beta^2}{\eta^2}} - 2.
+\end{align*}
+%
+Under the additional assumption of $\mathcal{L}^2 \geq 0$, $\gamma = \eta$
+yields bounds
+%
+\begin{align*}
+\textnormal{cond}(\mathcal{P}_{\gamma_*}) \leq 1 + \frac{\beta^2}{\eta^2}.
+\end{align*}
+%
 
 
 % ---------------------------------------------------------------------------------------------- %
