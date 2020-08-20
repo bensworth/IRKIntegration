@@ -22,6 +22,7 @@
   citecolor   = red %Colour of citations
 }
 \usepackage{cleveref}
+\usepackage{multirow}
 
 
 \newtheorem{lemma}{Lemma}
@@ -36,6 +37,418 @@
 
 \begin{document}
 \allowdisplaybreaks
+
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+\section{New linear theory}
+
+Consider a similar preconditioner as in
+\Cref{sec:solve:inv}, but with some constant $\gamma \mapsto
+(\gamma I - \widehat{\mathcal{L}})^{-2}$. The resulting preconditioned
+operator takes the form
+%
+\begin{align}\nonumber
+\mathcal{P}_\gamma & =
+(\gamma I - \mathcal{L})^{-2}\Big[(nI - \mathcal{L})^2 + \beta^2 I\Big] \\ \nonumber
+& = (\gamma I - \mathcal{L})^{-2}\Big[((\eta-\gamma)I + (\gamma I - \mathcal{L}))^2 + \beta^2 I\Big] \\
+% & = (\gamma I - \mathcal{L})^{-2}\Big[(\gamma-\eta)^2I - 2(\gamma-\eta)(\gamma I - \mathcal{L}) +
+% 	(\gamma I - \mathcal{L})^2 + \beta^2 I\Big] \nonumber\\
+& = I - 2(\gamma-\eta)(\gamma I - \mathcal{L})^{-1} + (\beta^2 + (\gamma-\eta)^2)(\gamma I -
+	\mathcal{L})^{-2} \nonumber\\
+& = I - 2\frac{\gamma-\eta}{\gamma}\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1} +
+	\frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}
+	\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-2}.\label{eq:prec_k}
+\end{align}
+%
+Note that in \eqref{eq:prec_k} we have a quadratic polynomial in
+$(I - \tfrac{1}{\gamma}\mathcal{L})^{-1}$. Although this provides
+nice structure, the field of values analysis applied in \Cref{sec:solve:inv}
+becomes much more complicated due to no necessary relation between
+$\langle A\mathbf{x},\mathbf{x}\rangle$ and
+$\langle A^2\mathbf{x},\mathbf{x}\rangle$ for general operators $A$. Thus, here
+we take a different approach, analyzing the condition number of the preconditioned
+operator, $\mathcal{P}_\gamma$, similar to as done for SPD matrices in \cite{exh}.
+Although the conditioning does not yield immediate GMRES bounds as the field of values
+analysis does (or as conditioning does for bounds on CG convergence), it still
+provides a robust measure of the effectiveness and scalability of the
+preconditioner.
+Moving forward we will limit ourselves to considering $\eta \leq \gamma \leq \
+\tfrac{\eta^2+\beta^2}{\eta}$, which limits to the natural case of $\gamma = \eta$
+as $\beta \to 0$.
+
+First, consider bounding $\|\mathcal{P}_\gamma\|$:
+%
+\begin{align*}
+\|\mathcal{P}_\gamma\| & = \left\| I - 2\frac{\gamma-\eta}
+	{\gamma}\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1} +
+		\frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}
+		\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-2} \right\| \\
+& \leq \left\| I - 2\frac{\gamma-\eta}
+	{\gamma}\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\right\| +
+		\frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}\left\|
+		\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-2} \right\| \\
+& \leq \left\| I - 2\frac{\gamma-\eta}
+	{\gamma}\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\right\| +
+		\frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}\left\|
+		\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1} \right\|^2 \\
+& \leq \left\| I - 2\frac{\gamma-\eta}
+	{\gamma}\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\right\| +
+		\frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}.
+\end{align*}
+%
+For the first term, note that maximizing over $\mathbf{v}\in\mathbb{R}^n$ and
+letting $\mathbf{v} := (I - \tfrac{1}{\gamma}\mathcal{L})\mathbf{w}$,
+%
+\begin{align*}
+\left\| I - 2\tfrac{\gamma-\eta}
+	{\gamma}(I - \tfrac{1}{\gamma}\mathcal{L})^{-1}\right\|^2
+		& = \sup_{\mathbf{v}\neq\mathbf{0}} \frac{\left\| [I - 2\frac{\gamma-\eta}
+	{\gamma}(I - \tfrac{1}{\gamma}\mathcal{L})^{-1}]\mathbf{v}\right\|^2}{\|\mathbf{v}\|^2} \\
+& = \sup_{\mathbf{w}\neq\mathbf{0}} \frac{\left\| (I - \tfrac{1}{\gamma}\mathcal{L} -
+		2\frac{\gamma-\eta}{\gamma}I )\mathbf{w}\right\|^2}{\|(I - \tfrac{1}{\gamma}\mathcal{L})
+		\mathbf{w}\|^2} \\
+& = \sup_{\mathbf{w}\neq\mathbf{0}} \frac{\left\|[(1 - 2\frac{\gamma-\eta}{\gamma})
+	I - \tfrac{1}{\gamma}\mathcal{L}]\mathbf{w}\right\|^2}{\|(I - \tfrac{1}{\gamma}\mathcal{L})
+		\mathbf{w}\|^2} \\
+& = \sup_{\mathbf{w}\neq\mathbf{0}} \frac{|1 - 2\tfrac{\gamma-\eta}{\gamma}|^2\|\mathbf{w}\|^2
+	- \tfrac{1}{\gamma}(1 - 2\tfrac{\gamma-\eta}{\gamma})\langle (\mathcal{L} + \mathcal{L}^T)
+		\mathbf{w},\mathbf{w}\rangle + \tfrac{1}{\gamma}^2\|\mathcal{L}\mathbf{w}\|^2}
+	{\|\mathbf{w}\|^2 - \tfrac{1}{\gamma}\langle (\mathcal{L} + \mathcal{L}^T)
+		\mathbf{w},\mathbf{w}\rangle + \tfrac{1}{\gamma}^2\|\mathcal{L}\mathbf{w}\|^2}.
+\end{align*}
+%
+Note that by assumption, $\gamma \geq \eta$, which implies
+$0 \leq 2\tfrac{\gamma-\eta}{\gamma}  < 2$, and 
+$|1 - 2\tfrac{\gamma-\eta}{\gamma}| < 1$. In addition, we have that
+$\langle (\mathcal{L}+\mathcal{L}^T)\mathbf{w},\mathbf{w}\rangle \leq 0$ and
+$2\tfrac{\gamma-\eta}{\gamma^2} \geq 0$, which implies the term
+$2\tfrac{\gamma-\eta}{\gamma^2}\langle (\mathcal{L}+\mathcal{L}^T)
+	\mathbf{w},\mathbf{w}\rangle\leq 0$. Appealing to these two inequalities, we have
+%
+\begin{align*}
+\left\| I - 2\tfrac{\gamma-\eta}
+	{\gamma}(I - \tfrac{1}{\gamma}\mathcal{L})^{-1}\right\|^2
+& < \sup_{\mathbf{w}\neq\mathbf{0}} \frac{\|\mathbf{w}\|^2
+	- \tfrac{1}{\gamma}\langle (\mathcal{L} + \mathcal{L}^T)
+		\mathbf{w},\mathbf{w}\rangle + \tfrac{1}{\gamma}^2\|\mathcal{L}\mathbf{w}\|^2}
+	{\|\mathbf{w}\|^2 - \tfrac{1}{\gamma}\langle (\mathcal{L} + \mathcal{L}^T)
+		\mathbf{w},\mathbf{w}\rangle + \tfrac{1}{\gamma}^2\|\mathcal{L}\mathbf{w}\|^2} 
+= 1.
+\end{align*}
+%
+Together, this yields
+%
+\begin{align*}
+\|\mathcal{P}_\gamma\| \leq 1 + \frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2},
+\end{align*}
+%
+with two particular cases of interest
+%
+\begin{align*}
+\|\mathcal{P}_\eta\| & \leq 1 + \frac{\beta^2}{\eta^2}, \\
+\|\mathcal{P}_{\gamma_*}\| & \leq 3 - 2\frac{\eta}{\sqrt{\eta^2+\beta^2}}.
+\end{align*}
+%
+
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+\subsection{Inverse bounds}
+
+The factorization approach was interesting, but introducing the complex factored
+coefficients immediately means we have to deal with complex vectors in our norms,
+which is a pain. Thus instead, recall the 2-norm of a matrix is the maximum singular
+value, and the maximum singular value of the inverse is given by one over the minimum
+singular value of the operator. In addition, the minimum singular value of $A^{-1}$ is
+defined by
+%
+\begin{align*}
+s_{\max}(A^{-1}) & = \frac{1}{s_{\min}(A)}, \hspace{5ex}
+s_{\min}(A) = \min_{\mathbf{v}\neq\mathbf{0}} \frac{\|A\mathbf{v}\|}{\|\mathbf{v}\|}.
+\end{align*}
+%
+Then, consider the minimum singular value of $P_\gamma$. Letting $\mathbf{v} :=
+(I - \tfrac{1}{\gamma}\mathcal{L})^{2}\mathbf{w}$,
+%
+\begin{align}\nonumber
+s_{\min}(\mathcal{P}_\gamma)^2 & = \min_{\mathbf{v}\neq\mathbf{0}}
+	\frac{\left\| \left[I - 2\frac{\gamma-\eta}{\gamma}(I - \tfrac{1}{\gamma}
+		\mathcal{L})^{-1} + \frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}
+		(I - \tfrac{1}{\gamma}\mathcal{L})^{-2}\right]\mathbf{v} \right\|^2}
+	{\|\mathbf{v}\|^2} \\
+& = \min_{\mathbf{v}\neq\mathbf{0}}
+	\frac{\left\| \left[(I - \tfrac{1}{\gamma}\mathcal{L})^{2} - 2\frac{\gamma-\eta}{\gamma}
+		(I - \tfrac{1}{\gamma} \mathcal{L}) + \frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2} I
+		\right]\mathbf{w} \right\|^2}
+	{\|(I - \tfrac{1}{\gamma}\mathcal{L})^{2}\mathbf{w}\|^2} \nonumber\\
+& = \min_{\mathbf{v}\neq\mathbf{0}}
+	\frac{\left\| \left[(I - \tfrac{1}{\gamma}\mathcal{L})^{2} + 
+		\tfrac{\eta^2+\beta^2-\gamma^2}{\gamma^2} I + 2\frac{\gamma-\eta}{\gamma^2}
+		\mathcal{L}) \right]\mathbf{w} \right\|^2}
+	{\|(I - \tfrac{1}{\gamma}\mathcal{L})^{2}\mathbf{w}\|^2}.\label{eq:min0}
+\end{align}
+%
+Deriving bounds on the above operator for general $\gamma$ is quite difficult.
+However, we will consider two representative cases.
+
+
+% ---------------------------------------------------------------------------------------------- %
+\subsubsection{$\gamma = \sqrt{\eta^2+\beta^2}$}
+
+Consider the choice of $\gamma = \gamma_* = \sqrt{\eta^2+\beta^2}$. Recall $\gamma_*$
+is optimal when $\mathcal{L}$ is SPD with spectrum $\subset[0,\infty)$. It turns out,
+$\gamma_*$ provides a unique simplification here as well. From \eqref{eq:min0}, we have
+%
+\begin{align*}
+s_{\min}(\mathcal{P}_{\gamma_*})^2 & = \min_{\mathbf{w}\neq\mathbf{0}}
+	\frac{\left\| \left[(I - \tfrac{1}{\gamma_*}\mathcal{L})^{2} + 
+		2\frac{\gamma_*-\eta}{\gamma_*^2} \mathcal{L}) \right]\mathbf{w} \right\|^2}
+	{\|(I - \tfrac{1}{\gamma_*}\mathcal{L})^{2}\mathbf{w}\|^2} \\
+& = \min_{\mathbf{w}\neq\mathbf{0}}
+	\frac{\| (I - \tfrac{1}{\gamma_*}\mathcal{L})^{2}\mathbf{w}\|^2 + 
+		4(\frac{\gamma_*-\eta}{\gamma_*^2})^2\|\mathcal{L}\mathbf{w} \|^2 +
+	4\frac{\gamma_*-\eta}{\gamma_*^2}\left\langle (I - \tfrac{2}{\gamma_*}\mathcal{L}+
+		\tfrac{1}{\gamma_*^2}\mathcal{L}^2)\mathbf{w}, \mathcal{L}\mathbf{w}\right\rangle}
+	{\|(I - \tfrac{1}{\gamma_*}\mathcal{L})^{2}\mathbf{w}\|^2} \\
+& = \min_{\mathbf{w}\neq\mathbf{0}} 1 +
+	\frac{\left(4(\frac{\gamma_*-\eta}{\gamma_*^2})^2 - 8\frac{\gamma_*-\eta}{\gamma_*^3}\right)
+		\|\mathcal{L}\mathbf{w} \|^2 +
+	4\frac{\gamma_*-\eta}{\gamma_*^2}\langle\mathcal{L}\mathbf{w},\mathbf{w}\rangle 
+	+ 4\frac{\gamma_*-\eta}{\gamma_*^4}\langle\mathcal{L}(\mathcal{L}\mathbf{w}),
+		\mathcal{L}\mathbf{w}\rangle}
+	{\|\mathbf{w}\|^2 + \tfrac{4}{\gamma_*^2}\|\mathcal{L}\mathbf{w}\|^2 +
+		\frac{1}{\gamma_*^4}\|\mathcal{L}^2\mathbf{w}\|^2 - 
+		\tfrac{4}{\gamma_*}\langle\mathcal{L}\mathbf{w},\mathbf{w}\rangle +
+		\tfrac{2}{\gamma_*^2}\langle\mathcal{L}^2\mathbf{w},\mathbf{w}\rangle -
+		\tfrac{4}{\gamma_*^3}\langle\mathcal{L}(\mathcal{L}\mathbf{w}),\mathcal{L}\mathbf{w}\rangle}\\
+& = \min_{\mathbf{w}\neq\mathbf{0}} 1 -
+	\frac{\left(8\frac{\gamma_*-\eta}{\gamma_*^3} - 4(\frac{\gamma_*-\eta}{\gamma_*^2})^2\right)
+		\|\mathcal{L}\mathbf{w} \|^2
+	- 4\frac{\gamma_*-\eta}{\gamma_*^2}\langle\mathcal{L}\mathbf{w},\mathbf{w}\rangle 
+	- 4\frac{\gamma_*-\eta}{\gamma_*^4}\langle\mathcal{L}(\mathcal{L}\mathbf{w}),
+		\mathcal{L}\mathbf{w}\rangle}
+	{\|\mathbf{w}+\tfrac{1}{\gamma_*^2}\mathcal{L}^2\mathbf{w}\|^2 +
+		\tfrac{4}{\gamma_*^2}\|\mathcal{L}\mathbf{w}\|^2 -
+		\tfrac{4}{\gamma_*}\langle\mathcal{L}\mathbf{w},\mathbf{w}\rangle -
+		\tfrac{4}{\gamma_*^3}\langle\mathcal{L}(\mathcal{L}\mathbf{w}),\mathcal{L}\mathbf{w}\rangle}\\
+& \geq 1 - \max_{\mathbf{v}\not\in\textnormal{ker}(\mathcal{L})}
+	\frac{\left(8\frac{\gamma_*-\eta}{\gamma_*^3} - 4(\frac{\gamma_*-\eta}{\gamma_*^2})^2\right)
+		\|\mathcal{L}\mathbf{w} \|^2
+	- 4\frac{\gamma_*-\eta}{\gamma_*^2}\langle\mathcal{L}\mathbf{w},\mathbf{w}\rangle 
+	- 4\frac{\gamma_*-\eta}{\gamma_*^4}\langle\mathcal{L}(\mathcal{L}\mathbf{w}),
+		\mathcal{L}\mathbf{w}\rangle}
+	{\tfrac{4}{\gamma_*^2}\|\mathcal{L}\mathbf{w}\|^2 -
+		\tfrac{4}{\gamma_*}\langle\mathcal{L}\mathbf{w},\mathbf{w}\rangle -
+		\tfrac{4}{\gamma_*^3}\langle\mathcal{L}(\mathcal{L}\mathbf{w}),\mathcal{L}\mathbf{w}\rangle},
+\end{align*}
+%
+where in the last step we note that if $\mathcal{L}\mathbf{w} = \mathbf{0}$, the only
+nonzero term is $\|\mathbf{w}+\tfrac{1}{\gamma_*^2}\mathcal{L}^2\mathbf{w}\|^2 = \|\mathbf{w}\|^2$
+in the denominator, which yields one for the full equation.
+
+Now note that all of the terms in the numerator and denominator are non-negative,
+and we can bound the maximum from above by ensuring the leading numerator and
+denominator constants, say $c_n$ and $c_d$, satisfy $c_n/c_d \leq K$. For
+$\|\mathcal{L}\mathbf{w}\|^2$, we require
+%
+\begin{align}\nonumber
+\left(8\frac{\gamma_*-\eta}{\gamma_*^3} - 4\Big(\frac{\gamma_*-\eta}{\gamma_*^2}\Big)^2\right)
+	& \leq \frac{4}{\gamma_*^2}K, \\
+\Longleftrightarrow\hspace{5ex}
+\left(2\frac{\gamma_*-\eta}{\gamma_*} - \Big(\frac{\gamma_*-\eta}{\gamma_*}\Big)^2\right)
+	& \leq K
+	\hspace{5ex}\Longleftrightarrow\hspace{5ex}
+1 - \frac{\eta^2}{\gamma_*^2}\leq K.\label{eq:Kproof}
+\end{align}
+%
+Similarly, $\langle\mathcal{L}\mathbf{w},\mathbf{w}\rangle $ requires
+%
+\begin{align}
+4\frac{\gamma_*-\eta}{\gamma_*^2} & \leq \frac{4}{\gamma_*}K
+	\hspace{5ex}\Longleftrightarrow\hspace{5ex}
+	1 - \frac{\eta}{\gamma_*} \leq K, \label{eq:Kproof2}
+\end{align}
+%
+and $\langle\mathcal{L}(\mathcal{L}\mathbf{w}),\mathcal{L}\mathbf{w}\rangle $ requires
+%
+\begin{align*}
+4\frac{\gamma_*-\eta}{\gamma_*^4} & \leq \frac{4}{\gamma_*^3}K
+	\hspace{5ex}\Longleftrightarrow\hspace{5ex}
+	1 - \frac{\eta}{\gamma_*} \leq K.
+\end{align*}
+%
+
+Because $\gamma_* >\eta$, the largest $K$ is in \eqref{eq:Kproof}, where we define
+$K = \frac{\beta^2}{\eta^2+\beta^2} = 1 - \tfrac{\eta^2}{\gamma_*^2} >
+1 - \tfrac{\eta}{\gamma}$. Altogether, this yields
+$s_{\min}(P_{\gamma_*}^{-1})^2 \geq 1 - K$, and
+%
+\begin{align*}
+\|P_{\gamma_*}^{-1}\| & = \frac{1}{s_{\min}(P_{\gamma_*}^{-1})} 
+	\leq \frac{1}{\sqrt{1 - K}} 
+	= \sqrt{1 + \frac{\beta^2}{\eta^2}}.
+\end{align*}
+%
+
+It is worth noting that in practice, $\|P_{\gamma_*}^{-1}\|$ is likely
+smaller and more independent of $\eta$ and $\beta$.
+
+% ---------------------------------------------------------------------------------------------- %
+\subsubsection{General $\gamma$}
+
+Here we consider conditioning using general $\gamma$. For ease of notation, define
+%
+\begin{align*}
+c_I & := \tfrac{\eta^2+\beta^2-\gamma^2}{\gamma^2} , \hspace{5ex}
+c_{\mathcal{L}} := 2\frac{\gamma-\eta}{\gamma^2}.
+\end{align*}
+%
+Now, collect terms in \eqref{eq:min0} and expand the norm to yield
+%
+\begin{align*}
+& s_{\min}(\mathcal{P}_\gamma)^2 \\
+& = \min_{\mathbf{w}\neq\mathbf{0}}
+	\frac{\left\| \left[(1+c_I)I - (\tfrac{2}{\gamma}-c_{\mathcal{L}})\mathcal{L} +
+		\tfrac{1}{\gamma^2}\mathcal{L}^2\right]\mathbf{w} \right\|^2}
+	{\left\|\left(I - \tfrac{2}{\gamma}\mathcal{L} +
+		\tfrac{1}{\gamma^2}\mathcal{L}^2\right)\mathbf{w} \right\|^2} \\
+& =  \min_{\mathbf{w}\neq\mathbf{0}}
+	\frac{\|(1+c_I)\mathbf{w}+\tfrac{1}{\gamma^2}\mathcal{L}^2\mathbf{w}\|^2 +
+		(\tfrac{2}{\gamma}-c_{\mathcal{L}})^2\|\mathcal{L}\mathbf{w}\|^2 -
+		2(1+c_I)(\tfrac{2}{\gamma}-c_{\mathcal{L}})\langle\mathcal{L}\mathbf{w},\mathbf{w}\rangle -
+		2\tfrac{2-\gamma c_{\mathcal{L}}}{\gamma^3}\langle\mathcal{L}(\mathcal{L}\mathbf{w}),
+			\mathcal{L}\mathbf{w}\rangle}
+	{\|\mathbf{w}+\tfrac{1}{\gamma^2}\mathcal{L}^2\mathbf{w}\|^2 +
+		\tfrac{4}{\gamma^2}\|\mathcal{L}\mathbf{w}\|^2 -
+		\tfrac{4}{\gamma}\langle\mathcal{L}\mathbf{w},\mathbf{w}\rangle -
+		\tfrac{4}{\gamma^3}\langle\mathcal{L}(\mathcal{L}\mathbf{w}),\mathcal{L}\mathbf{w}\rangle}.
+\end{align*}
+%
+Note that by assumption on $\mathcal{L}\leq 0$, all terms in the numerator an
+denominator are non-negative. For numerator $\mathcal{N}$ and denominator
+$\mathcal{D}$, if $\widehat{K}\mathcal{N} \geq \mathcal{D}$, then
+$\mathcal{N}/\mathcal{D} \geq 1 / \widehat{K}$. For 
+$\|\mathcal{L}\mathbf{w}\|^2$, $\langle\mathcal{L}\mathbf{w},\mathbf{w}\rangle$,
+and $\langle\mathcal{L}(\mathcal{L}\mathbf{w}),\mathcal{L}\mathbf{w}\rangle$,
+we can directly bound the ratio of constants in the numerator and denominator.
+For $\|\mathcal{L}\mathbf{w}\|^2$, we have
+%
+\begin{align*}
+\widehat{K}(\tfrac{2}{\gamma}-c_{\mathcal{L}})^2 \geq \frac{4}{\gamma^2}
+	\hspace{5ex}\Longleftrightarrow\hspace{5ex}
+\widehat{K} \geq \frac{\gamma^2}{\eta^2},
+\end{align*}
+%
+while $\langle\mathcal{L}\mathbf{w},\mathbf{w}\rangle$ requires
+%
+\begin{align*}
+2\widehat{K}(1+c_I)(\tfrac{2}{\gamma}-c_{\mathcal{L}})\geq \frac{4}{\gamma},
+	\hspace{5ex}\Longleftrightarrow\hspace{5ex}
+\widehat{K} \geq \frac{\gamma^3}{\eta(\eta^2+\beta^2)},
+\end{align*}
+%
+and $\langle\mathcal{L}(\mathcal{L}\mathbf{w}),\mathcal{L}\mathbf{w}\rangle$
+requires
+%
+\begin{align*}
+2\widehat{K}\tfrac{2-\gamma c_{\mathcal{L}}}{\gamma^3} \leq \frac{4}{\gamma^3},
+	\hspace{5ex}\Longleftrightarrow\hspace{5ex}
+\widehat{K} \geq \frac{\gamma}{\eta}.
+\end{align*}
+%
+Because we want a lower bound on $\mathcal{N}/\mathcal{D} \geq 1/\widehat{K}$,
+we seek the maximum required $\widehat{K}$ of the above ratios. For
+$\gamma \in[\eta,\tfrac{\eta^2+\beta^2}{\eta}]$, the maximum of the
+above ratios ends up being $\widehat{K} := \tfrac{\gamma^2}{\eta^2}$.
+
+The difficult ratio ends
+up being $\|(1+c_I)\mathbf{w}+\tfrac{1}{\gamma^2}\mathcal{L}^2\mathbf{w}\|^2$ and the
+similar denominator term, $\|\mathbf{w}+\tfrac{1}{\gamma^2}\mathcal{L}^2\mathbf{w}\|^2$.
+Given we are minimizing over real vectors, we can write $\langle\mathcal{L}^2\mathbf{w},
+\mathbf{w} \rangle := \cos(\theta)\|\mathcal{L}^2\mathbf{w}\|\|\mathbf{w}\|$ for some
+angle $\theta$. Taking the ratio of these individual terms then yields
+%
+\begin{align}\label{eq:problem}
+\frac{\|(1+c_I)\mathbf{w}+\tfrac{1}{\gamma^2}\mathcal{L}^2\mathbf{w}\|^2}
+	{\|\mathbf{w}+\tfrac{1}{\gamma^2}\mathcal{L}^2\mathbf{w}\|^2}
+& = \frac{(1+c_I)^2\|\mathbf{w}\|^2+\tfrac{1}{\gamma^4}\|\mathcal{L}^2\mathbf{w}\|^2
+	+ 2\cos(\theta)(1+c_I)\|\mathcal{L}^2\mathbf{w}\|\|\mathbf{w}\|}
+	{\|\mathbf{w}\|^2+\tfrac{1}{\gamma^4}\|\mathcal{L}^2\mathbf{w}\|^2
+	+ 2\cos(\theta)\|\mathcal{L}^2\mathbf{w}\|\|\mathbf{w}\|}.
+\end{align}
+%
+Letting $x := \tfrac{\|\mathcal{L}\mathbf{w}\|}{\|\mathbf{w}\|}$, we can
+cancel a $1/\|\mathbf{w}\|^2$ from the numerator and denominator, and
+write \eqref{eq:problem} as a ratio of quadratic functions in $x \geq 0$:
+%
+\begin{align}\label{eq:x_simp}
+\frac{x^2 + 2\cos(\theta)(1+c_I)x + (1+c_I)^2}{x^2 + 2\cos(\theta)x + 1}.
+\end{align}
+%
+Clearly for $c_I\geq 0$ (corresponding to $\gamma \leq\sqrt{\eta^2+\beta^2}$)
+and $\cos(\theta)\geq 0$, \eqref{eq:x_simp} is $\geq 1$ for all $x$. It is
+also clear in \eqref{eq:x_simp} why choosing $\gamma > \sqrt{\eta^2+\beta^2}
+\implies c_I < 0$ does not appear to be advantageous, at least for this term,
+as the ratio in \eqref{eq:x_simp} is then $<1$ for all $x\geq 0$, which
+requires a larger $\widehat{K}$ and, thus, smaller bound on
+$s_{\min}(\mathcal{P}_\gamma)$.
+
+%%%%%
+\textbf{Positive $\mathcal{L}^2$}: Suppose $\mathcal{L}^2 \geq 0$ in a field
+of values sense and $\gamma \leq \sqrt{\eta^2+\beta^2}$. Then the ratio in
+\eqref{eq:problem} is always $\geq 1$ (that is, $\widehat{K}=1$ is sufficient
+to bound $\widehat{K}\mathcal{N} \geq \mathcal{D}$) and the maximum required
+$\widehat{K}$ is given by $\widehat{K} = \tfrac{\gamma^2}{\eta^2}$. Altogether,
+this yields
+%
+\begin{align}\label{eq:gen_bound}
+\|P_{\gamma}^{-1}\| & = \frac{1}{s_{\min}(P_{\gamma}^{-1})} 
+	\leq \frac{1}{1/\sqrt{\widehat{K}}} 
+	= \frac{\gamma}{\eta}.
+\end{align}
+
+%%%%%
+$\boldsymbol{\gamma_* = \sqrt{\eta^2+\beta^2}}$: Under this specific choice, we
+get the nice cancellation that $c_I = 0$. Then, \eqref{eq:x_simp} equals one,
+and we can again refer to the $\widehat{K}$ derived previously, and the bound
+in \eqref{eq:gen_bound}
+%
+\begin{align}\label{eq:gammas_bound}
+\|P_{\gamma}^{-1}\| & = \frac{\sqrt{\eta^2+\beta^2}}{\eta} =
+	\sqrt{1+\frac{\beta^2}{\eta^2}}.
+\end{align}
+%
+Fortunately, this is consistent with the previous section where we specifically
+focus on $\gamma_* = \sqrt{\eta^2+\beta^2}$ using a slightly modified derivation.
+
+
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+\subsection{Combining bounds}
+
+For $\mathcal{L}^2 \geq 0$ or $\gamma = \gamma_* = \sqrt{\eta^2+\beta^2}$
+(regardless of properties of $\mathcal{L}^2$), we have
+%
+\begin{align*}
+\textnormal{cond}(\mathcal{P}_\gamma) \leq \frac{\gamma}{\eta}
+	\left(1 + \frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}\right).
+\end{align*}
+%
+For the specific choice $\gamma = \gamma_*$, this simplifies to
+%
+\begin{align*}
+\textnormal{cond}(\mathcal{P}_{\gamma_*}) \leq 
+	3\sqrt{1+\frac{\beta^2}{\eta^2}} - 2.
+\end{align*}
+%
+Under the additional assumption of $\mathcal{L}^2 \geq 0$, $\gamma = \eta$
+yields bounds
+%
+\begin{align*}
+\textnormal{cond}(\mathcal{P}_{\gamma_*}) \leq 1 + \frac{\beta^2}{\eta^2}.
+\end{align*}
+%
+
 
 % ---------------------------------------------------------------------------------------------- %
 % ---------------------------------------------------------------------------------------------- %
@@ -281,7 +694,7 @@ some $\gamma \neq \eta$? The preconditioned operator then takes the form
 		( I- \tfrac{1}{\eta}\widehat{\mathcal{L}})^{-1}.\label{eq:gamma0}
 \end{align}
 %
-Suppose $-\mathcal{L}$ is SPD with a spectrum $\subset (0,\infty)$.
+Suppose $-\mathcal{L}$ is SPD\footnote{\tcb{OAK: I believe all the analysis holds when $-{\mathcal{L}}$ is SSPD too? I.e., there's no issues allowing $\lambda = 0$ too. It's just that this zero eigenvalue appears for periodic boundaries, so probably good to include.}} with a spectrum $\subset (0,\infty)$.
 Then the spectrum of \eqref{eq:gamma0} is given by
 %
 \begin{align}\label{eq:eig_gamma}
@@ -290,7 +703,7 @@ Then the spectrum of \eqref{eq:gamma0} is given by
 \end{align}
 %
 where $\lambda\in\sigma(-\mathcal{L})$. If we additionally choose $\gamma$
-such that \eqref{eq:gamma0} is also SPD ($\gamma$ such that this does not hold
+such that \eqref{eq:gamma0} is also SPD\footnote{\tcb{OAK: Working through the algebra, this is always true for $\gamma > 0$.}} ($\gamma$ such that this does not hold
 would be a poor choice in terms of conditioning), the condition number of
 \eqref{eq:gamma0} is given by
 %
@@ -300,7 +713,7 @@ would be a poor choice in terms of conditioning), the condition number of
 		{\lambda_{\min}\left((\gamma I- \widehat{\mathcal{L}})^{-1}S\right)}.
 \end{align}
 %
-Again assuming that eigenvalues $\lambda\in\sigma\left(\widehat{\mathcal{L}}\right)$ take
+Again assuming that eigenvalues $\lambda\in\sigma\left(-\widehat{\mathcal{L}}\right)$ take
 on values $\lambda\in(0,\infty)$, the condition number \eqref{eq:cond0} can be expressed
 precisely as $h,\delta t\to 0$ via
 %
@@ -313,7 +726,7 @@ precisely as $h,\delta t\to 0$ via
 
 With this closed form, it is natural to pose a minimization problem to find the
 optimal $\gamma$ in terms of minimizing the condition number \eqref{eq:cond0}.
-We make the assumption that $\gamma \geq \eta $, and consider
+We make the assumption that $\eta \leq \gamma \leq \eta^2+\beta^2$,\footnote{\tcb{OAK: What's the motivation for this, given that it's not required for the operator to remain definite? See also my analysis below, which holds for all $\gamma> 0$.}} and consider
 the problem
 %
 \begin{align}\label{eq:gam_opt}
@@ -361,10 +774,15 @@ can be achieved, $\{0,\infty, \lambda_\pm\}$. Working through the algebra yields
 \hspace{4ex}
 \mathcal{F}(\gamma,\lambda_-) = \frac{2\beta}{\beta - \sqrt{\beta^2 + (\gamma-\eta)^2}}.
 \end{align*}
+\tcb{OAK: I think there's a mistake here for your value of $\mathcal{F}(\gamma,0)$ which I think leads to you getting the incorrect result for $\gamma_*$. See my analysis that picks up from here after yours finishes in the following section.}
 %
+
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+\subsubsection{Remainder of Ben's analysis}
 In choosing $\gamma$, note that $\mathcal{F}(\gamma,\lambda_-) < 0$, which contradicts
 the assumption of positive definiteness. Thus, we must make an additional assumption
-that $\lambda_-\not\in(0,\infty)$. From \eqref{eq:roots}, this is equivalent to saying that
+that $\lambda_-\not\in(0,\infty)$.\footnote{\tcb{OAK: But why \textit{must} we assume that $\mathcal{F}(\gamma,\lambda_-) < 0$ implies/requires/means that $\lambda_- < 0$?}} From \eqref{eq:roots}, this is equivalent to saying that
 %
 \begin{align*}
 \beta^2-\eta(\gamma-\eta) & < \beta\sqrt{\beta^2+(\gamma-\eta)^2}, \\
@@ -501,13 +919,205 @@ Plugging in, we can evaluate our resulting bound as
 and the resulting condition numbers are reasonable.}
 
 
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+\subsubsection{Oliver's analysis}
+\tcb{OAK: I believe there's a mistake in your working: Looking at, $\mathcal{F}(\gamma,0)$, shouldn't it be
+\begin{align*}
+\mathcal{F}(\gamma,0) = 1 + \frac{\eta^2+\beta^2-\eta \gamma}{\eta\gamma} = \frac{1}{\gamma} \left( \eta + \frac{\beta^2}{\eta} \right)?
+\end{align*}}
+Then, we have
+\begin{align*}
+\mathcal{F}(\gamma,\lambda_+) = \frac{2\beta}{\beta + \sqrt{\beta^2 + (\gamma-\eta)^2}} = \frac{2}{1 + \sqrt{1 + (\gamma-\eta)^2/\beta^2}} < 1 = \mathcal{F}(\gamma,\infty),
+\end{align*}
+for all $\gamma \neq \eta$ (and they're equal for $\gamma = \eta$).
+%
+Since $\lambda_-$ is excluded as a valid critical point, the maximum of ${\cal F}(\gamma,\lambda)$ w.r.t. $\lambda$ must thus occur for $\lambda \in \{ 0, \infty \}$. Working through, we have
+\begin{align*}
+\max_{\lambda\in[0,\infty)} \mathcal{F}(\gamma,\lambda) & = 
+\begin{cases}
+\displaystyle
+\mathcal{F}(\gamma,0) 
+= 
+\frac{1}{\gamma} \left(\eta + \frac{\beta^2}{\eta} \right), 
+\quad 
+& 0 < \gamma \leq \eta +  \tfrac{\beta^2}{\eta}, \\
+\displaystyle
+\mathcal{F}(\gamma,\infty) 
+= 
+1, \quad & \eta + \tfrac{\beta^2}{\eta} \leq \gamma < \infty
+\end{cases}.
+\end{align*}
+
+Now how about the minimum of ${\cal F}$? Clearly this does not occur for $\lambda \to \infty$, since $\mathcal{F}(\gamma,\lambda_+) < \mathcal{F}(\gamma,\infty), \forall \gamma \neq \eta$. So, since $\lambda_-$ is excluded as a valid critical point, the minimum of ${\cal F}(\gamma,\lambda)$ w.r.t. $\lambda$ must then occur for $\lambda \in \{0, \lambda_+\}$. Clearly for $\gamma \geq \eta + \beta^2 / \eta$, ${\cal F}(\gamma, \lambda_+) < 1 \leq {\cal F}(\gamma, 0)$; but what about for $0 < \gamma < \eta + \beta^2 / \eta$?
+To this end, let's define
+\begin{align*}
+{\cal G}(\gamma) = \mathcal{F}(\gamma,0) -  \mathcal{F}(\gamma,\lambda_+), \quad 0 < \gamma \leq \eta + \beta^2 / \eta.
+\end{align*}
+To discern which value of ${\lambda} \in \{0, \lambda_+ \}$ minimizes ${\cal F}(\gamma, \lambda)$ we need to look at the sign of ${\cal G}$. From the analysis above, we know that ${\cal G} > 0$ for $\gamma = \eta + \beta^2/\eta$, but we need to see if this is true for all values of $0 < \gamma \leq \eta + \beta^2/\eta$. Thus, we look to see if any roots $\hat{\gamma}$ exist in this interval, such that ${\cal G}(\hat{\gamma}) = 0$. 
+%
+It is possible to show that if  any such roots exists, they must satisfy
+\begin{align*}
+\hat{\gamma} > \tfrac{1}{2} \big( \eta + \beta^2 / \eta).
+\end{align*}
+Furthermore, any such roots must satisfy the quadratic equation
+\begin{align*}
+z(\hat{\gamma}) = \big[ 4 \beta^2 \eta^2 - (\eta^2 + \beta^2)^2 \big] \hat{\gamma}^2 + 2 \eta (\eta^2 + \beta^2)(\eta^2 - \beta^2) \hat{\gamma} - \eta^2(\eta^2 + \beta^2)^2 = 0.
+\end{align*}
+Computing the discriminant of this quadratic, we see that it is identically zero, and, thus, the equation has only one real root. Carrying out the algebra we find this to be
+\begin{align} \label{eq:gamma_hat}
+\hat{\gamma} = \eta \frac{\eta^2 + \beta^2}{\eta^2 - \beta^2}. 
+\end{align}
+Clearly if $\eta < \beta$, then $\hat{\gamma} < 0$, which is outside of the range of $\gamma$. Conversely, for $\eta > \beta, \hat{\gamma} > 0$. However, for $\eta > \beta$ one can also easily show that
+\begin{align*}
+\eta \frac{\eta^2 + \beta^2}{\eta^2 - \beta^2} > \eta + \frac{\beta^2}{\eta},
+\end{align*}
+and so for $\eta > \beta$ this root is also outside of the range of $\gamma$ we care about.
+Thus, ${\cal G}$ has no roots within its domain, and therefore
+\begin{align*}
+{\cal F} (\gamma, \lambda_+) < {\cal F}(\gamma, 0), \quad 0 < \gamma \leq \eta + \beta^2/\eta.
+\end{align*}
+Combining with the earlier discussion, this means
+\begin{align*}
+\min_{\lambda\in[0,\infty)} \mathcal{F}(\gamma,\lambda) &=  \mathcal{F}(\gamma,\lambda_+) = \frac{2\beta}{\beta + \sqrt{\beta^2 + (\gamma-\eta)^2}} \quad 0 < \gamma < \infty.
+\end{align*}
+
+So, for the condition number \eqref{eq:cond1}, we have
+\begin{align}
+\label{eq:condc}
+c(\gamma) 
+\coloneqq
+\textnormal{cond}\left((\gamma I- \widehat{\mathcal{L}})^{-1}S\right)  
+=
+\begin{cases}
+\displaystyle
+\frac{1}{\gamma} \left(\eta + \tfrac{\beta^2}{\eta} \right) \frac{\beta + \sqrt{\beta^2 + (\gamma-\eta)^2}}{2\beta}
+\eqqcolon c_1(\gamma), 
+\quad & 0 < \gamma \leq \eta + \tfrac{\beta^2}{\eta},
+\\[3ex]
+\displaystyle
+\frac{\beta + \sqrt{\beta^2 + (\gamma-\eta)^2}}{2\beta}
+\eqqcolon c_2(\gamma), 
+\quad &\eta + \tfrac{\beta^2}{\eta} \leq \gamma < \infty 
+\end{cases}.
+\end{align}
+Now, we want to find the minimizer $\gamma_*$ of the condition number $c$ as defined in \eqref{eq:gam_opt}.\footnote{But now we don't restrict $\gamma$ to the interval $(\eta, \eta^2 + \beta^2)$, but only assume $\gamma > 0$.} Let's start with the easiest case, $c_2$. Clearly $c_2$ is an increasing function over the interval for which it is defined, and, so, it's minimum is achieved at the left boundary of its domain,
+\begin{align*}
+\eta + \frac{\beta^2}{\eta} = \underset{\eta + \tfrac{\beta^2}{\eta} \leq  \gamma < \infty}{\textnormal{argmin}} c_2(\gamma),
+\end{align*}
+and its minimum value is given by
+\begin{align} 
+\label{eq:c2_min}
+c_2\left(\eta + \frac{\beta^2}{\eta} \right) = \frac{1}{2} \left( 1 + \sqrt{1 + \left( \frac{\beta}{\eta} \right)^2} \right).
+\end{align}
+Now consider the other branch of $c$ \eqref{eq:condc}, $c_1$. 
+%
+Differentiating $c_1$ and solving for the roots of its derivative, we find the two following critical points of $c_1$:
+\begin{align*}
+\gamma = \eta, \quad {\rm and} \quad \gamma = \eta \frac{\eta^2 + \beta^2}{\eta^2 - \beta^2} = \hat{\gamma}.
+\end{align*}
+We can discard $\hat{\gamma}$ as a point of interest since it lies outside of $(0, \eta + \beta^2/\eta)$, as discussed previously when it arose earlier in the analysis in \eqref{eq:gamma_hat}.
+Evaluating the function at the first critical point $\gamma = \eta$ we have
+\begin{align}
+\label{eq:c1_non-opt}
+c_1(\eta) = 1 + \left( \frac{\beta}{\eta} \right)^2.
+\end{align}
+Now let's consider $c_2$ at the end points of its domain: $\lim_{\gamma \to 0} c_1(\gamma) \to \infty$, and, by the continuity of $c$ in  \eqref{eq:condc}, $c_1 = c_2$  at $\gamma = \eta + \beta^2/\eta$, which is given in \eqref{eq:c2_min}. 
+%
+Finally, note that
+\begin{align*}
+\frac{1}{2} \left( 1 + \sqrt{1 + \left( \frac{\beta}{\eta} \right)^2} \right) < 1 + \left( \frac{\beta}{\eta} \right)^2
+\end{align*}
+for all $\beta, \eta$.  As such, the piecewise defined condition number \eqref{eq:condc} is minimized along the boundary $\gamma = \eta + \beta^2 / \eta$ independently of $\beta$ and $\eta$. That is,
+\begin{align}
+\gamma_* 
+= 
+\underset{0 < \gamma < \infty}{\textnormal{argmin}} \; \textnormal{cond} \left((\gamma I- \widehat{\mathcal{L}})^{-1}S\right) 
+= 
+\eta + \frac{\beta^2}{\eta},
+\end{align}
+and
+\begin{align} \label{eq:cond_min}
+\textnormal{cond}\left((\gamma_* I- \widehat{\mathcal{L}})^{-1}S\right)
+=
+\frac{1}{2} \left( 1 + \sqrt{1 + \left( \frac{\beta}{\eta} \right)^2} \right).
+\end{align}
+
+While condition number \eqref{eq:cond_min} is not bounded w.r.t. $\beta/\eta$, it is very small in practice as shown in Table \ref{tab:cond}, where for the schemes we consider it's always less than 2. For example, the condition number is less than 2 for $(\beta/\eta)^2 < 8$. See also Figure \ref{fig:conds} for a comparison of the condition number using $\gamma_*$ vs. $\eta$. Also, a numerical example is shown in Table \ref{tab:cond_iters} showing a reduction in the number of iterations using $\gamma_*$ vs. $\eta$.
+{
+\renewcommand{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.15}
+\begin{table}[!ht]
+  \centering
+  \begin{tabular}{| c | c | c | cc | cc | ccc |}  % chktex 44
+  \hline
+Method & Stages & 2 & \multicolumn{2}{c}{3} & \multicolumn{2}{|c}{4} & \multicolumn{3}{|c|}{5} \\\hline\hline
+\multirow{ 3}{*}{Gauss}
+&$\beta^2/\eta^2$ & 0.33 & 0 & 0.91 & 1.59 & 0.09 & 0 & 2.36 & 0.27 \\
+&$\textnormal{cond}\big((\gamma_* I- \widehat{\mathcal{L}})^{-1}S\big)$ & 1.077 & -- & 1.191 & 1.305 & 1.022 & -- & 1.43 & 1.064\\
+&$\textnormal{cond}\big((\eta I- \widehat{\mathcal{L}})^{-1}S\big)$ & 1.330 & -- & 1.910 & 2.590 & 1.090 & -- & 3.460 & 1.270\\\hline
+\multirow{ 3}{*}{Radau IIA}
+&$\beta^2/\eta^2$ & 0.50 & 0 & 1.29 & 2.21 & 0.11 & 0 & 3.20 & 0.32	\\
+&$\textnormal{cond}\big((\gamma_* I- \widehat{\mathcal{L}})^{-1}S\big)$ & 1.112 & -- & 1.257 & 1.396 & 1.027 & -- & 1.525 & 1.075\\
+&$\textnormal{cond}\big((\eta I- \widehat{\mathcal{L}})^{-1}S\big)$ & 1.500 & -- & 2.290 & 3.210 & 1.110 & -- & 4.200 & 1.320\\\hline
+\multirow{ 3}{*}{Lobatto IIIC}
+&$\beta^2/\eta^2$ & 1 & 0 & 2.21 & 3.51 & 0.13 & 0 & 4.88 & 0.38 \\
+&$\textnormal{cond}\big((\gamma_* I- \widehat{\mathcal{L}})^{-1}S\big)$ & 1.207 & -- & 1.396 & 1.562 & 1.032 & -- & 1.712 & 1.087\\
+&$\textnormal{cond}\big((\eta* I- \widehat{\mathcal{L}})^{-1}S\big)$ & 2.000 & -- & 3.210 & 4.510 & 1.130 & -- & 5.880 & 1.380\\
+  \hline
+  \end{tabular}
+  \caption{$\beta^2/\eta^2$, values of the optimal condition number $\textnormal{cond}\big((\gamma_* I- \widehat{\mathcal{L}})^{-1}S\big)$ as defined in \eqref{eq:cond_min}, and values of the non-optimal condition number $\textnormal{cond}\big((\eta I- \widehat{\mathcal{L}})^{-1}S\big)$. Entries for which $\beta =  0$ are marked with a ``--''.}\label{tab:cond}
+\end{table}
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width = 0.7\textwidth]{conds}
+\caption{Optimal ($\gamma = \gamma_*$) and non-optimal ($\gamma = \eta$) condition numbers \eqref{eq:c1_non-opt} and \eqref{eq:cond_min} as a function of $\beta^2/\eta^2$. }
+\label{fig:conds}
+\end{figure}
+
+\renewcommand{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.15}
+\begin{table}[!ht]
+  \centering
+  \begin{tabular}{| c | c | c |}  % chktex 44
+  \hline
+Method & &  \\ \hline
+\multirow{ 3}{*}{Gauss(8)}
+&$\beta^2/\eta^2$ & 1.59 / 0.09 \\
+&$\gamma = \eta$  -- & 20 / 11\\
+&$\gamma = \gamma_*$ & 13 / 11\\ \hline
+\multirow{ 3}{*}{Radau IIA(9)}
+&$\beta^2/\eta^2$ & 0 / 3.20 / 0.32	\\
+&$\gamma = \eta$ &  8 / 24 / 13\\
+&$\gamma = \gamma_*$ & 8 / 14/ 11 \\ \hline
+\multirow{ 3}{*}{Lobatto IIIC(8)}
+&$\beta^2/\eta^2$ & 0 / 4.88 / 0.38 \\
+&$\gamma = \eta$ & 8 / 29 / 14\\
+&$\gamma = \gamma_*$ & 8 / 15 / 12\\
+  \hline
+  \end{tabular}
+  \caption{
+Number of GMRES iterations for each stage when solving $u_t = \Delta u + s$, with a single time step of $\delta t = h = 1/256$. Different values of $\gamma$ are used in the preconditoner, as indicated.
+}
+\label{tab:cond_iters}
+\end{table}
+
+It's interesting to note that $\gamma_*$ does not depend on $\eta$ nor $\beta$. However, note that for $\beta < \eta$, we're unlikely to see any large difference in choosing $\gamma = \eta$ over $\gamma = \gamma_*$:
+\begin{align}
+\textnormal{cond}\left((\eta I- \widehat{\mathcal{L}})^{-1}S\right)
+-
+\textnormal{cond}\left((\gamma_* I- \widehat{\mathcal{L}})^{-1}S\right)
+=
+\frac{3}{4} \left( \frac{\beta}{\eta} \right)^2 + {\cal O}\left( \frac{\beta}{\eta} \right)^4 = {\cal O} \left( \frac{\beta}{\eta} \right)^2.
+\end{align}
+If using a simplified Newton algorithm, or solving a linear problem using this $2 \times 2$ formulation, one could possibly save some work by setting $\gamma = \eta$ so that the preconditioner for the (1,1) block could also be used on this Schur complement.
+
 
 \end{document}
 
 
-
-
-
+ 
 % % ---------------------------------------------------------------------------------------------- %
 % % ---------------------------------------------------------------------------------------------- %
 % % ---------------------------------------------------------------------------------------------- %
