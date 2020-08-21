@@ -91,14 +91,11 @@ in time. The new
 method can be used with arbitrary existing preconditioners for backward-Euler type
 time stepping schemes, and is amenable to the use of three-term recursion Krylov
 methods when the underlying spatial discretization is.
-A field of values analysis is derived to guarantee rapid Krylov convergence under
-quite general assumptions on the spatial discretization that yield stable time integration.
-A modified constant is introduced to the preconditioner, and the resulting preconditioned
-operator proven to have condition number $\mathcal{O}(1)$ (and $<9$), independent of
-the number of stages or polynomial order.
-The new method is demonstrated to be effective
-on various high-order finite-difference and finite-element discretizations of linear
-parabolic and hyperbolic problems,
+Under quite general assumptions on the spatial discretization that yield stable time
+integration, the preconditioned operator is proven to have conditioning $\sim\mathcal{O}(1)$,
+with only weak dependence on number of stages/polynomial order. The new method is
+demonstrated to be effective on various high-order finite-difference and
+finite-element discretizations of linear parabolic and hyperbolic problems,
 demonstrating fast, scalable solution of up to 10th order accuracy. In several
 cases, the new method can achieve 4th-order accuracy using Gauss integration
 with roughly half the number of preconditioner applications as required using
@@ -119,10 +116,10 @@ Consider the method-of-lines approach to the numerical solution of linear
 partial differential equations (PDEs), where we discretize in space and arrive
 at a system of ordinary differential equations (ODEs) in time,
 %
-\begin{align}\label{eq:problem}
+\begin{align*}
 M\mathbf{u}'(t) =  \mathcal{L}(t)\mathbf{u} + \mathbf{f}(t)
 	\quad\text{in }(0,T], \quad \mathbf{u}(0) = \mathbf{u}_0,
-\end{align}
+\end{align*}
 %
 where $M$ is a mass matrix, $\mathcal{L}(t)\in\mathbb{R}^{N\times N}$ a discrete
 linear operator, and $\mathbf{f}(t)$ a time-dependent forcing
@@ -236,18 +233,17 @@ used throughout the paper.
 \Cref{sec:solve} introduces a new method to solve for the IRK update
 \eqref{eq:update} for linear operators $\mathcal{L}$ that are independent of time.
 This new method requires the preconditioning of $s$ real-valued matrices of the form
-$\eta M - \delta t\mathcal{L}$, for some $\eta > 1$, and is easily implemented
+$\eta M - \delta t\mathcal{L}$ for some $\eta > 1$, analogous as the matrices that
+arise in backward Euler integration, and is easily implemented
 using existing preconditioners and parallel software libraries.
 In contrast to other works that have considered the preconditioning of \eqref{eq:kron1},
 the proposed algorithm here (i) is amenable to short-term Krylov recursion (conjugate
 gradient (CG)/MINRES) if $\eta M - \mathcal{L}$ is, and (ii) only operates on the solution,
-thus not requiring the storage of each stage vector. Theory is developed
-that guarantees rapid convergence of GMRES and CG under basic assumptions
-on stability from \Cref{sec:intro:stab} (see \Cref{sec:solve:prec}). A slight
-modification of the method is then developed, and the resulting preconditioned
-operator is proven to have condition number $<9$ (and typically $\sim1-4$ for
-realistic parameters), independent of the number of
-stages/polynomial order in time (see \Cref{sec:solve:gamma}).
+thus not requiring the storage of each stage vector. Theory is developed in
+\Cref{sec:solve:prec} that guarantees $\mathcal{O}(1)$ conditioning of the
+preconditioned operator under basic assumptions on stability from
+\Cref{sec:intro:stab}, with only weak dependence on the number of
+stages or polynomial order.
 
 Numerical results are provided in \Cref{sec:numerics}, demonstrating the new
 method for a variety of problems and corresponding preconditioners, including
@@ -268,12 +264,11 @@ are commonly used in practice.
 For such schemes, the solution of \eqref{eq:k0} using a block substitution algorithm
 requires only $s$ linear
 solves of systems of the form $ M - \delta ta_{ii}\mathcal{L}_i$. Unfortunately, DIRK
-schemes suffer from order reduction. The stage-order of a DIRK method is at most one
-(EDIRK methods, with one explicit stage, have a maximum stage order of two) \cite{butcher00}.
-For stiff nonlinear PDEs or DAEs, the observed
-global order of accuracy
-in practice can be limited to $\approx \min\{ p, q+1\}$ or $q$, respectively, for
-integration order $p$ and stage-order $q$ \cite{hairer96,kennedy16} \WP{the previous sentence was not so clear}. Thus, even a
+schemes suffer from order reduction, where the order of accuracy observed in practice
+on stiff nonlinear PDEs or DAEs can be limited to $\approx \min\{ p, q+1\}$ or $q$,
+respectively, for integration order $p$ and stage-order $q$ \cite{hairer96,kennedy16}.
+The stage-order of a DIRK method is at most one (EDIRK methods, with one explicit stage,
+have a maximum stage order of two) \cite{butcher00} and, thus, even a
 6th-order DIRK method may only yield 1st- or 2nd-order accuracy. In contrast, IRK
 methods may have arbitrarily high stage order and, thus, formally high-order accuracy on stiff,
 nonlinear problems, and even index-2 DAEs. Although the focus of this paper is
@@ -461,23 +456,22 @@ $\{\widehat{\mathcal{L}}_i\}_{i=1}^s$ are commuting operators. Define $\mathcal{
 % 	\ddots & & \ddots & \vdots \\ \alpha_{s1}I & ... & \alpha_{s(s-1)}I & \alpha_{ss}I - \widehat{\mathcal{L}}_s \end{bmatrix},
 % \end{align*}
 as in \eqref{eq:k1},
-let $\det(\mathcal{M}_s)$ be the determinant of $\mathcal{M}_s$ (in this case a block-diagonal
-matrix), and let $\adj(\mathcal{M}_s)$ be the adjugate of $\mathcal{M}_s$. Then, $\mathcal{M}_s$
+let $\det(\mathcal{M}_s)$ be the determinant of $\mathcal{M}_s$,
+and let $\adj(\mathcal{M}_s)$ be the adjugate of $\mathcal{M}_s$. Then, $\mathcal{M}_s$
 is invertible if and only if $\det(\mathcal{M}_s)$ is invertible, and
 \begin{align*}
-\mathcal{M}_s^{-1} = \det(\mathcal{M}_s)^{-1}\textnormal{adj}(\mathcal{M}_s).
+\mathcal{M}_s^{-1} = \textnormal{diag}\left(\det(\mathcal{M}_s)^{-1}\right)
+	\textnormal{adj}(\mathcal{M}_s).
 \end{align*}
 %
-
+where ``diag'' indicates a block diagonal matrix, with diagonal blocks in this
+case given by $\det(\mathcal{M}_s)^{-1}$.
 Now, suppose $\widehat{\mathcal{L}}_i = \widehat{\mathcal{L}}_j$ for
 all $i,j$, and let $P_s(x)$ be the characteristic polynomial of $A_0^{-1}$. Then,
 \begin{align*}
 \mathcal{M}_s^{-1} = \textnormal{diag}(P_s(\widehat{\mathcal{L}})^{-1})\textnormal{adj}(\mathcal{M}_s),
 \end{align*}
-where ``diag'' indicates a block diagonal matrix, with diagonal blocks given by $P_s(\widehat{\mathcal{L}})^{-1}$.
 \end{lemma}
-%
-\OK{I recall we had a discussion whether it was clearer to say the det of ${\cal M}_s$ was a block diagonal matrix, or to use the correct notation $\textnormal{diag}( \det({\cal M}_s))$; I said I thought the latter was less confusing and easier to understand, and you said you'd consider changing it. It's fine either way, I just wanted to remind you in case you forgot about it. See also my point on the next page about this.}
 \begin{proof}
 Notice in \eqref{eq:k1} that if $\widehat{\mathcal{L}}_i$ and $\widehat{\mathcal{L}}_j$ commute for all $i,j$,
 then $\mathcal{M}_s$ is a matrix over the commutative ring of linear combinations
@@ -559,10 +553,10 @@ accurate schemes, but still typically of marginal overall computational cost.
 
 Following the discussion and algorithm developed in \Cref{sec:solve:inv}, the key
 outstanding point is inverting $\det(\mathcal{M}_s)^{-1}$. Moving forward, we
-restrict our attention to the case $\widehat{\mathcal{L}}_i = \widehat{\mathcal{L}}_j$ for all $i,j$, \OK{Should we clarify why this is the case? I.e., that we don't really know how to compute the det for time-dependent operators?}
-in which case $\det(\mathcal{M}_s)^{-1} = P_s(\widehat{\mathcal{L}})^{-1}$, where
-$P_s(x)$ is the characteristic polynomial of $A_0^{-1}$ (see \Cref{lem:inv}). \OK{Relating to my earlier point on Lemma \ref{lem:inv}, this equation now makes moving from the first equation in the Lemma to the second inconsistent since there's a diag missing from around $P_s(\widehat{\mathcal{L}})^{-1}$.}
-
+restrict our attention to the case $\widehat{\mathcal{L}}_i = \widehat{\mathcal{L}}_j$ for all $i,j$,
+in which case we have a simple closed form for $\det(\mathcal{M}_s)^{-1} =
+P_s(\widehat{\mathcal{L}})^{-1}$, where $P_s(x)$ is the characteristic polynomial
+of $A_0^{-1}$ (see \Cref{lem:inv}).
 
 In contrast to much of the original work on solving IRK systems, where LU factorizations
 were the dominant cost and system sizes relatively small, explicitly forming and inverting
@@ -574,13 +568,16 @@ $\{\lambda_i\}$ of $A_0^{-1}$, we can express $P_s(\widehat{\mathcal{L}})$ in a 
 P_s(\widehat{\mathcal{L}}) = \prod_{i=1}^s (\lambda_i I - \widehat{\mathcal{L}}),
 \end{align}
 %
-and its inverse can then be computed by successive applications of $(\lambda_iI - \widehat{\mathcal{L}})^{-1}$,
+and its inverse can then be computed by successive applications of
+$(\lambda_iI - \widehat{\mathcal{L}})^{-1}$,
 for $i=1,...,s$. Unfortunately, eigenvalues of $A_0$ and $A_0^{-1}$ are often
 complex, and for real-valued matrices this makes the inverse of individual factors
 $(\lambda_iI - \widehat{\mathcal{L}})^{-1}$ more difficult and often impractical
-with standard preconditioners and existing software.
+with standard preconditioners and existing software. Moving forward, let
+$\lambda := \eta \pm \mathrm{i}\beta$ denote an eigenvalue of $A_0^{-1}$,
+for $\eta, \beta \in \mathbb{R}$, with $\beta \geq 0$ and $\eta > 0$ under \Cref{ass:eig}.
 
-Here, we propose combining pairs of conjugate eigenvalues into quadratic polynomials
+Here, we combine conjugate eigenvalues into quadratic polynomials
 that we must precondition, which take the form
 %
 \begin{align}\label{eq:imag1}
@@ -590,16 +587,23 @@ that we must precondition, which take the form
 = (\eta I - \widehat{\mathcal{L}})^2 + \beta^2I.
 \end{split}
 \end{align}
-\OK{I think $\eta$ and $\beta$ need to be defined since they're central to the rest of the paper. So something like: `for $\lambda = \eta + i \beta$, where $\eta, \beta \in \mathbb{R}$.' should follow this equation?}
 %
 In practice, we typically do not want to directly form or precondition a quadratic
 operator like \eqref{eq:imag1}, due to (i) the overhead cost of large parallel matrix
 multiplication, and (ii) the fact that many fast parallel methods such as multigrid are not well-suited for solving a polynomial in $\widehat{\mathcal{L}}$. The point of \eqref{eq:imag1}
 is that by considering conjugate pairs of eigenvalues, the resulting operator is real-valued.
-Thus, consider preconditioning \eqref{eq:imag1} with the inverse of the real-valued quadratic
-polynomial, $(\eta I - \widehat{\mathcal{L}})^2$, dropping the $+ \beta^2 I$ term, which can
-be applied as two successive inverses of $(\eta I - \widehat{\mathcal{L}})$. Expanding,
-the preconditioned operator then takes the form
+Here we propose preconditioning \eqref{eq:imag1} with the inverse of a
+real-valued quadratic polynomial, $(\gamma I - \widehat{\mathcal{L}})^2$, for
+$\gamma \in\mathbb{R}^+$.
+
+% ------------------------------------------------------------------------------------- %
+\subsubsection{A first preconditioning}\label{sec:solve:prec:eta}
+
+A natural starting point is preconditioning \eqref{eq:imag1} with the inverse of
+the real-valued part of the operator, $(\eta I - \widehat{\mathcal{L}})^2$,
+dropping the $+ \beta^2 I$ term, which can be applied as two successive inverses
+of $(\eta I - \widehat{\mathcal{L}})$. Expanding, the preconditioned operator
+then takes the form
 %
 \begin{align}\nonumber
 \mathcal{P}_\eta & := (\eta I - \widehat{\mathcal{L}})^{-2}\left[(\eta^2+\beta^2)I - 2\eta \widehat{\mathcal{L}} + \widehat{\mathcal{L}}^2\right] \\
@@ -608,23 +612,10 @@ the preconditioned operator then takes the form
 \end{align}
 %
 
-It turns out that under the assumptions introduced in \Cref{sec:intro:stab}, the preconditioned
-operator in \eqref{eq:prec1} is very well-conditioned. \Cref{th:fov} analyzes the
-field of values of $\mathcal{P}_\eta$ \eqref{eq:fov}
-as a measure of the preconditioning, and \Cref{cor:gmres,cor:cg} extend this
-preconditioning to prove fast convergence of GMRES and CG.
-
-%
-\begin{remark}[Convergence independent of number of stages/polynomial order]
-\textnormal{ }\newline
-The conditioning of $\mathcal{P}_\eta$ depends on the ratio
-$\beta^2/\eta^2$, particularly for $\beta > \eta$, which typically increases
-with number of stages/DG polynomial order. \Cref{sec:solve:gamma} introduces
-a modification that yields conditioning independent of $\beta$ and $\eta$
-(and thus, number of stages/polynomial order) at the expense of less rigorous
-analysis of GMRES convergence than provided for $\mathcal{P}_\eta$ in this section.
-\end{remark}
-%
+For $\eta > \beta$ and under the assumptions introduced in \Cref{sec:intro:stab},
+the preconditioned operator in \eqref{eq:prec1} has a nicely bounded field-of-values,
+which can be directly translated into guaranteed GMRES convergence bounds
+(\Cref{cor:gmres}).
 
 %
 \begin{theorem}[Preconditioned field of values]\label{th:fov}
@@ -634,57 +625,31 @@ Let $\mathcal{P}_\eta$ denote the
 preconditioned operator, where $((\eta + i\beta)I -
 \widehat{\mathcal{L}})((\eta - i\beta)I - \widehat{\mathcal{L}})$ is
 preconditioned with $(\eta I - \widehat{\mathcal{L}})^{-2}$. Then
-$W(\mathcal{P}_\eta)$ is bounded by $\Omega$ as shown in \Cref{fig:bound}.
-\begin{figure}[h!]
-\centering
-\includegraphics[width = 0.3\textwidth]{./figures/fov.pdf}
-\caption{Field-of-values bound for $\mathcal{P}_\eta$ in the complex plane.}
-\label{fig:bound}
-\end{figure}
+$W(\mathcal{P}_\eta)$ is contained in a circle of radius
+$\tfrac{\beta^2}{\eta^2}$ centered at 1.
 \end{theorem}
 \begin{proof}
-Let $\sigma(B)$ denote the spectrum of operator $B$, $\sigma_{\textnormal{min}}(B)$
-and $\sigma_{\textnormal{max}}(B)$ the minimum and maximum eigenvalues, and $\rho(B)$
-the spectral radius. Also, define the symmetric/skew-symmetric splitting
-$B = B_s + B_k$, where $B_s := (B+B^T)/2$ and $B_k := (B - B^T)/2$, and the numerical
-radius as $r(B) = \sup \{ |\lambda| : \lambda \in W(B) \}$. Recall
+For operator $B$, define the symmetric/skew-symmetric splitting
+$B = B_s + B_k$, where $B_s := (B+B^T)/2$ and $B_k := (B - B^T)/2$, and
+the numerical radius as $r(B) = \sup \{ |\lambda| : \lambda \in W(B) \}$. Recall
 the following properties of $W(B)$ \cite{gustafson1997numerical,mees1979domains}:
 %
 \begin{enumerate}
+	\item $W(I + B) = 1 + W(B)$.
+
 	\item $B_s \leq 0$ in the symmetric negative semi-definite sense
 	if and only if $W(B) \leq 0$.
 
-	\item $W(B)\subset [\sigma_{\textnormal{min}}(B_s), \sigma_{\textnormal{max}}(B_s)] \times
-	[-\rho(B_k)\mathrm{i}, \rho(B_k)\mathrm{i}]$.
-
-	\item $\sigma(B) \subset W(B)$.
-
-	% <Bv,v> + <v,Bv> > 0 ---> w = B^{-1}v ---> <w, B^{-1}w> + <B^{-1}w,w> > 0
-	\item If $B$ is invertible and $B_s \leq 0$ in the symmetric negative semi-definite
-	sense, then the symmetric part of $B^{-1}$ is also negative semi-definite.
-
 	\item $r(B) \leq \|B\|_2$.
 
-	\item $W(I + B) = 1 + W(B)$.
 \end{enumerate}
 %
-Note that an exact inverse yields $\mathcal{P}_\eta = I$, with spectrum
-and field of values given by $\sigma(\mathcal{P}_S) = W(\mathcal{P}_S) = \{1\}$.
-Appealing to \eqref{eq:prec1} and the final property stated above, $W(\mathcal{P}_\eta)
-= 1 + \tfrac{\beta^2}{\eta^2}W(E)$, for error term $E := (I - \tfrac{1}{\eta}\widehat{\mathcal{L}})^{-2}$
-and real-valued constant $\beta^2/\eta^2 > 0$. Next we will bound $W(E)$ in the complex plane.
-
-Assume that $\eta > 0$ and the symmetric part of $\widehat{\mathcal{L}}$ satisfies
-$(\widehat{\mathcal{L}}+\widehat{\mathcal{L}}^T)/2 \leq 0$.
-It follows that the real part of eigenvalues of $\widehat{\mathcal{L}}$ are non-positive and,
-thus, $(I - \tfrac{1}{\eta}\widehat{\mathcal{L}})$ cannot have a zero eigenvalue and must be
-invertible. Furthermore, it also follows that the symmetric part of
-$(I - \tfrac{1}{\eta}\widehat{\mathcal{L}})$ is symmetric positive definite and thus
-the symmetric part of $(I - \tfrac{1}{\eta}\widehat{\mathcal{L}})^{-2}$ is as well.
-This yields a lower bound of zero on the real-axis for $W(E)$, that is,
-Re$(W(E)) > 0$.
-
-Now, note that by the assumption $(\widehat{\mathcal{L}}+\widehat{\mathcal{L}}^T)/2 \leq 0$, we have
+Appealing to \eqref{eq:prec1} and property (1), $W(\mathcal{P}_\eta)
+= 1 + \tfrac{\beta^2}{\eta^2}W(E)$, for error term
+$E := (I - \tfrac{1}{\eta}\widehat{\mathcal{L}})^{-2}$
+and real-valued constant $\beta^2/\eta^2 > 0$.
+Now, note that by the assumption and property (2),
+$(\widehat{\mathcal{L}}+\widehat{\mathcal{L}}^T)/2 \leq 0$, and we have
 %
 \begin{align}\label{eq:norm1}
 \frac{\left\langle (I - \tfrac{1}{\eta}\widehat{\mathcal{L}})\mathbf{x},(I - \tfrac{1}{\eta}\widehat{\mathcal{L}})\mathbf{x}\right\rangle}
@@ -710,20 +675,23 @@ for all $\mathbf{x}\neq\mathbf{0}$. Then,
 \leq 1.
 \end{align*}
 %
-This yields a bound on the numerical radius $r(E) = r((I - \tfrac{1}{\eta}\widehat{\mathcal{L}})^{-2})
-\leq \|(I - \tfrac{1}{\eta}\widehat{\mathcal{L}})^{-2}\|\leq 1$. Combining with Re$(W(E)) > 0$,
-the field of values of the error term, $W(E)$, is contained in the positive half of the
-unit circle in the complex plane, which completes the proof.
+By property (3), this yields a bound on the numerical radius
+$r(E) = r((I - \tfrac{1}{\eta}\widehat{\mathcal{L}})^{-2})
+\leq \|(I - \tfrac{1}{\eta}\widehat{\mathcal{L}})^{-2}\|\leq 1$. It follows that
+the field $W(E)$ is contained in a unit circle in the complex plane,
+which completes the proof.
 \end{proof}
 %
 
 %
 \begin{corollary}[GMRES convergence bounds]\label{cor:gmres}
-Let $\pi_k$ denote the set of consistent polynomials of degree $k$ \WP{Define consistent polynomials?}. Then the ideal GMRES bound
-(an upper bound in operator norm of worst-case convergence) on convergence after $k$ iterations
-applied to the preconditioned operator $\mathcal{P}_\eta$ \eqref{eq:prec1} is bounded by
+Let $\pi_k$ denote the set of polynomials of degree $k$ such that $p(0) = 1$,
+and let $\beta < \eta$. Then the ideal GMRES bound (an upper bound in operator
+norm of worst-case convergence) on convergence after $k$ iterations
+applied to the preconditioned operator $\mathcal{P}_\eta$ \eqref{eq:prec1}
+is bounded by
 \begin{align*}
-\min_{p\in\pi_k} \|p(\mathcal{P}_\eta)\| \leq 2\left(\frac{\beta^2/\eta^2}{2 + \beta^2/\eta^2}\right)^k.
+\min_{p\in\pi_k} \|p(\mathcal{P}_\eta)\| \leq 2\left(\frac{\beta^2}{\eta^2}\right)^k.
 \end{align*}
 \end{corollary}
 \begin{proof}
@@ -737,97 +705,42 @@ applied to operator $B$ as
 \min_{p\in\pi_k} \|p(B)\| \leq 2\left(\frac{1-\cos\zeta}{1+\cos\zeta}\right)^k.
 \end{align}
 %
-For $B = \mathcal{P}_\eta$, we have $\nu(\mathcal{P}_\eta)= 1$ and
-$r(\mathcal{P}_\eta) \leq 1+\beta^2/\eta^2$.
-Plugging into \eqref{eq:gmres} completes the proof.\footnote{Note, classical GMRES convergence
-results based on $\lambda_{\textnormal{min}}((\mathcal{P}_\eta+\mathcal{P}_\eta^T)/2)$ and
-$\lambda_{\textnormal{max}}(\mathcal{P}_\eta^T\mathcal{P}_\eta)$ can also be applied, yielding
-the bound $\Big(\tfrac{\beta^2/\eta^2}{1 + \beta^2/\eta^2}\Big)^{k/2}$, $2-4\times$
-slower convergence than \Cref{th:fov}.}
+From \Cref{th:fov}, we have $\nu(\mathcal{P}_\eta) \geq 1-\beta^2/\eta^2$ and
+$r(\mathcal{P}_\eta) \leq 1+\beta^2/\eta^2$. Plugging into
+\eqref{eq:gmres} completes the proof.
 \end{proof}
 %
 
-\Cref{tab:beta} provides the values of $\eta$, $\beta^2/\eta^2$, and the CG and GMRES
-bounds from \Cref{cor:gmres} and \Cref{cor:cg} for Gauss, Radau IIA, and Lobatto IIIC
-integration.
-
+Making the additional assumption that
+$W(I - \tfrac{1}{\eta}\widehat{\mathcal{L}})^2) \geq 0$
+(or a stronger assumption that $W(\widehat{\mathcal{L}}^2) \geq 0$),
+\Cref{th:fov} can be extended to bound $W(\mathcal{P}_\eta)$
+in the \textit{positive} half circle of radius $\beta^2/\eta^2$, centered at 1. Then,
+$\nu(\mathcal{P}_\eta)\geq 1$ and $r(\mathcal{P}_\eta) \leq 1+\beta^2/\eta^2$,
+and GMRES bounds can be derived as in \Cref{cor:gmres}, independent of $\beta$
+and $\eta$, as
 %
-{
-\renewcommand{\tabcolsep}{4pt}
-\renewcommand{\arraystretch}{1.15}
-\begin{table}[!ht]
-  \centering
-  \begin{tabular}{| c | c | c | cc | cc | ccc |}  % chktex 44
-  \hline
-& Stages & 2 & \multicolumn{2}{c}{3} & \multicolumn{2}{|c}{4} & \multicolumn{3}{|c|}{5} \\\hline\hline
-\multirow{ 3}{*}{Gauss}
-&$\eta$ & 3.0 & 4.64 & 3.68 & 4.21 & 5.79 & 7.29 & 4.65 & 6.70 \\
-&$\beta^2/\eta^2$ & 0.33 & 0 & 0.91 & 1.59 & 0.09 & 0 & 2.36 & 0.27 \\
-&GMRES & 0.143 & 0 & 0.313 & 0.444 & 0.043 & 0 & 0.541 & 0.119  \\\hline
-\multirow{ 3}{*}{Radau IIA}
-&$\eta$ & 2.0 & 3.64 & 2.68 & 3.21 & 4.79 & 6.29 & 3.66 & 5.70 \\
-&$\beta^2/\eta^2$ & 0.50 & 0 & 1.29 & 2.21 & 0.11 & 0 & 3.20 & 0.32	\\
-&GMRES & 0.2 & 0 & 0.393 & 0.525 & 0.051 & 0 & 0.616 & 0.137 \\\hline
-\multirow{ 3}{*}{Lobatto IIIC}
-&$\eta$ & 1.0 & 2.63 & 1.69 & 2.22 & 3.78 & 5.28 & 2.66 & 4.70 \\
-&$\beta^2/\eta^2$ & 1 & 0 & 2.21 & 3.51 & 0.13 & 0 & 4.88 & 0.38 \\
-&GMRES & 0.333 & 0 & 0.525 & 0.637 & 0.063 & 0 &  0.709 & 0.161 \\
-  \hline
-  \end{tabular}
-  \caption{$\eta$, $\beta^2/\eta^2$, and the convergence factors in \Cref{cor:gmres}
-  and \Cref{cor:cg} for GMRES and CG, respectively (without the leading constants of
-  2) for Gauss, Radau IIA, and Lobatto IIIC integration,
-  with 2--5 stages. Each column within a given set of stage columns corresponds to a
-  conjugate pair of eigenvalues of $A_0^{-1}$. For odd numbers of stages, one eigenvalue
-  is real, corresponding to the column where $\beta^2/\eta^2 = 0/\eta^2 = 0$.}\label{tab:beta}
-\end{table}
-% Gauss
-% 2: 1.732050807568877^2/3.000000000000000^2
-% 3: 0, 3.508761919567443^2/3.677814645373916^2			(4.644370709252176)
-% 4: 5.31483608371350543^2/4.20757879435925566^2, 1.73446825786900750^2/5.79242120564074434^2
-% 5: 0, 7.14204584067595280^2/4.64934860636329045^2, 3.48532283236639545^2/6.70391279830706629^2, 		(7.29347719065928652)
-% Radau IIA
-% 2: 1.414213562373095^2/2^2
-% 3: 0, 3.050430199247409^2/2.681082873627745^2	(3.637834252744503)
-% 4: 4.77308743327664250^2/3.21280689687153398^2, 1.56747641689520812^2/4.78719310312846602^2
-% 5: 0, 6.54373689936007729^2/3.65569432546357226^2, 3.21026560030854989^2/5.70095329867178942^2				(6.28670475172927665)
-% Lobatto
-% 2: 1
-% 3: 0, 2.50873175492488^2/1.687091590520768^2 			(2.625816818958466)
-% 4: 4.160391445506932^2/2.220980032989805^2, 1.38017652427285^2/3.779019967010193^2
-% 5:
-}
-
-% ------------------------------------------------------------------------------------- %
-\subsection{Conditioning independent of $\eta$ and $\beta$}\label{sec:solve:gamma}
-
-In the previous section, we considered two applications of $(\eta I -
-\widehat{\mathcal{L}})^{-1}$ as a preconditioner for $\mathcal{Q}_\eta$ \eqref{eq:imag1}.
-\Cref{th:fov} and the corresponding Corollaries proved that preconditioned
-GMRES is guaranteed to converge using such an approach, with bounds on convergence
-provided in \Cref{tab:beta}. However, one can note from \Cref{fig:bound} and
-\Cref{tab:beta} that convergence depends on values of $\beta$ and $\eta$ and, in
-particular, that convergence degrades as the number of stages increase. Ideally,
-we would like to obtain convergence independent of $\beta$ and $\eta$, analogous
-to spatial solvers that achieve convergence independent of spatial mesh and
-discretization order. This section is motivated by \cite{exh}, where a similar
-algorithm is developed for linear parabolic problems using the real Schur
-decomposition \OK{There is no Schur decomposition stuff in this paper; that's for the nonlinear/time-dependent one?}, and, for SPD operators, a modified constant $\eta \mapsto
-\sqrt{\eta^2+\beta^2}$ is derived, \OK{Maybe change to `a modified preconditioning constant'? It kind of reads like you're changing the value of $\eta$.} where the preconditioned operator has
-condition number $<2$, independent of $\eta$ and $\beta$. In this section,
-we derive bounds on the condition number of the preconditioned operator for
-preconditioner $(\gamma I - \widehat{\mathcal{L}})^{-2}$, $0 < \gamma\neq \eta$
-(\Cref{th:cond}). \Cref{cor:independent} then proves that the constant
-%
-\begin{align}\label{eq:gam_opt}
-\gamma _* := \sqrt{\eta^2+\beta^2}
+\begin{align}\label{eq:gmres2}
+\min_{p\in\pi_k} \|p(\mathcal{P}_\eta)\| \leq 2\left(\frac{\beta^2/\eta^2}
+	{2 + \beta^2/\eta^2}\right)^k.
 \end{align}
 %
-yields a preconditioned operator with condition number $<9$, independent
-of $\eta$ and $\beta$.
+Such an assumption is tricky to quantify because there is no necessary relationship
+between $W(A)$ and $W(A^2)$ for operator $A$. Roughly,
+$W(\widehat{\mathcal{L}}^2)\geq 0$ would correspond to parabolic-type
+operators, where eigenvalues have larger real than imaginary components.
+In any case, notice that even there, the field-of-values and GMRES convergence 
+estimates \eqref{eq:gmres2} depend on the ratio $\beta^2/\eta^2$. For
+$\eta < \beta$, we expect to see nice convergence, but are likely to see degradation
+for $\beta > \eta$. The following section derives a better constant $\gamma$
+that yields nice conditioning regardless of $W(\widehat{\mathcal{L}}^2)$,
+and with weaker dependence on $\eta$ and $\beta$.
+
+% ------------------------------------------------------------------------------------- %
+\subsubsection{A better choice of $\gamma$}\label{sec:solve:prec:gamma}
 
 Consider a similar preconditioner as in
-\Cref{sec:solve:inv}, but with some constant $\gamma \mapsto
+\Cref{sec:solve:inv}, but with preconditioning constant $\gamma \mapsto
 (\gamma I - \widehat{\mathcal{L}})^{-2}$. The resulting preconditioned
 operator takes the form
 %
@@ -837,8 +750,8 @@ operator takes the form
 & = (\gamma I - \mathcal{L})^{-2}\Big[((\eta-\gamma)I + (\gamma I - \mathcal{L}))^2 + \beta^2 I\Big] \\
 % & = (\gamma I - \mathcal{L})^{-2}\Big[(\gamma-\eta)^2I - 2(\gamma-\eta)(\gamma I - \mathcal{L}) +
 % 	(\gamma I - \mathcal{L})^2 + \beta^2 I\Big] \nonumber\\
-& = I - 2(\gamma-\eta)(\gamma I - \mathcal{L})^{-1} + (\beta^2 + (\gamma-\eta)^2)(\gamma I -
-	\mathcal{L})^{-2} \nonumber\\
+% & = I - 2(\gamma-\eta)(\gamma I - \mathcal{L})^{-1} + (\beta^2 + (\gamma-\eta)^2)(\gamma I -
+% 	\mathcal{L})^{-2} \nonumber\\
 & = I - 2\frac{\gamma-\eta}{\gamma}\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1} +
 	\frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}
 	\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-2}.\label{eq:prec_k}
@@ -852,42 +765,290 @@ $\langle A\mathbf{x},\mathbf{x}\rangle$ and
 $\langle A^2\mathbf{x},\mathbf{x}\rangle$ for general operators $A$. Thus, here
 we take a different approach, analyzing the condition number of the preconditioned
 operator, $\mathcal{P}_\gamma$, similar to as done for SPD matrices in \cite{exh}.
-Although the conditioning does not yield immediate GMRES bounds as the field of values
-analysis does (or as conditioning does for bounds on CG convergence), it still
-provides a robust measure of the effectiveness and scalability of the
-preconditioner.
 
-Moving forward we will limit ourselves to considering $\eta \leq \gamma \leq \
-\tfrac{\eta^2+\beta^2}{\eta}$, which limits to the natural case of $\gamma = \eta$
-as $\beta \to 0$. Similar analysis can be performed for $\gamma$ outside of
-this range, but the derivations are different and there does not appear to
-be any good reason to use $\gamma$ outside of this range (for details,
-see the discussion following \Cref{th:cond}, and in \cite{exh} for SPD operators).
+% %
+% Under the additional assumption of $\widehat{\mathcal{L}}^2 \geq 0$, $\gamma = \eta$
+% yields bounds
+% %
+% \begin{align*}
+% \textnormal{cond}(\mathcal{P}_{\gamma_*}) \leq 1 + \frac{\beta^2}{\eta^2}.
+% \end{align*}
+% %
 
-%
 \begin{theorem}[Conditioning of preconditioned operator]\label{th:cond}
 Suppose Assumptions \ref{ass:eig} and \ref{ass:fov} hold, that is, $\eta > 0$
-and $W(\mathcal{L}) \leq 0$ \eqref{eq:fov}. Let $\eta \leq \gamma \leq \
-\tfrac{\eta^2+\beta^2}{\eta}$ for $\gamma\in\mathbb{R}$ and let
-$\mathcal{P}_\gamma$ denote the preconditioned operator, where $((\eta + i\beta)I -
-\widehat{\mathcal{L}})((\eta - i\beta)I - \widehat{\mathcal{L}})$ is
-preconditioned with $(\gamma I - \widehat{\mathcal{L}})^{-2}$. Then,
-\begin{align}\label{eq:cond1}
-\textnormal{cond}(\mathcal{P}_\gamma) \leq (1 + \alpha\overline{\alpha})
-		\left(1 + \frac{\alpha\overline{\alpha}}{(1 - \alpha)(1 - \overline{\alpha})}\right)
-	% \begin{cases}
-	% \frac{1 + \alpha\overline{\alpha}} {(1 - \alpha)(1 - \overline{\alpha})}
-	% 	& \eta\gamma \geq \eta^2+\beta^2, \\
-	% (1 + \alpha\overline{\alpha})
-	% 	\left(1 + \frac{\alpha\overline{\alpha}}{(1 - \alpha)(1 - \overline{\alpha})}\right)
-	% 	& \eta\gamma < \eta^2+\beta^2,
-	% \end{cases}
+and $W(\widehat{\mathcal{L}}) \leq 0$ \eqref{eq:fov}. Let $\mathcal{P}_\gamma$ denote
+the preconditioned operator, where $((\eta + i\beta)I -
+\widehat{\widehat{\mathcal{L}}})((\eta - i\beta)I - \widehat{\widehat{\mathcal{L}}})$ is
+preconditioned with $(\gamma I - \widehat{\widehat{\mathcal{L}}})^{-2}$.
+Define $\gamma_* = \sqrt{\eta^2+\beta^2}$ and let $\gamma = \gamma_*$. Then
+%
+\begin{align}\label{eq:gammastar}
+\textnormal{cond}(\mathcal{P}_{\gamma_*}) \leq 
+	3\sqrt{1+\frac{\beta^2}{\eta^2}} - 2.
 \end{align}
-with $\alpha$ and $\overline{\alpha}$ defined as in \eqref{eq:alpha}.
+
+Assume additionally that $W(\widehat{\mathcal{L}}^2) \geq 0$. Then for
+$\eta \leq \gamma \leq \gamma_*$ 
+\begin{align}\label{eq:cond_gen}
+\textnormal{cond}(\mathcal{P}_\gamma) \leq \frac{\gamma}{\eta}
+	\left(1 + \frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}\right).
+\end{align}
 \end{theorem}
+\begin{proof}
+Recall for matrix $A$, cond$(A) = \|A\|\|A^{-1}\|$.
+First, consider bounding $\|\mathcal{P}_\gamma\|$ for $\gamma \geq \eta$:
+%
+\begin{align}\nonumber
+\|\mathcal{P}_\gamma\| & = \left\| I - 2\frac{\gamma-\eta}
+	{\gamma}\left(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}\right)^{-1} +
+		\frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}
+		\left(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}\right)^{-2} \right\| \\
+% & \leq \left\| I - 2\frac{\gamma-\eta}
+% 	{\gamma}\left(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}\right)^{-1}\right\| +
+% 		\frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}\left\|
+% 		\left(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}\right)^{-2} \right\| \\
+& \leq \left\| I - 2\frac{\gamma-\eta}
+	{\gamma}\left(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}\right)^{-1}\right\| +
+		\frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}\left\|
+		\left(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}\right)^{-1} \right\|^2 \nonumber \\
+& \leq \left\| I - 2\frac{\gamma-\eta}
+	{\gamma}\left(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}\right)^{-1}\right\| +
+		\frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}. \label{eq:P0}
+\end{align}
+%
+For the first term, note that maximizing over $\mathbf{v}\in\mathbb{R}^n$ and
+letting $\mathbf{v} := (I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})\mathbf{w}$,
+%
+{\small
+\begin{align*}
+\left\| I - 2\tfrac{\gamma-\eta}
+	{\gamma}(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{-1}\right\|^2
+		& = \sup_{\mathbf{v}\neq\mathbf{0}} \frac{\left\| [I - 2\frac{\gamma-\eta}
+	{\gamma}(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{-1}]\mathbf{v}\right\|^2}{\|\mathbf{v}\|^2} 
+= \sup_{\mathbf{w}\neq\mathbf{0}} \frac{\left\| (I - \tfrac{1}{\gamma}\widehat{\mathcal{L}} -
+		2\frac{\gamma-\eta}{\gamma}I )\mathbf{w}\right\|^2}{\|(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})
+		\mathbf{w}\|^2} \\
+% & = \sup_{\mathbf{w}\neq\mathbf{0}} \frac{\left\|[(1 - 2\frac{\gamma-\eta}{\gamma})
+% 	I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}]\mathbf{w}\right\|^2}{\|(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})
+% 		\mathbf{w}\|^2} \\
+&\hspace{-5ex} = \sup_{\mathbf{w}\neq\mathbf{0}} \frac{|1 - 2\tfrac{\gamma-\eta}{\gamma}|^2\|\mathbf{w}\|^2
+	- \tfrac{1}{\gamma}(1 - 2\tfrac{\gamma-\eta}{\gamma})\langle (\widehat{\mathcal{L}} + \widehat{\mathcal{L}}^T)
+		\mathbf{w},\mathbf{w}\rangle + \tfrac{1}{\gamma}^2\|\widehat{\mathcal{L}}\mathbf{w}\|^2}
+	{\|\mathbf{w}\|^2 - \tfrac{1}{\gamma}\langle (\widehat{\mathcal{L}} + \widehat{\mathcal{L}}^T)
+		\mathbf{w},\mathbf{w}\rangle + \tfrac{1}{\gamma}^2\|\widehat{\mathcal{L}}\mathbf{w}\|^2}.
+\end{align*}
+}
+%
+Note that by assumption, $\gamma \geq \eta$, which implies
+$0 \leq 2\tfrac{\gamma-\eta}{\gamma}  < 2$, and 
+$|1 - 2\tfrac{\gamma-\eta}{\gamma}| < 1$. In addition, we assume $W(\widehat{\mathcal{L}})\leq 0$,
+which implies $\langle (\widehat{\mathcal{L}}+\widehat{\mathcal{L}}^T)\mathbf{w},\mathbf{w}\rangle \leq 0$
+(see \Cref{th:fov}), and
+$2\tfrac{\gamma-\eta}{\gamma^2} \geq 0$, which implies the term
+$2\tfrac{\gamma-\eta}{\gamma^2}\langle (\widehat{\mathcal{L}}+\widehat{\mathcal{L}}^T)
+	\mathbf{w},\mathbf{w}\rangle\leq 0$. Appealing to these two inequalities,
+%
+\begin{align} \label{eq:P1}
+\left\| I - 2\tfrac{\gamma-\eta}
+	{\gamma}(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{-1}\right\|^2
+& < \sup_{\mathbf{w}\neq\mathbf{0}} \frac{\|\mathbf{w}\|^2
+	- \tfrac{1}{\gamma}\langle (\widehat{\mathcal{L}} + \widehat{\mathcal{L}}^T)
+		\mathbf{w},\mathbf{w}\rangle + \tfrac{1}{\gamma}^2\|\widehat{\mathcal{L}}\mathbf{w}\|^2}
+	{\|\mathbf{w}\|^2 - \tfrac{1}{\gamma}\langle (\widehat{\mathcal{L}} + \widehat{\mathcal{L}}^T)
+		\mathbf{w},\mathbf{w}\rangle + \tfrac{1}{\gamma}^2\|\widehat{\mathcal{L}}\mathbf{w}\|^2} 
+= 1.
+\end{align}
+%
+Combining \eqref{eq:P0} and \eqref{eq:P1} yields
+%
+\begin{align}\label{eq:Pgamma}
+\|\mathcal{P}_\gamma\| \leq 1 + \frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}.
+\end{align}
 
+Now consider bounding $\|\mathcal{P}_\gamma^{-1}\|$ from above. Let $s_{\max}(A)$
+and $s_{\min}(A)$ denote the maximum and minimum singular value of matrix $A$,
+respectively, and recall
+%
+\begin{align*}
+\|\mathcal{P}_\gamma^{-1}\| = s_{\max}(\mathcal{P}_\gamma^{-1})
+	& = \frac{1}{s_{\min}(\mathcal{P}_\gamma)}, \hspace{5ex}\textnormal{where}\hspace{2ex}
+s_{\min}(\mathcal{P}_\gamma) =
+	\min_{\mathbf{v}\neq\mathbf{0}} \frac{\|\mathcal{P}_\gamma\mathbf{v}\|}{\|\mathbf{v}\|}.
+\end{align*}
+%
+Thus, consider the minimum singular value of $P_\gamma$. Letting $\mathbf{v} :=
+(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{2}\mathbf{w}$,
+%
+\begin{align}\nonumber
+s_{\min}(\mathcal{P}_\gamma)^2 & = \min_{\mathbf{v}\neq\mathbf{0}}
+	\frac{\left\| \left[I - 2\frac{\gamma-\eta}{\gamma}(I - \tfrac{1}{\gamma}
+		\widehat{\mathcal{L}})^{-1} + \frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}
+		(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{-2}\right]\mathbf{v} \right\|^2}
+	{\|\mathbf{v}\|^2} \\
+& = \min_{\mathbf{v}\neq\mathbf{0}}
+	\frac{\left\| \left[(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{2} - 2\frac{\gamma-\eta}{\gamma}
+		(I - \tfrac{1}{\gamma} \widehat{\mathcal{L}}) + \frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2} I
+		\right]\mathbf{w} \right\|^2}
+	{\|(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{2}\mathbf{w}\|^2} \nonumber\\
+& = \min_{\mathbf{v}\neq\mathbf{0}}
+	\frac{\left\| \left[(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{2} + 
+		\tfrac{\eta^2+\beta^2-\gamma^2}{\gamma^2} I + 2\frac{\gamma-\eta}{\gamma^2}
+		\widehat{\mathcal{L}}) \right]\mathbf{w} \right\|^2}
+	{\|(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{2}\mathbf{w}\|^2}.\label{eq:smin0}
+\end{align}
+%
 
+For ease of notation, define
+%
+\begin{align*}
+c_I & := \tfrac{\eta^2+\beta^2-\gamma^2}{\gamma^2} , \hspace{5ex}
+c_{\widehat{\mathcal{L}}} := 2\frac{\gamma-\eta}{\gamma^2},
+\end{align*}
+%
+noting that for $\eta\leq\gamma\leq\sqrt{\eta^2+\beta^2}$, $c_I,c_{\widehat{\mathcal{L}}} \geq 0$.
+Now, collect like terms in \eqref{eq:smin0} and expand the norm to yield
+%
+\begin{align}\nonumber
+s_{\min}(\mathcal{P}_\gamma)^2
+& = \min_{\mathbf{w}\neq\mathbf{0}}
+	\frac{\left\| \left[(1+c_I)I - (\tfrac{2}{\gamma}-c_{\widehat{\mathcal{L}}})\widehat{\mathcal{L}} +
+		\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\right]\mathbf{w} \right\|^2}
+	{\left\|\left(I - \tfrac{2}{\gamma}\widehat{\mathcal{L}} +
+		\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\right)\mathbf{w} \right\|^2} \\
+& =  \min_{\mathbf{w}\neq\mathbf{0}}
+	\frac{\|(1+c_I)\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2 +
+		(\tfrac{2}{\gamma}-c_{\widehat{\mathcal{L}}})^2\|\widehat{\mathcal{L}}\mathbf{w}\|^2}
+	{\|\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2 +
+		\tfrac{4}{\gamma^2}\|\widehat{\mathcal{L}}\mathbf{w}\|^2 -
+		\tfrac{4}{\gamma}\langle\widehat{\mathcal{L}}\mathbf{w},\mathbf{w}\rangle -
+		\tfrac{4}{\gamma^3}\langle\widehat{\mathcal{L}}(\widehat{\mathcal{L}}\mathbf{w}),\widehat{\mathcal{L}}\mathbf{w}\rangle} + ... \nonumber\\
+& \hspace{10ex} \frac{-2(1+c_I)(\tfrac{2}{\gamma}-c_{\widehat{\mathcal{L}}})
+	\langle\widehat{\mathcal{L}}\mathbf{w},\mathbf{w}\rangle -
+		2\tfrac{2-\gamma c_{\widehat{\mathcal{L}}}}{\gamma^3}
+		\langle\widehat{\mathcal{L}}(\widehat{\mathcal{L}}\mathbf{w}),
+			\widehat{\mathcal{L}}\mathbf{w}\rangle}
+	{\|\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2 +
+		\tfrac{4}{\gamma^2}\|\widehat{\mathcal{L}}\mathbf{w}\|^2 -
+		\tfrac{4}{\gamma}\langle\widehat{\mathcal{L}}\mathbf{w},\mathbf{w}\rangle -
+		\tfrac{4}{\gamma^3}\langle\widehat{\mathcal{L}}(\widehat{\mathcal{L}}\mathbf{w}),\widehat{\mathcal{L}}\mathbf{w}\rangle}.\label{eq:smin_ex}
+\end{align}
+%
+By assumption on $W(\widehat{\mathcal{L}})\leq 0$ and $\eta\leq\gamma\leq\sqrt{\eta^2+\beta^2}$,
+all terms in the numerator and denominator are non-negative (note, $\mathbf{w}$ and
+$\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}$ were kept together in norm to avoid
+the difficulties that arise in analyzing $\langle\widehat{\mathcal{L}}^2\mathbf{w},\mathbf{w}\rangle$).
+For numerator $\mathcal{N}$ and denominator $\mathcal{D}$, if $\widehat{K}\mathcal{N}
+\geq \mathcal{D}$, then $\mathcal{N}/\mathcal{D} \geq 1 / \widehat{K}$. For 
+$\|\widehat{\mathcal{L}}\mathbf{w}\|^2$, $\langle\widehat{\mathcal{L}}\mathbf{w},\mathbf{w}\rangle$,
+and $\langle\widehat{\mathcal{L}}(\widehat{\mathcal{L}}\mathbf{w}),\widehat{\mathcal{L}}\mathbf{w}\rangle$,
+we can directly bound the ratio of constants in the numerator and denominator.
+For $\|\widehat{\mathcal{L}}\mathbf{w}\|^2$, we have
+%
+\begin{align*}
+\widehat{K}(\tfrac{2}{\gamma}-c_{\widehat{\mathcal{L}}})^2 \geq \frac{4}{\gamma^2}
+	\hspace{5ex}\Longleftrightarrow\hspace{5ex}
+\widehat{K} \geq \frac{\gamma^2}{\eta^2},
+\end{align*}
+%
+while $\langle\widehat{\mathcal{L}}\mathbf{w},\mathbf{w}\rangle$ requires
+%
+\begin{align*}
+2\widehat{K}(1+c_I)(\tfrac{2}{\gamma}-c_{\widehat{\mathcal{L}}})\geq \frac{4}{\gamma},
+	\hspace{5ex}\Longleftrightarrow\hspace{5ex}
+\widehat{K} \geq \frac{\gamma^3}{\eta(\eta^2+\beta^2)},
+\end{align*}
+%
+and $\langle\widehat{\mathcal{L}}(\widehat{\mathcal{L}}\mathbf{w}),\widehat{\mathcal{L}}\mathbf{w}\rangle$
+requires
+%
+\begin{align*}
+2\widehat{K}\tfrac{2-\gamma c_{\widehat{\mathcal{L}}}}{\gamma^3} \leq \frac{4}{\gamma^3},
+	\hspace{5ex}\Longleftrightarrow\hspace{5ex}
+\widehat{K} \geq \frac{\gamma}{\eta}.
+\end{align*}
+%
+Because we want a lower bound on $\mathcal{N}/\mathcal{D} \geq 1/\widehat{K}$,
+we seek the maximum required $\widehat{K}$ of the above ratios. For
+$\gamma \in[\eta,\sqrt{\eta^2+\beta^2}]$, the maximum of the
+above ratios ends up being $\widehat{K} := \tfrac{\gamma^2}{\eta^2}$.
 
+The difficult ratio to bound in \eqref{eq:smin_ex} ends up being 
+$\|(1+c_I)\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2$ and the
+similar denominator term, $\|\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2$.
+Here we consider two cases:\\
+\\
+%%%%%
+\underline{$\boldsymbol{\gamma_* = \sqrt{\eta^2+\beta^2}}$}: Under this specific choice, we
+get the nice cancellation that $c_I = 0$, and have matching terms
+$\|\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2$ in the numerator
+and denominator of \eqref{eq:smin_ex}. Then, the maximum ratio of numerator 
+to denominator terms is $\widehat{K} := \tfrac{\gamma^2}{\eta^2}$ derived above,
+and we can bound $\|P_{\gamma}^{-1}\|$ via
+%
+\begin{align}\label{eq:gammas_bound}
+\|P_{\gamma}^{-1}\| & = \frac{1}{s_{\min}(P_{\gamma}^{-1})} 
+	\leq \frac{1}{1/\sqrt{\widehat{K}}} 
+	= \frac{\sqrt{\eta^2+\beta^2}}{\eta} =
+	\sqrt{1+\frac{\beta^2}{\eta^2}}.
+\end{align}
+%
+Combining with \eqref{eq:Pgamma} for $\gamma = \gamma_*$ and simplifying
+completes the proof of \eqref{eq:gammastar}.\\
+\\
+%%%%%
+\noindent
+\underline{\textbf{Nonnegative $\widehat{\mathcal{L}}^2$}}: Suppose
+$W(\widehat{\mathcal{L}}^2) \geq 0$.
+Given we are minimizing over real vectors, we can write $\langle\widehat{\mathcal{L}}^2\mathbf{w},
+\mathbf{w} \rangle := \cos(\theta)\|\widehat{\mathcal{L}}^2\mathbf{w}\|\|\mathbf{w}\|$ for some
+angle $\theta$. By assumption $W(\widehat{\mathcal{L}}^2) \geq 0$, we have $\cos(\theta)\geq 0$.
+Taking the ratio of these individual terms then yields
+%
+{\small
+\begin{align}\label{eq:bad}
+\frac{\|(1+c_I)\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2}
+	{\|\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2}
+& = \frac{(1+c_I)^2\|\mathbf{w}\|^2+\tfrac{1}{\gamma^4}\|\widehat{\mathcal{L}}^2\mathbf{w}\|^2
+	+ 2\cos(\theta)(1+c_I)\|\widehat{\mathcal{L}}^2\mathbf{w}\|\|\mathbf{w}\|}
+	{\|\mathbf{w}\|^2+\tfrac{1}{\gamma^4}\|\widehat{\mathcal{L}}^2\mathbf{w}\|^2
+	+ 2\cos(\theta)\|\widehat{\mathcal{L}}^2\mathbf{w}\|\|\mathbf{w}\|}.
+\end{align}
+}
+%
+Letting $x := \tfrac{\|\widehat{\mathcal{L}}\mathbf{w}\|}{\|\mathbf{w}\|}$, we can
+cancel $1/\|\mathbf{w}\|^2$ from the numerator and denominator and
+write \eqref{eq:bad} as a ratio of quadratic functions in $x \geq 0$:
+%
+\begin{align}\label{eq:x_simp}
+\frac{x^2 + 2\cos(\theta)(1+c_I)x + (1+c_I)^2}{x^2 + 2\cos(\theta)x + 1}.
+\end{align}
+%
+For $c_I\geq 0$ (corresponding to $\gamma \leq\sqrt{\eta^2+\beta^2}$)
+and $\cos(\theta)\geq 0$, \eqref{eq:x_simp} is $\geq 1$ for all $x$.
+%
+%---------------- Comment on \gamma > \sqrt(\eta^2+\beta^2) ----------------
+% It is
+% also clear in \eqref{eq:x_simp} why choosing $\gamma > \sqrt{\eta^2+\beta^2}
+% \implies c_I < 0$ does not appear to be advantageous, at least for this term,
+% as the ratio in \eqref{eq:x_simp} is then $<1$ for all $x\geq 0$, which
+% requires a larger $\widehat{K}$ and, thus, smaller bound on
+% $s_{\min}(\mathcal{P}_\gamma)$.
+Similar to the proof for $\gamma = \gamma_*$, the ratio in \eqref{eq:bad}
+is always $\geq 1$, and the maximum required $\widehat{K}$ to bound
+$\widehat{K}\mathcal{N} \geq \mathcal{D}$ for each matching term is
+given by $\widehat{K} = \tfrac{\gamma^2}{\eta^2}$. Altogether,
+this yields
+%
+\begin{align*}
+\|P_{\gamma}^{-1}\| & = \frac{1}{s_{\min}(P_{\gamma}^{-1})} 
+	\leq \frac{1}{1/\sqrt{\widehat{K}}} 
+	= \frac{\gamma}{\eta}.
+\end{align*}
+%
+Combining with \eqref{eq:Pgamma} completes the proof of \eqref{eq:cond_gen}.
+\end{proof}
+%
 
 In \cite{exh}, similar analysis is done under the assumption
 that $-\mathcal{L}$ is SPD, in which case the conditioning can be derived based on
@@ -895,64 +1056,36 @@ eigenvalues. There, they effectively derive the conditioning of the precondition
 operator for $\gamma = \eta$ to be cond$(\mathcal{P}_\eta) = 1 + \tfrac{\beta^2}{\eta^2}$
 (using notation of this paper, as the spectrum of $(I - \tfrac{1}{\eta}\mathcal{L})^{-1}
 \mapsto [0,1]$, as would likely happen with refinement of a parabolic problem,
-the result in \cite{exh} is exact).
-If we let $\gamma = \eta$, from \eqref{eq:alpha_eq} we have
-$\alpha+\overline{\alpha} = 0$, $\alpha\overline{\alpha} =
-\frac{\beta^2}{\eta^2}$, and \Cref{th:cond} yields
+the result in \cite{exh} is exact). If we let $\gamma = \eta$, \Cref{th:cond} yields
 %
 \begin{align}\label{eq:cond_eta}
-\textnormal{cond}(\mathcal{P}_{\gamma = \eta}) \leq 1 + 2\frac{\beta^2}{\eta^2}.
+\textnormal{cond}(\mathcal{P}_{\gamma = \eta}) \leq 1 + \frac{\beta^2}{\eta^2}.
 \end{align}
 %
-In particular, this indicates that \Cref{th:cond} is fairly tight (it is unclear
-if the additional factor of 2 in \eqref{eq:cond_eta} is necessary for non-SPD
-operators, or a flaw in the line of proof) \WP{Clarify this setence?}.
-Considering the upper limit on $\gamma$ in \Cref{th:cond}, $\gamma \mapsto
-\tfrac{\eta^2+\beta^2}{\eta}$, we have a bound
-%
-\begin{align}\label{eq:cond_upper}
-\textnormal{cond}\left(\mathcal{P}_{\gamma = \frac{\eta^2+\beta^2}{\eta}}\right) \leq
-	\left(1 + \frac{\beta^2}{\eta^2}\right) \left(1 + \frac{\beta^2}{\beta^2 + \eta^2}\right).
-\end{align}
-%
-Note, in both \eqref{eq:cond_eta} and \eqref{eq:cond_upper} we see a dependence
-on $\eta$ and $\beta$.
+In addition, as $\beta \to 0$, $\gamma \to \eta$ and the condition number
+\eqref{eq:cond_gen} $\to 1$ (as expected), and applying the general results
+in \eqref{eq:cond_gen} to $\gamma_*$ exactly yields \eqref{eq:gammastar}.
+Altogether, this suggests the condition number bounds in \Cref{th:cond}
+are moderately tight.
 
-In \cite{exh}, they also derive a constant to minimize certain bounds on condition
-number for SPD matrices, $\gamma _* := \sqrt{\eta^2+\beta^2}$ \eqref{eq:gam_opt}
-(also the exact minimizer as the spectrum of $(I - \tfrac{1}{\eta}\mathcal{L})^{-1}
-\mapsto [0,1]$). Considering $\gamma_*$ here, \eqref{eq:alpha_eq} yields
-$\alpha+\overline{\alpha} = \alpha\overline{\alpha} =
-2 - 2\frac{\eta}{\sqrt{\eta^2+\beta^2}}$, and \Cref{th:cond} yields the bound
-%
-\begin{align}\label{eq:cond_opt}
-\textnormal{cond}(\mathcal{P}_{\gamma_*})
-	\leq \left(3 - 2\frac{\eta}{\sqrt{\eta^2+\beta^2}}\right)^2.
-\end{align}
-%
-Noting that $\textnormal{cond}(\mathcal{P}_{\gamma_*}) < 9$ for all $\eta>0,
-\beta\geq 0$, we have the following corollary.
+One open question is whether the modified constant $\gamma_*$ (as opposed to,
+for example, $\gamma=\eta$) is \textit{necessary} for problems where
+$W(\widehat{\mathcal{L}}^2) \not\geq 0$. One might note that the condition
+number bounds of $\mathcal{P}_\eta$ and $\mathcal{P}_{\gamma_*}$ do not differ
+significantly for reasonable values of $\eta$ and $\beta$ when
+$W(\widehat{\mathcal{L}}^2) \geq 0$. However, a hyperbolic
+example in \Cref{sec:numerics:dg} demonstrates almost a $6\times$ reduction
+in iteration count achieved by using $\gamma_*$ instead of $\eta$. For
+parabolic/diffusive problems we have explored, $\gamma_*$ has offered a much
+more modest improvement over $\eta$, suggesting that the modified constant
+$\gamma_*=\sqrt{\eta^2+\beta^2}$ may be necessary/particularly important
+for a robust method on hyperbolic or advection-dominated problems.
+Furthermore, $\mathcal{P}_{\gamma_*}$ has performed better than
+$\mathcal{P}_{\eta}$ for all problems we have
+tested, and is the recommended preconditioner in practice.
 
-%
-\begin{corollary}[Conditioning independent of $\eta$ and $\beta$]\label{cor:independent}
-\textnormal{ }
-Preconditioning $\mathcal{Q}_\eta$ \eqref{eq:imag1} with
-$(\gamma_* I - \widehat{\mathcal{L}})^{-2}$, for $\gamma_* = \sqrt{\eta^2+\beta^2}$
-yields a preconditioned operator $\mathcal{P}_{\gamma_*}$ such that
-$\textnormal{cond}(\mathcal{P}_{\gamma_*}) < 9$,
-independent of $\eta$ and $\beta$.
-\end{corollary}
-%
-It is worth pointing out that as $\beta \to 0$, $\gamma \to \eta$
-in all three of the above cases, and (as expected) \eqref{eq:cond_eta},
-\eqref{eq:cond_upper}, and \eqref{eq:cond_opt} all $\to 1$. \Cref{tab:cond}
-provides condition number bounds for Gauss, Radau IIA, and Lobatto IIIC
-Runge-Kutta methods.
-Finally, although the difference in conditioning between \eqref{eq:cond_eta}
-and \eqref{eq:cond_opt} does not appear large for reasonable values of
-$\eta$ and $\beta$, examples in \Cref{sec:numerics:dg} demonstrate up to
-a $5.8\times$ reduction in iteration count achieved by using $\gamma_*$
-instead of $\eta$.
+\Cref{tab:cond} provides condition number bounds from \Cref{th:cond} and
+\eqref{eq:gammastar} for Gauss, Radau IIA, and Lobatto IIIC Runge-Kutta methods.
 
 %
 {
@@ -963,81 +1096,25 @@ instead of $\eta$.
   \begin{tabular}{| c | c | cc | cc | ccc |}  % chktex 44
   \hline
 Stages & 2 & \multicolumn{2}{c}{3} & \multicolumn{2}{|c}{4} & \multicolumn{3}{|c|}{5} \\\hline\hline
-Gauss & 1.61 & 1 & 2.41 & 1.17 & 3.09 & 1 & 1.50 & 3.64 \\
-Radau IIA & 1.87 & 1 & 2.82 & 1.21 & 3.55 & 1 & 1.58 & 4.10 \\
-Lobatto IIIC & 2.51 & 1 & 3.55 & 1.26 & 4.24 & 1 & 1.69 & 4.73  \\\hline
+Gauss  & 1.46 & 1.00 & 2.15 & 2.83 & 1.13 & 1.00 & 3.50 & 1.38 \\
+Radau IIA  & 1.67 & 1.00 & 2.54 & 3.37 & 1.16 & 1.00 & 4.15 & 1.45 \\
+Lobatto IIIC  & 2.24 & 1.00 & 3.37 & 4.37 & 1.19 & 1.00 & 5.27 & 1.52 \\\hline
   \end{tabular}
-  \caption{Condition number bounds using constant $\gamma=\gamma_*$ \eqref{eq:cond_opt}
-  for preconditioned operators $\mathcal{P}_{\gamma_*}$ arising in Gauss, Radau IIA, and
-  Lobatto IIIC integration, with 2--5 stages. Each column within a given set of stage columns corresponds to a conjugate pair of eigenvalues of $A_0^{-1}$. For odd numbers of stages,
+  \caption{Bounds on cond$(\mathcal{P}_{\gamma_*})$ from \Cref{th:cond} and
+  \eqref{eq:gammastar} for Gauss, Radau IIA, and Lobatto IIIC integration,
+  with 2--5 stages. Each column within a given set of stage columns corresponds
+  to a conjugate pair of eigenvalues of $A_0^{-1}$. For odd numbers of stages,
   one eigenvalue is real, corresponding to the column with conditioning 1.}\label{tab:cond}
 \end{table}
+% \beta^2/\eta^2 & 0.33 & 0 & 0.91 & 1.59 & 0.09 & 0 & 2.36 & 0.27 \\
+% \beta^2/\eta^2 & 0.50 & 0 & 1.29 & 2.21 & 0.11 & 0 & 3.20 & 0.32	\\
+% \beta^2/\eta^2 & 1 & 0 & 2.21 & 3.51 & 0.13 & 0 & 4.88 & 0.38 \\
+% Matlab array:
+% bn = [0.33 , 0 , 0.91 , 1.59 , 0.09 , 0 , 2.36 , 0.27; 0.50 , 0 , 1.29 , 2.21 , 0.11 , 0 , 3.20 , 0.32; 1 , 0 , 2.21 , 3.51 , 0.13 , 0 , 4.88 , 0.38];
+
 }
 
-
-%
-\begin{remark}[``Optimal'' $\gamma$]
-A natural question is what is the optimal $\gamma$ in general?
-Let $f(\gamma)$ denote the upper bound from \Cref{th:cond} \eqref{eq:cond1}.
-Some algebra shows that
-%
-\begin{align*}
-f'(\gamma) &= \frac{4\gamma^4 - 6\eta\gamma^3 + 4\eta(\eta^2+\beta^2)\gamma -
-	2(\eta^2+\beta^2)^2}{(\eta^2+\beta^2)\gamma^3}.
-\end{align*}
-%
-For $\beta > 0$,
-%
-\begin{align*}
-f'(\eta) & = -\frac{2\beta^4}{\eta^3(\eta^2+\beta^2)} < 0,
-\hspace{5ex}
-f'(\gamma_*) = \frac{2(\sqrt{\eta^2+\beta^2} - \eta)}{\eta^2+\beta^2} > 0.
-% f'\left(\tfrac{\eta^2+\beta^2}{\eta}\right) & = 2\beta^2 + \frac{\beta^2}{\eta^2+\beta^2} > 0, \\
-\end{align*}
-%
-Thus there exists a critical point $\gamma \in(\eta,\gamma_*)$, and it is
-likely not advantageous to choose $\gamma > \gamma_*$. The equation
-for the root is a quartic polynomial and is not examined analytically here,
-however, depending on $\eta$ and $\beta$, testing on realistic values suggests
-the sign change (and, thus, root) is likely between $0.8\gamma_* - 0.9\gamma_*$,
-indicating $\gamma_*$ is indeed a good approximation to the optimal $\gamma$ with
-respect to \eqref{eq:cond1}. \OK{Just a thought: Have you tried out the optimal $\gamma$/at least looked at what the condition number bounds are (by numerically solving for it)? If so, is it much better than $\gamma_*$? It's probably worth adding an option into the code to do this; I can do it, just let me know if you think it's worthwhile.}
-% Moreover, the analysis from \cite{exh} proves that $\gamma_*$ \eqref{eq:gam_opt}
-% \textit{is} optimal for SPD operators, and we prove $\gamma_*$ also provides
-% very good preconditioning independent of the number of stages/order of integration
-% in the more general setting (\Cref{cor:independent}).
-\end{remark}
-%
-
-
-
-% ------------------------------------------------------------------------------------- %
-% ------------------------------------------------------------------------------------- %
-\subsection{Preconditioning in practice}
-
-
-% ------------------------------------------------------------------------------------- %
-\subsubsection{Choosing $\gamma$}
-
-Theory from \Cref{sec:solve:gamma} indicates that for $\beta\leq \eta$, conditioning
-independent of $\eta$ and $\beta$ can be obtained by preconditioning with
-$(\eta I - \widehat{\mathcal{L}})^{-2}$. However, for $\beta > \eta$, conditioning
-independent of these constants likely requires a different constant $\eta\mapsto\gamma$,
-with one such option being $\gamma_* = \sqrt{\eta^2+\beta^2}$ \eqref{eq:gam_opt}.
-In practice, we have found it simplest to always precondition with
-$(\gamma_* I - \widehat{\mathcal{L}})^{-2}$, regardless of $\eta$ and $\beta$.
-Although the modified constant is not necessary for $\beta \leq \eta$ (and,
-interestingly, also sometimes not necessary for $\beta > \eta$ in practice),
-we have observed \textit{no} cases where convergence is worse when using $\gamma_*$
-instead of $\eta$, while other situations where $\gamma_*$ has resulted in a $5.8\times$
-speedup over $\eta$. Moreover, from a preconditioning perspective, $\gamma_* > \eta$
-can be seen as larger identity perturbation to $\widehat{\mathcal{L}}$, making the
-resulting operator better conditioned and, thus, potentially more amenable to
-constructing effective preconditioners.
-
-% ------------------------------------------------------------------------------------- %
-\subsubsection{Mass matrices}
-
+\begin{remark}[Mass matrices]
 Recall in the finite element context where mass matrices are involved, we defined
 $\widehat{\mathcal{L}} := \delta t M^{-1}\mathcal{L}$. For a given conjugate pair
 of eigenvalues, the quadratic polynomial \eqref{eq:imag1} can be expressed as
@@ -1053,51 +1130,31 @@ and if $M$ and $\mathcal{L}$ are Hermitian, the resulting quadratic system is SP
 and can be solved using preconditioned CG or MINRES, preconditioned
 with one application of a preconditioner, the action of $M$, and a second application
 of the preconditioner.
+\end{remark}
 
-% ------------------------------------------------------------------------------------- %
-\subsubsection{Inexact preconditioning}
-\label{sec:inexact-precond}
-\OK{This section should be updated to use $\gamma$ rather than $\eta$ when discussing the preconditioner, including the equation below for $B^{-2}\mathcal{Q}_\eta$.}
-In practice, fully converging $(\eta I - \widehat{\mathcal{L}})^{-1}$ as a preconditioner
-is not desirable --  even if a Krylov method converges rapidly, if each iteration requires
-a full linear solve, the resulting method remains too expensive to be competitive in practice.
-Here, we propose
+\begin{remark}[Inexact preconditioning]\label{sec:inexact-precond}
+In practice, fully converging $(\gamma_* I - \widehat{\mathcal{L}})^{-1}$ 
+each iteration as a preconditioner is often not desirable due to the cost
+of performing a full linear solve. Here, we propose
 applying a Krylov method to $\mathcal{Q}_\eta:=(\eta^2+\beta^2)I - 2\eta\widehat{\mathcal{L}} +
 \widehat{\mathcal{L}}^2$ by computing the operator's action (that is, not fully constructing
 it), and preconditioning each Krylov iteration with \textit{two} applications of a sparse
-parallel preconditioner for $(\eta I - \widehat{\mathcal{L}})$, approximating the action
-of $(\eta I - \widehat{\mathcal{L}})^{-2}$.
+parallel preconditioner for $(\gamma_* I - \widehat{\mathcal{L}})$, approximating the action
+of $(\gamma_* I - \widehat{\mathcal{L}})^{-2}$.
 
-To motive this heuristically, suppose $(\eta I - \widehat{\mathcal{L}}) = B + N$,
-where $B^{-1}$ corresponds to the action of a preconditioner and $N$ the error
-term that is not captured. For a good preconditioner, we expect
-$B^{-1}(\eta I - \widehat{\mathcal{L}}) = I+B^{-1}N$ to be
-well-conditioned and, thus, $B^{-1}N$ to be small in some sense. Then,
-%
-\begin{align}\nonumber
-B^{-2}\mathcal{Q}_\eta & = I + \beta^2B^{-2} + \left(B^{-2}NB + B^{-1}N + B^{-2}N^{-2}\right)\label{eq:approx}.
-\end{align}
-%
-In addition to wanting $N$ to be small, it is also important that the error terms
-$B^{-2}NB + B^{-1}N + B^{-2}N^{-2}$ are generally positive in a field of values sense.
-If these terms are large and positive in a field of values sense, the outer Krylov
-iteration applied to $B^{-2}\mathcal{Q}_\eta$ can correct for these modes. However,
-if error terms $B^{-2}NB + B^{-1}N + B^{-2}N^{-2}$ in \eqref{eq:approx} have
-negative components, the field of values of the preconditioned operator is shifted
-towards the origin, wherein Krylov acceleration is of progressively less use.
-
-Thus, theory developed in \Cref{sec:solve:prec} guarantees that the proposed algorithm
-will have robust and fairly rapid convergence under reasonable assumptions if each
-linear system is inverted exactly. Approximate inverses prove to be much faster in
-practice, but \textit{it is important that the underlying preconditioner provides a good
-inverse approximation}. Fortunately, for difficult problems without highly effective
+Analogous to standard block-preconditioning techniques, this approximate inverse
+approach is often (but not always) more efficient than computing a full inverse
+each iteration. However, \textit{it is important that the underlying preconditioner
+provides a good approximation}. 
+Fortunately, for difficult problems without highly effective
 preconditioners, it is straightforward to apply either multiple inner fixed-point iterations
 or an inner Krylov iteration (wrapped with a flexible outer Krylov method
-\cite{Notay2000,saad1993flexible}) to ensure robust (outer) iterations, analogous
-to techniques used in block preconditioning. In \Cref{sec:numerics:dg:diff}, a
+\cite{Notay2000,saad1993flexible}) to ensure robust (outer) iterations.
+In \Cref{sec:numerics:dg:diff}, a
 numerical example is shown where the proposed method diverges using a single inner
 fixed-point iteration as a preconditioner for $(\eta I - \widehat{\mathcal{L}})$, but
 three (or more) inner fixed-point iterations yields fast, scalable convergence.
+\end{remark}
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -1527,7 +1584,8 @@ solves/iteration).
 	\label{fig:dg_o2_1e-2}
   \end{subfigure}
 \caption{AIR iterations per time step as a function of the number of
-AIR iterations applied for each application of the preconditioner. \OK{Describe what $\varepsilon$ means here/what its relevance is (e.g., left is advection-dominated, right is mixed)?}}
+AIR iterations applied in each application of the preconditioner, for
+diffusion coefficient $\varepsilon$.}
 \label{fig:dg_o2}
 \end{figure}
 
@@ -1578,7 +1636,7 @@ The relative $L^2$ error, obtained by comparing against the exact solution, is s
 \end{figure}
 
 We also use this test case to study the effect of inner iterations on the convergence of the iteration solver.
-As discussed in Section \ref{sec:inexact-precond}, it is important that the underlying preconditioner provide a good approximation of the inverse of the operator.
+As discussed in \Cref{sec:inexact-precond}, it is important that the underlying preconditioner provide a good approximation of the inverse of the operator.
 For that reason, we consider the use of an inner Krylov solver at every iteration.
 Since this corresponds to using a variable preconditioner at each iteration, a flexible Krylov method may have to be used for the outer iteration, although in practice good convergence is often still observed using the standard CG method \cite{Notay2000}.
 In particular, we compare the total number of preconditioner applications required to converge the outer iteration to a relative tolerance of $10^{-10}$, both with and without an inner Krylov solver.
@@ -1607,9 +1665,8 @@ In addition, for this test case, the total number of preconditioner applications
 
 This paper introduces a theoretical and algorithmic framework for the fast, parallel
 solution of fully implicit Runge-Kutta and DG discretizations in time for linear
-numerical PDEs. Theory is developed to guarantee rapid Krylov convergence and
-$\mathcal{O}(1)$ conditioning under general assumptions on the spatial
-discretization that yield stable time integration.
+numerical PDEs. Theory is developed to guarantee $\mathcal{O}(1)$ conditioning under
+general assumptions on the spatial discretization that yield stable time integration.
 Numerical results demonstrate the new method on various high-order finite-difference
 and finite-element discretizations of linear parabolic and hyperbolic problems,
 demonstrating fast, scalable solution of up to 10th order accuracy. In several
