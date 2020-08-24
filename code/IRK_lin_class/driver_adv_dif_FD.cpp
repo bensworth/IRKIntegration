@@ -37,12 +37,12 @@ using namespace std;
 
 // Sample runs:
 //      *** Solve 2D in space problem w/ 4th-order discretizations in space & time ***
-//      >> mpirun -np 4 ./driver_adv_dif_FD -d 2 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2
+//      >> mpirun -np 4 ./driver_adv_dif_FD -d 2 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 -gamma 1
 //      
 //      ** Diffusion-only problem using GMRES solver
-//      >> mpirun -np 4 ./driver_adv_dif_FD -d 2 -ex 1 -ax 0 -ay 0 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 -ksol 2
+//      >> mpirun -np 4 ./driver_adv_dif_FD -d 2 -ex 1 -ax 0 -ay 0 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 -ksol 2 -gamma 1
 //      ** Diffusion-only problem using CG solver
-//      >> mpirun -np 4 ./driver_adv_dif_FD -d 2 -ex 1 -ax 0 -ay 0 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 -ksol 0
+//      >> mpirun -np 4 ./driver_adv_dif_FD -d 2 -ex 1 -ax 0 -ay 0 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 -ksol 0 -gamma 1
 // 
 //
 // Solve scalar linear advection-diffusion equation,
@@ -98,7 +98,7 @@ struct AMGParams {
     double theta     = 0.25; // strength threshold: 0.25, 0.5, 0.8
 
     // AMG interpolation options:
-    int interp_type  = 6;    // 6 = extended+i, 0 = classical
+    int interp_type  = 0;    // 6 = extended+i, 0 = classical
 
     // AMG relaxation options:
     int relax_type   = 8;    // 8 = l1-GS, 6 = symm. GS, 3 = GS, 18 = l1-Jacobi
@@ -230,7 +230,8 @@ int main(int argc, char *argv[])
     int nt     = 10;  // Number of time steps
     double dt  = 0.0; // Time step size. dt < 0 means: dt == |dt|*dx
     double tf  = 2.0; // Final integration time
-    int RK_ID  = 1;  // RK scheme (see below)
+    int RK_ID  = 1;   // RK scheme (see below)
+    int mag_prec = 0; // Index of constant used in preconditioner (see IRK.hpp)
 
     /* --- Spatial discretization --- */
     int order     = 2; // Approximation order
@@ -265,6 +266,8 @@ int main(int argc, char *argv[])
      /* Time integration */
     args.AddOption(&RK_ID, "-t", "--RK-method",
                   "Time discretization.");
+    args.AddOption(&mag_prec, "-gamma", "--gamma-value",
+                  "Value of gamma in preconditioner: 0, 1, 2.");              
     args.AddOption(&nt, "-nt", "--num-time-steps", "Number of time steps.");    
     args.AddOption(&tf, "-tf", "--tf", "0 <= t <= tf");
     args.AddOption(&dt, "-dt", "--time-step-size", "t_j = j*dt. NOTE: dt<0 means dt==|dt|*dx");
@@ -284,7 +287,7 @@ int main(int argc, char *argv[])
     /// --- Solver parameters --- ///   
     /* AMG parameters */
     args.AddOption(&use_AIR_temp, "-air", "--AMG-use-air", "AMG: 0=standard (default), 1=AIR");    
-    args.AddOption(&AMG.coarsen_type, "-ac", "--AMG-print", "AMG: Coarsen type");
+    args.AddOption(&AMG.coarsen_type, "-ac", "--AMG-coarseing", "AMG: Coarsen type");
     args.AddOption(&AMG.agg_levels, "-ag", "--AMG-aggressive-coarseing", "AMG: Levels of aggressive coarsening");
     args.AddOption(&AMG.theta, "-at", "--AMG-theta", "AMG: Strength threshold");
     args.AddOption(&AMG.interp_type, "-ai", "--AMG-interp", "AMG: Interpolation");
@@ -363,7 +366,7 @@ int main(int argc, char *argv[])
     
     
     // Build IRK object using spatial discretization 
-    IRK MyIRK(&SpaceDisc, static_cast<RKData::Type>(RK_ID));        
+    IRK MyIRK(&SpaceDisc, static_cast<RKData::Type>(RK_ID), mag_prec);        
 
     // Initialize IRK time-stepping solver
     MyIRK.Init(SpaceDisc);

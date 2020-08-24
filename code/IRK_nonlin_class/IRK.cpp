@@ -137,20 +137,21 @@ void IRK::SetSolvers()
         
         m_jac_solverSparsity->Sparsify(static_cast<int>(m_newton_params.jac_solver_sparsity));
         m_jac_precSparsity->Sparsify(static_cast<int>(m_newton_params.jac_prec_sparsity));
-        
     }
+    
+    
     
     // Create Jacobian solver
     // User requested different Krylov solvers for 1x1 and 2x2 blocks
     if (m_krylov2) {
         m_tri_jac_solver = new TriJacSolver(*m_stageOper, 
-                                m_newton_params.jac_update_rate,
+                                m_newton_params.jac_update_rate, m_newton_params.gamma_idx,
                                 m_krylov_params, m_krylov_params2, 
                                 m_jac_solverSparsity, m_jac_precSparsity);
     // Use same Krylov solvers for 1x1 and 2x2 blocks
     } else {
         m_tri_jac_solver = new TriJacSolver(*m_stageOper, 
-                                    m_newton_params.jac_update_rate,
+                                    m_newton_params.jac_update_rate, m_newton_params.gamma_idx,
                                     m_krylov_params, 
                                     m_jac_solverSparsity, m_jac_precSparsity);
     }

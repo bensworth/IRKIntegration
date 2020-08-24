@@ -78,6 +78,13 @@ public:
         mfem_error("IRKOperator::ImplicitPrec() is not overridden!");
     }
     
+    /** Apply preconditioner set with call to SetPreconditioner() using `index.`
+        If not re-implemented, this method simply generates an error. */  
+    virtual void ImplicitPrec(int index, const Vector &x, Vector &y) const 
+    {
+        mfem_error("IRKOperator::ImplicitPrec() is not overridden!");
+    }
+    
     /* ---------------------------------------------------------------------- */
     /* ---------------- Virtual functions for Type::IMPLICIT ---------------- */
     /* ---------------------------------------------------------------------- */
@@ -119,12 +126,10 @@ public:
         mfem_error("IRKOperator::ExplicitGradientMult() is not overridden!");
     }
     
-    /** Ensures that this->ImplicitPrec() preconditions 
-            (\gamma*M - dt*Na') 
-        + index: index of system to solve, [0,s_eff)
-        + type:  eigenvalue type, 1 = real, 2 = complex pair
-        These additional parameters are to provide ways to track when
-        (\gamma*M - dt*Na') must be reconstructed or not to minimize setup. */
+    /** Assemble preconditioner for gamma*M - dt*Na' that's applied by
+        by calling: 
+            1. ImplicitPrec(.,.) if no further calls to SetPreconditioner() are made
+            2. ImplicitPrec(index,.,.) */
     virtual void SetPreconditioner(int index, double dt, double gamma, int type) 
     {
         MFEM_ASSERT(m_gradients == ExplicitGradients::APPROXIMATE, 
@@ -173,13 +178,6 @@ public:
     virtual void SetPreconditioner(int index, double dt, double gamma, Vector weights) 
     {
         mfem_error("IRKOperator::SetPreconditioner() is not overridden!");
-    }
-    
-    /** Precondition (\gamma*M - dt*<weights,{N'}>) with given index
-        If not re-implemented, this method simply generates an error. */
-    virtual void ImplicitPrec(int index, const Vector &x, Vector &y) const 
-    {
-        mfem_error("IRKOperator::ImplicitPrec() is not overridden!");
     }
     
     
@@ -549,6 +547,8 @@ public:
         
         JacSparsity jac_solver_sparsity = JacSparsity::DENSE;
         JacSparsity jac_prec_sparsity  = JacSparsity::DIAGONAL;
+        
+        int gamma_idx = 0; // Constant used when preconditioning (2,2) block [0==eta, 1==(eta^2+beta^2)/eta; 2==sqrt{eta^2+beta^2}].
     }; 
 
 private:    
@@ -874,15 +874,9 @@ public:
             [R(1,0)*M        R(1,1)*M-dt*Na']
         Is preconditioned by  
             [R(0,0)*M-dt*Na'          0     ]
-            [R(1,0)*M        R(1,1)*M-dt*Na']
-        
-        Where, in all cases, IRKOper.ImplicitPrec(x,y) is used to approximately
-        solve
-            [R(i,i)*M-dt*Na']*y=x, 
-        Noting that R(0,0)==R(1,1).     
+            [R(1,0)*M         gamma*M-dt*Na']    
                 
     If ExplicitGradients==EXACT:
-    
         1x1: 
             [R(0,0)*M-dt*<Z(0,0),{N'}>]
         Is preconditioned by the user's preconditioner applied to  
@@ -893,16 +887,15 @@ public:
             [R(1,0)*M-dt*<Z(1,0),{N'}>  R(0,0)*M-dt*<Z(1,1),{N'}>]
         Which is preconditioned by 
              [R(0,0)*M-dt*<Y(0,0),{N'}>                0          ]
-             [R(1,0)*M-dt*<Y(1,0),{N'}>  R(0,0)*M-dt*<Y(1,1),{N'}>]
-
-        Where, in all cases, IRKOper.ImplicitPrec(i,x,y) is used to approximately 
-        solve 
-             [R(i,i)*M-dt*<Y(i,i),{N'}>]*y=x 
+             [R(1,0)*M-dt*<Y(1,0),{N'}>   gamma*M-dt*<Y(1,1),{N'}>]
         
         NOTE: 
             -In general, one can choose Y == Z, but there is the option to use a 
             different vector (this is why this class doesn't just take this data 
-            straight from JacDiagBlock). */
+            straight from JacDiagBlock). 
+    
+    Where for all 2x2 systems, IRKOper.ImplicitPrec(i,x,y) is used to precondition 
+    the ith diagonal block */
 class JacDiagBlockPrec : public Solver
 {
 private:
@@ -910,12 +903,11 @@ private:
     mutable Vector temp_scalar; // Auxillary vector
     bool identity;              // Use identity preconditioner. Useful as a comparison.
     
-    
     // Extra data required for 2x2 blocks
-    int prec00_idx;             // BlockOper.IRKOper.ImplicitPrec(prec00_idx,.,.) preconditions for R(0,0)*M-dt*{Z(0,0),N'}
-    int prec11_idx;             // BlockOper.IRKOper.ImplicitPrec(prec11_idx,.,.) preconditions R(1,1)*M-dt*{Z(1,1),N'}
     double R10;                 
-    Vector Y10;                 
+    Vector Y10;
+    int prec00_idx;             // BlockOper.IRKOper.ImplicitPrec(prec00_idx,.,.) preconditions (0,0) block
+    int prec11_idx;             // BlockOper.IRKOper.ImplicitPrec(prec11_idx,.,.) preconditions (1,1) block                 
     mutable BlockVector x_block, y_block;
         
 public:
@@ -928,10 +920,12 @@ public:
         
     /// ExplicitGradients==APPROXIMATE, 2x2 block
     JacDiagBlockPrec(const JacDiagBlock &BlockOper_, double R10_, 
+        int prec00_idx_, int prec11_idx_, 
         bool identity_=false) 
         : Solver(BlockOper_.Height()), BlockOper{BlockOper_}, 
             identity(identity_), temp_scalar(BlockOper_.Offsets()[1]),
-            R10{R10_} 
+            R10{R10_}, 
+            prec00_idx{prec00_idx_}, prec11_idx{prec11_idx_}  
         {
             MFEM_ASSERT(BlockOper.IRKOper.GetExplicitGradientsType() == IRKOperator::ExplicitGradients::APPROXIMATE,
                         "JacDiagBlockPrec:: This constructor is for IRKOperator's \
@@ -939,13 +933,13 @@ public:
         }
 
     /// ExplicitGradients==EXACT, 2x2 block
-    JacDiagBlockPrec(const JacDiagBlock &BlockOper_, double R10_, 
-        Vector Y10_, int prec00_idx_, int prec11_idx_, 
+    JacDiagBlockPrec(const JacDiagBlock &BlockOper_, double R10_, Vector Y10_, 
+        int prec00_idx_, int prec11_idx_, 
         bool identity_=false) 
         : Solver(BlockOper_.Height()), BlockOper{BlockOper_}, 
             identity(identity_), temp_scalar(BlockOper_.Offsets()[1]),
-            R10{R10_}, 
-            Y10{Y10_}, prec00_idx{prec00_idx_}, prec11_idx{prec11_idx_} 
+            R10{R10_}, Y10{Y10_}, 
+            prec00_idx{prec00_idx_}, prec11_idx{prec11_idx_} 
         {
             MFEM_ASSERT(BlockOper.IRKOper.GetExplicitGradientsType() == IRKOperator::ExplicitGradients::EXACT,
                         "JacDiagBlockPrec:: This constructor is for IRKOperator's \
@@ -982,7 +976,7 @@ public:
                     // C == R(1,0)*M
                     case IRKOperator::ExplicitGradients::APPROXIMATE:
                         // Approximately invert (0,0) block 
-                        BlockOper.IRKOper.ImplicitPrec(x_block.GetBlock(0), y_block.GetBlock(0));
+                        BlockOper.IRKOper.ImplicitPrec(prec00_idx, x_block.GetBlock(0), y_block.GetBlock(0));
                         
                         // Form RHS of next system, temp <- x(1) - C*y(0)
                         // MASS MATRIX
@@ -996,7 +990,7 @@ public:
                         }
                         
                         // Approximately invert (1,1) block
-                        BlockOper.IRKOper.ImplicitPrec(temp_scalar, y_block.GetBlock(1));
+                        BlockOper.IRKOper.ImplicitPrec(prec11_idx, temp_scalar, y_block.GetBlock(1));
                         break;
                     
                     
@@ -1078,6 +1072,7 @@ private:
     
     int printlevel;
     int jac_update_rate;    // How frequently is Jacobian updated?
+    int gamma_idx;          // Constant used to precondition Schur complement
     
     Array<int> &offsets;    // Offsets for vectors with s blocks
     Array<int> offsets_1;   // Offsets for vectors with 1 block
@@ -1114,12 +1109,12 @@ public:
     /** General constructor, where 1x1 and 2x2 systems can use different Krylov 
         solvers.
         NOTE: To use only a single solver, requires &solver_params1==&solver_params2 */
-    TriJacSolver(IRKStageOper &StageOper_, int jac_update_rate_,
+    TriJacSolver(IRKStageOper &StageOper_, int jac_update_rate_, int gamma_idx_,
                     const IRK::KrylovParams &solver_params1, const IRK::KrylovParams &solver_params2,
                     const QuasiMatrixProduct * Z_solver_, const QuasiMatrixProduct * Z_prec_) 
         : Solver(StageOper_.Height()),
         StageOper(StageOper_),
-        jac_update_rate(jac_update_rate_),
+        jac_update_rate(jac_update_rate_), gamma_idx(gamma_idx_),
         printlevel(solver_params1.printlevel),
         offsets(StageOper_.RowOffsets()),
         x_block(StageOper_.RowOffsets()), b_block(StageOper_.RowOffsets()), 
@@ -1164,9 +1159,9 @@ public:
                 
                 // Form of operator depends on IRKOperator::ExplicitGradients
                 if (kronecker_form) {
-                    DiagBlock[block]     = new JacDiagBlock(offsets_1, *(StageOper.IRKOper), R00);    
+                    DiagBlock[block] = new JacDiagBlock(offsets_1, *(StageOper.IRKOper), R00);    
                 } else {
-                    DiagBlock[block]     = new JacDiagBlock(offsets_1, *(StageOper.IRKOper), R00, (*Z_solver)(row,row));    
+                    DiagBlock[block] = new JacDiagBlock(offsets_1, *(StageOper.IRKOper), R00, (*Z_solver)(row,row));    
                 }
                 DiagBlockPrec[block] = new JacDiagBlockPrec(*(DiagBlock[block]), identity);
                 
@@ -1183,9 +1178,23 @@ public:
                 if (kronecker_form) {
                     DiagBlock[block]     = new JacDiagBlock(offsets_2, *(StageOper.IRKOper), 
                                                     R00, R01, R10, R11);
-                    DiagBlockPrec[block] = new JacDiagBlockPrec(*(DiagBlock[block]),
-                                                    R10, 
-                                                    identity);
+                                                    
+                    // Diagonal blocks in preconditioner are the same
+                    if (gamma_idx == 0) {
+                        DiagBlockPrec[block] = new JacDiagBlockPrec(*(DiagBlock[block]),
+                                                        R10, 
+                                                        row,  // Precondition (row,row) block with IRKOper.ImplicitPrec(row,.,.)
+                                                        row,  // Precondition (row+1,row+1) block with IRKOper.ImplicitPrec(row,.,.)
+                                                        identity);                                                                
+                    // Diagonal blocks in preconditioner are different
+                    } else {
+                        DiagBlockPrec[block] = new JacDiagBlockPrec(*(DiagBlock[block]),
+                                                        R10, 
+                                                        row,  // Precondition (row,row) block with IRKOper.ImplicitPrec(row,.,.)
+                                                        row+1,// Precondition (row+1,row+1) block with IRKOper.ImplicitPrec(row+1,.,.)
+                                                        identity);                                
+                    }
+                    
                 } else {
                     DiagBlock[block]     = new JacDiagBlock(offsets_2, *(StageOper.IRKOper), 
                                                     R00, R01, R10, R11, 
@@ -1225,10 +1234,10 @@ public:
     };
     
     /// Constructor for when 1x1 and 2x2 systems use same solver
-    TriJacSolver(IRKStageOper &StageOper_, int jac_update_rate_,
+    TriJacSolver(IRKStageOper &StageOper_, int jac_update_rate_, int gamma_idx_,
                     const IRK::KrylovParams &solver_params,
                     const QuasiMatrixProduct * Z_solver, const QuasiMatrixProduct * Z_prec)   
-        : TriJacSolver(StageOper_, jac_update_rate_, solver_params, solver_params, 
+        : TriJacSolver(StageOper_, jac_update_rate_, gamma_idx_, solver_params, solver_params, 
                         Z_solver, Z_prec) {};
     
     ~TriJacSolver()
@@ -1362,18 +1371,40 @@ private:
             // Update parameters for diagonal blocks
             DiagBlock[diagBlock]->SetTimeStep(StageOper.GetTimeStep());
             
+            // Compute constant gamma used to precondition Schur complement of 2x2 block
+            double gamma = 0.;
+            if (size[diagBlock] == 2) {
+                double eta = R(row,row), beta = std::sqrt(-R(row,row+1)*R(row+1,row));
+                if (gamma_idx == 0) {
+                    gamma = eta;
+                } else if (gamma_idx == 1) {
+                    gamma = eta + beta*beta/eta;
+                } else if (gamma_idx == 2) {
+                    gamma = std::sqrt(eta*eta + beta*beta);    
+                } else {
+                    mfem_error("gamma must be 0, 1, or 2");
+                }
+            }
+            
             // Assemble preconditioner(s) for diag block
             if (kronecker_form) {
-                // Preconditioner for R(row,row)*M-dt*Na'> 
+                // Preconditioner for R(row,row)*M-dt*Na' 
                 StageOper.IRKOper->SetPreconditioner(row, dt, R(row,row), size[diagBlock]);
+                
+                /* Inverting 2x2 block: Assemble a 2nd preconditioner for 
+                    gamma*M-dt*Na' if gamma is not eta */
+                if (size[diagBlock] == 2 && gamma_idx != 0) {
+                    StageOper.IRKOper->SetPreconditioner(row+1, dt, gamma, size[diagBlock]);
+                }
+                
             } else {
                 // Preconditioner for R(row,row)*M-dt*<Z_prec(row,row),{N'}> 
                 StageOper.IRKOper->SetPreconditioner(row, dt, R(row,row), (*Z_prec)(row,row));
 
                 /* Inverting 2x2 block: Assemble a 2nd preconditioner for 
-                    R(row+1,row+1)*M-dt*<Z_prec(row+1,row+1),{N'}> */                          
+                    gamma*M-dt*<Z_prec(row+1,row+1),{N'}> */
                 if (size[diagBlock] == 2) {
-                    StageOper.IRKOper->SetPreconditioner(row+1, dt, R(row+1,row+1), (*Z_prec)(row+1,row+1));
+                    StageOper.IRKOper->SetPreconditioner(row+1, dt, gamma, (*Z_prec)(row+1,row+1));
                 }
             }    
             

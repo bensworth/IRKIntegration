@@ -153,6 +153,10 @@ public:
     bool GetError(int save, const char * out, double t, const Vector &u, 
                     double &eL1, double &eL2, double &eLinf);
     
+    /** Set solver parameters for implicit time-stepping.
+        MUST be called before InitSolvers() */
+    inline void SetAMGParams(AMG_params params) { AMG = params; };
+                    
 
     /* ---------------------------------------------------------------------- */
     /* -------------------------- Virtual functions ------------------------- */
@@ -164,12 +168,19 @@ public:
     /// Compute the right-hand side of the ODE system. (Some applications require this operator too)
     void ExplicitMult(const Vector &u, Vector &du_dt) const { Mult(u, du_dt); };
 
-    /// Precondition B*x=y <==> (\gamma*I - dt*L')*x=y 
+    /// Precondition B*x=y 
     inline void ImplicitPrec(const Vector &x, Vector &y) const {
         MFEM_ASSERT(B_prec[B_hash.at(B_index)], 
             "AdvDif::ImplicitPrec() Must first set system! See SetPreconditioner()");
         B_prec[B_hash.at(B_index)]->Mult(x, y);
-    }   
+    }  
+    
+    /// Precondition B*x=y with given index
+    inline void ImplicitPrec(int index, const Vector &x, Vector &y) const {
+        MFEM_ASSERT(B_prec[B_hash.at(index)], 
+            "AdvDif::ImplicitPrec() Must first set system! See SetPreconditioner()");
+        B_prec[B_hash.at(index)]->Mult(x, y);
+    } 
     
     /// Apply action of identity mass matrix, y = M*x. 
     inline void ImplicitMult(const Vector &x, Vector &y) const { y = x; };             
@@ -197,19 +208,11 @@ public:
         Gradient->Mult(x, y);
     }                         
     
-    /** Ensures that this->ImplicitPrec() preconditions (\gamma*M - dt*L') 
-            + index: index of system to solve, [0,s_eff)
-            + dt:    time step size
-            + type:  eigenvalue type, 1 = real, 2 = complex pair
-        These additional parameters are to provide ways to track when
-        (\gamma*M - dt*L') must be reconstructed or not to minimize setup. */
+    /** Assemble preconditioner for gamma*M - dt*L' that's applied by
+        by calling: 
+            1. ImplicitPrec(.,.) if no further calls to SetPreconditioner() are made
+            2. ImplicitPrec(index,.,.) */
     void SetPreconditioner(int index, double dt, double gamma, int type);    
-    
-    /** Set solver parameters fot implicit time-stepping.
-        MUST be called before InitSolvers() */
-    inline void SetAMGParams(AMG_params params) { AMG = params; };
-    
-    
     
     
     /* ---------------------------------------------------------------------- */
@@ -237,12 +240,6 @@ public:
             2. ImplicitPrec(index,.,.) */
     void SetPreconditioner(int index, double dt, double gamma, Vector weights);
     
-    /// Precondition (\gamma*M - dt*{weights,N'}) with given index
-    inline void ImplicitPrec(int index, const Vector &x, Vector &y) const {
-        MFEM_ASSERT(B_prec[B_hash.at(index)], 
-            "AdvDif::ImplicitPrec() Must first set system! See SetPreconditioner()");
-        B_prec[B_hash.at(index)]->Mult(x, y);
-    }
 };
 
 
@@ -276,7 +273,7 @@ int main(int argc, char *argv[])
     int nt     = 10;  // Number of time steps
     double dt  = 0.0; // Time step size. dt < 0 means: dt == |dt|*dx
     double tf  = 2.0; // Final integration time
-    int RK_ID  = 1;  // RK scheme (see below)
+    int RK_ID  = 1;   // RK scheme (see below)
 
     /* --- Spatial discretization --- */
     int order     = 2; // Approximation order
@@ -346,6 +343,7 @@ int main(int argc, char *argv[])
     args.AddOption(&KRYLOV.maxiter, "-kmaxit", "--krylov-max-iterations", "KRYLOV: Maximum iterations");
     args.AddOption(&KRYLOV.kdim, "-kdim", "--krylov-dimension", "KRYLOV: Maximum subspace dimension");
     args.AddOption(&KRYLOV.printlevel, "-kp", "--krylov-print", "KRYLOV: Print level");
+    
     /* Newton parameters */
     args.AddOption(&gradientsType, "-jac", "--ODEs-jacobian", "ODEs Jacobian: 0=Approximate/Kronecker form, 1=Exact form (see IRKOperator::ExplicitGradients)");
     args.AddOption(&NEWTON.reltol, "-nrtol", "--newton-rel-tol", "NEWTON: Relative stopping tolerance");
@@ -355,6 +353,7 @@ int main(int argc, char *argv[])
     args.AddOption(&NEWTON.jac_update_rate, "-jacu", "--newton-jac-update-rate", "NEWTON: Rate that Jacobian is updated (see IRK::NewtonParams)");
     args.AddOption(&newton_jacs, "-jacs", "--newton-jac-solver-sparsity", "NEWTON: Jacobian solver sparsity (see IRK::NewtonParams)");
     args.AddOption(&newton_jacp, "-jacp", "--newton-jac-prec-sparsity", "NEWTON: Jacobian preconditioner sparsity (see IRK::NewtonParams)");
+    args.AddOption(&NEWTON.gamma_idx, "-gamma", "--newton-prec-constant", "NEWTON: Constant used to precondition Schur complement");
     
     /* --- Text output of solution etc --- */              
     args.AddOption(&out, "-out", "--out-directory", "Name of output file."); 
@@ -500,16 +499,26 @@ int main(int argc, char *argv[])
             solinfo.Print("nrtol", NEWTON.reltol);
             solinfo.Print("natol", NEWTON.abstol);
             solinfo.Print("newton_iters", avg_newton_iter);
+            solinfo.Print("gamma", NEWTON.gamma_idx);
             
             solinfo.Print("krtol", KRYLOV.reltol);
             solinfo.Print("katol", KRYLOV.abstol);
             solinfo.Print("kdim", KRYLOV.kdim);
             solinfo.Print("nsys", avg_krylov_iter.size());
+            // Weighted total Krylov iterations: 1 for 1x1 systems, 2 for 2x2 systems
+            int weighted_avg_krylov_iter_total = 0;
             for (int system = 0; system < avg_krylov_iter.size(); system++) {
                 solinfo.Print("sys" + to_string(system+1) + "_iters", avg_krylov_iter[system]);
                 solinfo.Print("sys" + to_string(system+1) + "_type", system_size[system]);
                 solinfo.Print("sys" + to_string(system+1) + "_eig_ratio", eig_ratio[system]);
+                if (system_size[system] == 1) {
+                    weighted_avg_krylov_iter_total += avg_krylov_iter[system];
+                } else if (system_size[system] == 2) {
+                    weighted_avg_krylov_iter_total += 2*avg_krylov_iter[system];
+                }    
             }
+            solinfo.Print("total_weighted_iters", weighted_avg_krylov_iter_total);
+            std::cout << "total_weighted_iters = " << weighted_avg_krylov_iter_total << '\n';
             
             /* Parallel info */
             solinfo.Print("P", numProcess);
@@ -851,12 +860,10 @@ void AdvDif::SetExplicitGradients(const Vector &u, double dt,
 // }
 
 
-/** Ensures that this->ImplicitPrec() preconditions (\gamma*M - dt*L') 
-        + index: index of system to solve, [0,s_eff)
-        + dt:    time step size
-        + type:  eigenvalue type, 1 = real, 2 = complex pair
-    These additional parameters are to provide ways to track when
-    (\gamma*M - dt*L') must be reconstructed or not to minimize setup. */
+/** Assemble preconditioner for gamma*M - dt*L' that's applied by
+    by calling: 
+        1. ImplicitPrec(.,.) if no further calls to SetPreconditioner() are made
+        2. ImplicitPrec(index,.,.) */
 void AdvDif::SetPreconditioner(int index, double dt, double gamma, int type) {
     MFEM_ASSERT(Gradient, "AdvDif::SetPreconditioner() Gradient not yet set!");
 
