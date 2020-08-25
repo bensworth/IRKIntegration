@@ -84,22 +84,23 @@ Department of Energy under contract DE-AC52-07NA27344 and Lawrence Livermore Nat
 \allowdisplaybreaks
 
 \begin{abstract}
-This paper introduces a theoretical and algorithmic framework for the fast, parallel
-solution of fully implicit Runge-Kutta methods in linear numerical PDEs (without algebraic
-constraints), which also naturally applies to discontinuous Galerkin discretizations
-in time. The new
-method can be used with arbitrary existing preconditioners for backward-Euler type
-time stepping schemes, and is amenable to the use of three-term recursion Krylov
-methods when the underlying spatial discretization is.
-Under quite general assumptions on the spatial discretization that yield stable time
-integration, the preconditioned operator is proven to have conditioning $\sim\mathcal{O}(1)$,
-with only weak dependence on number of stages/polynomial order. The new method is
-demonstrated to be effective on various high-order finite-difference and
-finite-element discretizations of linear parabolic and hyperbolic problems,
-demonstrating fast, scalable solution of up to 10th order accuracy. In several
-cases, the new method can achieve 4th-order accuracy using Gauss integration
-with roughly half the number of preconditioner applications as required using
-standard SDIRK techniques.
+This paper introduces a theoretical and algorithmic framework for the fast,
+parallel solution of the systems of equations that arise from the application of
+fully implicit Runge-Kutta methods to linear numerical PDEs (without algebraic
+constraints). This framework also naturally applies to discontinuous Galerkin
+discretizations in time. The new method can be used with arbitrary existing
+preconditioners for backward Euler-type time stepping schemes, and is amenable
+to the use of three-term recursion Krylov methods when the underlying spatial
+discretization is symmetric. Under quite general assumptions on the spatial
+discretization that yield stable time integration, the preconditioned operator
+is proven to have conditioning $\sim\mathcal{O}(1)$, with only weak dependence
+on number of stages/polynomial order. The new method is demonstrated to be
+effective on various high-order finite-difference and finite-element
+discretizations of linear parabolic and hyperbolic problems, demonstrating fast,
+scalable solution of up to 10th order accuracy. In several cases, the new method
+can achieve 4th-order accuracy using Gauss integration with roughly half the
+number of preconditioner applications as required using standard SDIRK
+techniques.
 \end{abstract}
 
 
@@ -124,8 +125,8 @@ M\mathbf{u}'(t) =  \mathcal{L}(t)\mathbf{u} + \mathbf{f}(t)
 where $M$ is a mass matrix, $\mathcal{L}(t)\in\mathbb{R}^{N\times N}$ a discrete
 linear operator, and $\mathbf{f}(t)$ a time-dependent forcing
 function.\footnote{Note,
-PDEs with an algebraic constraint, for example, the divergence-free
-constraint in incompressible Navier Stokes, instead yield a differential algebraic equation (DAE), which
+PDEs with an algebraic constraint, such as the divergence-free
+constraint in the Stokes equations, instead yield a differential algebraic equation (DAE), which
 requires separate careful treatment and will be the subject of a forthcoming paper.}
 Then, consider time propagation using an $s$-stage Runge-Kutta scheme,
 characterized by the Butcher tableau
@@ -257,27 +258,27 @@ as needed by standard 4th-order SDIRK schemes.
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
-\subsection{Why fully implicit and previous work}\label{sec:intro:hist}
+\subsection{Motivation and previous work}\label{sec:intro:hist}
 
 Diagonally implicit Runge-Kutta (DIRK) methods, where $A_0$ is lower triangular,
-are commonly used in practice.
-For such schemes, the solution of \eqref{eq:k0} using a block substitution algorithm
-requires only $s$ linear
-solves of systems of the form $ M - \delta ta_{ii}\mathcal{L}_i$. Unfortunately, DIRK
-schemes suffer from order reduction, where the order of accuracy observed in practice
-on stiff nonlinear PDEs or DAEs can be limited to $\approx \min\{ p, q+1\}$ or $q$,
-respectively, for integration order $p$ and stage-order $q$ \cite{hairer96,kennedy16}.
-The stage-order of a DIRK method is at most one (EDIRK methods, with one explicit stage,
-have a maximum stage order of two) \cite{butcher00} and, thus, even a
-6th-order DIRK method may only yield 1st- or 2nd-order accuracy. In contrast, IRK
-methods may have arbitrarily high stage order and, thus, formally high-order accuracy on stiff,
-nonlinear problems, and even index-2 DAEs. Although the focus of this paper is
-linear PDEs without algebraic constraints, we want to highlight that the theory
-and framework developed here is fundamental to a forthcoming paper on
-nonlinear PDEs and DAEs. Furthermore, for less stiff
-problems, IRK methods can yield accuracy as high as order $2s$ for an $s$-stage method,
-compared with a maximum of $s$ or $s+1$ for SDIRK methods with reasonable stability
-properties \cite[Section IV.6]{hairer96}.
+are commonly used in practice. For such schemes, the solution of \eqref{eq:k0}
+using a block substitution algorithm requires only $s$ linear solves of systems
+of the form $ M - \delta ta_{ii}\mathcal{L}_i$. Unfortunately, DIRK schemes
+suffer from order reduction, where the order of accuracy observed in practice on
+stiff nonlinear PDEs or DAEs can be limited to $\approx \min\{ p, q+1\}$ or $q$,
+respectively, for integration order $p$ and stage-order $q$
+\cite{hairer96,kennedy16}. The stage-order of a DIRK method is at most one
+(EDIRK methods, with one explicit stage, have a maximum stage order of two) and,
+thus, even a 6th-order DIRK method may only yield first- or second-order
+accuracy \cite{butcher00}. In contrast, IRK methods may have arbitrarily high
+stage order and, thus, formally high-order accuracy on stiff, nonlinear
+problems, and even index-2 DAEs. Although the focus of this paper is linear PDEs
+without algebraic constraints, we want to highlight that the theory and
+framework developed here is fundamental to a forthcoming paper on nonlinear PDEs
+and DAEs. Furthermore, for less stiff problems, IRK methods can yield accuracy
+as high as order $2s$ for an $s$-stage method, compared with a maximum of $s$ or
+$s+1$ for SDIRK methods with reasonable stability properties \cite[Section
+IV.6]{hairer96}.
 
 One simplification for using IRK methods is to assume $\mathcal{L}_i =
 \mathcal{L}_j$ for all $i,j$, in which case \eqref{eq:k0} can be expressed in
@@ -309,7 +310,7 @@ multigrid methods for IRK and parabolic problems were developed in \cite{vanlent
 New ADI-type preconditioners for IRK methods were developed for parabolic problems
 in \cite{chen14} with spectral radius shown to be $<1$ under reasonable assumptions,
 and the method extended to the viscous wave equation in first-order form in
-\cite{chen16}. More recently, block-ILU preconditioners were successfully applied
+\cite{chen16}. More recently, block ILU preconditioners were successfully applied
 to a transformed version of \eqref{eq:kron1} in \cite{pazner17} on more difficult
 nonlinear compressible fluids problems.
 A handful of works have also studied linear solvers for DG-in-time discretizations,
@@ -320,7 +321,7 @@ are similar to those used in \cite{exh} for space-time DG discretizations of
 linear parabolic problems, and some of the theory derived therein is generalized
 to non-parabolic/non-SPD operators in this paper.
 
-Despite many papers considering the efficient solution of IRK/DG-in time methods,
+Despite many papers considering the efficient solution of IRK/DG-in-time methods,
 very little has been done in the development and analysis of preconditioning techniques
 for non-parabolic problems/non-SPD spatial operators, particularly methods that are
 amenable to combine with existing fast, parallel preconditioners. Addressing each
@@ -351,7 +352,7 @@ Assume that all eigenvalues of $A_0$ (and equivalently $A_0^{-1})$ have positive
 \end{assumption}
 %
 Recall that if an IRK method is A-stable, irreducible, and $A_0$ is invertible
-(which includes DIRK, Gauss, Radau IIA, and Lobatto IIIC integration, among others),
+(which includes DIRK, Gauss, Radau IIA, and Lobatto IIIC methods, among others),
 then \Cref{ass:eig} holds \cite{hairer96}; that is, this assumption is
 straightforward to satisfy in practice.
 
@@ -363,7 +364,7 @@ $\mathbf{u}'(t) = \mathcal{L}\mathbf{u}$, with solution $e^{t\mathcal{L}}\mathbf
 A necessary condition for stability is that the eigenvalues of $\mathcal{L}$
 lie within distance $\mathcal{O}(\delta t)$ of the region of stability for
 the Runge-Kutta scheme of choice (e.g., see \cite{reddy92}). Here we are
-interested in implicit schemes and, because the majority of implicit Runge-Kutta schemes
+interested in implicit schemes and, because most implicit Runge-Kutta schemes
 used in practice are A- or L-stable, an effectively necessary condition for
 stability is that the eigenvalues of $\mathcal{L}$ be nonpositive. For
 normal operators, this requirement ends up being a necessary and sufficient
@@ -493,7 +494,7 @@ characteristic polynomial of $A_0^{-1}$ evaluated at $\widehat{\mathcal{L}}$.
 \end{proof}
 %
 
-Returning to \eqref{eq:keq}, we can express the direct solution for the set of all
+Returning to \eqref{eq:keq}, we can express the solution for the set of all
 stage vectors ${\mathbf{k}} = [\mathbf{k}_1; ...; \mathbf{k}_s]$ as
 %
 \begin{align*}
@@ -503,7 +504,7 @@ stage vectors ${\mathbf{k}} = [\mathbf{k}_1; ...; \mathbf{k}_s]$ as
 %
 where $\mathbf{f} = [\mathbf{f}_1; ...; \mathbf{f}_s]$ (note that
 $A_0\otimes I$ commutes with $\det(\mathcal{M}_s)^{-1}$). Excusing the slight
-abuse in notation, let $\det(\mathcal{M}_s)^{-1}$ now denote just the diagonal
+abuse of notation, let $\det(\mathcal{M}_s)^{-1}$ now denote just the diagonal
 block (rather than a block-diagonal matrix). The Runge-Kutta update is then given by
 %
 \begin{align}\nonumber
@@ -513,7 +514,7 @@ block (rather than a block-diagonal matrix). The Runge-Kutta update is then give
 \end{align}
 %
 
-\begin{remark}[Implementation \& complexity]
+\begin{remark}[Implementation and complexity]
 The adjugate consists of linear combinations of $I$ and $\widehat{\mathcal{L}}$, and an
 analytical form can be derived for an arbitrary $s\times s$ matrix, where
 $s\sim\mathcal{O}(1)$.
@@ -537,14 +538,14 @@ $\textnormal{adj}(\mathcal{M}_s)$ requires $(s-2)(s-1) + (s-1) = (s-1)^2$ matrix
 multiplications. Because this only happens once, followed by the linear solve(s),
 these multiplications are typically of relatively marginal cost.
 
-In the more general case of non stiffly accurate methods (for example, Gauss integration),
-one can obtain an analytical form for
-$(\mathbf{b}_0^TA_0^{-1}\otimes I)\textnormal{adj}(\mathcal{M}_s)$. Each element in
-this block $1\times s$ matrix consists of polynomials in $\widehat{\mathcal{L}}$ of
-degree $s-1$ (although
-typically not monic). Compared with stiffly accurate schemes, this now requires
-$(s-1)s$ matrix-vector multiplications, which is $s-1$ more than for stiffly
-accurate schemes, but still typically of marginal overall computational cost.
+In the more general case of non-stiffly accurate methods (for example, Gauss
+methods), one can obtain an analytical form for $(\mathbf{b}_0^TA_0^{-1}\otimes
+I)\textnormal{adj}(\mathcal{M}_s)$. Each element in this block $1\times s$
+matrix consists of polynomials in $\widehat{\mathcal{L}}$ of degree $s-1$
+(although typically not monic). Compared with stiffly accurate schemes, this now
+requires $(s-1)s$ matrix-vector multiplications, which is $s-1$ more than for
+stiffly accurate schemes, but still typically of marginal overall computational
+cost.
 \end{remark}
 
 % ------------------------------------------------------------------------------------- %
@@ -558,7 +559,7 @@ in which case we have a simple closed form for $\det(\mathcal{M}_s)^{-1} =
 P_s(\widehat{\mathcal{L}})^{-1}$, where $P_s(x)$ is the characteristic polynomial
 of $A_0^{-1}$ (see \Cref{lem:inv}).
 
-In contrast to much of the original work on solving IRK systems, where LU factorizations
+In contrast to much of the early work on solving IRK systems, where LU factorizations
 were the dominant cost and system sizes relatively small, explicitly forming and inverting
 $P_s(\widehat{\mathcal{L}})$ for numerical PDEs is typically not a viable option in high-performance
 simulation on modern computing architectures. Instead, by computing the eigenvalues
@@ -613,7 +614,7 @@ then takes the form
 %
 
 For $\eta > \beta$ and under the assumptions introduced in \Cref{sec:intro:stab},
-the preconditioned operator in \eqref{eq:prec1} has a nicely bounded field-of-values,
+the preconditioned operator in \eqref{eq:prec1} has a well bounded field-of-values,
 which can be directly translated into guaranteed GMRES convergence bounds
 (\Cref{cor:gmres}).
 
@@ -729,11 +730,11 @@ Such an assumption is tricky to quantify because there is no necessary relations
 between $W(A)$ and $W(A^2)$ for operator $A$. Roughly,
 $W(\widehat{\mathcal{L}}^2)\geq 0$ would correspond to parabolic-type
 operators, where eigenvalues have larger real than imaginary components.
-In any case, notice that even there, the field-of-values and GMRES convergence 
+In any case, notice that even there, the field-of-values and GMRES convergence
 estimates \eqref{eq:gmres2} depend on the ratio $\beta^2/\eta^2$. For
 $\eta < \beta$, we expect to see nice convergence, but are likely to see degradation
 for $\beta > \eta$. The following section derives a better constant $\gamma$
-that yields nice conditioning regardless of $W(\widehat{\mathcal{L}}^2)$,
+that yields good conditioning regardless of $W(\widehat{\mathcal{L}}^2)$,
 and with weaker dependence on $\eta$ and $\beta$.
 
 % ------------------------------------------------------------------------------------- %
@@ -781,15 +782,20 @@ and $W(\widehat{\mathcal{L}}) \leq 0$ \eqref{eq:fov}. Let $\mathcal{P}_\gamma$ d
 the preconditioned operator, where $((\eta + i\beta)I -
 \widehat{\widehat{\mathcal{L}}})((\eta - i\beta)I - \widehat{\widehat{\mathcal{L}}})$ is
 preconditioned with $(\gamma I - \widehat{\widehat{\mathcal{L}}})^{-2}$.
-Define $\gamma_* = \sqrt{\eta^2+\beta^2}$ and let $\gamma = \gamma_*$. Then
+Define $\gamma_*$ by
+\begin{equation}
+	\label{eq:gam_opt}
+	\gamma_* = \sqrt{\eta^2+\beta^2}
+\end{equation}
+and let $\gamma = \gamma_*$. Then
 %
 \begin{align}\label{eq:gammastar}
-\textnormal{cond}(\mathcal{P}_{\gamma_*}) \leq 
+\textnormal{cond}(\mathcal{P}_{\gamma_*}) \leq
 	3\sqrt{1+\frac{\beta^2}{\eta^2}} - 2.
 \end{align}
 
 Assume additionally that $W(\widehat{\mathcal{L}}^2) \geq 0$. Then for
-$\eta \leq \gamma \leq \gamma_*$ 
+$\eta \leq \gamma \leq \gamma_*$
 \begin{align}\label{eq:cond_gen}
 \textnormal{cond}(\mathcal{P}_\gamma) \leq \frac{\gamma}{\eta}
 	\left(1 + \frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}\right).
@@ -825,7 +831,7 @@ letting $\mathbf{v} := (I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})\mathbf{w}$,
 \left\| I - 2\tfrac{\gamma-\eta}
 	{\gamma}(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{-1}\right\|^2
 		& = \sup_{\mathbf{v}\neq\mathbf{0}} \frac{\left\| [I - 2\frac{\gamma-\eta}
-	{\gamma}(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{-1}]\mathbf{v}\right\|^2}{\|\mathbf{v}\|^2} 
+	{\gamma}(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{-1}]\mathbf{v}\right\|^2}{\|\mathbf{v}\|^2}
 = \sup_{\mathbf{w}\neq\mathbf{0}} \frac{\left\| (I - \tfrac{1}{\gamma}\widehat{\mathcal{L}} -
 		2\frac{\gamma-\eta}{\gamma}I )\mathbf{w}\right\|^2}{\|(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})
 		\mathbf{w}\|^2} \\
@@ -841,7 +847,7 @@ letting $\mathbf{v} := (I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})\mathbf{w}$,
 }
 %
 Note that by assumption, $\gamma \geq \eta$, which implies
-$0 \leq 2\tfrac{\gamma-\eta}{\gamma}  < 2$, and 
+$0 \leq 2\tfrac{\gamma-\eta}{\gamma}  < 2$, and
 $|1 - 2\tfrac{\gamma-\eta}{\gamma}| < 1$. In addition, we assume $W(\widehat{\mathcal{L}})\leq 0$,
 which implies $\langle (\widehat{\mathcal{L}}+\widehat{\mathcal{L}}^T)\mathbf{w},\mathbf{w}\rangle \leq 0$
 (see \Cref{th:fov}), and
@@ -856,7 +862,7 @@ $2\tfrac{\gamma-\eta}{\gamma^2}\langle (\widehat{\mathcal{L}}+\widehat{\mathcal{
 	- \tfrac{1}{\gamma}\langle (\widehat{\mathcal{L}} + \widehat{\mathcal{L}}^T)
 		\mathbf{w},\mathbf{w}\rangle + \tfrac{1}{\gamma}^2\|\widehat{\mathcal{L}}\mathbf{w}\|^2}
 	{\|\mathbf{w}\|^2 - \tfrac{1}{\gamma}\langle (\widehat{\mathcal{L}} + \widehat{\mathcal{L}}^T)
-		\mathbf{w},\mathbf{w}\rangle + \tfrac{1}{\gamma}^2\|\widehat{\mathcal{L}}\mathbf{w}\|^2} 
+		\mathbf{w},\mathbf{w}\rangle + \tfrac{1}{\gamma}^2\|\widehat{\mathcal{L}}\mathbf{w}\|^2}
 = 1.
 \end{align}
 %
@@ -892,7 +898,7 @@ s_{\min}(\mathcal{P}_\gamma)^2 & = \min_{\mathbf{v}\neq\mathbf{0}}
 		\right]\mathbf{w} \right\|^2}
 	{\|(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{2}\mathbf{w}\|^2} \nonumber\\
 & = \min_{\mathbf{v}\neq\mathbf{0}}
-	\frac{\left\| \left[(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{2} + 
+	\frac{\left\| \left[(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{2} +
 		\tfrac{\eta^2+\beta^2-\gamma^2}{\gamma^2} I + 2\frac{\gamma-\eta}{\gamma^2}
 		\widehat{\mathcal{L}}) \right]\mathbf{w} \right\|^2}
 	{\|(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{2}\mathbf{w}\|^2}.\label{eq:smin0}
@@ -939,7 +945,7 @@ all terms in the numerator and denominator are non-negative (note, $\mathbf{w}$ 
 $\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}$ were kept together in norm to avoid
 the difficulties that arise in analyzing $\langle\widehat{\mathcal{L}}^2\mathbf{w},\mathbf{w}\rangle$).
 For numerator $\mathcal{N}$ and denominator $\mathcal{D}$, if $\widehat{K}\mathcal{N}
-\geq \mathcal{D}$, then $\mathcal{N}/\mathcal{D} \geq 1 / \widehat{K}$. For 
+\geq \mathcal{D}$, then $\mathcal{N}/\mathcal{D} \geq 1 / \widehat{K}$. For
 $\|\widehat{\mathcal{L}}\mathbf{w}\|^2$, $\langle\widehat{\mathcal{L}}\mathbf{w},\mathbf{w}\rangle$,
 and $\langle\widehat{\mathcal{L}}(\widehat{\mathcal{L}}\mathbf{w}),\widehat{\mathcal{L}}\mathbf{w}\rangle$,
 we can directly bound the ratio of constants in the numerator and denominator.
@@ -971,9 +977,9 @@ requires
 Because we want a lower bound on $\mathcal{N}/\mathcal{D} \geq 1/\widehat{K}$,
 we seek the maximum required $\widehat{K}$ of the above ratios. For
 $\gamma \in[\eta,\sqrt{\eta^2+\beta^2}]$, the maximum of the
-above ratios ends up being $\widehat{K} := \tfrac{\gamma^2}{\eta^2}$.
+above ratios is $\widehat{K} := \tfrac{\gamma^2}{\eta^2}$.
 
-The difficult ratio to bound in \eqref{eq:smin_ex} ends up being 
+The difficult ratio to bound in \eqref{eq:smin_ex} ends up being
 $\|(1+c_I)\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2$ and the
 similar denominator term, $\|\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2$.
 Here we consider two cases:\\
@@ -982,13 +988,13 @@ Here we consider two cases:\\
 \underline{$\boldsymbol{\gamma_* = \sqrt{\eta^2+\beta^2}}$}: Under this specific choice, we
 get the nice cancellation that $c_I = 0$, and have matching terms
 $\|\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2$ in the numerator
-and denominator of \eqref{eq:smin_ex}. Then, the maximum ratio of numerator 
+and denominator of \eqref{eq:smin_ex}. Then, the maximum ratio of numerator
 to denominator terms is $\widehat{K} := \tfrac{\gamma^2}{\eta^2}$ derived above,
 and we can bound $\|P_{\gamma}^{-1}\|$ via
 %
 \begin{align}\label{eq:gammas_bound}
-\|P_{\gamma}^{-1}\| & = \frac{1}{s_{\min}(P_{\gamma}^{-1})} 
-	\leq \frac{1}{1/\sqrt{\widehat{K}}} 
+\|P_{\gamma}^{-1}\| & = \frac{1}{s_{\min}(P_{\gamma}^{-1})}
+	\leq \frac{1}{1/\sqrt{\widehat{K}}}
 	= \frac{\sqrt{\eta^2+\beta^2}}{\eta} =
 	\sqrt{1+\frac{\beta^2}{\eta^2}}.
 \end{align}
@@ -1041,8 +1047,8 @@ given by $\widehat{K} = \tfrac{\gamma^2}{\eta^2}$. Altogether,
 this yields
 %
 \begin{align*}
-\|P_{\gamma}^{-1}\| & = \frac{1}{s_{\min}(P_{\gamma}^{-1})} 
-	\leq \frac{1}{1/\sqrt{\widehat{K}}} 
+\|P_{\gamma}^{-1}\| & = \frac{1}{s_{\min}(P_{\gamma}^{-1})}
+	\leq \frac{1}{1/\sqrt{\widehat{K}}}
 	= \frac{\gamma}{\eta}.
 \end{align*}
 %
@@ -1074,12 +1080,12 @@ $W(\widehat{\mathcal{L}}^2) \not\geq 0$. One might note that the condition
 number bounds of $\mathcal{P}_\eta$ and $\mathcal{P}_{\gamma_*}$ do not differ
 significantly for reasonable values of $\eta$ and $\beta$ when
 $W(\widehat{\mathcal{L}}^2) \geq 0$. However, a hyperbolic
-example in \Cref{sec:numerics:dg} demonstrates almost a $6\times$ reduction
+example in \Cref{sec:numerics:dg} demonstrates an almost $6\times$ reduction
 in iteration count achieved by using $\gamma_*$ instead of $\eta$. For
 parabolic/diffusive problems we have explored, $\gamma_*$ has offered a much
 more modest improvement over $\eta$, suggesting that the modified constant
-$\gamma_*=\sqrt{\eta^2+\beta^2}$ may be necessary/particularly important
-for a robust method on hyperbolic or advection-dominated problems.
+$\gamma_*=\sqrt{\eta^2+\beta^2}$ may be particularly important
+for a robust method for hyperbolic or advection-dominated problems.
 Furthermore, $\mathcal{P}_{\gamma_*}$ has performed better than
 $\mathcal{P}_{\eta}$ for all problems we have
 tested, and is the recommended preconditioner in practice.
@@ -1104,7 +1110,9 @@ Lobatto IIIC  & 2.24 & 1.00 & 3.37 & 4.37 & 1.19 & 1.00 & 5.27 & 1.52 \\\hline
   \eqref{eq:gammastar} for Gauss, Radau IIA, and Lobatto IIIC integration,
   with 2--5 stages. Each column within a given set of stage columns corresponds
   to a conjugate pair of eigenvalues of $A_0^{-1}$. For odd numbers of stages,
-  one eigenvalue is real, corresponding to the column with conditioning 1.}\label{tab:cond}
+  one eigenvalue is real, corresponding to the column with conditioning 1.
+  {\color{red} WP: Maybe add headers to the table to indicate that the columns
+  correspond to conjugate pairs of eigenvalues.}}\label{tab:cond}
 \end{table}
 % \beta^2/\eta^2 & 0.33 & 0 & 0.91 & 1.59 & 0.09 & 0 & 2.36 & 0.27 \\
 % \beta^2/\eta^2 & 0.50 & 0 & 1.29 & 2.21 & 0.11 & 0 & 3.20 & 0.32	\\
@@ -1133,7 +1141,7 @@ of the preconditioner.
 \end{remark}
 
 \begin{remark}[Inexact preconditioning]\label{sec:inexact-precond}
-In practice, fully converging $(\gamma_* I - \widehat{\mathcal{L}})^{-1}$ 
+In practice, fully converging $(\gamma_* I - \widehat{\mathcal{L}})^{-1}$
 each iteration as a preconditioner is often not desirable due to the cost
 of performing a full linear solve. Here, we propose
 applying a Krylov method to $\mathcal{Q}_\eta:=(\eta^2+\beta^2)I - 2\eta\widehat{\mathcal{L}} +
@@ -1145,7 +1153,7 @@ of $(\gamma_* I - \widehat{\mathcal{L}})^{-2}$.
 Analogous to standard block-preconditioning techniques, this approximate inverse
 approach is often (but not always) more efficient than computing a full inverse
 each iteration. However, \textit{it is important that the underlying preconditioner
-provides a good approximation}. 
+provides a good approximation}.
 Fortunately, for difficult problems without highly effective
 preconditioners, it is straightforward to apply either multiple inner fixed-point iterations
 or an inner Krylov iteration (wrapped with a flexible outer Krylov method
@@ -1295,7 +1303,7 @@ number of GMRES iterations) remains roughly constant as the the mesh is refined.
 Of the fully implicit methods, the Gauss methods require the fewest AMG iterations, closely
 followed by Radau IIA methods, with the Lobatto IIIC methods requiring the most
 AMG iterations. This is
-consistent with the theoretical estimates in \Cref{tab:beta,tab:cond}.
+consistent with the theoretical estimates in \Cref{tab:cond}.
 Note that while Gauss and Radau IIA methods have very similar
 iteration counts, Gauss converges at one order faster, which can be seen in the
 left-hand panel of the figure.
@@ -1341,14 +1349,13 @@ $u_h \in V_h$ such that, for all $v_h \in V_h$,
 	\int_\Omega \partial_t (u_h) v_h \, dx
 	- \int_\Omega u_h \bm\beta \cdot \nabla_h v_h \, dx
 	+ \int_\Gamma \widehat{u_h} \bm\beta \cdot \llbracket v_h \rrbracket \, ds
-	+ \int_\Omega \nabla_h u_h \cdot \nabla_h v_h \, d\bm x \\
+	+ \int_\Omega \nabla_h u_h \cdot \nabla_h v_h \, d x \\
 	- \int_\Gamma \{ \nabla_h u_h \} \cdot \llbracket v_h \rrbracket \, ds
 	- \int_\Gamma \{ \nabla_h v_h \} \cdot \llbracket u_h \rrbracket \, ds
 	+ \int_\Gamma \sigma \llbracket u_h \rrbracket \cdot \llbracket v_h \rrbracket \, ds
 	= \int_\Omega f v_h \, dx,
 	\end{multlined}
 \]
-\OK{Is the $x$ on the top right really meant to be in bold?}
 where $V_h$ is the DG finite element space consisting of piecewise polynomials of degree
 $p$ defined on elements of the computational mesh $\mathcal{T}$ of the spatial domain
 $\Omega$. No continuity is enforced between mesh elements.
@@ -1410,7 +1417,7 @@ are shown in \Cref{fig:ad_advdiff}.
 \subsubsection{A hyperbolic example, and preconditioning with $\eta$ vs. $\gamma_*$}
 \label{sec:numerics:dg:const}
 
-First, we demonstrate the effectiveness of using $\gamma_*$ (\Cref{sec:solve:gamma})
+First, we demonstrate the effectiveness of using $\gamma_*$ (\Cref{sec:solve:prec:gamma})
 instead of $\eta$ in the preconditioner, as well as the robustness of the proposed
 method on a fully hyperbolic problem, where most papers have only discussed parabolic
 PDEs. Thus, we set the diffusion coefficient $\varepsilon = 0$
@@ -1474,7 +1481,7 @@ Speedup & 1.0 & 1.0 & 3.0 & 1.2 & 4.3 & 1.0 & 1.4 & 5.8 \\\hline\hline
 
 
 % ------------------------------------------------------------------------------------- %
-\subsubsection{High-order \& advection-dominated}\label{sec:numerics:dg:adv}
+\subsubsection{High-order and advection-dominated}\label{sec:numerics:dg:adv}
 
 This section demonstrates high-order IRK integration applied to the advection-dominated
 problem in \Cref{fig:ad_advdiff}, using AIR as a preconditioner for the linear
