@@ -1101,17 +1101,21 @@ tested, and is the recommended preconditioner in practice.
   \centering
   \begin{tabular}{| c | c | cc | cc | ccc |}  % chktex 44
   \hline
-Stages & 2 & \multicolumn{2}{c}{3} & \multicolumn{2}{|c}{4} & \multicolumn{3}{|c|}{5} \\\hline\hline
+\multirow{2}{*}{Stages} & 2 & \multicolumn{2}{c}{3} & \multicolumn{2}{|c}{4} & \multicolumn{3}{|c|}{5} \\
+
+& {$\lambda_{1,2}^\pm$} & {$\lambda_1$} & {$\lambda_{2,3}^\pm$} & {$\lambda_{1,2}^\pm$} &
+	{$\lambda_{3,4}^\pm$} & {$\lambda_1$} & {$\lambda_{2,3}^\pm$} & {$\lambda_{4,5}^\pm$} \\
+\hline
 Gauss  & 1.46 & 1.00 & 2.15 & 2.83 & 1.13 & 1.00 & 3.50 & 1.38 \\
 Radau IIA  & 1.67 & 1.00 & 2.54 & 3.37 & 1.16 & 1.00 & 4.15 & 1.45 \\
 Lobatto IIIC  & 2.24 & 1.00 & 3.37 & 4.37 & 1.19 & 1.00 & 5.27 & 1.52 \\\hline
   \end{tabular}
   \caption{Bounds on cond$(\mathcal{P}_{\gamma_*})$ from \Cref{th:cond} and
   \eqref{eq:gammastar} for Gauss, Radau IIA, and Lobatto IIIC integration,
-  with 2--5 stages. Each column within a given set of stage columns corresponds
-  to a conjugate pair of eigenvalues of $A_0^{-1}$. For odd numbers of stages,
-  one eigenvalue is real, corresponding to the column with conditioning 1.}
-  \label{tab:cond}
+  with 2--5 stages. Each column within a given set of stages corresponds
+  to either a real eigenvalue, $\lambda_1 = \eta$, or a conjugate pair of eigenvalues,
+  e.g., $\lambda_{2,3}^\pm = \eta \pm \mathrm{i}\beta$, of
+  $A_0^{-1}$.}\label{tab:cond}
 \end{table}
 % \beta^2/\eta^2 & 0.33 & 0 & 0.91 & 1.59 & 0.09 & 0 & 2.36 & 0.27 \\
 % \beta^2/\eta^2 & 0.50 & 0 & 1.29 & 2.21 & 0.11 & 0 & 3.20 & 0.32	\\
