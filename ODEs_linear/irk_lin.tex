@@ -260,7 +260,7 @@ as needed by standard 4th-order SDIRK schemes.
 % ------------------------------------------------------------------------------------- %
 \subsection{Motivation and previous work}\label{sec:intro:hist}
 
-Diagonally implicit Runge-Kutta (DIRK) methods, where $A_0$ is lower triangular,
+Diagonally implicit Runge-Kutta methods (DIRK), where $A_0$ is lower triangular,
 are commonly used in practice. For such schemes, the solution of \eqref{eq:k0}
 using a block substitution algorithm requires only $s$ linear solves of systems
 of the form $ M - \delta ta_{ii}\mathcal{L}_i$. Unfortunately, DIRK schemes
@@ -514,7 +514,7 @@ block (rather than a block-diagonal matrix). The Runge-Kutta update is then give
 \end{align}
 %
 
-\begin{remark}[Implementation and complexity]
+\begin{remark}[Implementation \& complexity]
 The adjugate consists of linear combinations of $I$ and $\widehat{\mathcal{L}}$, and an
 analytical form can be derived for an arbitrary $s\times s$ matrix, where
 $s\sim\mathcal{O}(1)$.
@@ -1484,7 +1484,7 @@ Speedup & 1.0 & 1.0 & 3.0 & 1.2 & 4.3 & 1.0 & 1.4 & 5.8 \\\hline\hline
 
 
 % ------------------------------------------------------------------------------------- %
-\subsubsection{High-order and advection-dominated}\label{sec:numerics:dg:adv}
+\subsubsection{Advection-dominated}\label{sec:numerics:dg:adv}
 
 This section demonstrates high-order IRK integration applied to the advection-dominated
 problem in \Cref{fig:ad_advdiff}, using AIR as a preconditioner for the linear
