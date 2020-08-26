@@ -621,7 +621,7 @@ which can be directly translated into guaranteed GMRES convergence bounds
 %
 \begin{theorem}[Preconditioned field of values]\label{th:fov}
 Suppose Assumptions \ref{ass:eig} and \ref{ass:fov} hold, that is, $\eta > 0$
-and $W(\mathcal{L}) \leq 0$, where $W(\mathcal{L})$ is defined by \eqref{eq:fov}.
+and $W(\widehat{\mathcal{L}}) \leq 0$, where $W(\widehat{\mathcal{L}})$ is defined by \eqref{eq:fov}.
 Let $\mathcal{P}_\eta$ denote the
 preconditioned operator, where $((\eta + i\beta)I -
 \widehat{\mathcal{L}})((\eta - i\beta)I - \widehat{\mathcal{L}})$ is
@@ -649,7 +649,7 @@ Appealing to \eqref{eq:prec1} and property (1), $W(\mathcal{P}_\eta)
 = 1 + \tfrac{\beta^2}{\eta^2}W(E)$, for error term
 $E := (I - \tfrac{1}{\eta}\widehat{\mathcal{L}})^{-2}$
 and real-valued constant $\beta^2/\eta^2 > 0$.
-Now, note that by assumption $W(\mathcal{L}) \leq 0$, and property (2)
+Now, note that by assumption $W(\widehat{\mathcal{L}}) \leq 0$, and property (2)
 yields $(\widehat{\mathcal{L}}+\widehat{\mathcal{L}}^T)/2 \leq 0$. Then,
 %
 \begin{align}\label{eq:norm1}
@@ -686,7 +686,7 @@ which completes the proof.
 
 %
 \begin{corollary}[GMRES convergence bounds]\label{cor:gmres}
-Let $\pi_k$ denote the set of polynomials of degree $k$ such that $p(0) = 1$,
+Let $\pi_k$ denote the set of polynomials $p$ of degree $k$ such that $p(0) = 1$,
 and let $\beta < \eta$. Then the ideal GMRES bound (an upper bound in operator
 norm of worst-case convergence) on convergence after $k$ iterations
 applied to the preconditioned operator $\mathcal{P}_\eta$ \eqref{eq:prec1}
@@ -747,19 +747,19 @@ operator takes the form
 %
 \begin{align}\nonumber
 \mathcal{P}_\gamma & =
-(\gamma I - \mathcal{L})^{-2}\Big[(nI - \mathcal{L})^2 + \beta^2 I\Big] \\ \nonumber
-& = (\gamma I - \mathcal{L})^{-2}\Big[((\eta-\gamma)I + (\gamma I - \mathcal{L}))^2 + \beta^2 I\Big] \\
-% & = (\gamma I - \mathcal{L})^{-2}\Big[(\gamma-\eta)^2I - 2(\gamma-\eta)(\gamma I - \mathcal{L}) +
-% 	(\gamma I - \mathcal{L})^2 + \beta^2 I\Big] \nonumber\\
-% & = I - 2(\gamma-\eta)(\gamma I - \mathcal{L})^{-1} + (\beta^2 + (\gamma-\eta)^2)(\gamma I -
-% 	\mathcal{L})^{-2} \nonumber\\
-& = I - 2\frac{\gamma-\eta}{\gamma}\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1} +
+(\gamma I - \widehat{\mathcal{L}})^{-2}\Big[(nI - \widehat{\mathcal{L}})^2 + \beta^2 I\Big] \\ \nonumber
+& = (\gamma I - \widehat{\mathcal{L}})^{-2}\Big[((\eta-\gamma)I + (\gamma I - \widehat{\mathcal{L}}))^2 + \beta^2 I\Big] \\
+% & = (\gamma I - \widehat{\mathcal{L}})^{-2}\Big[(\gamma-\eta)^2I - 2(\gamma-\eta)(\gamma I - \widehat{\mathcal{L}}) +
+% 	(\gamma I - \widehat{\mathcal{L}})^2 + \beta^2 I\Big] \nonumber\\
+% & = I - 2(\gamma-\eta)(\gamma I - \widehat{\mathcal{L}})^{-1} + (\beta^2 + (\gamma-\eta)^2)(\gamma I -
+% 	\widehat{\mathcal{L}})^{-2} \nonumber\\
+& = I - 2\frac{\gamma-\eta}{\gamma}\left(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}\right)^{-1} +
 	\frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}
-	\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-2}.\label{eq:prec_k}
+	\left(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}\right)^{-2}.\label{eq:prec_k}
 \end{align}
 %
 Note that in \eqref{eq:prec_k} we have a quadratic polynomial in
-$(I - \tfrac{1}{\gamma}\mathcal{L})^{-1}$. Although this provides
+$(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{-1}$. Although this provides
 nice structure, the field of values analysis applied in \Cref{sec:solve:inv}
 becomes much more complicated because there is no necessary relationship between
 $\langle A\mathbf{x},\mathbf{x}\rangle$ and
@@ -790,20 +790,22 @@ Define $\gamma_*$ by
 and let $\gamma = \gamma_*$. Then
 %
 \begin{align}\label{eq:gammastar}
-\textnormal{cond}(\mathcal{P}_{\gamma_*}) \leq
+\textnormal{cond}(\mathcal{P}_{\gamma_*}) <
 	3\sqrt{1+\frac{\beta^2}{\eta^2}} - 2.
 \end{align}
 
 Assume additionally that $W(\widehat{\mathcal{L}}^2) \geq 0$. Then for
 $\eta \leq \gamma \leq \gamma_*$
 \begin{align}\label{eq:cond_gen}
-\textnormal{cond}(\mathcal{P}_\gamma) \leq \frac{\gamma}{\eta}
+\textnormal{cond}(\mathcal{P}_\gamma) < \frac{\gamma}{\eta}
 	\left(1 + \frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}\right).
 \end{align}
 \end{theorem}
 \begin{proof}
 Recall for matrix $A$, cond$(A) = \|A\|\|A^{-1}\|$.
-First, consider bounding $\|\mathcal{P}_\gamma\|$ for $\gamma \geq \eta$:
+First, consider bounding $\|\mathcal{P}_\gamma\|$ for $\gamma \geq \eta$.
+From the proof of \Cref{th:fov}, we have
+$\|(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{-1}\|\leq 1$, and observe
 %
 \begin{align}\nonumber
 \|\mathcal{P}_\gamma\| & = \left\| I - 2\frac{\gamma-\eta}
@@ -846,7 +848,7 @@ letting $\mathbf{v} := (I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})\mathbf{w}$,
 \end{align*}
 }
 %
-Note that by assumption, $\gamma \geq \eta$, which implies
+Note that by assumption, $\gamma \geq \eta > 0$, which implies
 $0 \leq 2\tfrac{\gamma-\eta}{\gamma}  < 2$, and
 $|1 - 2\tfrac{\gamma-\eta}{\gamma}| < 1$. In addition, we assume $W(\widehat{\mathcal{L}})\leq 0$,
 which implies $\langle (\widehat{\mathcal{L}}+\widehat{\mathcal{L}}^T)\mathbf{w},\mathbf{w}\rangle \leq 0$
@@ -869,7 +871,7 @@ $2\tfrac{\gamma-\eta}{\gamma^2}\langle (\widehat{\mathcal{L}}+\widehat{\mathcal{
 Combining \eqref{eq:P0} and \eqref{eq:P1} yields
 %
 \begin{align}\label{eq:Pgamma}
-\|\mathcal{P}_\gamma\| \leq 1 + \frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}.
+\|\mathcal{P}_\gamma\| < 1 + \frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}.
 \end{align}
 
 Now consider bounding $\|\mathcal{P}_\gamma^{-1}\|$ from above. Let $s_{\max}(A)$
@@ -1016,13 +1018,13 @@ Taking the ratio of these individual terms then yields
 \frac{\|(1+c_I)\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2}
 	{\|\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2}
 & = \frac{(1+c_I)^2\|\mathbf{w}\|^2+\tfrac{1}{\gamma^4}\|\widehat{\mathcal{L}}^2\mathbf{w}\|^2
-	+ 2\cos(\theta)(1+c_I)\|\widehat{\mathcal{L}}^2\mathbf{w}\|\|\mathbf{w}\|}
+	+ \tfrac{2\cos(\theta)(1+c_I)}{\gamma^2}\|\widehat{\mathcal{L}}^2\mathbf{w}\|\|\mathbf{w}\|}
 	{\|\mathbf{w}\|^2+\tfrac{1}{\gamma^4}\|\widehat{\mathcal{L}}^2\mathbf{w}\|^2
-	+ 2\cos(\theta)\|\widehat{\mathcal{L}}^2\mathbf{w}\|\|\mathbf{w}\|}.
+	+ \tfrac{2\cos(\theta)}{\gamma^2}\|\widehat{\mathcal{L}}^2\mathbf{w}\|\|\mathbf{w}\|}.
 \end{align}
 }
 %
-Letting $x := \tfrac{\|\widehat{\mathcal{L}}\mathbf{w}\|}{\|\mathbf{w}\|}$, we can
+Letting $x := \tfrac{\|\widehat{\mathcal{L}}^2\mathbf{w}\|}{\gamma^2\|\mathbf{w}\|}$, we can
 cancel $1/\|\mathbf{w}\|^2$ from the numerator and denominator and
 write \eqref{eq:bad} as a ratio of quadratic functions in $x \geq 0$:
 %
