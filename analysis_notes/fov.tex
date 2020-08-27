@@ -718,6 +718,26 @@ it is not)} and the condition number of \eqref{eq:gamma0} is given by
 	\frac{\lambda_{\max}\left((\gamma I- \widehat{\mathcal{L}})^{-1}S\right)}
 		{\lambda_{\min}\left((\gamma I- \widehat{\mathcal{L}})^{-1}S\right)}.
 \end{align}
+\tcr{[OK: 
+I'm a bit confused by the SPD thing; am I making a mistake in the following derivation? We want to show for which range of $\gamma$ ${\cal F} > 0$ (which implies the operator is positive definite). Have 
+\begin{align*}
+\mathcal{F}(\gamma,\lambda) := 
+	1 - \frac{\gamma-\eta}{\gamma + \lambda} + \frac{\beta^2}{(\gamma + \lambda)(\eta+\lambda)} 
+	=
+1 + \frac{(\eta - \gamma) (\eta + \lambda) + \beta^2}{(\gamma + \lambda) (\eta + \lambda)}. 
+\end{align*}
+So, if $(\gamma + \lambda) (\eta + \lambda) > 0$, which is always true if we assume $\gamma > 0$, since $\eta > 0$ and $\lambda \geq 0$, then:
+\begin{align*}
+{\cal F} > 0 
+&\Longrightarrow 
+(\eta - \gamma) (\eta + \lambda) + (\gamma + \lambda) (\eta + \lambda) + \beta^2  > 0 \\
+&\Longrightarrow 
+[\eta - \gamma + \gamma + \lambda] (\eta + \lambda) + \beta^2  > 0 \\
+& \Longleftrightarrow (\eta + \lambda)^2 + \beta^2 > 0.
+\end{align*}
+This last statement is always true, and the only assumption we made in arriving here is $\gamma > 0$. Therefore ${\cal F} > 0$ and the operator is positive definite?
+]}
+
 %
 As $h,\delta t\to 0$, it is typical for parabolic problems that
 the spectrum $\lambda\in\sigma\left(-\widehat{\mathcal{L}}\right)$
@@ -833,29 +853,32 @@ above, we know that ${\cal G} > 0$ for $\gamma = \eta + \beta^2/\eta$, so
 we seek roots $\hat{\gamma}\in(\eta,\eta+\beta^2/\eta]$, such that
 ${\cal G}(\hat{\gamma}) = 0$, indicating a sign change in ${\cal G}$.
 
-\tcb{(BS: next two equations not obvious, is first one relevant?)}
-It is possible to show that if  any such roots exists, they must satisfy
-%
+\tcb{(BS: next two equations not obvious, is first one relevant?)} \tcr{[OK: First equation was kind of relevant. I rewrote what was below to make clearer where these things come from. Let me know if still unclear.]}
+
+Setting ${\cal G}(\hat{\gamma}) = 0$ and assuming $\beta > 0$, we have
 \begin{align*}
-\hat{\gamma} > \tfrac{1}{2} \big( \eta + \beta^2 / \eta).
+\frac{2\beta}{\beta + \sqrt{\beta^2 + (\hat{\gamma}-\eta)^2}} 
+=
+\frac{1}{\hat{\gamma}} \left(\eta + \frac{\beta^2}{\eta} \right) 
+\quad \Longrightarrow \quad
+2\beta \eta \hat{\gamma} -\beta(\eta^2 + \beta^2) 
+= 
+\beta(\eta^2 + \beta^2) \sqrt{\beta^2 + (\hat{\gamma}-\eta)^2}. 
 \end{align*}
-%
-Furthermore, any such roots must satisfy the quadratic equation in $\hat{\gamma}$
-%
+Squaring both sides of the latter equation leads to a quadratic equation in $\hat{\gamma}$, which we will denote $z(\hat{\gamma}) = 0$. However, note that the RHS of the latter equation is positive, and so for any root of $z$ to also be a root of ${\cal G}$, it must satisfy $\hat{\gamma} > \tfrac{1}{2} \big( \eta + \beta^2 / \eta)$. Carrying out the calculation, we have
 \begin{align*}
-z(\hat{\gamma}) = \big[ 4 \beta^2 \eta^2 - (\eta^2 + \beta^2)^2 \big] \hat{\gamma}^2 + 2 \eta (\eta^2 + \beta^2)(\eta^2 - \beta^2) \hat{\gamma} - \eta^2(\eta^2 + \beta^2)^2 = 0.
+z(\hat{\gamma}) = \big[ 4 \beta^2 \eta^2 - (\eta^2 + \beta^2)^2 \big] \hat{\gamma}^2 + 2 \eta (\eta^2 + \beta^2)(\eta^2 - \beta^2) \hat{\gamma} - \eta^2(\eta^2 + \beta^2)^2.
 \end{align*}
 %
 Note that the discriminant of $z(\hat{\gamma})$ is zero, implying
-$z(\hat{\gamma})$ has one real root, given by
+$z(\hat{\gamma})$ has one real root. This root is
 %
 \begin{align} \label{eq:gamma_hat}
 \hat{\gamma} = \eta \frac{\eta^2 + \beta^2}{\eta^2 - \beta^2}. 
 \end{align}
 %
-If $\eta < \beta$, then $\hat{\gamma} < 0$, while for $\eta > \beta$, we
-have $\hat{\gamma} > \eta+\beta^2/\eta$. In both of these cases, $\hat{\gamma}
-\not\in(\eta,\eta+\beta^2/\eta]$ and, thus, ${\cal G}$ has no sign changes
+If $\eta < \beta$, then $\hat{\gamma} < 0$ which violates the necessary condition that $\hat{\gamma} > \tfrac{1}{2} \big( \eta + \beta^2 / \eta)$ for $\hat{\gamma}$ to also be a root of ${\cal G}$. For $\eta > \beta$, it is straightforward to show that
+$\hat{\gamma} > \eta+\beta^2/\eta$, and, so, this root of ${\cal G}$ does not lie in the interval $(\eta,\eta+\beta^2/\eta]$. Thus, ${\cal G}$ has no sign changes
 in the interval $(\eta,\eta+\beta^2/\eta]$, implying
 ${\cal F} (\gamma, \lambda_+) < {\cal F}(\gamma, 0)$ for $\eta < \gamma
 \leq \eta + \beta^2/\eta.$ Combining with the earlier discussion, we have
