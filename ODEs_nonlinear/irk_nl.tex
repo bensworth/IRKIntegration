@@ -307,6 +307,13 @@ problems are provided in \Cref{sec:numerics_nonlin}, \todo{including ...}
 Assume that all eigenvalues of $A_0$ (and equivalently $A_0^{-1})$ have positive real part.
 \end{assumption}
 
+
+\begin{align}\label{eq:fov}
+W(\mathcal{L}) := \left\{ \langle \mathcal{L}\mathbf{x},\mathbf{x}\rangle \text{ : }
+	\|\mathbf{x}\| = 1 \right\}.
+\end{align}
+
+
 %
 \begin{assumption}\label{ass:fov}
 Let $\mathcal{L}$ be the linear spatial operator, and assume that $W(\mathcal{L}) \leq 0$.
@@ -327,19 +334,20 @@ solving a $2\times 2$ block system along the lines of
 -\frac{\beta^2}{\phi} I & \eta I - \widehat{\mathcal{L}}_1\end{bmatrix},
 \end{align}
 %
-where it is assumed that $W(\widehat{\mathcal{L}}) \geq 0$ in \Cref{ass:fov}. In some
+for some $\phi \neq 0$ and where it is assumed that $W(\widehat{\mathcal{L}}) \geq 0$
+in \Cref{ass:fov}. In some
 cases (in particular, simplified Newton methods) $\widehat{\mathcal{L}}_1 =
 \widehat{\mathcal{L}}_2$, but we are particularly interested in the more general
 setting of $\widehat{\mathcal{L}}_1 \neq \widehat{\mathcal{L}}_2$. We will solve
-this sytem using Krylov methods with block lower-triangular preconditioners of the form
+this system using Krylov methods with block lower-triangular preconditioners of the form
 %
 \begin{equation}\label{eq:Lprec}
 L_P := \begin{bmatrix} \eta I - \widehat{\mathcal{L}}_1 & \mathbf{0} \\ -\frac{\beta^2}{\phi} I
 	& \widehat{S}\end{bmatrix}^{-1},
 \end{equation}
 %
-where $\widehat{S}$ is some approximation to the Schur complement, and the Schur
-complement of \eqref{eq:block0} given by
+where $\widehat{S}$ is some approximation to the Schur complement of \eqref{eq:block0},
+which is given by
 %
 \begin{align}\label{eq:Schur}
 S & := \eta I - \widehat{\mathcal{L}}_2 + \beta^2 (\eta I - \widehat{\mathcal{L}}_1)^{-1}.
@@ -396,7 +404,7 @@ with spectrum given by
 	1 - \frac{\gamma-\eta}{\gamma + \lambda} + \frac{\beta^2}{(\gamma + \lambda)(\eta+\lambda)},
 \end{align}
 %
-where $\lambda\in\sigma(-\mathcal{L})$. If we choose $\gamma\geq\eta$,
+where $\lambda\in\sigma(-\mathcal{L})$. If we choose $\gamma > 0$,
 \eqref{eq:gamma0} is SPD, and the condition number of \eqref{eq:gamma0} is given by
 %
 \begin{align}\label{eq:cond0}
@@ -423,7 +431,7 @@ where $c(\gamma)$ also provides an upper bound on
 $\textnormal{cond}\left((\gamma I- \widehat{\mathcal{L}})^{-1}S\right)$ when
 $\sigma(-\widehat{\mathcal{L}})\neq [0,\infty)$. The following theorem 
 derives a closed form for $c(\gamma)$ and corresponding optimal
-(minimizing) value of $\gamma$.
+(minimizing) value of $\gamma > 0$.
 
 %
 \begin{theorem}[Conditioning of preconditioned operator]\label{th:eig}
@@ -431,7 +439,7 @@ Let $\lambda\in[0,\infty)$, $0<\eta\leq \gamma$, and $\beta \geq 0$.
 Define $\mathcal{F}(\gamma,\lambda)$ as in \eqref{eq:eig_gamma} and
 $c(\gamma)$ as in \eqref{eq:cond1}. Then 
 \begin{align}\label{eq:gammastar}
-\gamma_*  :=  \underset{\eta \leq \gamma < \infty}{\textnormal{argmin}} \; c(\gamma)
+\gamma_*  :=  \underset{0 \leq \gamma < \infty}{\textnormal{argmin}} \; c(\gamma)
 	= \eta + \frac{\beta^2}{\eta},
 \end{align}
 where
@@ -445,14 +453,14 @@ where
 This theorem is based on the minimization problem
 %
 \begin{align}\label{eq:gam_opt}
-\gamma_* & = \textnormal{argmin}_{\gamma\geq\eta}
+\gamma_* & = \textnormal{argmin}_{\gamma \in (0,\infty)}
 	\frac{\max_{\lambda\in[0,\infty)} \mathcal{F}(\gamma,\lambda)}
 		{\min_{\lambda\in[0,\infty)} \mathcal{F}(\gamma,\lambda)}.
 \end{align}
 %
 The $\gamma = \eta$ case is special, and the resulting simplified form of
 \eqref{eq:eig_gamma} quickly yields $c(\eta) = 1+\tfrac{\beta^2}{\eta^2}$.
-Thus moving forward we consider $\eta > \gamma$.
+Thus moving forward we consider $\eta \neq \gamma > 0$.
 Minima and maxima in $\lambda$ may be obtained at one of the endpoints,
 $\lambda = 0$ or $\lambda\to\infty$, or at a critical point of \eqref{eq:eig_gamma}
 in $\lambda$. Taking the partial with respect to $\lambda$, we have
@@ -493,9 +501,9 @@ can be achieved, $\{0,\infty, \lambda_\pm\}$, where
 \end{align}
 %
 
-Note that $\mathcal{F}(\gamma,\lambda_-) < 0$, which contradicts the previously
-stated result that $\mathcal{F}(\gamma,\lambda)$ is SPD for $\gamma > \eta$
-and $\lambda\geq 0$, implying $\lambda_- < 0$.
+Note that $\mathcal{F}(\gamma,\lambda_-) < 0$ for all $\gamma\neq\eta$, which
+contradicts the previously stated result that $\mathcal{F}(\gamma,\lambda)$ is SPD
+for $\gamma > 0$ and $\lambda\geq 0$, implying $\lambda_- < 0$.
 Thus we are left with three critical points to consider, 
 $\{0,\lambda_+,\infty\}$. Further, observe that
 %
@@ -504,7 +512,7 @@ $\{0,\lambda_+,\infty\}$. Further, observe that
 	= \frac{2}{1 + \sqrt{1 + (\gamma-\eta)^2/\beta^2}} < 1 = \mathcal{F}(\gamma,\infty),
 \end{align*}
 %
-for all $\gamma > \eta$.
+for all $\gamma \neq \eta$.
 It follows that the maximum of ${\cal F}(\gamma,\lambda)$ w.r.t.
 $\lambda$ must thus occur for $\lambda \in \{ 0, \infty \}$. Evaluating
 \eqref{eq:F_gamma}, we have
@@ -517,47 +525,50 @@ $\lambda$ must thus occur for $\lambda \in \{ 0, \infty \}$. Evaluating
 = 
 \frac{1}{\gamma} \left(\eta + \frac{\beta^2}{\eta} \right), 
 \quad 
-& \eta < \gamma \leq \eta +  \tfrac{\beta^2}{\eta}, \\
+& 0 < \gamma \leq \eta +  \tfrac{\beta^2}{\eta}, \\
 \displaystyle
 \mathcal{F}(\gamma,\infty) 
 = 
 1, \quad & \eta + \tfrac{\beta^2}{\eta} \leq \gamma < \infty
-\end{cases}.
+\end{cases},
 \end{align}
 %
+with continuity at the special case of $\gamma = \eta$.
 
 For the minimum, because $\mathcal{F}(\gamma,\lambda_+) < \mathcal{F}(\gamma,\infty),
-\forall \gamma > \eta$, the minimum cannot occur for $\lambda \to \infty$, which
+\forall \gamma \neq \eta$, the minimum cannot occur for $\lambda \to \infty$, which
 implies the minimum of ${\cal F}(\gamma,\lambda)$ w.r.t. $\lambda$ must occur
 at $\lambda \in \{0, \lambda_+\}$. For $\gamma \geq \eta + \beta^2 / \eta$,
 ${\cal F}(\gamma, \lambda_+) < 1 \leq {\cal F}(\gamma, 0)$. To consider
-$\eta < \gamma < \eta + \beta^2 / \eta$, define
+$0 < \gamma < \eta + \beta^2 / \eta$, define
 %
 \begin{align*}
 {\cal G}(\gamma) = \mathcal{F}(\gamma,0) -  \mathcal{F}(\gamma,\lambda_+),
-	\quad \eta < \gamma \leq \eta + \beta^2 / \eta.
+	\quad 0 < \gamma \leq \eta + \beta^2 / \eta.
 \end{align*}
 %
 To determine which value of ${\lambda} \in \{0, \lambda_+ \}$ minimizes
 ${\cal F}(\gamma, \lambda)$ we can consider the sign of ${\cal G}$. From
 above, we know that ${\cal G} > 0$ for $\gamma = \eta + \beta^2/\eta$, so
-we seek roots $\hat{\gamma}\in(\eta,\eta+\beta^2/\eta]$, such that
+we seek roots $\hat{\gamma}\in(0,\eta+\beta^2/\eta]$, such that
 ${\cal G}(\hat{\gamma}) = 0$, indicating a sign change in ${\cal G}$.
 
-\tcb{(BS: next two equations not obvious, is first one relevant?)}
-It is possible to show that if  any such roots exists, they must satisfy
+Setting ${\cal G}(\hat{\gamma}) = 0$ and assuming $\beta > 0$, we have
+\begin{align}\nonumber
+\frac{2\beta}{\beta + \sqrt{\beta^2 + (\hat{\gamma}-\eta)^2}} & =
+	\frac{1}{\hat{\gamma}} \left(\eta + \frac{\beta^2}{\eta} \right), \\
+\Longleftrightarrow \hspace{5ex} \label{eq:rhs_pf}
+2\beta \eta \hat{\gamma} -\beta(\eta^2 + \beta^2)  & = 
+	(\eta^2 + \beta^2) \sqrt{\beta^2 + (\hat{\gamma}-\eta)^2}. 
+\end{align}
 %
-\begin{align*}
-\hat{\gamma} > \tfrac{1}{2} \big( \eta + \beta^2 / \eta).
-\end{align*}
-%
-Furthermore, any such roots must satisfy the quadratic equation in $\hat{\gamma}$
+Squaring both sides of the latter equation leads to a quadratic equation in $\hat{\gamma}$, 
 %
 \begin{align*}
 z(\hat{\gamma}) = \big[ 4 \beta^2 \eta^2 - (\eta^2 + \beta^2)^2 \big] \hat{\gamma}^2 + 2 \eta (\eta^2 + \beta^2)(\eta^2 - \beta^2) \hat{\gamma} - \eta^2(\eta^2 + \beta^2)^2 = 0.
 \end{align*}
 %
-Note that the discriminant of $z(\hat{\gamma})$ is zero, implying
+Note that for $\eta\neq\beta$ the discriminant of $z(\hat{\gamma})$ is zero, implying
 $z(\hat{\gamma})$ has one real root, given by
 %
 \begin{align} \label{eq:gamma_hat}
@@ -566,20 +577,23 @@ $z(\hat{\gamma})$ has one real root, given by
 %
 If $\eta < \beta$, then $\hat{\gamma} < 0$, while for $\eta > \beta$, we
 have $\hat{\gamma} > \eta+\beta^2/\eta$. In both of these cases, $\hat{\gamma}
-\not\in(\eta,\eta+\beta^2/\eta]$ and, thus, ${\cal G}$ has no sign changes
-in the interval $(\eta,\eta+\beta^2/\eta]$, implying
-${\cal F} (\gamma, \lambda_+) < {\cal F}(\gamma, 0)$ for $\eta < \gamma
+\not\in(\eta,\eta+\beta^2/\eta]$. For $\eta = \beta$, the discriminant of 
+$z$ is $-4\beta^6 < 0$, implying no real roots and, thus, no $\hat{\gamma}$
+that satisfies ${\cal G}(\hat{\gamma}) = 0$. Altogether, ${\cal G}$ has no
+sign changes in the interval $(\eta,\eta+\beta^2/\eta]$, implying
+${\cal F} (\gamma, \lambda_+) < {\cal F}(\gamma, 0)$ for $0 < \gamma
 \leq \eta + \beta^2/\eta.$ Combining with the earlier discussion, we have
 %
 \begin{align*}
 \min_{\lambda\in[0,\infty)} \mathcal{F}(\gamma,\lambda) &=
 	\mathcal{F}(\gamma,\lambda_+) =
 \frac{2\beta}{\beta + \sqrt{\beta^2 + (\gamma-\eta)^2}}
-	\quad \eta < \gamma < \infty.
+	\quad 0 < \gamma < \infty.
 \end{align*}
 %
-Combining with \eqref{eq:eig_max} yields $c(\gamma)$ as a
-continuous function of $\gamma\geq\eta$
+Combining with \eqref{eq:eig_max} and the special case mentioned previously where
+$c(\eta) = 1+\tfrac{\beta^2}{\eta^2}$, we have $c(\gamma)$ as a continuous
+function of $\gamma>0$,
 \begin{align}
 \label{eq:condc}
 c(\gamma) 
@@ -590,7 +604,7 @@ c(\gamma)
 \displaystyle
 \frac{1}{\gamma} \left(\eta + \tfrac{\beta^2}{\eta} \right) \frac{\beta + \sqrt{\beta^2 + (\gamma-\eta)^2}}{2\beta}
 \eqqcolon c_1(\gamma), 
-\quad & \eta \leq \gamma \leq \eta + \tfrac{\beta^2}{\eta},
+\quad & 0 < \gamma \leq \eta + \tfrac{\beta^2}{\eta},
 \\[3ex]
 \displaystyle
 \frac{\beta + \sqrt{\beta^2 + (\gamma-\eta)^2}}{2\beta}
@@ -613,15 +627,12 @@ of its domain, with minimum value
 %
 For $c_1$, differentiating and solving for the roots of its derivative
 yields the two critical points, $\gamma = \eta$ and $\gamma = \hat{\gamma}$
-as in \eqref{eq:gamma_hat}. Neither $\eta,\hat{\gamma}\not\in(\eta, \eta + \beta^2/\eta]$,
-and thus the minimum of $c_2$ will be obtained at one of the endpoints. 
-By continuity of $c(\gamma)$, $c_1(\eta + \beta^2/\eta) = c_2(\eta + \beta^2/\eta)$,
-given in \eqref{eq:c2_min}. Taking the limit $\lim_{\gamma\to\eta} c_1(\gamma)
-= 1+\tfrac{\beta^2}{\eta^2} > c_1(\eta + \beta^2/\eta)$.
-It follows that
-%
+as in \eqref{eq:gamma_hat}. Note that $\hat{\gamma}\not\in(\eta, \eta + \beta^2/\eta]$
+while $c(\eta) = 1+\tfrac{\eta^2}{\beta^2} > c_2(\eta + \beta^2/\eta)$
+and $\lim_{\gamma\to 0} c_2(\gamma) = \infty$. It follows that the minimum of $c_2$
+will be obtained at $\gamma = \eta + \beta^2/\eta$, and
 $\gamma_* := \textnormal{argmin}_{\gamma\geq\eta} c(\gamma) = 
-\eta + \tfrac{\beta^2}{\eta}$, and plugging $\gamma = \gamma_*$ into
+\eta + \tfrac{\beta^2}{\eta}$. Plugging $\gamma = \gamma_*$ into
 \eqref{eq:condc} completes the proof.
 
 \end{proof}
@@ -630,7 +641,10 @@ $\gamma_* := \textnormal{argmin}_{\gamma\geq\eta} c(\gamma) =
 % ---------------------------------------------------------------------------------------------- %
 \subsection{General conditioning theory}\label{sec:theory:gen}
 
-Consider the more general problem of the \tcb{right} preconditioning 
+Now we consider preconditioning \eqref{eq:block0} for general operators 
+$\mathcal{L}_1\neq\mathcal{L}_2$ that are not necessarily diagonalizable.
+In particular, we consider the $\ell^2$-conditioning of the right-preconditioned
+Schur complement
 %
 \begin{align}\nonumber
 \mathcal{P}_\gamma :&=
@@ -645,18 +659,31 @@ S(\gamma I- \widehat{\mathcal{L}}_2)^{-1} \\
 	\frac{\beta^2}{\gamma\eta}( I- \tfrac{1}{\eta}\widehat{\mathcal{L}}_1)^{-1}
 	( I- \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2)^{-1},\label{eq:gamma2}
 \end{align}
+%
+\Cref{th:cond} derives an upper bound on condition number of the preconditioned
+operator \eqref{eq:gamma2} for $\gamma = \gamma_*$ \eqref{eq:gammastar}.
+Note, considering right preconditioning is a theoretical tool to facilitate
+the proof of \Cref{th:cond}, but \tcb{numerical results demonstrate effective
+left or right preconditioning.} It is also worth discussing the additional
+assumption in \Cref{th:cond} that $\langle\widehat{\mathcal{L}}_1\mathbf{w},
+\widehat{\mathcal{L}}_2\mathbf{w}\rangle\geq 0$. In general, this is a technical
+assumption to simplify the proof, but is not believed to be necessary for the
+result to hold. Nevertheless, the assumption holds trivially for
+$\widehat{\mathcal{L}}_1=\widehat{\mathcal{L}}_2$, while for 
+$\widehat{\mathcal{L}}_1 \neq \widehat{\mathcal{L}}_2$, it is more or less
+an assumption that $\widehat{\mathcal{L}}_1$ and $\widehat{\mathcal{L}}_2$
+are ``close'' in some sense, a reasonable assumption given they are
+defined by the same operator evaluated at a perturbation in time.
 
-
-
-
+%
 \begin{theorem}[Conditioning of preconditioned operator]\label{th:cond}
 Suppose Assumptions \ref{ass:eig} and \ref{ass:fov} hold, that is, $\eta > 0$
-and $W(\mathcal{L}) \leq 0$ \eqref{eq:fov}. Additionally, assume that
-$\langle\mathcal{L}_1\mathbf{w},\mathcal{L}_2\mathbf{w}\rangle\geq 0$.
-Let $\mathcal{P}_\gamma$ denote the right-preconditioned Schur complement,
-with preconditioner $(\gamma I - \widehat{\mathcal{L}}_2)^{-1}$, for
-$\gamma >\eta$, and define $\gamma_* := \tfrac{\eta^2+\beta^2}{\eta}$.
-Then
+and $W(\widehat{\mathcal{L}}_1),W(\widehat{\mathcal{L}}_2) \leq 0$ \eqref{eq:fov}.
+Additionally, assume that $\langle\widehat{\mathcal{L}}_1\mathbf{w},
+\widehat{\mathcal{L}}_2\mathbf{w}\rangle\geq 0$. Let $\mathcal{P}_\gamma$
+denote the right-preconditioned Schur complement \eqref{eq:gamma2}, with
+preconditioner $(\gamma I - \widehat{\mathcal{L}}_2)^{-1}$, for $\gamma >\eta$,
+and define $\gamma_* := \tfrac{\eta^2+\beta^2}{\eta}$. Then
 \begin{align}\label{eq:gammastar_cond}
 \textnormal{cond}(\mathcal{P}_{\gamma_*}) \leq 
 	2 + \frac{\beta^2}{\eta^2}.
@@ -711,8 +738,8 @@ Note that by assumption, $\gamma \geq \eta$, which implies
 $0< \tfrac{\eta}{\gamma^2} \leq \tfrac{\eta^2}{\gamma^2}  < 1$, and 
 $|1 - 2\tfrac{\gamma-\eta}{\gamma}| < 1$. In addition, by \Cref{ass:fov} $W(\mathcal{L}_2)\leq 0$,
 which implies $-\langle (\mathcal{L}_2+\mathcal{L}_2^T)\mathbf{w},\mathbf{w}\rangle \geq 0$
-\todo{cite}. It follows that all terms in the numerator and denominator are
-positive, and
+\cite{gustafson1997numerical,mees1979domains}.
+It follows that all terms in the numerator and denominator are positive, and
 %
 \begin{align} \label{eq:P1}
 \left\| I - \tfrac{\gamma-\eta}
@@ -905,27 +932,27 @@ which completes the proof.
 % ------------------------------------------------------------------------------------- %
 \section{Nonlinear iterations}\label{sec:nonlinear}
 
-In \todo{cite}, an IRK preconditioning method is developed that can be applied on the
-solution level, rather than solving for all stages and updating the solution
-by summing over stages.
-This is beneficial from a memory perspective, being able to achieve very
-high order accuracy while only storing the solution and an auxilliary vector, and
-also allows for the use of CG and MINRES when applicable to the spatial operator.
+% In \todo{cite}, an IRK preconditioning method is developed that can be applied on the
+% solution level, rather than solving for all stages and updating the solution
+% by summing over stages.
+% This is beneficial from a memory perspective, being able to achieve very
+% high order accuracy while only storing the solution and an auxilliary vector, and
+% also allows for the use of CG and MINRES when applicable to the spatial operator.
 
-The time-dependent and nonlinear case is more complicated. Consider
-the simplest cast of a time-independent nonlinear problem and simplified Newton method,
-which only applies the Jacobian based on the current solution. Each
-nonlinear iteration requires the action of the nonlinear operator to compute a residual,
-and this action is implicitly defined by individual stage vectors. The linear algorithm
-developed in \Cref{sec:solve} solves for the summation over stage vectors, and individual
-stages cannot be extracted. Without each stage vector, the action of the nonlinear 
-operator cannot be computed, and even the simplified Newton method cannot be applied.
-Similar difficulties apply for full Newton and Picard iterations for operators with
-and without time-dependent differential components. Reformulating the algorithm
-from \Cref{sec:solve} to store stage vectors also ends up being impractical --
-applying det$\mathcal{M}_s^{-1}$ requires the solution of $s$ linear systems. To store
-each stage vector requires applying det$\mathcal{M}_s^{-1}$ to each one. This
-requires $s^2$ linear solves, which is too expensive to be appealling in practice.
+% The time-dependent and nonlinear case is more complicated. Consider
+% the simplest cast of a time-independent nonlinear problem and simplified Newton method,
+% which only applies the Jacobian based on the current solution. Each
+% nonlinear iteration requires the action of the nonlinear operator to compute a residual,
+% and this action is implicitly defined by individual stage vectors. The linear algorithm
+% developed in \Cref{sec:solve} solves for the summation over stage vectors, and individual
+% stages cannot be extracted. Without each stage vector, the action of the nonlinear 
+% operator cannot be computed, and even the simplified Newton method cannot be applied.
+% Similar difficulties apply for full Newton and Picard iterations for operators with
+% and without time-dependent differential components. Reformulating the algorithm
+% from \Cref{sec:solve} to store stage vectors also ends up being impractical --
+% applying det$\mathcal{M}_s^{-1}$ requires the solution of $s$ linear systems. To store
+% each stage vector requires applying det$\mathcal{M}_s^{-1}$ to each one. This
+% requires $s^2$ linear solves, which is too expensive to be appealling in practice.
 
 
 % ------------------------------------------------------------------------------------- %
@@ -956,7 +983,7 @@ Pulling out a $Q_0\otimes I$ and $Q_0^T\otimes I$ from the left and right of
 	(R_0^{-1}Q_0^T\otimes I) \mathbf{k} & = (Q_0^T\otimes I)\mathbf{f}.
 \end{align}
 %
-The left-most matrix is now a block upper triangular matrix, which can be solved
+The left-most matrix is now block upper triangular, which can be solved
 using block backward substitution, and requires inverting each diagonal block.
 Diagonal blocks corresponding to real-valued eigenvalues $\eta$ take the form
 $(\eta I - \widehat{\mathcal{L}})$, and are amenable to standard preconditioning
@@ -981,8 +1008,14 @@ $\widehat{S}^{-1}$ exactly for each iteration of the preconditioner
 that a few iterations of an effective preconditioner, such as multigrid,
 to represent the inverse of diagonal blocks in \eqref{eq:Lprec} typically
 yields convergence on the larger $2\times 2$ operator just as fast as if
-performing direct solves, at a fraction of the cost.
+performing direct solves, at a fraction of the cost. Thus, we propose
+a block-triangular preconditioner similar to \eqref{eq:Lprec}, but which
+only applies some approximation to the diagonal block inverses,
+$(\eta I - \widehat{\mathcal{L}})^{-1}$ and
+$\widehat{S}^{-1} := (\gamma_* I - \widehat{\mathcal{L}})^{-1}$. 
 
+%
+\begin{remark}[Real Schur decomposition]
 It should be pointed out that a real Schur decomposition is by no means
 unique to Runge-Kutta literature. Many papers have considered similar
 approaches as above, particularly for systems of ODEs (rather than PDEs)
@@ -990,10 +1023,12 @@ approaches as above, particularly for systems of ODEs (rather than PDEs)
 The key contribution here for the simplified Newton setting is proving a
 robust and general way to precondition the resulting operators in the
 context of numerical PDEs (see \Cref{sec:theory}). Moreover, the real
-Gauss decomposition applied to the simplified Newton setting after
+Schur decomposition applied to the simplified Newton setting after
 pulling out an $A_0^{-1}\otimes I$ provides the key motivation for
 the development of more general nonlinear iterations introduced in 
 the following section.
+\end{remark}
+
 
 %
 \begin{comment}
@@ -1250,8 +1285,8 @@ invert the resulting operator
 R_0 \otimes M - \delta t \widehat{P} \approx R_0 \otimes I -  \delta t \widetilde{P}
 \end{align}
 %
-via block backward substitution, applying preconditioning to each $1\times 1$
-or $2\times 2$ diagonal blocks as in \Cref{sec:nonlinear:simp}.
+via block backward substitution, preconditioning each $1\times 1$
+or $2\times 2$ diagonal block as in \Cref{sec:nonlinear:simp}.
 In addition to the simplified Newton
 method discussed in \Cref{sec:nonlinear:simp}, we propose three (successively
 more accurate) approximations to \eqref{eq:Q0approx}:
