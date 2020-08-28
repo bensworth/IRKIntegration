@@ -482,9 +482,11 @@ classical result in matrix analysis tells us that
 \textnormal{adj}(\mathcal{M}_s)\mathcal{M}_s = \mathcal{M}_s\textnormal{adj}(\mathcal{M}_s)
 	= \det(\mathcal{M}_s)I.
 \end{align*}
+\OK{The RHS should be $\textnormal{diag}(\det(\mathcal{M}_s))I$?}
 %
 Moreover, $\mathcal{M}_s$ is invertible if and only if the determinant of $\mathcal{M}_s$
-is invertible, in which case $\mathcal{M}_s^{-1} := $ det$(\mathcal{M}_s)^{-1}$adj$(\mathcal{M}_s)$
+is invertible, in which case $\mathcal{M}_s^{-1} := $ det$(\mathcal{M}_s)^{-1}$adj$(\mathcal{M}_s)$ 
+\OK{This eq. should be $\mathcal{M}_s^{-1} = \textnormal{diag}(\det(\mathcal{M}_s)^{-1})\textnormal{adj}(\mathcal{M}_s)$?}
 \cite[Theorem 2.19 \& Corollary 2.21]{brown1993matrices}.
 For the case of time-independent operators ($\widehat{\mathcal{L}}_i=\widehat{\mathcal{L}}_j$), notice that
 $\mathcal{M}_s$ takes the form $A_0^{-1} - \widehat{\mathcal{L}}I$ over the commutative ring defined
@@ -500,11 +502,17 @@ stage vectors ${\mathbf{k}} = [\mathbf{k}_1; ...; \mathbf{k}_s]$ as
 \mathbf{k} &:= \det(\mathcal{M}_s)^{-1}
 	(A_0^{-1}\otimes I)\textnormal{adj}(\mathcal{M}_s)\mathbf{f},
 \end{align*}
+\OK{This eq. should have $\textnormal{diag}(\det(\mathcal{M}_s)^{-1})$?}
 %
 where $\mathbf{f} = [\mathbf{f}_1; ...; \mathbf{f}_s]$ (note that
-$A_0\otimes I$ commutes with $\det(\mathcal{M}_s)^{-1}$). Excusing the slight
+$A_0\otimes I$ commutes with $\det(\mathcal{M}_s)^{-1}$ 
+\OK{Then this should be ``note that
+$A_0\otimes I$ commutes with $\textnormal{diag}(\det(\mathcal{M}_s)^{-1})$''}
+). Excusing the slight
 abuse in notation, let $\det(\mathcal{M}_s)^{-1}$ now denote just the diagonal
-block (rather than a block-diagonal matrix). The Runge-Kutta update is then given by
+block (rather than a block-diagonal matrix). 
+\OK{This will no longer be an abuse of notation.} 
+The Runge-Kutta update is then given by
 %
 \begin{align}\nonumber
 \mathbf{u}_{n+1} & = \mathbf{u}_n + \delta t\sum_{i=1}^s b_i{\mathbf{k}}_i \\
@@ -574,11 +582,14 @@ for $i=1,...,s$. Unfortunately, eigenvalues of $A_0$ and $A_0^{-1}$ are often
 complex, and for real-valued matrices this makes the inverse of individual factors
 $(\lambda_iI - \widehat{\mathcal{L}})^{-1}$ more difficult and often impractical
 with standard preconditioners and existing software. Moving forward, let
-$\lambda := \eta \pm \mathrm{i}\beta$ denote an eigenvalue of $A_0^{-1}$,
+$\lambda := \eta \pm \mathrm{i}\beta$ denote an eigenvalue of $A_0^{-1}$ 
+\OK{This  is technically 2 eigenvalues of $A_0^{-1}$. I think it's OK to just introduce an eigenvalue as $\lambda := \eta + \mathrm{i}\beta$?}
+,
 for $\eta, \beta \in \mathbb{R}$, with $\beta \geq 0$ and $\eta > 0$ under \Cref{ass:eig}.
 
 Here, we combine conjugate eigenvalues into quadratic polynomials
-that we must precondition, which take the form
+that we must precondition, which take the form 
+\OK{The imaginary unit ``$i$'' you use below (and in the rest of the paper) is different to the ``$\mathrm{i}$'' you  use above for $\lambda$.}
 %
 \begin{align}\label{eq:imag1}
 \begin{split}
@@ -712,7 +723,7 @@ $r(\mathcal{P}_\eta) \leq 1+\beta^2/\eta^2$. Plugging into
 %
 
 Making the additional assumption that
-$W(I - \tfrac{1}{\eta}\widehat{\mathcal{L}})^2) \geq 0$
+$W((I - \tfrac{1}{\eta}\widehat{\mathcal{L}})^2) \geq 0$
 (or a stronger assumption that $W(\widehat{\mathcal{L}}^2) \geq 0$),
 \Cref{th:fov} can be extended to bound $W(\mathcal{P}_\eta)$
 in the \textit{positive} half circle of radius $\beta^2/\eta^2$, centered at 1. Then,
@@ -779,8 +790,8 @@ operator, $\mathcal{P}_\gamma$, similar to as done for SPD matrices in \cite{exh
 Suppose Assumptions \ref{ass:eig} and \ref{ass:fov} hold, that is, $\eta > 0$
 and $W(\widehat{\mathcal{L}}) \leq 0$ \eqref{eq:fov}. Let $\mathcal{P}_\gamma$ denote
 the preconditioned operator, where $((\eta + i\beta)I -
-\widehat{\widehat{\mathcal{L}}})((\eta - i\beta)I - \widehat{\widehat{\mathcal{L}}})$ is
-preconditioned with $(\gamma I - \widehat{\widehat{\mathcal{L}}})^{-2}$.
+\widehat{\mathcal{L}})((\eta - i\beta)I - \widehat{\mathcal{L}})$ is
+preconditioned with $(\gamma I - \widehat{\mathcal{L}})^{-2}$.
 Define $\gamma_* = \sqrt{\eta^2+\beta^2}$ and let $\gamma = \gamma_*$. Then
 %
 \begin{align}\label{eq:gammastar}
@@ -865,6 +876,8 @@ Combining \eqref{eq:P0} and \eqref{eq:P1} yields
 \begin{align}\label{eq:Pgamma}
 \|\mathcal{P}_\gamma\| \leq 1 + \frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}.
 \end{align}
+\OK{But \eqref{eq:P1} says $\left\| I - 2\tfrac{\gamma-\eta}
+	{\gamma}(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{-1}\right\|^2 < 1$, so shouldn't sticking this into \eqref{eq:P0} result in a ``$<$'' rather than a ``$\leq$'' for $\|\mathcal{P}_\gamma\|$ in  \eqref{eq:Pgamma}?}
 
 Now consider bounding $\|\mathcal{P}_\gamma^{-1}\|$ from above. Let $s_{\max}(A)$
 and $s_{\min}(A)$ denote the maximum and minimum singular value of matrix $A$,
@@ -897,6 +910,7 @@ s_{\min}(\mathcal{P}_\gamma)^2 & = \min_{\mathbf{v}\neq\mathbf{0}}
 		\widehat{\mathcal{L}}) \right]\mathbf{w} \right\|^2}
 	{\|(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{2}\mathbf{w}\|^2}.\label{eq:smin0}
 \end{align}
+\OK{These last two equations should min over w not v?}
 %
 
 For ease of notation, define
@@ -937,9 +951,10 @@ s_{\min}(\mathcal{P}_\gamma)^2
 By assumption on $W(\widehat{\mathcal{L}})\leq 0$ and $\eta\leq\gamma\leq\sqrt{\eta^2+\beta^2}$,
 all terms in the numerator and denominator are non-negative (note, $\mathbf{w}$ and
 $\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}$ were kept together in norm to avoid
-the difficulties that arise in analyzing $\langle\widehat{\mathcal{L}}^2\mathbf{w},\mathbf{w}\rangle$).
-For numerator $\mathcal{N}$ and denominator $\mathcal{D}$, if $\widehat{K}\mathcal{N}
-\geq \mathcal{D}$, then $\mathcal{N}/\mathcal{D} \geq 1 / \widehat{K}$. For 
+the difficulties that arise in analyzing $\langle\widehat{\mathcal{L}}^2\mathbf{w},\mathbf{w}\rangle$). For numerator $\mathcal{N}$ and denominator $\mathcal{D}$, if $\widehat{K}\mathcal{N}
+\geq \mathcal{D}$, then $\mathcal{N}/\mathcal{D} \geq 1 / \widehat{K}$. 
+\OK{This step assumes that ${\cal D} \neq 0$, but this is not necessarily true since some of the terms are only non-negative rather than positive? Does this matter?} 
+For 
 $\|\widehat{\mathcal{L}}\mathbf{w}\|^2$, $\langle\widehat{\mathcal{L}}\mathbf{w},\mathbf{w}\rangle$,
 and $\langle\widehat{\mathcal{L}}(\widehat{\mathcal{L}}\mathbf{w}),\widehat{\mathcal{L}}\mathbf{w}\rangle$,
 we can directly bound the ratio of constants in the numerator and denominator.
@@ -992,6 +1007,7 @@ and we can bound $\|P_{\gamma}^{-1}\|$ via
 	= \frac{\sqrt{\eta^2+\beta^2}}{\eta} =
 	\sqrt{1+\frac{\beta^2}{\eta^2}}.
 \end{align}
+\OK{Shouldn't this read $\|P_{\gamma}^{-1}\| = \frac{1}{s_{\min}(P_{\gamma})}$?}
 %
 Combining with \eqref{eq:Pgamma} for $\gamma = \gamma_*$ and simplifying
 completes the proof of \eqref{eq:gammastar}.\\
@@ -1153,7 +1169,8 @@ or an inner Krylov iteration (wrapped with a flexible outer Krylov method
 In \Cref{sec:numerics:dg:diff}, a
 numerical example is shown where the proposed method diverges using a single inner
 fixed-point iteration as a preconditioner for $(\eta I - \widehat{\mathcal{L}})$, but
-three (or more) inner fixed-point iterations yields fast, scalable convergence.
+three (or more) inner fixed-point iterations yields fast, scalable convergence. 
+\OK{I don't think the example in \Cref{sec:numerics:dg:diff} uses $\gamma = \eta$?}
 \end{remark}
 
 % ------------------------------------------------------------------------------------- %
@@ -1410,7 +1427,8 @@ are shown in \Cref{fig:ad_advdiff}.
 \subsubsection{A hyperbolic example, and preconditioning with $\eta$ vs. $\gamma_*$}
 \label{sec:numerics:dg:const}
 
-First, we demonstrate the effectiveness of using $\gamma_*$ (\Cref{sec:solve:gamma})
+First, we demonstrate the effectiveness of using $\gamma_*$ (\Cref{sec:solve:gamma}) 
+\OK{What should this reference?}
 instead of $\eta$ in the preconditioner, as well as the robustness of the proposed
 method on a fully hyperbolic problem, where most papers have only discussed parabolic
 PDEs. Thus, we set the diffusion coefficient $\varepsilon = 0$
@@ -1466,7 +1484,9 @@ Speedup & 1.0 & 1.0 & 3.0 & 1.2 & 4.3 & 1.0 & 1.4 & 5.8 \\\hline\hline
   \end{tabular}
   \caption{Average AIR iterations to solve for each stage in an implicit
   Runge-Kutta method using preconditioners $(\eta M - \delta t \mathcal{L})^{-2}$ and
-  $(\gamma_* M - \delta t \mathcal{L})^{-2}$ \eqref{eq:gam_opt}. The ratio of
+  $(\gamma_* M - \delta t \mathcal{L})^{-2}$ \eqref{eq:gam_opt}. 
+  \OK{What should this reference?} 
+  The ratio of
   iterations$(\eta)$/iterations$(\gamma_*)$ is shown in the ``Speedup'' rows.}
   \label{tab:gamma}
 \end{table}
@@ -1533,7 +1553,7 @@ problems, and classical AMG is known to be effective on diffusion-dominated
 problems. However, the region of comparable levels of advection and diffusion
 remains the most difficult from a multigrid perspective. We use this to
 demonstrate how methods developed here require a ``good'' preconditioner
-for a backward Euler time step, $(\gamma I - \mathcal{L})^{-1}$,
+for a backward Euler time step, $(\gamma M - \delta t \mathcal{L})^{-1}$,
 in order to converge on more general IRK
 methods. Fortunately, ensuring a preconditioner is sufficiently good can be
 resolved by appealing to standard block preconditioning techniques, where an inner
