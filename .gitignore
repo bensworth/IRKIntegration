@@ -1,7 +1,8 @@
 *DS_Store
 notes_irk.pdf
 other_ideas.pdf
-implementation.pdf
+implementation_notes/nonlinear/nonlin_implementation.pdf
+implementation_notes/linear/lin_implementation.pdf
 irk_DAE.pdf
 analysis_notes/fov.pdf
 
@@ -19,7 +20,6 @@ analysis_notes/fov.pdf
 *.dSYM
 *.o
 driver
-implementation.pdf
 irk_lin.pdf
 code/FDadv_dif/convergence/tex/results.pdf
 ODEs_linear/figures/ParaviewFiles
