@@ -470,7 +470,7 @@ case given by $\det(\mathcal{M}_s)^{-1}$.
 Now, suppose $\widehat{\mathcal{L}}_i = \widehat{\mathcal{L}}_j$ for
 all $i,j$, and let $P_s(x)$ be the characteristic polynomial of $A_0^{-1}$. Then,
 \begin{align*}
-\mathcal{M}_s^{-1} = \textnormal{diag}(P_s(\widehat{\mathcal{L}})^{-1})\textnormal{adj}(\mathcal{M}_s),
+\mathcal{M}_s^{-1} = \textnormal{diag}\big(P_s(\widehat{\mathcal{L}})^{-1}\big)\textnormal{adj}(\mathcal{M}_s),
 \end{align*}
 \end{lemma}
 \begin{proof}
@@ -499,12 +499,12 @@ Returning to \eqref{eq:keq}, we can express the solution for the set of all
 stage vectors ${\mathbf{k}} = [\mathbf{k}_1; ...; \mathbf{k}_s]$ as
 %
 \begin{align*}
-\mathbf{k} &:= \textnormal{diag}(\det(\mathcal{M}_s)^{-1})
+\mathbf{k} &:= \textnormal{diag}\left(\det(\mathcal{M}_s)^{-1}\right)
 	(A_0^{-1}\otimes I)\textnormal{adj}(\mathcal{M}_s)\mathbf{f},
 \end{align*}
 %
 where $\mathbf{f} = [\mathbf{f}_1; ...; \mathbf{f}_s]$ (note that
-$A_0\otimes I$ commutes with $\textnormal{diag}(\det(\mathcal{M}_s)^{-1})$'').
+$A_0\otimes I$ commutes with $\textnormal{diag}(\det(\mathcal{M}_s)^{-1})$).
 The Runge-Kutta update is then given by
 %
 \begin{align}\nonumber
@@ -624,8 +624,8 @@ which can be directly translated into guaranteed GMRES convergence bounds
 Suppose Assumptions \ref{ass:eig} and \ref{ass:fov} hold, that is, $\eta > 0$
 and $W(\widehat{\mathcal{L}}) \leq 0$, where $W(\widehat{\mathcal{L}})$ is defined by \eqref{eq:fov}.
 Let $\mathcal{P}_\eta$ denote the
-preconditioned operator, where $((\eta + i\beta)I -
-\widehat{\mathcal{L}})((\eta - i\beta)I - \widehat{\mathcal{L}})$ is
+preconditioned operator, where $((\eta + \mathrm{i}\beta)I -
+\widehat{\mathcal{L}})((\eta - \mathrm{i}\beta)I - \widehat{\mathcal{L}})$ is
 preconditioned with $(\eta I - \widehat{\mathcal{L}})^{-2}$. Then
 $W(\mathcal{P}_\eta)$ is contained in a circle of radius
 $\tfrac{\beta^2}{\eta^2}$ centered at 1.
@@ -780,7 +780,7 @@ operator, $\mathcal{P}_\gamma$, similar to as done for SPD matrices in \cite{exh
 \begin{theorem}[Conditioning of preconditioned operator]\label{th:cond}
 Suppose Assumptions \ref{ass:eig} and \ref{ass:fov} hold, that is, $\eta > 0$
 and $W(\widehat{\mathcal{L}}) \leq 0$ \eqref{eq:fov}. Let $\mathcal{P}_\gamma$ denote
-the preconditioned operator, where $((\eta + i\beta)I - \widehat{\mathcal{L}})((\eta - i\beta)I - \widehat{\mathcal{L}})$ is
+the preconditioned operator, where $((\eta + \mathrm{i}\beta)I - \widehat{\mathcal{L}})((\eta - \mathrm{i}\beta)I - \widehat{\mathcal{L}})$ is
 preconditioned with $(\gamma I - \widehat{\mathcal{L}})^{-2}$.
 Define $\gamma_*$ by
 \begin{equation}
@@ -962,8 +962,8 @@ least one triplet, e.g., $\{x_1, C_1, K_1\}$, strictly  positive. Then,
 := \widehat{K}
 \end{align}
 %
-For $\|\widehat{\mathcal{L}}\mathbf{w}\|^2$, $\langle\widehat{\mathcal{L}}\mathbf{w},\mathbf{w}\rangle$,
-and $\langle\widehat{\mathcal{L}}(\widehat{\mathcal{L}}\mathbf{w}),\widehat{\mathcal{L}}\mathbf{w}\rangle$,
+For $\|\widehat{\mathcal{L}}\mathbf{w}\|^2$, $-\langle\widehat{\mathcal{L}}\mathbf{w},\mathbf{w}\rangle$,
+and $-\langle\widehat{\mathcal{L}}(\widehat{\mathcal{L}}\mathbf{w}),\widehat{\mathcal{L}}\mathbf{w}\rangle$,
 corresponding to $x_2, x_3$, and $x_4$, respectively, we can directly bound the ratio of constants
 in the numerator and denominator:
 %
@@ -992,7 +992,7 @@ Here we consider two cases:\\
 get the nice cancellation that $c_I = 0$, and have matching terms
 $\|\mathbf{w}+\tfrac{1}{\gamma_*^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2$ in the numerator
 and denominator of \eqref{eq:smin_ex}. Then, $x_1/\hat{x}_1 = 1$ and the minimum ratio of
-numerator to denominator terms in \eqref{eq:khat} is $\widehat{K} := \tfrac{\gamma_*^2}{\eta^2}$.
+numerator to denominator terms in \eqref{eq:khat} is $\widehat{K} := \tfrac{\eta^2}{\gamma_*^2}$.
 From \eqref{eq:khat} and \eqref{eq:smin_ex} we can bound $\|P_{\gamma_*}^{-1}\|$ via
 %
 \begin{align}\label{eq:gammas_bound}
@@ -1036,7 +1036,7 @@ and it follows that $x_1/\hat{x}_1 \geq 1$ \eqref{eq:bad}.
 % $s_{\min}(\mathcal{P}_\gamma)$.
 Similar to the proof for $\gamma = \gamma_*$, the minimum ratio of
 numerator to denominator terms in \eqref{eq:khat} is
-again $\widehat{K} := \tfrac{\gamma_*^2}{\eta^2}$. Altogether, this yields
+again $\widehat{K} := \tfrac{\eta^2}{\gamma^2}$. Altogether, this yields
 %
 \begin{align*}
 \|P_{\gamma}^{-1}\| & = \frac{1}{s_{\min}(P_{\gamma})}
@@ -1123,7 +1123,7 @@ $\widehat{\mathcal{L}} := \delta t M^{-1}\mathcal{L}$. For a given conjugate pai
 of eigenvalues, the quadratic polynomial \eqref{eq:imag1} can be expressed as
 %
 \begin{align}\label{eq:scaleM}
-\mathcal{Q}_\eta = M^{-1}((\eta + i\beta)M - \delta t{\mathcal{L}})M^{-1}((\eta - i\beta)M -
+\mathcal{Q}_\eta = M^{-1}((\eta + \mathrm{i} \beta)M - \delta t{\mathcal{L}})M^{-1}((\eta - \mathrm{i} \beta)M -
 	\delta t\widehat{\mathcal{L}}).
 \end{align}
 %
