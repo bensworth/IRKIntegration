@@ -950,61 +950,54 @@ $\langle\widehat{\mathcal{L}}^2\mathbf{w},\mathbf{w}\rangle$). In addition, at l
 one term in the numerator and denominator is positive, because if
 $\mathcal{L}\mathbf{w}=\mathbf{0}$ for $\mathbf{w}\neq\mathbf{0}$, then
 $(1+c_I)\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w} = 
-(1+c_I)\mathbf{w}\neq \mathbf{0}$. Then,
-for numerator $\mathcal{N}$ and denominator $\mathcal{D}$, if $\widehat{K}\mathcal{N}
-\geq \mathcal{D}$, then $\mathcal{N}/\mathcal{D} \geq 1 / \widehat{K}$. 
-We establish such an inequality on a term-by-term basis for the matching nonegative
-elements in the numerator and denominator of \eqref{eq:smin_ex}.
+(1+c_I)\mathbf{w}\neq \mathbf{0}$. 
 
+Here we have a fraction of the form $(C_1x_1 + C_2x_2 + C_3x_3 + C_4x_4)/
+(K_1\hat{x}_1 + K_2x_2 + K_3x_3 + K_4x_4)$ for $C_i,x_i\geq 0 $, $K_i > 0$, and at
+least one triplet, e.g., $\{x_1, C_1, K_1\}$, strictly  positive. Then,
+%
+\begin{align}\label{eq:khat}
+\frac{x_1 + C_2x_2 + C_3x_3 + C_4x_4}{\hat{x}_1 + K_2x_2 + K_3x_3 + K_4x_4} \geq \min_{C_ix_i\neq 0}
+	\left\{\frac{x_1}{\hat{x}_1},\frac{C_2}{K_2},\frac{C_3}{K_3},\frac{C_4}{K_4}\right\}
+:= \widehat{K}
+\end{align}
+%
 For $\|\widehat{\mathcal{L}}\mathbf{w}\|^2$, $\langle\widehat{\mathcal{L}}\mathbf{w},\mathbf{w}\rangle$,
 and $\langle\widehat{\mathcal{L}}(\widehat{\mathcal{L}}\mathbf{w}),\widehat{\mathcal{L}}\mathbf{w}\rangle$,
-we can directly bound the ratio of constants in the numerator and denominator.
-For $\|\widehat{\mathcal{L}}\mathbf{w}\|^2$, we have
+corresponding to $x_2, x_3$, and $x_4$, respectively, we can directly bound the ratio of constants
+in the numerator and denominator:
 %
 \begin{align*}
-\widehat{K}(\tfrac{2}{\gamma}-c_{\widehat{\mathcal{L}}})^2 \geq \frac{4}{\gamma^2}
-	\hspace{5ex}\Longleftrightarrow\hspace{5ex}
-\widehat{K} \geq \frac{\gamma^2}{\eta^2},
+\frac{C_2}{K_2} & = \frac{(\tfrac{2}{\gamma}-c_{\widehat{\mathcal{L}}})^2}{\frac{4}{\gamma^2}}
+	 = \frac{\eta^2}{\gamma^2},
+\hspace{5ex}
+\frac{C_4}{K_4} = \frac{2\tfrac{2-\gamma c_{\widehat{\mathcal{L}}}}{\gamma^3}}{\frac{4}{\gamma^3}}
+	= \frac{\eta}{\gamma}, 
+\\
+& \frac{C_3}{K_3}  = \frac{2(1+c_I)(\tfrac{2}{\gamma}-c_{\widehat{\mathcal{L}}})}{\frac{4}{\gamma}}
+	= \frac{\eta(\eta^2+\beta^2)}{\gamma^3}, 
 \end{align*}
 %
-while $\langle\widehat{\mathcal{L}}\mathbf{w},\mathbf{w}\rangle$ requires
-%
-\begin{align*}
-2\widehat{K}(1+c_I)(\tfrac{2}{\gamma}-c_{\widehat{\mathcal{L}}})\geq \frac{4}{\gamma},
-	\hspace{5ex}\Longleftrightarrow\hspace{5ex}
-\widehat{K} \geq \frac{\gamma^3}{\eta(\eta^2+\beta^2)},
-\end{align*}
-%
-and $\langle\widehat{\mathcal{L}}(\widehat{\mathcal{L}}\mathbf{w}),\widehat{\mathcal{L}}\mathbf{w}\rangle$
-requires
-%
-\begin{align*}
-2\widehat{K}\tfrac{2-\gamma c_{\widehat{\mathcal{L}}}}{\gamma^3} \leq \frac{4}{\gamma^3},
-	\hspace{5ex}\Longleftrightarrow\hspace{5ex}
-\widehat{K} \geq \frac{\gamma}{\eta}.
-\end{align*}
-%
-Because we want a lower bound on $\mathcal{N}/\mathcal{D} \geq 1/\widehat{K}$,
-we seek the maximum required $\widehat{K}$ of the above ratios. For
-$\gamma \in[\eta,\sqrt{\eta^2+\beta^2}]$, the maximum of the
-above ratios is $\widehat{K} := \tfrac{\gamma^2}{\eta^2}$.
+For $\gamma \in[\eta,\sqrt{\eta^2+\beta^2}]$, the minimum of the
+above ratios is $\tfrac{\eta^2}{\gamma^2}$.
 
 The difficult ratio to bound in \eqref{eq:smin_ex} ends up being
-$\|(1+c_I)\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2$ and the
-similar denominator term, $\|\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2$.
+$x_1 := \|(1+c_I)\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2$ and the
+similar denominator term, $\hat{x}_1 :=
+\|\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2$.
 Here we consider two cases:\\
 \\
 %%%%%
-\underline{$\boldsymbol{\gamma_* = \sqrt{\eta^2+\beta^2}}$}: Under this specific choice, we
+\underline{$\boldsymbol{\gamma = \gamma_* = \sqrt{\eta^2+\beta^2}}$}: Under this specific choice, we
 get the nice cancellation that $c_I = 0$, and have matching terms
-$\|\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2$ in the numerator
-and denominator of \eqref{eq:smin_ex}. Then, the maximum ratio of numerator
-to denominator terms is $\widehat{K} := \tfrac{\gamma^2}{\eta^2}$ derived above,
-and we can bound $\|P_{\gamma}^{-1}\|$ via
+$\|\mathbf{w}+\tfrac{1}{\gamma_*^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2$ in the numerator
+and denominator of \eqref{eq:smin_ex}. Then, $x_1/\hat{x}_1 = 1$ and the minimum ratio of
+numerator to denominator terms in \eqref{eq:khat} is $\widehat{K} := \tfrac{\gamma_*^2}{\eta^2}$.
+From \eqref{eq:khat} and \eqref{eq:smin_ex} we can bound $\|P_{\gamma_*}^{-1}\|$ via
 %
 \begin{align}\label{eq:gammas_bound}
-\|P_{\gamma}^{-1}\| & = \frac{1}{s_{\min}(P_{\gamma})}
-	\leq \frac{1}{1/\sqrt{\widehat{K}}}
+\|P_{\gamma_*}^{-1}\| & = \frac{1}{s_{\min}(P_{\gamma_*})}
+	\leq \frac{1}{\sqrt{\widehat{K}}}
 	= \frac{\sqrt{\eta^2+\beta^2}}{\eta} =
 	\sqrt{1+\frac{\beta^2}{\eta^2}}.
 \end{align}
@@ -1014,34 +1007,25 @@ completes the proof of \eqref{eq:gammastar}.\\
 \\
 %%%%%
 \noindent
-\underline{\textbf{Nonnegative $\widehat{\mathcal{L}}^2$}}: Suppose
-$W(\widehat{\mathcal{L}}^2) \geq 0$.
-Given we are minimizing over real vectors, we can write $\langle\widehat{\mathcal{L}}^2\mathbf{w},
-\mathbf{w} \rangle := \cos(\theta)\|\widehat{\mathcal{L}}^2\mathbf{w}\|\|\mathbf{w}\|$ for some
-angle $\theta$. By assumption $W(\widehat{\mathcal{L}}^2) \geq 0$, we have $\cos(\theta)\geq 0$.
-Taking the ratio of these individual terms then yields
+\underline{\textbf{Nonnegative $\widehat{\mathcal{L}}^2$}}: Expanding $x_1/\hat{x}_1$
+yields
 %
 {\small
 \begin{align}\label{eq:bad}
-\frac{\|(1+c_I)\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2}
+\frac{x_1}{\hat{x}_1} = \frac{\|(1+c_I)\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2}
 	{\|\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2}
 & = \frac{(1+c_I)^2\|\mathbf{w}\|^2+\tfrac{1}{\gamma^4}\|\widehat{\mathcal{L}}^2\mathbf{w}\|^2
-	+ \tfrac{2\cos(\theta)(1+c_I)}{\gamma^2}\|\widehat{\mathcal{L}}^2\mathbf{w}\|\|\mathbf{w}\|}
+	+ \tfrac{2(1+c_I)}{\gamma^2}\langle\widehat{\mathcal{L}}^2\mathbf{w},\mathbf{w}\rangle}
 	{\|\mathbf{w}\|^2+\tfrac{1}{\gamma^4}\|\widehat{\mathcal{L}}^2\mathbf{w}\|^2
-	+ \tfrac{2\cos(\theta)}{\gamma^2}\|\widehat{\mathcal{L}}^2\mathbf{w}\|\|\mathbf{w}\|}.
+	+ \tfrac{2}{\gamma^2}\langle\widehat{\mathcal{L}}^2\mathbf{w},\mathbf{w}\rangle}.
 \end{align}
 }
 %
-Letting $x := \tfrac{\|\widehat{\mathcal{L}}^2\mathbf{w}\|}{\gamma^2\|\mathbf{w}\|}$, we can
-cancel $1/\|\mathbf{w}\|^2$ from the numerator and denominator and
-write \eqref{eq:bad} as a ratio of quadratic functions in $x \geq 0$:
-%
-\begin{align}\label{eq:x_simp}
-\frac{x^2 + 2\cos(\theta)(1+c_I)x + (1+c_I)^2}{x^2 + 2\cos(\theta)x + 1}.
-\end{align}
-%
-For $c_I\geq 0$ (corresponding to $\gamma \leq\sqrt{\eta^2+\beta^2}$)
-and $\cos(\theta)\geq 0$, \eqref{eq:x_simp} is $\geq 1$ for all $x$.
+By assumption $W(\widehat{\mathcal{L}}^2) \geq 0$ and, analogous to \eqref{eq:khat},
+we have a fraction $(A_1y_1+A_2y_2+A_3y_3)/(B_1y_1+B_2y_2+B_3y_3)$ for $A_i,B_i>0$
+and $y_i\geq 0$, with at least one $y_i > 0$. Recall for $\gamma \in[\eta,\gamma_*]$,
+$c_I \geq 0$. Thus $\tfrac{A_1}{B_1},\tfrac{A_2}{B_2},\tfrac{A_3}{B_3} \geq 1$,
+and it follows that $x_1/\hat{x}_1 \geq 1$ \eqref{eq:bad}.
 %
 %---------------- Comment on \gamma > \sqrt(\eta^2+\beta^2) ----------------
 % It is
@@ -1050,15 +1034,13 @@ and $\cos(\theta)\geq 0$, \eqref{eq:x_simp} is $\geq 1$ for all $x$.
 % as the ratio in \eqref{eq:x_simp} is then $<1$ for all $x\geq 0$, which
 % requires a larger $\widehat{K}$ and, thus, smaller bound on
 % $s_{\min}(\mathcal{P}_\gamma)$.
-Similar to the proof for $\gamma = \gamma_*$, the ratio in \eqref{eq:bad}
-is always $\geq 1$, and the maximum required $\widehat{K}$ to bound
-$\widehat{K}\mathcal{N} \geq \mathcal{D}$ for each matching term is
-given by $\widehat{K} = \tfrac{\gamma^2}{\eta^2}$. Altogether,
-this yields
+Similar to the proof for $\gamma = \gamma_*$, the minimum ratio of
+numerator to denominator terms in \eqref{eq:khat} is
+again $\widehat{K} := \tfrac{\gamma_*^2}{\eta^2}$. Altogether, this yields
 %
 \begin{align*}
 \|P_{\gamma}^{-1}\| & = \frac{1}{s_{\min}(P_{\gamma})}
-	\leq \frac{1}{1/\sqrt{\widehat{K}}}
+	\leq \frac{1}{\sqrt{\widehat{K}}}
 	= \frac{\gamma}{\eta}.
 \end{align*}
 %
