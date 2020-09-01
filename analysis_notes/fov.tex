@@ -1018,6 +1018,153 @@ It's interesting to note that $\gamma_*$ does not depend on $\eta$ nor $\beta$. 
 \end{align}
 If using a simplified Newton algorithm, or solving a linear problem using this $2 \times 2$ formulation, one could possibly save some work by setting $\gamma = \eta$ so that the preconditioner for the (1,1) block could also be used on this Schur complement.
 
+\newpage
+\tcb{An interesting exercise: Rather than $\gamma I - {\cal L}$, should the preconditioner instead look like $\widehat{S} = \gamma I - \zeta {\cal L}?$ To motivate this, look at the Schur complement, and assume that $\Vert 1/\eta {\cal L} \Vert < 1$, then
+\begin{align}
+S = \eta I - {\cal L}  + \beta^2 (\eta I - {\cal L})^{-1} = \left( \eta + \frac{\beta^2}{\eta} \right) I - \left(1 - \frac{\beta^2}{\eta^2} \right) {\cal L} + {\cal O}\left( \frac{\beta^2}{\eta^3} {\cal L}^2 \right).
+\end{align}
+This says that we probably should take the preconditioner to be
+\begin{align}
+\widehat{S} = \left( \eta + \frac{\beta^2}{\eta} \right) I - \left(1 - \frac{\beta^2}{\eta^2} \right) {\cal L}.
+\end{align}
+Quite interestingly, this gets the $\gamma_*$ correct. But what's weird is that for $\beta > \eta$, the sign of $\zeta$ changes from positive to negative. Nonetheless, the restriction of $\Vert 1/\eta {\cal L} \Vert < 1$ is not practical, even for an advection-dominated problem because it means imposing an explicit-like time step. Any playing around numerically, when $\Vert 1/\eta {\cal L} \Vert > 1$, this choice seems worse than taking $\zeta = 1$.
+}
+
+\newpage
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+\subsection{The SPD case: Differing diagonal blocks}
+
+As in later sections, here we consider a preconditioner of the form
+\begin{align}
+\widehat{S} = \gamma I -  {\cal L}_2,
+\end{align}
+for Schur complement
+\begin{align}
+S
+= 
+\left[ \eta I - {\cal L}_2 + \beta^2(\eta I - {\cal L}_1)^{-1} \right].
+\end{align}
+This results in a preconditioned operator
+\begin{align}
+{\cal P}
+= 
+S \widehat{S}^{-1} 
+&= 
+\left[ \eta I - {\cal L}_2 + \beta^2(\eta I - {\cal L}_1)^{-1} \right] 
+\big[ \gamma I -  {\cal L}_2 \big]^{-1}, \\
+&=
+\big( \eta I - {\cal L}_2 \big) \big( \gamma I -  {\cal L}_2 \big)^{-1}  + \beta^2(\eta I - {\cal L}_1)^{-1} \big( \gamma I -  {\cal L}_2 \big)^{-1}.
+\end{align}
+Assuming that ${\cal L}_1$ and ${\cal L}_2$ are symmetric, and that they commute, ${\cal L}_1 {\cal L}_2 = {\cal L}_2 {\cal L}_1$, the preconditioned operator ${\cal P}$ is also symmetric by noting that if $AB = BA$, as is the case for $A = a I - {\cal L}_1$, $B = b I - {\cal L}_2$, then $A^{-1} B = B  A^{-1}$ and $A^{-1} B^{-1} = B^{-1} A^{-1}$.
+
+Let $\lambda_1 \in \sigma(- {\cal L}_1) \subset [0,\infty)$ and $\lambda_2 \in \sigma(- {\cal L}_2) \subset [0,\infty)$. Denoting the spectrum of ${\cal P}$ by ${\cal F}$, we have
+\begin{align}
+{\cal F} 
+= 
+1 - 
+\frac{\gamma - \eta}{\gamma + \lambda_2}
++
+\frac{\beta^2}{(\eta + \lambda_1)(\gamma + \lambda_2)}.
+\end{align}
+Note that ${\cal F} > 0$ if $\gamma > 0$, i.e., ${\cal P}$ is SPD for $\gamma > 0$.
+
+Differentiating ${\cal F}$ w.r.t. $\lambda_1$ and $\lambda_2$ we have
+\begin{align}
+{\cal F}_{\lambda_1} = -  \frac{\beta^2}{(\eta + \lambda_1)^2(\gamma + \lambda_2)}, 
+\quad
+{\cal F}_{\lambda_1} =  \frac{(\gamma-\eta)(\eta + \lambda_1) - \beta^2}{(\eta + \lambda_1)(\gamma + \lambda_2)}.
+\end{align}
+Clearly ${\cal F}_{\lambda_1} < 0$, while ${\cal F}_{\lambda_2} = 0$ for $\lambda_1^* = \frac{\beta^2}{\gamma - \eta} - \eta$. However, we also observe that ${\cal F}_{\lambda_2 \lambda_2}$ vanishes at  $\lambda_1^*$, so this is a point of inflection rather than a minimum or maximum, which is what we care  about. Thus, the extrema of ${\cal F}$ must occur at the boundaries of its domain. \tcb{This is fundamentally different to what occurred previously when the diagonal blocks were identical: The minimum of ${\cal F}$ occurred at a critical point in the eigenvalue $\lambda$.}
+
+Basically, we find the following for ${\cal F}(\lambda_1, \lambda_2)$:
+\begin{align}
+{\cal F}(0,0) = \frac{1}{\gamma} \left( \eta + \frac{\beta^2}{\eta} \right), 
+\quad 
+{\cal F}(\infty, 0) = \frac{\eta}{\gamma},
+\quad 
+{\cal F}(0, \infty) = {\cal F}(\infty, \infty) = 1.
+\end{align}
+Assuming the spectra of  ${\cal L}_1$ and ${\cal L}_2$ are dense in $[0, \infty)$, this leads to the condition number
+\begin{align}
+\textrm{cond} ({\cal P}) = 
+\begin{cases}
+\displaystyle
+\frac{1}{\gamma} \left( \eta + \frac{\beta^2}{\eta} \right), \quad &0 < \gamma \leq \eta, \\
+\displaystyle
+1 + \frac{\beta^2}{\eta^2}, \quad &\eta \leq \gamma \leq \eta + \frac{\beta^2}{\eta}, \\
+\displaystyle
+\frac{\gamma}{\eta}, \quad &\eta + \frac{\beta^2}{\eta} \leq \gamma < \infty.
+\end{cases}
+\end{align}
+This condition number is minimized for \underline{\textbf{the entire inverval}} $\gamma \in \gamma_*  \coloneqq [\eta, \eta + \frac{\beta^2}{\eta}]$, in which case the minimum condition number is
+\begin{align}
+\textrm{cond} ({\cal P}_{\gamma \in \gamma_*}) = 1 + \frac{\beta^2}{\eta^2}.
+\end{align}
+A few remarks are in order:
+\begin{itemize}
+\setlength\itemsep{2ex}
+ 
+\item Very weird how there is no longer an optimal value of $\gamma$, but instead a continuous interval of them. 
+
+\item This condition number is dissapointingly large compared to the one in \eqref{eq:cond_min} that we get when ${\cal L}_1 = {\cal L}_2$. I think this is saying something about $\gamma I - {\cal L}_2$ not being a very good preconditioner... Since this grows too quickly w.r.t. $\beta$, I think it says that we're not doing a good enough job on the $\beta^2 (\eta I - {\cal L}_1)^{-1}$ that appears in the Schur complement. See the analysis I started in the next section to try and overcome this, but I'm not really sure it's any better/even makes sense.
+  
+\item Note that the analysis in here works out much the same as for the ${\cal L}_1 = {\cal L}_2$ case, except for the fact that the minimum of ${\cal F}$ does not occur at a critical point in $\lambda$, but instead at the boundary.
+ 
+\item I somehow would have expected to recover the previous result in the case  that ${\cal L}_1 = {\cal L}_2$... But I guess the reason that this didn't happen is because when we differentiated, we assumed that $\lambda_1$ and $\lambda_2$ are independent, where, to actually recover the previous result, we'd have to assume they're the same. Is there any reason to assume that $\lambda_1$ and $\lambda_2$ would be related if ${\cal L}_1$ and ${\cal L}_2$ commute?
+ 
+\item This result is consistent with the general analysis that arrived at bound \eqref{eq:gammastar}. It also explains why that bound is so much larger than in the case that ${\cal L}_1 \neq {\cal L}_2$: I.e., the preconditioner for ${\cal L}_1 \neq {\cal L}_2$ is simply not as good, as we've shown here for the SPD case.
+ 
+\end{itemize}
+
+
+\newpage
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+\subsection{The SPD case: Differing diagonal blocks with a modified preconditioner}
+
+As we saw in the previous section, the preconditioner $\widehat{S} = \gamma I - {\cal L}_2$ doesn't produce great results in the sense that the condition number of the preconditioned operator grows quadratically in $\beta/\eta$. Notice in the Schur complement, the $\beta$ term weights a term containing an ${\cal L}_1$, but not a ${\cal L}_2$ term. Given that the condition number of the preconditioner grows too quickly with $\beta$, this possibly suggests that we try a preconditioner which also includes some ${\cal L}_1$ dependence. \tcb{I guess this follows on kind of from the discussion at the end of the SPD case with ${\cal L}_1 = {\cal L}_2$, where we see that modifying the ${\cal L}$ perturbation in the preconditioner influences the $\beta^2$ term. E.g., you can do the same Taylor series trick here for the Schur complement where ${\cal L}_1 \neq {\cal L}_2$.}
+
+Let's again assume that ${\cal L}_1 {\cal L}_2 = {\cal L}_2 {\cal L}_1$, but let's say now we try a preconditioner of the form
+\begin{align}
+\widehat{S} = \gamma I - (\alpha {\cal L}_1 + (1 - \alpha) {\cal L}_2),
+\end{align}
+where the coefficients must sum to one for consistency with the case that ${\cal L}_1 = {\cal L}_2$ [although, I'm not sure this is necessary, actually...]. The preconditioned operator takes the form
+\begin{align}
+{\cal P}
+= 
+S \widehat{S}^{-1} 
+= 
+\left[ \eta I - {\cal L}_2 + \beta^2(\eta I - {\cal L}_1)^{-1} \right] 
+\big[ \gamma I - (\alpha {\cal L}_1 + (1 - \alpha) {\cal L}_2) \big]^{-1}.
+\end{align}
+Let $\lambda_1 \in \sigma(- {\cal L}_1)$ and $\lambda_2 \in \sigma(- {\cal L}_2)$. Denoting the spectrum of ${\cal P}$ by ${\cal F}$, we have
+\begin{align*}
+{\cal F} 
+&= \frac{\eta + \lambda_2}{\gamma + \alpha \lambda_1 + (1-\alpha) \lambda_2} + \frac{\beta^2}{(\eta + \lambda_1)(\gamma + \alpha \lambda_1 + (1-\alpha) \lambda_2)}, \\
+\end{align*}
+We can put some conditions on $\alpha$ as follows. We require ${\cal F} > 0$ to maintain positive definiteness. Noting that the numerators of each fraction are non-negative, and assuming $\gamma > 0$, this means
+\begin{align*}
+\gamma + \alpha \lambda_1 + (1 - \alpha) \lambda_2 > 0 
+\quad \Longrightarrow \quad 
+\alpha > - \frac{\lambda_2 + \gamma}{\lambda_1 - \lambda_2} < 0
+\quad \textrm{and} \quad 
+\alpha < \frac{\lambda_2 + \gamma}{\lambda_2 - \lambda_1} < 1.
+\end{align*}
+Thus, $\quad 0 \leq \alpha < 1$.
+%
+Also, we require that the first fraction in ${\cal F}$ remains bounded w.r.t. $\lambda_2$. We have
+\begin{align*}
+\lim \limits_{\lambda_2 \to \infty} \frac{\eta + \lambda_2}{\gamma + \alpha \lambda_1 + (1-\alpha) \lambda_2} 
+&= 
+\lim \limits_{\lambda_2 \to \infty} \frac{\tfrac{\eta}{\lambda_2} + 1}{\tfrac{\gamma}{\lambda_2} + \alpha \tfrac{\lambda_1}{\lambda_2} + (1-\alpha) } 
+=
+\lim \limits_{\lambda_2 \to \infty}
+\frac{1}{1 - \alpha + \alpha \tfrac{\lambda_1}{\lambda_2}}.
+\end{align*}
+Noting that $\lambda_1$ and $\lambda_2$ are independent, this fraction remaining bounded and positive once again requires $0 \leq \alpha < 1$. Note that for $\alpha = 0$ we recover the previous preconditioner, $\gamma I - {\cal L}_2$.
+
+Computing critical points is painful... Also, not quite sure how to compute ${\cal F}$ as $\lambda_1, \lambda_2 \to \infty$ due to them appearing together in first fraction...
 
 % ---------------------------------------------------------------------------------------------- %
 % ---------------------------------------------------------------------------------------------- %
