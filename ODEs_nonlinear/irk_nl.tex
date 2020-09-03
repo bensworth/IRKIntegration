@@ -331,11 +331,11 @@ solving a $2\times 2$ block system along the lines of
 %
 \begin{align}\label{eq:block0}
 \begin{bmatrix} \eta I - \widehat{\mathcal{L}}_1 & \phi I\\
--\frac{\beta^2}{\phi} I & \eta I - \widehat{\mathcal{L}}_1\end{bmatrix},
+-\frac{\beta^2}{\phi} I & \eta I - \widehat{\mathcal{L}}_2\end{bmatrix},
 \end{align}
 %
-for some $\phi \neq 0$ and where it is assumed that $W(\widehat{\mathcal{L}}) \geq 0$
-in \Cref{ass:fov}. In some
+for some $\phi \neq 0$ and where it is assumed that $W(\widehat{\mathcal{L}}_i) \geq 0$
+in \Cref{ass:fov} for $i=1,2$. In some
 cases (in particular, simplified Newton methods) $\widehat{\mathcal{L}}_1 =
 \widehat{\mathcal{L}}_2$, but we are particularly interested in the more general
 setting of $\widehat{\mathcal{L}}_1 \neq \widehat{\mathcal{L}}_2$. We will solve
@@ -642,7 +642,7 @@ $\gamma_* := \textnormal{argmin}_{\gamma\geq\eta} c(\gamma) =
 \subsection{General conditioning theory}\label{sec:theory:gen}
 
 Now we consider preconditioning \eqref{eq:block0} for general operators 
-$\mathcal{L}_1\neq\mathcal{L}_2$ that are not necessarily diagonalizable.
+$\widehat{\mathcal{L}}_1\neq\widehat{\mathcal{L}}_2$ that are not necessarily diagonalizable.
 In particular, we consider the $\ell^2$-conditioning of the right-preconditioned
 Schur complement
 %
@@ -700,55 +700,55 @@ $\gamma \geq \eta$:
 	\frac{\beta^2}{\gamma\eta}( I- \tfrac{1}{\eta}\widehat{\mathcal{L}}_1)^{-1}
 	( I- \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2)^{-1} \right\| \\
 % & \leq \left\| I - 2\frac{\gamma-\eta}
-% 	{\gamma}\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-1}\right\| +
+% 	{\gamma}\left(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}\right)^{-1}\right\| +
 % 		\frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}\left\|
-% 		\left(I - \tfrac{1}{\gamma}\mathcal{L}\right)^{-2} \right\| \\
+% 		\left(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}\right)^{-2} \right\| \\
 & \leq \left\| I - \frac{\gamma-\eta}
-	{\gamma}\left(I - \tfrac{1}{\gamma}\mathcal{L}_2\right)^{-1}\right\| +
+	{\gamma}\left(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2\right)^{-1}\right\| +
 		\frac{\beta^2}{\gamma\eta}
 		\left\|( I- \tfrac{1}{\eta}\widehat{\mathcal{L}}_1)^{-1} \right\|
 		\left\|( I- \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2)^{-1}\right\|\nonumber \\
 & \leq \left\| I - \frac{\gamma-\eta}
-	{\gamma}\left(I - \tfrac{1}{\gamma}\mathcal{L}_2\right)^{-1}\right\| +
+	{\gamma}\left(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2\right)^{-1}\right\| +
 		\frac{\beta^2}{\gamma\eta}. \label{eq:Pgn}
 \end{align}
 %
 For the first term, note that maximizing over $\mathbf{v}\in\mathbb{R}^n$ and
-letting $\mathbf{v} := (I - \tfrac{1}{\gamma}\mathcal{L}_2)\mathbf{w}$,
+letting $\mathbf{v} := (I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2)\mathbf{w}$,
 %
 \begin{align*}
 \left\| I - \tfrac{\gamma-\eta}
-	{\gamma}(I - \tfrac{1}{\gamma}\mathcal{L}_2)^{-1}\right\|^2
+	{\gamma}(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2)^{-1}\right\|^2
 		& = \sup_{\mathbf{v}\neq\mathbf{0}} \frac{\left\| [I - \frac{\gamma-\eta}
-	{\gamma}(I - \tfrac{1}{\gamma}\mathcal{L}_2)^{-1}]\mathbf{v}\right\|^2}{\|\mathbf{v}\|^2}  \\
-& = \sup_{\mathbf{w}\neq\mathbf{0}} \frac{\left\| (I - \tfrac{1}{\gamma}\mathcal{L}_2 -
-		\frac{\gamma-\eta}{\gamma}I )\mathbf{w}\right\|^2}{\|(I - \tfrac{1}{\gamma}\mathcal{L}_2)
+	{\gamma}(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2)^{-1}]\mathbf{v}\right\|^2}{\|\mathbf{v}\|^2}  \\
+& = \sup_{\mathbf{w}\neq\mathbf{0}} \frac{\left\| (I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2 -
+		\frac{\gamma-\eta}{\gamma}I )\mathbf{w}\right\|^2}{\|(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2)
 		\mathbf{w}\|^2} \\
 % & = \sup_{\mathbf{w}\neq\mathbf{0}} \frac{\left\|[(1 - 2\frac{\gamma-\eta}{\gamma})
-% 	I - \tfrac{1}{\gamma}\mathcal{L}_2]\mathbf{w}\right\|^2}{\|(I - \tfrac{1}{\gamma}\mathcal{L}_2)
+% 	I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2]\mathbf{w}\right\|^2}{\|(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2)
 % 		\mathbf{w}\|^2} \\
 & = \sup_{\mathbf{w}\neq\mathbf{0}} \frac{(\tfrac{\eta}{\gamma})^2\|\mathbf{w}\|^2
-	- \tfrac{\eta}{\gamma^2}\langle (\mathcal{L}_2 + \mathcal{L}_2^T)
-		\mathbf{w},\mathbf{w}\rangle + \tfrac{1}{\gamma}^2\|\mathcal{L}_2\mathbf{w}\|^2}
-	{\|\mathbf{w}\|^2 - \tfrac{1}{\gamma}\langle (\mathcal{L}_2 + \mathcal{L}_2^T)
-		\mathbf{w},\mathbf{w}\rangle + \tfrac{1}{\gamma}^2\|\mathcal{L}_2\mathbf{w}\|^2}.
+	- \tfrac{\eta}{\gamma^2}\langle (\widehat{\mathcal{L}}_2 + \widehat{\mathcal{L}}_2^T)
+		\mathbf{w},\mathbf{w}\rangle + \tfrac{1}{\gamma}^2\|\widehat{\mathcal{L}}_2\mathbf{w}\|^2}
+	{\|\mathbf{w}\|^2 - \tfrac{1}{\gamma}\langle (\widehat{\mathcal{L}}_2 + \widehat{\mathcal{L}}_2^T)
+		\mathbf{w},\mathbf{w}\rangle + \tfrac{1}{\gamma}^2\|\widehat{\mathcal{L}}_2\mathbf{w}\|^2}.
 \end{align*}
 %
 Note that by assumption, $\gamma \geq \eta$, which implies
 $0< \tfrac{\eta}{\gamma^2} \leq \tfrac{\eta^2}{\gamma^2}  < 1$, and 
-$|1 - 2\tfrac{\gamma-\eta}{\gamma}| < 1$. In addition, by \Cref{ass:fov} $W(\mathcal{L}_2)\leq 0$,
-which implies $-\langle (\mathcal{L}_2+\mathcal{L}_2^T)\mathbf{w},\mathbf{w}\rangle \geq 0$
+$|1 - 2\tfrac{\gamma-\eta}{\gamma}| < 1$. In addition, by \Cref{ass:fov} $W(\widehat{\mathcal{L}}_2)\leq 0$,
+which implies $-\langle (\widehat{\mathcal{L}}_2+\widehat{\mathcal{L}}_2^T)\mathbf{w},\mathbf{w}\rangle \geq 0$
 \cite{gustafson1997numerical,mees1979domains}.
 It follows that all terms in the numerator and denominator are positive, and
 %
 \begin{align} \label{eq:P1}
 \left\| I - \tfrac{\gamma-\eta}
-	{\gamma}(I - \tfrac{1}{\gamma}\mathcal{L}_2)^{-1}\right\|^2
+	{\gamma}(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2)^{-1}\right\|^2
 & < \sup_{\mathbf{w}\neq\mathbf{0}} \frac{\|\mathbf{w}\|^2
-	- \tfrac{1}{\gamma}\langle (\mathcal{L}_2 + \mathcal{L}_2^T)
-		\mathbf{w},\mathbf{w}\rangle + \tfrac{1}{\gamma}^2\|\mathcal{L}_2\mathbf{w}\|^2}
-	{\|\mathbf{w}\|^2 - \tfrac{1}{\gamma}\langle (\mathcal{L}_2 + \mathcal{L}^T)
-		\mathbf{w},\mathbf{w}\rangle + \tfrac{1}{\gamma}^2\|\mathcal{L}\mathbf{w}\|^2} 
+	- \tfrac{1}{\gamma}\langle (\widehat{\mathcal{L}}_2 + \widehat{\mathcal{L}}_2^T)
+		\mathbf{w},\mathbf{w}\rangle + \tfrac{1}{\gamma}^2\|\widehat{\mathcal{L}}_2\mathbf{w}\|^2}
+	{\|\mathbf{w}\|^2 - \tfrac{1}{\gamma}\langle (\widehat{\mathcal{L}}_2 + \widehat{\mathcal{L}}^T)
+		\mathbf{w},\mathbf{w}\rangle + \tfrac{1}{\gamma}^2\|\widehat{\mathcal{L}}\mathbf{w}\|^2} 
 = 1.
 \end{align}
 %
@@ -770,7 +770,7 @@ s_{\min}(\mathcal{P}_\gamma) =
 \end{align}
 %
 Thus, consider the minimum singular value of $P_\gamma$. Letting $\mathbf{v} :=
-(I - \tfrac{1}{\gamma}\mathcal{L}_2)(I - \tfrac{1}{\eta}\mathcal{L}_1)\mathbf{w}$,
+(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2)(I - \tfrac{1}{\eta}\widehat{\mathcal{L}}_1)\mathbf{w}$,
 %
 \begin{align}\nonumber
 s_{\min}(\mathcal{P}_\gamma)^2 & = \min_{\mathbf{v}\neq\mathbf{0}}
@@ -780,15 +780,16 @@ s_{\min}(\mathcal{P}_\gamma)^2 & = \min_{\mathbf{v}\neq\mathbf{0}}
 	( I- \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2)^{-1}\right]\mathbf{v} \right\|^2}
 	{\|\mathbf{v}\|^2} \\
 & = \min_{\mathbf{w}\neq\mathbf{0}}
-	\frac{\left\| \left[(I - \tfrac{1}{\gamma}\mathcal{L}_2)(I - \tfrac{1}{\eta}\mathcal{L}_1)
-		- \frac{\gamma-\eta}{\gamma}(I - \tfrac{1}{\eta} \mathcal{L}_1) +
+	\frac{\left\| \left[(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2)(I - \tfrac{1}{\eta}\widehat{\mathcal{L}}_1)
+		- \frac{\gamma-\eta}{\gamma}(I - \tfrac{1}{\eta} \widehat{\mathcal{L}}_1) +
 		\frac{\beta^2}{\gamma\eta} I\right]\mathbf{w} \right\|^2}
-	{\|(I - \tfrac{1}{\gamma}\mathcal{L}_2)(I - \tfrac{1}{\eta}\mathcal{L}_1)\mathbf{w}\|^2} \nonumber\\
+	{\|(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2)(I - \tfrac{1}{\eta}\widehat{\mathcal{L}}_1)\mathbf{w}\|^2} \nonumber\\
 & = \min_{\mathbf{w}\neq\mathbf{0}}
-	\frac{\left\| \left[(I - \tfrac{1}{\gamma}\mathcal{L}_2)(I - \tfrac{1}{\eta}\mathcal{L}_1)
-		+ \frac{\gamma-\eta}{\gamma\eta}\mathcal{L}_1 +
+	\frac{\left\| \left[(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2)(I - \tfrac{1}{\eta}\widehat{\mathcal{L}}_1)
+		+ \frac{\gamma-\eta}{\gamma\eta}\widehat{\mathcal{L}}_1 +
 		\frac{\beta^2+\eta^2 - \gamma\eta}{\gamma\eta} I\right]\mathbf{w} \right\|^2}
-	{\|(I - \tfrac{1}{\gamma}\mathcal{L}_2)(I - \tfrac{1}{\eta}\mathcal{L}_1)\mathbf{w}\|^2} \nonumber
+	{\|(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2)(I - \tfrac{1}{\eta}\widehat{\mathcal{L}}_1)\mathbf{w}\|^2}.
+	\nonumber
 \end{align}
 %
 Let us make the strategic choice of picking $\gamma$ such that the identity perturbation
@@ -796,44 +797,46 @@ $\tfrac{\beta^2+\eta^2 - \gamma\eta}{\gamma\eta} I = \mathbf{0}$, given by $\gam
 := \tfrac{\eta^2+\beta^2}{\eta}$. Note, this is exactly the optimal $\gamma$ derived 
 in \Cref{sec:theory:spd}. Expanding, we have
 %
+{\small
 \begin{align}
 & \hspace{-5ex}
 s_{\min}(\mathcal{P}_\gamma)^2 = 
 	\min_{\mathbf{w}\neq\mathbf{0}}
-	\frac{\left\| \left[(I - \tfrac{1}{\gamma}\mathcal{L}_2)(I - \tfrac{1}{\eta}\mathcal{L}_1)
-		+ \frac{\beta^2}{\eta(\eta^2+\beta^2)}\mathcal{L}_1\right]\mathbf{w} \right\|^2}
-	{\|(I - \tfrac{1}{\gamma}\mathcal{L}_2)(I - \tfrac{1}{\eta}\mathcal{L}_1)\mathbf{w}\|^2} \nonumber\\
+	\frac{\left\| \left[(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2)(I - \tfrac{1}{\eta}\widehat{\mathcal{L}}_1)
+		+ \frac{\beta^2}{\eta(\eta^2+\beta^2)}\widehat{\mathcal{L}}_1\right]\mathbf{w} \right\|^2}
+	{\|(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2)(I - \tfrac{1}{\eta}\widehat{\mathcal{L}}_1)\mathbf{w}\|^2} \nonumber\\
 & = \min_{\mathbf{w}\neq\mathbf{0}} 1 +
 	\frac{\beta^2}{\eta(\eta^2+\beta^2)}\cdot 
-	\frac{\frac{\beta^2}{\eta(\eta^2+\beta^2)}\left\|\mathcal{L}_1\mathbf{w} \right\|^2
-		+ 2\left\langle(I - \tfrac{1}{\gamma}\mathcal{L}_2)(I - \tfrac{1}{\eta}\mathcal{L}_1)\mathbf{w},
-		\mathcal{L}_1\mathbf{w} \right\rangle}
-	{\|(I - \tfrac{1}{\gamma}\mathcal{L}_2)(I - \tfrac{1}{\eta}\mathcal{L}_1)\mathbf{w}\|^2} \nonumber\\
+	\frac{\frac{\beta^2}{\eta(\eta^2+\beta^2)}\left\|\widehat{\mathcal{L}}_1\mathbf{w} \right\|^2
+		+ 2\left\langle(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2)(I - \tfrac{1}{\eta}\widehat{\mathcal{L}}_1)\mathbf{w},
+		\widehat{\mathcal{L}}_1\mathbf{w} \right\rangle}
+	{\|(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2)(I - \tfrac{1}{\eta}\widehat{\mathcal{L}}_1)\mathbf{w}\|^2} \nonumber\\
 & = 1 - \frac{\beta^2}{\eta^2+\beta^2} \cdot\max_{\mathbf{w}\neq\mathbf{0}}
-	\frac{(-\tfrac{2}{\eta})\left\langle(I - \tfrac{1}{\gamma}\mathcal{L}_2)(I -
-		\tfrac{1}{\eta}\mathcal{L}_1)\mathbf{w},
-		\mathcal{L}_1\mathbf{w} \right\rangle- 
-		\frac{\beta^2}{\eta^2(\eta^2+\beta^2)}\left\|\mathcal{L}_1\mathbf{w} \right\|^2}
-	{\|(I - \tfrac{1}{\gamma}\mathcal{L}_2)(I - \tfrac{1}{\eta}\mathcal{L}_1)\mathbf{w}\|^2}.
+	\frac{(-\tfrac{2}{\eta})\left\langle(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2)(I -
+		\tfrac{1}{\eta}\widehat{\mathcal{L}}_1)\mathbf{w},
+		\widehat{\mathcal{L}}_1\mathbf{w} \right\rangle- 
+		\frac{\beta^2}{\eta^2(\eta^2+\beta^2)}\left\|\widehat{\mathcal{L}}_1\mathbf{w} \right\|^2}
+	{\|(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2)(I - \tfrac{1}{\eta}\widehat{\mathcal{L}}_1)\mathbf{w}\|^2}.
 	\label{eq:gen_smin}
 \end{align}
+}
 %
 Expanding the numerator term, we have
 {\small
 \begin{align}\nonumber
-& (-\tfrac{2}{\eta})\left\langle(I - \tfrac{1}{\gamma}\mathcal{L}_2)(I - \tfrac{1}{\eta}\mathcal{L}_1)\mathbf{w},
-		\mathcal{L}_1\mathbf{w} \right\rangle- 
-		\frac{\beta^2}{\eta^2(\eta^2+\beta^2)}\left\|\mathcal{L}_1\mathbf{w} \right\|^2 \\
+& (-\tfrac{2}{\eta})\left\langle(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2)(I - \tfrac{1}{\eta}\widehat{\mathcal{L}}_1)\mathbf{w},
+		\widehat{\mathcal{L}}_1\mathbf{w} \right\rangle- 
+		\frac{\beta^2}{\eta^2(\eta^2+\beta^2)}\left\|\widehat{\mathcal{L}}_1\mathbf{w} \right\|^2 \\
 % & = \left(\frac{2}{\eta^2} - \frac{\beta^2}{\eta^2(\eta^2+\beta^2)}\right)
-% 			\left\|\mathcal{L}_1\mathbf{w} \right\|^2
-% 		- \frac{2}{\eta}\langle\mathbf{w},\mathcal{L}_1\mathbf{w}\rangle
-% 		- \frac{2}{\gamma\eta^2}\langle\mathcal{L}_2(\mathcal{L}_1\mathbf{w}),\mathcal{L}_1\mathbf{w}\rangle
-% 		+ \frac{2}{\gamma\eta}\langle\mathcal{L}_1\mathbf{w},\mathcal{L}_2\mathbf{w}\rangle \nonumber\\
+% 			\left\|\widehat{\mathcal{L}}_1\mathbf{w} \right\|^2
+% 		- \frac{2}{\eta}\langle\mathbf{w},\widehat{\mathcal{L}}_1\mathbf{w}\rangle
+% 		- \frac{2}{\gamma\eta^2}\langle\widehat{\mathcal{L}}_2(\widehat{\mathcal{L}}_1\mathbf{w}),\widehat{\mathcal{L}}_1\mathbf{w}\rangle
+% 		+ \frac{2}{\gamma\eta}\langle\widehat{\mathcal{L}}_1\mathbf{w},\widehat{\mathcal{L}}_2\mathbf{w}\rangle \nonumber\\
 & = \left(\frac{1}{\eta^2} + \frac{1}{\eta^2+\beta^2}\right)
-			\left\|\mathcal{L}_1\mathbf{w} \right\|^2
-		- \frac{2}{\eta}\langle\mathbf{w},\mathcal{L}_1\mathbf{w}\rangle
-		- \frac{2}{\gamma\eta^2}\langle\mathcal{L}_2(\mathcal{L}_1\mathbf{w}),\mathcal{L}_1\mathbf{w}\rangle
-		+ \frac{2}{\gamma\eta}\langle\mathcal{L}_1\mathbf{w},\mathcal{L}_2\mathbf{w}\rangle.
+			\left\|\widehat{\mathcal{L}}_1\mathbf{w} \right\|^2
+		- \frac{2}{\eta}\langle\mathbf{w},\widehat{\mathcal{L}}_1\mathbf{w}\rangle
+		- \frac{2}{\gamma\eta^2}\langle\widehat{\mathcal{L}}_2(\widehat{\mathcal{L}}_1\mathbf{w}),\widehat{\mathcal{L}}_1\mathbf{w}\rangle
+		+ \frac{2}{\gamma\eta}\langle\widehat{\mathcal{L}}_1\mathbf{w},\widehat{\mathcal{L}}_2\mathbf{w}\rangle.
 		\label{eq:num_gen}
 \end{align}
 }
@@ -842,69 +845,72 @@ Now consider the denominator:
 %
 \begin{align}
 & \hspace{-10ex}
-\left\|(I - \tfrac{1}{\gamma}\mathcal{L}_2)(I - \tfrac{1}{\eta}\mathcal{L}_1)\mathbf{w}\right\|^2
-= \left\|\left(I + \tfrac{1}{\gamma\eta}\mathcal{L}_2\mathcal{L}_1\right)\mathbf{w} - 
-	\left(\tfrac{1}{\gamma}\mathcal{L}_2 + \tfrac{1}{\eta}\mathcal{L}_1\right)\mathbf{w}\right\|^2 \nonumber\\
-& = \left\|\left(I + \tfrac{1}{\gamma\eta}\mathcal{L}_2\mathcal{L}_1\right)\mathbf{w}\right\|^2
-	+ \frac{1}{\gamma^2}\|\mathcal{L}_2\mathbf{w}\|^2
-	+ \frac{1}{\eta^2}\|\mathcal{L}_1\mathbf{w}\|^2
-	+ \frac{2}{\gamma\eta}\langle\mathcal{L}_1\mathbf{w},\mathcal{L}_2\mathbf{w}\rangle
+\left\|(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2)(I - \tfrac{1}{\eta}\widehat{\mathcal{L}}_1)\mathbf{w}\right\|^2
+= \left\|\left(I + \tfrac{1}{\gamma\eta}\widehat{\mathcal{L}}_2\widehat{\mathcal{L}}_1\right)\mathbf{w} - 
+	\left(\tfrac{1}{\gamma}\widehat{\mathcal{L}}_2 + \tfrac{1}{\eta}\widehat{\mathcal{L}}_1\right)\mathbf{w}\right\|^2 \nonumber\\
+& = \left\|\left(I + \tfrac{1}{\gamma\eta}\widehat{\mathcal{L}}_2\widehat{\mathcal{L}}_1\right)\mathbf{w}\right\|^2
+	+ \frac{1}{\gamma^2}\|\widehat{\mathcal{L}}_2\mathbf{w}\|^2
+	+ \frac{1}{\eta^2}\|\widehat{\mathcal{L}}_1\mathbf{w}\|^2
+	+ \frac{2}{\gamma\eta}\langle\widehat{\mathcal{L}}_1\mathbf{w},\widehat{\mathcal{L}}_2\mathbf{w}\rangle
 	\nonumber\\ & \hspace{5ex}
-	- \frac{2}{\gamma}\Big\langle \left(I + \tfrac{1}{\gamma\eta}\mathcal{L}_2\mathcal{L}_1\right)\mathbf{w},
-		\mathcal{L}_2\mathbf{w}\Big\rangle
-	- \frac{2}{\eta}\Big\langle \left(I + \tfrac{1}{\gamma\eta}\mathcal{L}_2\mathcal{L}_1\right)\mathbf{w},
-		\mathcal{L}_1\mathbf{w}\Big\rangle \nonumber\\
-& \geq \left\|\left(I + \tfrac{1}{\gamma\eta}\mathcal{L}_2\mathcal{L}_1\right)\mathbf{w}\right\|^2
-	+ \frac{1}{\gamma^2}\|\mathcal{L}_2\mathbf{w}\|^2
-	+ \frac{1}{\eta^2}\|\mathcal{L}_1\mathbf{w}\|^2
-	+ \frac{2}{\gamma\eta}\langle\mathcal{L}_1\mathbf{w},\mathcal{L}_2\mathbf{w}\rangle
+	- \frac{2}{\gamma}\Big\langle \left(I + \tfrac{1}{\gamma\eta}\widehat{\mathcal{L}}_2\widehat{\mathcal{L}}_1\right)\mathbf{w},
+		\widehat{\mathcal{L}}_2\mathbf{w}\Big\rangle
+	- \frac{2}{\eta}\Big\langle \left(I + \tfrac{1}{\gamma\eta}\widehat{\mathcal{L}}_2\widehat{\mathcal{L}}_1\right)\mathbf{w},
+		\widehat{\mathcal{L}}_1\mathbf{w}\Big\rangle \nonumber\\
+& \geq \left\|\left(I + \tfrac{1}{\gamma\eta}\widehat{\mathcal{L}}_2\widehat{\mathcal{L}}_1\right)\mathbf{w}\right\|^2
+	+ \frac{1}{\gamma^2}\|\widehat{\mathcal{L}}_2\mathbf{w}\|^2
+	+ \frac{1}{\eta^2}\|\widehat{\mathcal{L}}_1\mathbf{w}\|^2
+	+ \frac{2}{\gamma\eta}\langle\widehat{\mathcal{L}}_1\mathbf{w},\widehat{\mathcal{L}}_2\mathbf{w}\rangle
 	\nonumber\\ & \hspace{5ex}
-	- \frac{2}{\gamma}\left\| \left(I + \tfrac{1}{\gamma\eta}\mathcal{L}_2\mathcal{L}_1\right)\mathbf{w}\right\|
-		\left\|\mathcal{L}_2\mathbf{w}\right\|
-	- \frac{2}{\eta}\Big\langle \left(I + \tfrac{1}{\gamma\eta}\mathcal{L}_2\mathcal{L}_1\right)\mathbf{w},
-		\mathcal{L}_1\mathbf{w}\Big\rangle \nonumber\\
-& = \left( \left\|\left(I + \tfrac{1}{\gamma\eta}\mathcal{L}_2\mathcal{L}_1\right)\mathbf{w}\right\|
-		- \frac{1}{\gamma}\|\mathcal{L}_2\mathbf{w}\|\right)^2
-	+ \frac{1}{\eta^2}\|\mathcal{L}_1\mathbf{w}\|^2
+	- \frac{2}{\gamma}\left\| \left(I + \tfrac{1}{\gamma\eta}\widehat{\mathcal{L}}_2\widehat{\mathcal{L}}_1\right)\mathbf{w}\right\|
+		\left\|\widehat{\mathcal{L}}_2\mathbf{w}\right\|
+	- \frac{2}{\eta}\Big\langle \left(I + \tfrac{1}{\gamma\eta}\widehat{\mathcal{L}}_2\widehat{\mathcal{L}}_1\right)\mathbf{w},
+		\widehat{\mathcal{L}}_1\mathbf{w}\Big\rangle \nonumber\\
+& = \left( \left\|\left(I + \tfrac{1}{\gamma\eta}\widehat{\mathcal{L}}_2\widehat{\mathcal{L}}_1\right)\mathbf{w}\right\|
+		- \frac{1}{\gamma}\|\widehat{\mathcal{L}}_2\mathbf{w}\|\right)^2
+	+ \frac{1}{\eta^2}\|\widehat{\mathcal{L}}_1\mathbf{w}\|^2
 	\nonumber\\ & \hspace{5ex}
-	- \frac{2}{\eta}\Big\langle \left(I + \tfrac{1}{\gamma\eta}\mathcal{L}_2\mathcal{L}_1\right)\mathbf{w},
-		\mathcal{L}_1\mathbf{w}\Big\rangle
-	+ \frac{2}{\gamma\eta}\langle\mathcal{L}_1\mathbf{w},\mathcal{L}_2\mathbf{w}\rangle \nonumber\\
-& \geq \frac{1}{\eta^2}\|\mathcal{L}_1\mathbf{w}\|^2
-	- \frac{2}{\eta}\langle \mathbf{w}, \mathcal{L}_1\mathbf{w}\rangle 
-	- \frac{2}{\gamma\eta^2}\langle \mathcal{L}_2(\mathcal{L}_1\mathbf{w}),
-		\mathcal{L}_1\mathbf{w}\rangle
-	+ \frac{2}{\gamma\eta}\langle\mathcal{L}_1\mathbf{w},\mathcal{L}_2\mathbf{w}\rangle.
+	- \frac{2}{\eta}\Big\langle \left(I + \tfrac{1}{\gamma\eta}\widehat{\mathcal{L}}_2\widehat{\mathcal{L}}_1\right)\mathbf{w},
+		\widehat{\mathcal{L}}_1\mathbf{w}\Big\rangle
+	+ \frac{2}{\gamma\eta}\langle\widehat{\mathcal{L}}_1\mathbf{w},\widehat{\mathcal{L}}_2\mathbf{w}\rangle \nonumber\\
+& \geq \frac{1}{\eta^2}\|\widehat{\mathcal{L}}_1\mathbf{w}\|^2
+	- \frac{2}{\eta}\langle \mathbf{w}, \widehat{\mathcal{L}}_1\mathbf{w}\rangle 
+	- \frac{2}{\gamma\eta^2}\langle \widehat{\mathcal{L}}_2(\widehat{\mathcal{L}}_1\mathbf{w}),
+		\widehat{\mathcal{L}}_1\mathbf{w}\rangle
+	+ \frac{2}{\gamma\eta}\langle\widehat{\mathcal{L}}_1\mathbf{w},\widehat{\mathcal{L}}_2\mathbf{w}\rangle.
 		\label{eq:den_gen}
 \end{align}
 %
 
-By assumption, $\langle\mathcal{L}_1\mathbf{w},\mathcal{L}_2\mathbf{w}\rangle\geq 0$,
+By assumption, $\langle\widehat{\mathcal{L}}_1\mathbf{w},\widehat{\mathcal{L}}_2\mathbf{w}\rangle\geq 0$,
 and thus all terms in \eqref{eq:num_gen} and \eqref{eq:den_gen} are non-negative.
 Returning to the minimum singular value defined in \eqref{eq:gen_smin} and plugging in
 the numerator \eqref{eq:num_gen} and denominator bounds \eqref{eq:den_gen} yields
 an upper bound on the maximum over $\mathbf{w}$,
 %
-\begin{align*}
+{\small
+\begin{align}\label{eq:max_bound0}
 &\max_{\mathbf{w}\neq\mathbf{0}}
-	\frac{(-\tfrac{2}{\eta})\left\langle(I - \tfrac{1}{\gamma}\mathcal{L}_2)(I -
-		\tfrac{1}{\eta}\mathcal{L}_1)\mathbf{w},
-		\mathcal{L}_1\mathbf{w} \right\rangle- 
-		\frac{\beta^2}{\eta^2(\eta^2+\beta^2)}\left\|\mathcal{L}_1\mathbf{w} \right\|^2}
-	{\|(I - \tfrac{1}{\gamma}\mathcal{L}_2)(I - \tfrac{1}{\eta}\mathcal{L}_1)\mathbf{w}\|^2} \\
-& \leq \max_{\mathbf{w}\neq\mathbf{0}}\frac{\left(\frac{1}{\eta^2} + \frac{1}{\eta^2+\beta^2)}\right)
-			\left\|\mathcal{L}_1\mathbf{w} \right\|^2
-		- \frac{2}{\eta}\langle\mathbf{w},\mathcal{L}_1\mathbf{w}\rangle
-		- \frac{2}{\gamma\eta^2}\langle\mathcal{L}_2(\mathcal{L}_1\mathbf{w}),\mathcal{L}_1\mathbf{w}\rangle
-		+ \frac{2}{\gamma\eta}\langle\mathcal{L}_1\mathbf{w},\mathcal{L}_2\mathbf{w}\rangle}
-	{\frac{1}{\eta^2}\|\mathcal{L}_1\mathbf{w}\|^2
-	- \frac{2}{\eta}\langle \mathbf{w}, \mathcal{L}_1\mathbf{w}\Big\rangle 
-	- \frac{2}{\gamma\eta^2}\langle \mathcal{L}_2(\mathcal{L}_1\mathbf{w}),
-		\mathcal{L}_1\mathbf{w}\Big\rangle
-	+ \frac{2}{\gamma\eta}\langle\mathcal{L}_1\mathbf{w},\mathcal{L}_2\mathbf{w}\rangle} \nonumber\\
-& \leq \frac{\frac{1}{\eta^2} + \frac{1}{\eta^2+\beta^2)}}{\frac{1}{\eta^2}}.
+	\frac{(-\tfrac{2}{\eta})\left\langle(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2)(I -
+		\tfrac{1}{\eta}\widehat{\mathcal{L}}_1)\mathbf{w},
+		\widehat{\mathcal{L}}_1\mathbf{w} \right\rangle- 
+		\frac{\beta^2}{\eta^2(\eta^2+\beta^2)}\left\|\widehat{\mathcal{L}}_1\mathbf{w} \right\|^2}
+	{\|(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2)(I - \tfrac{1}{\eta}\widehat{\mathcal{L}}_1)\mathbf{w}\|^2} \\
+& \leq \max_{\mathbf{w}\neq\mathbf{0}}\frac{\frac{2\eta^2+\beta^2}{\eta^2(\eta^2+\beta^2)}
+			\left\|\widehat{\mathcal{L}}_1\mathbf{w} \right\|^2
+		- \frac{2}{\eta}\langle\mathbf{w},\widehat{\mathcal{L}}_1\mathbf{w}\rangle
+		- \frac{2}{\gamma\eta^2}\langle\widehat{\mathcal{L}}_2(\widehat{\mathcal{L}}_1\mathbf{w}),
+			\widehat{\mathcal{L}}_1\mathbf{w}\rangle
+		+ \frac{2}{\gamma\eta}\langle\widehat{\mathcal{L}}_1\mathbf{w},\widehat{\mathcal{L}}_2\mathbf{w}\rangle}
+	{\frac{1}{\eta^2}\|\widehat{\mathcal{L}}_1\mathbf{w}\|^2
+	- \frac{2}{\eta}\langle \mathbf{w}, \widehat{\mathcal{L}}_1\mathbf{w}\rangle 
+	- \frac{2}{\gamma\eta^2}\langle \widehat{\mathcal{L}}_2(\widehat{\mathcal{L}}_1\mathbf{w}),
+		\widehat{\mathcal{L}}_1\mathbf{w}\rangle
+	+ \frac{2}{\gamma\eta}\langle\widehat{\mathcal{L}}_1\mathbf{w},\widehat{\mathcal{L}}_2\mathbf{w}\rangle} \nonumber\\
+& \leq \frac{\frac{2\eta^2+\beta^2}{\eta^2(\eta^2+\beta^2)}}{\frac{1}{\eta^2}}.\label{eq:max_bound}
 % & = \frac{2\eta^2 + \beta^2}{\eta^2+\beta^2}.
-\end{align*}
+\end{align}
+}
 %
 Simplifying and plugging in to \eqref{eq:gen_smin} yields
 %
@@ -926,6 +932,45 @@ combining with \eqref{eq:Pgamma_gen} yields
 which completes the proof.
 \end{proof}
 %
+
+%
+\begin{remark}[$\widehat{\mathcal{L}}_1 = \widehat{\mathcal{L}}_2$]
+If $\widehat{\mathcal{L}}_1 = \widehat{\mathcal{L}}_2$, similar derivations as in
+\Cref{th:cond} yield a tighter condition number
+\begin{align*}
+\textnormal{cond}(\mathcal{P}_{\gamma_*}) \leq
+	2+\frac{\beta^2}{2\eta^2} - \frac{\beta^2}{2\eta^2 + 2\beta^2}.
+\end{align*}
+This still has dependence on $\eta$ and $\beta$, but grows at about half the rate
+of the bound derived for $\widehat{\mathcal{L}}_1 \neq \widehat{\mathcal{L}}_2$.
+It is worth pointing out that some of the PRESB methods \todo{cite} may also be
+effective for $\widehat{\mathcal{L}}_1 = \widehat{\mathcal{L}}_2$ (or potentially
+more effective than the block preconditioning considered here). We do not consider
+such methods because the $2\times 2$ Schur complement approach has proven effective
+in practice and, moreover, PRESB methods do not naturally generalize to
+$\widehat{\mathcal{L}}_1 \neq \widehat{\mathcal{L}}_2$, which is one of the
+focuses of this paper.
+\end{remark}
+%
+
+%
+\begin{remark}[(Lack of) tightness of bounds]
+Although \Cref{th:cond} provides condition number bounds $\sim\mathcal{O}(1)$, they
+are likely not particularly tight. There are a number of approximations made in the
+proof that are difficult to quantify or tighten, but likely pessimistic for realistic
+problems. For example,
+the maximum in \eqref{eq:max_bound} is taken as the largest ratio of matching numerator
+and denominator terms. However, three of the four terms have a unity ratio, and only
+the $\|\widehat{\mathcal{L}}_1\mathbf{w}\|^2$ term is non-unity. In practice, these
+other terms will often be of non-trivial size and the maximum in \eqref{eq:max_bound0}
+would be closer to one than the bound in \eqref{eq:max_bound}. If \eqref{eq:max_bound0}
+is bounded above by one, $\textnormal{cond}(\mathcal{P}_{\gamma_*})$ is bounded
+by a function that scales like $\sqrt{\beta^2/\eta^2}$, and $\approx 10$ for
+$\beta^2/\eta^2 = 100$. Other approximations that are likely pessimistic in practice
+are made in bounding the denominator \eqref{eq:den_gen}.
+\end{remark}
+%
+
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
