@@ -1039,14 +1039,15 @@ Actually, note that $\gamma I - \zeta {\cal L} = \zeta ( \gamma /\zeta I - {\cal
 % ---------------------------------------------------------------------------------------------- %
 % ---------------------------------------------------------------------------------------------- %
 \subsection{The skew symmetric case}
-Assume ${\cal L}^\top = - {\cal L}$, as for central-finite-difference discretizations of a constant-coefficient advection problem, for example. While ${\cal L}$ is not going to be skew symmetric for a \textit{real-world problem}, it is a useful case to analyze because a \textit{good} advection discretization will have eigenvalues with large imaginary components, and skew symmetric matrices have purely imaginary eigenvalues; note that an \textit{exact} advection discretization would have purely imaginary eigenvalues. 
+Assume ${\cal L}^\top = - {\cal L}$, as for central-finite-difference discretizations of a constant-coefficient advection problem, for example. While ${\cal L}$ is not going to be skew symmetric for a \textit{real-world problem}, it is a useful case to analyze because a \textit{good} advection discretization will have eigenvalues with large imaginary components, and skew symmetric matrices have purely imaginary eigenvalues; note that an \textit{exact} advection discretization would have purely imaginary eigenvalues. So while this case probably won't play out exactly in practice, I think it's a useful one to analyze and will hopefully provide some insight.
 
-Some motivation here is that with the linear algorithm, which has a slightly different setup than this $2 \times 2$ problem, Ben observed a huge reduction in iteration count for an advection-dominated problem when using $\gamma = \gamma_*$ v.s. $\gamma = \eta$ compared with the typical types of reduction in iterations we see for diffusion-dominated problems. So, can we say anything about the optimal value $\gamma_*$, and/or whether $\gamma_*$ is significantly better than $\eta$ in this instance? Let's not set any restrictions of $\gamma$ yet, except that $\gamma \in \mathbb{R}$, so that we are left with a real matrix to invert.
+Some motivation here is that with the linear algorithm, which has a slightly different setup than this $2 \times 2$ problem, Ben observed a huge reduction in iteration count for an advection-dominated problem when using $\gamma = \gamma_*$ v.s. $\gamma = \eta$ compared with the typical types of reduction in iterations we see for diffusion-dominated problems. So, can we say anything about the optimal value $\gamma_*$, and/or whether $\gamma_*$ is significantly better than $\eta$ in this instance? Let's not set any restrictions of $\gamma$ yet, except that $\gamma \in \mathbb{R}$, so that we are left with a real matrix to invert. \tcr{Maybe it's worth redoing the following analysis for the linear case, because I'm not really sure the results I get here entirely correspond with what Ben observed numerically. Although, this difference could possibly have arisen because of an assumption I make on the size of the eigenvalues (see below), or maybe the skew-symmetric assumption I make is not a good one for the discretization/problem he tested.}
 
-Let $\mathrm{i} \lambda \in \sigma(- {\cal L}) \subset [-\mathrm{i} c, \mathrm{i} c]$, for $\lambda \in \mathbb{R}$, $c \in \mathbb{R}_+$. For example, for a discretization of an advection problem with spacial mesh size $h$, we'd have $c \sim \delta t / h$.
+Let $\mathrm{i} \lambda \in \sigma(- {\cal L}) \subset [-\mathrm{i} c, \mathrm{i} c]$, for $\lambda \in \mathbb{R}$, $c \in \mathbb{R}_+$. For example, for a discretization of an advection problem with spacial mesh size $h$, we'd have $c \sim \delta t / h$. We're also going to assume that $\lambda$ is dense in $[-c,c]$, such that we can  treat it continuously. Note that doing so provides an upper bound on the condition number for finite-dimensional matrices who do not have such dense spectra.
 
 The preconditioned operator is
 \begin{align}
+\label{eq:P_gamma_skew}
 {\cal P}_{\gamma} 
 = 
 S \widehat{S}_{\gamma}^{-1} 
@@ -1055,20 +1056,21 @@ S \widehat{S}_{\gamma}^{-1}
 \end{align} 
 Assuming ${\cal L}$ is diagonalizable, the spectrum ${\cal F}$ of ${\cal P}_{\gamma}$ is given by
 \begin{align}
-{\cal F}(\lambda; \gamma) = \frac{(\eta + \mathrm{i} \lambda)^2 + \beta^2}{(\gamma + \mathrm{i} \lambda) (\eta + \mathrm{i} \lambda)}.
+\label{eq:F_skew}
+{\cal F}_{\gamma}(\lambda) = \frac{(\eta + \mathrm{i} \lambda)^2 + \beta^2}{(\gamma + \mathrm{i} \lambda) (\eta + \mathrm{i} \lambda)}.
 \end{align}
 Since ${\cal L}$ is normal, ${\cal P}_{\gamma}$ is too, and, thus, has a condition number
-\begin{align}
-\kappa ({\cal P}_{\gamma}) = \frac{\max \limits_{\lambda \in [-c, c]}  |{\cal F}(\lambda)|}{\min \limits_{\lambda \in [-c, c]}  |{\cal F}(\lambda)|}.
-\end{align}
-
-To analyze the extrema of $|{\cal F}|$ with respect to $\lambda$, we look at its square since it's easier,
-\begin{align}
-{\cal G}(\lambda) 
+\begin{align*}
+\kappa ({\cal P}_{\gamma}) = \frac{\max \limits_{\lambda \in [-c, c]}  |{\cal F}_{\gamma}(\lambda)|}{\min \limits_{\lambda \in [-c, c]}  |{\cal F}_{\gamma}(\lambda)|}.
+\end{align*}
+To analyze the extrema of $|{\cal F}|$ we work with its square since it's easier,
+\begin{align} 
+\label{eq:G_def}
+{\cal G}_{\gamma}(\lambda) 
 \coloneqq
-|{\cal F}(\lambda)|^2 
+|{\cal F}_{\gamma}(\lambda)|^2 
 =
-{\cal F}^{*}(\lambda) {\cal F}(\lambda)
+{\cal F}_{\gamma}^{*}(\lambda) {\cal F}_{\gamma}(\lambda)
 &=
 \frac{\lambda^4 +  2(\eta^2 - \beta^2) \lambda^2 + (\eta^2 + \beta^2)^2}{\lambda^4 + (\eta^2 + \gamma^2) \lambda^2 + \eta^2 \gamma^2}, \\
 &=
@@ -1077,19 +1079,21 @@ To analyze the extrema of $|{\cal F}|$ with respect to $\lambda$, we look at its
 where
 \begin{align}
 \label{eq:cond_skew_def}
-\kappa^2 ({\cal P}_{\gamma}) = \frac{\max \limits_{\lambda \in [-c, c]}  {\cal G}(\lambda)}{\min \limits_{\lambda \in [-c, c]}  {\cal G}(\lambda)}.
+\kappa^2 ({\cal P}_{\gamma}) = \frac{\max \limits_{\lambda \in [-c, c]}  {\cal G}_{\gamma}(\lambda)}{\min \limits_{\lambda \in [-c, c]}  {\cal G}_{\gamma}(\lambda)}.
 \end{align}
 
 
 \begin{itemize}
 \setlength\itemsep{1ex}
 
-\item For simplicity, let's just consider $c \to \infty$. While this won't arise in practice (where $c \sim \delta t / h$), it's helpful from an analysis point of view, since determining whether ${\cal G}$ for some arbitrary $c < \infty$ is an extremum will be too complicated. However, note that considering $c \to \infty$ results in an upper bound on the condition number for finite $c$, since the min/max of $|{\cal F}|$ for $\lambda \in [-c,c]$ are bounded below/above by those in $(-\infty, \infty)$. Also, I think letting $c \to \infty$ is not such a bad assumption for big time steps, like $\delta t \sim 10 \delta x$. 
+\item I'm just going to \underline{assume $\beta > 0$} because it's too complicated to allow for all the edge cases if I don't. Anyway, it's obvious from \eqref{eq:P_gamma_skew} that the optimal choice if $\beta = 0$ is $\gamma = \eta$ since we get ${\cal P}_{\gamma} = I$.
 
-Observe that as $c \to \infty$, ${\cal G}$ approaches unity: For $\beta > 0$,
+\item For simplicity, let's just consider $c \to \infty$. While this won't arise in practice (where $c \sim \delta t / h$), it's helpful from an analysis point of view, since determining whether ${\cal G}$ for some arbitrary $c < \infty$ is an extremum will be too complicated. However, note that considering $c \to \infty$ results in an upper bound on the condition number for finite $c$, since the min/max of $|{\cal F}|$ for $\lambda \in [-c,c]$ are bounded below/above by those in $(-\infty, \infty)$. Also, I think letting $c \to \infty$ is not such a bad assumption for big time steps, like $\delta t \sim 10 \delta x$. \tcr{Maybe come back and think some more about the case of finite $c$, I have some thoughts.}
+
+\item Observe that as $\lambda \to \pm \infty$, ${\cal G}_{\gamma}$ approaches unity:
 \begin{align}
 \label{eq:Gunity}
-\lim \limits_{\lambda \to \pm \infty} {\cal G}(\lambda) 
+\lim \limits_{\lambda \to \pm \infty} {\cal G}_{\gamma}(\lambda) 
 = 
 \frac{1 + 2(\eta^2 - \beta^2)\tfrac{1}{\lambda^2} + (\eta^2 + \beta^2)^2\tfrac{1}{\lambda^4}}{1 + (\eta^2 + \gamma^2)\tfrac{1}{\lambda^2} + \eta^2 \gamma^2 \tfrac{1}{\lambda^4}} 
 =
@@ -1098,27 +1102,32 @@ Observe that as $c \to \infty$, ${\cal G}$ approaches unity: For $\beta > 0$,
 1^{-}, \quad &\gamma^2 > \eta^2 - 2 \beta^2.
 \end{cases}
 \end{align}
-Based on this result, and the implications it has for the coming analysis, we're going to assume that 
+Based on this result, and the implications it has for the forthcoming analysis, we're going to \underline{assume} that 
 \begin{align} 
 \label{eq:gam_ass}
+\gamma^2 > \eta^2 - 2 \beta^2, 
+\quad
+\textrm{and}
+\quad
 \gamma > \sqrt{\max(0, \eta^2 - 2 \beta^2)}.
 \end{align}
-Furthermore, we're really only interested in the case where $\beta$ is at least as big as $\eta$, so this allows us to take $\gamma$ down to zero. As such, I don't think it's worth analyzing the other case...
-Note we include the $\max$ here with 0 so that $\gamma^2  > 0$ since $\gamma \in \mathbb{R}_+$. \tcr{Come back and think about the $\gamma = \eta$ case when $\beta = 0$.}
+Moreover, we're really only interested in the case where $\beta$ is at least of the order of $\eta$, which will allow us to take $\gamma$ down to zero. As such, I don't believe it's worth analyzing the other case.
+Note we include the $\max$ here with 0 so that $\gamma^2  > 0$ since $\gamma \in \mathbb{R}_+$.
 
-\item ${\cal G}(\lambda)$ is symmetric about $\lambda  = 0$, thus:
+\item ${\cal G}_{\gamma}(\lambda)$ in \eqref{eq:G_def} is symmetric about $\lambda  = 0$, thus:
 \begin{enumerate}
 \setlength \itemsep{1ex}
 
 \item We need only analyze $\lambda \in [0, \infty)$ since the extrema are also symmetric
 
-\item \underline{$\lambda = 0$ is a turning point} since ${\cal G}$ is not constant (unless $\beta = 0$ and $\gamma = \eta$) and is symmetric about $\lambda = 0$. For reference, the value of ${\cal G}(0)$ is
-\begin{align}
-{\cal G}(0) = \left[ \frac{1}{\gamma} \left( \eta +  \frac{\beta^2}{\eta} \right) \right]^2.
+\item \underline{$\lambda = 0$ is a turning point} since ${\cal G}_{\gamma}$ is not constant and is symmetric about $\lambda = 0$. For reference, the value of ${\cal G}_{\gamma}(0)$ is
+\begin{align} \label{eq:G0}
+{\cal G}_{\gamma}(0) = \left[ \frac{1}{\gamma} \left( \eta +  \frac{\beta^2}{\eta} \right) \right]^2.
 \end{align}
 Notice that
 \begin{align}
-{\cal G}(0) 
+\label{eq:G0_sizes}
+{\cal G}_{\gamma}(0) 
 =
 \begin{cases}
 > 1, \quad &0 < \gamma <  \eta +  \frac{\beta^2}{\eta}, \\
@@ -1133,9 +1142,9 @@ Notice that
 \item \underline{What kind of turning point is $\lambda = 0$?} To consider this, apply a Taylor series expansion about $\lambda = 0$ to get
 \begin{align}
 \label{eq:G_taylor}
-{\cal G}(\lambda) 
+{\cal G}_{\gamma}(\lambda) 
 = 
-{\cal G}(0) 
+{\cal G}_{\gamma}(0) 
 +
 \frac{1}{(\eta \gamma)^4} 
 \Big[ 
@@ -1144,7 +1153,7 @@ Notice that
 + 
 {\cal O}(\lambda^4)
 \end{align}
-If the ${\cal O}(\lambda^2)$ term is positive, $\lambda = 0$ is a local minimum since we approach ${\cal G}(0)$ from above. Conversely, if this term is negative, $\lambda = 0$ is a local maximum since we approach ${\cal G}(0)$ from below. This can be restated as
+If the ${\cal O}(\lambda^2)$ term is positive, $\lambda = 0$ is a local minimum since we approach ${\cal G}_{\gamma}(0)$ from above. Conversely, if this term is negative, $\lambda = 0$ is a local maximum since we approach ${\cal G}_{\gamma}(0)$ from below. This can be restated as
 \begin{align}
 \Big[ \big(\eta^2 + \big(\sqrt{5}-2 \big) \beta^2 \big) \big(\eta^2 - \big( \sqrt{5}+2 \big) \beta^2 \big) \Big] \gamma^2 < \eta^2 (\eta^2 + \beta^2)^2
 \quad 
@@ -1163,10 +1172,10 @@ So, more concisely, we have the result
 \begin{aligned}
 \eta^2 \leq \big(\sqrt{5}+2 \big) \beta^2:& 
 \quad 
-{\cal G}(0) = \textrm{local maximum}, \\
+{\cal G}_{\gamma}(0) = \textrm{local maximum}, \\
 \eta^2 > \big(\sqrt{5}+2 \big) \beta^2:&
 \quad
-{\cal G}(0) = 
+{\cal G}_{\gamma}(0) = 
 \begin{cases}
 \textrm{local maximum}, \quad  0 < \gamma < {\cal K}, \\
 \textrm{local minimum}, \quad  {\cal K} <  \gamma  < \infty.
@@ -1174,18 +1183,15 @@ So, more concisely, we have the result
 \end{aligned}
 \end{equation}
 
-Noting that $\eta^4 \geq \eta^4 - 4 \eta^2 \beta^2 - \beta^4$, a sufficient condition that $\lambda = 0$ is always a local maximum is thus
+Noting that $\eta^4 > \eta^4 - 4 \eta^2 \beta^2 - \beta^4$, a sufficient condition that $\lambda = 0$ is always a local maximum is thus
 \begin{align} \label{eq:suff_0max}
 \gamma \leq \eta + \frac{\beta^2}{\eta} < {\cal K}.
 \end{align}
-Note that for $\beta = 0$, and $\gamma = \eta$, ${\cal G}(\lambda) \equiv 1$, such that $\lambda = 0$ is a global maximum. 
+Since ${\cal K} > \eta + \beta^2 / \eta$, ${\cal G}_{\gamma}(0) < 1$ when it is a local minimum due to \eqref{eq:G0_sizes}.
 
-Since ${\cal K} > \eta + \beta^2 / \eta$, ${\cal G}(0) < 1$ when it is a local minimum.
-
-
-\item Taking the  derivative of ${\cal G}$, we have
-\begin{align}
-\frac{\partial {\cal G}}{\partial \lambda} 
+\item Taking the derivative of ${\cal G}$ in \eqref{eq:G_def}, we have
+\begin{align} \label{eq:G_partial_skew}
+\frac{\partial {\cal G}_{\gamma}}{\partial \lambda} 
 = 
 -\lambda
 \frac{
@@ -1194,91 +1200,113 @@ Since ${\cal K} > \eta + \beta^2 / \eta$, ${\cal G}(0) < 1$ when it is a local m
 + \big[ \big( \eta^4 - 4 \eta^2 \beta^2 - \beta^4 \big) \gamma^2  - \eta^2 (\eta^2 + \beta^2)^2 \big] }
 {(\gamma^2 + \lambda^2)^2 (\eta^2 + \lambda^2)^2}.
 \end{align}
-We immediately see the critical point $\lambda = 0$.
-
-\indent The denominator is always positive, and, so, critical points of ${\cal G}$ occur at roots of the numerator, which we note is a quadratic function in the variable $\zeta \coloneqq \lambda^2 \geq 0$, which we write as
+We immediately see the critical point $\lambda = 0$ that we just discussed. 
+%
+The denominator of \eqref{eq:G_partial_skew} is always positive, and, so, critical points of ${\cal G}$ occur at roots of the numerator, which we note is a quadratic function in the variable $\zeta \coloneqq \lambda^2 \geq 0$. We write this quadratic equation as
 \begin{align}
+\label{eq:Q_def_skew}
 Q(\zeta) = a \zeta^2 + b \zeta + c,
 \end{align}
-with
+with coefficients
 \begin{equation}
 \begin{gathered}
 \label{eq:abc_def}
 a \coloneqq -\eta^2 + 2 \beta^2 + \gamma^2, 
 \quad
-b \coloneqq - \big[ 2(\beta^2 + \eta^2)^2 - 2 \eta^2 \gamma^2  \big], \\
+b \coloneqq - \big[ 2(\eta^2 + \beta^2)^2 - 2 \eta^2 \gamma^2  \big], \\
 c \coloneqq \big( \eta^4 - 4 \eta^2 \beta^2 - \beta^4 \big) \gamma^2  - \eta^2 (\eta^2 + \beta^2)^2.
 \end{gathered}
 \end{equation}
-Thus, the four remaining (other than $\lambda = 0$) possible critical points of ${\cal G}$ occur at $\lambda = \pm \sqrt{\zeta_{\pm}}$, where $Q(\zeta_{\pm}) = 0$. Note, however, that critical points with $\zeta_{-} < 0$ or $\zeta_+ < 0$ are not valid since they'd correspond to imaginary values of $\lambda$.
+Thus, the four remaining (other than $\lambda = 0$) possible critical points of ${\cal G}_{\gamma}$ occur at $\lambda = \pm \sqrt{\zeta_{\pm}}$, where $\zeta_{\pm}$ satisfy $Q(\zeta_{\pm}) = 0$. Note, however, that critical points $\zeta_{-} < 0$ or $\zeta_+ < 0$ are not valid since they'd correspond to imaginary values of $\lambda$.
 
-Due to assumption \eqref{eq:gam_ass} resulting in ${\cal G}$ approaching 1 from below as $\lambda \to \infty$, when ${\cal G}(0)$ is a local maximum, only one of $\zeta_-$ and $\zeta_+$ can be a turning point, and it must be a local minimum; note that the other critical point is not necessarily invalid/non-existent, it could be a point of inflection. Similarly, when ${\cal G}(0)$ is a local minimum, either both $\zeta_{\pm}$ are local extrema (one being a max and the other a min), or neither of them are local extrema, in which case one or both could be points of inflection.
+Due to assumption \eqref{eq:gam_ass} resulting in ${\cal G}_{\gamma}$ approaching 1 from below as $\lambda \to \infty$, when ${\cal G}_{\gamma}(0)$ is a local maximum only one of $\zeta_-$ and $\zeta_+$ can be a turning point, and it must be a local minimum; note that the other critical point is not necessarily invalid/non-existent, it could be a point of inflection. Similarly, when ${\cal G}_{\gamma}(0)$ is a local minimum, either both $\zeta_{\pm}$ are local extrema (one being a max and the other a min), or neither of them are local extrema, in which case one or both could be points of inflection.
 
-Let's examine the signs of the coefficients in \eqref{eq:abc_def}. Note $a > 0$ always by assumption \eqref{eq:ass1}. For the second coefficient, $b < 0$ for $\gamma < \eta + \beta^2 / \eta$, $b = 0$ for $\gamma = \eta + \beta^2 / \eta$, and $b > 0$ for $\gamma > \eta + \beta^2 / \eta$. Notice that $c$ exactly appeared in the Taylor expansion \eqref{eq:G_taylor}; this is not coincidence: $c$ is proportional to ${\cal G}_{\lambda}(0)$. Thus, there is a direct correspondence between the sign of $c$ and the nature of ${\cal G}(0)$: If ${\cal G}(0)$ is a local maximum $c < 0$, and conversely, if ${\cal G}(0)$ is a local minimum $c > 0$.
+Let's examine the signs of the coefficients \eqref{eq:abc_def}. Note $a > 0$ always by assumption \eqref{eq:ass1}. For the second coefficient, $b < 0$ for $\gamma < \eta + \beta^2 / \eta$, $b = 0$ for $\gamma = \eta + \beta^2 / \eta$, and $b > 0$ for $\gamma > \eta + \beta^2 / \eta$. Notice that $c$ appeared exactly in the Taylor expansion \eqref{eq:G_taylor}. Thus, there is a direct correspondence between the sign of $c$ and the nature of ${\cal G}_{\gamma}(0)$: If ${\cal G}_{\gamma}(0)$ is a local maximum $c < 0$, and conversely, if ${\cal G}(0)$ is a local minimum $c > 0$. \\
 
-Now, the roots of $Q$ may be expressed as
+Now, the roots of $Q$ in \eqref{eq:Q_def_skew} may be expressed as
 \begin{align} \label{eq:zeta_pm}
-\zeta_{\pm} = \frac{-b^2 \pm \sqrt{b^2 - 4ac}}{2a}, \quad a > 0.
+\zeta_{\pm} = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}, \quad a > 0.
 \end{align}
-Computing the discriminant of $Q$ gives
+Computing the discriminant of $Q$ we find
 \begin{align*}
-b^2 - 4ac = 4 \beta^2 (\beta^2 + 4 \eta^2) \big[ \beta^4 + (\gamma^2 - \eta^2)^2 + 2 \beta^2(\gamma^2 + \eta^2) \big] > 0,
+b^2 - 4ac = 4 \beta^2 (\beta^2 + 4 \eta^2) w(\gamma),
 \end{align*}
-indicating that $\zeta_{\pm}$ are always real.
+where we've defined the axillary function $w$,
+\begin{align}
+\label{eq:w_def}
+w(\gamma) 
+&\coloneqq 
+\gamma^4 - 2( \eta^2 - \beta^2) \gamma^2 + \left( \eta^2 + \beta^2 \right)^2 \\
+\label{eq:w_pos}
+&=
+\beta^4 + (\gamma^2 - \eta^2)^2 + 2 \beta^2(\gamma^2 + \eta^2) > 0. 
+\end{align}
+Thus, the discriminant is of $Q$ always positive, implying its roots $\zeta_{\pm}$ are always real.
 
-
-Now we examine the signs of these roots to understand the nature of the critical points. Recall that if critical points $\zeta_{\pm}  < 0$ then they're non-existent, so we examine when this happens. 
+Now we examine the signs of these roots to understand the nature of the critical points. Recall that if critical points $\zeta_{\pm}  < 0$ then they're to be discarded since they correspond to imaginary $\lambda$, so we examine under which conditions this happens. 
 \begin{enumerate}
 \setlength{\itemsep}{2ex}
 
-\item From \eqref{eq:zeta_pm}, $\zeta_- < 0$ for $b > 0$, and for $c < 0$ when $b < 0$. Working this through, and noting that ${\cal G}(0)$ is never a local minimum for $\gamma < \eta + \beta^2 / \eta$ \eqref{eq:suff_0max}, we find that $\zeta_- < 0$ always, and so it is never a critical point.
+\item From \eqref{eq:zeta_pm}, $\zeta_- < 0$ for any $b > 0$, and for $b<0$, we'd require $c < 0$ to have $\zeta_- < 0$. Working this through, and noting that ${\cal G}(0)$ is never a local minimum for $\gamma < \eta + \beta^2 / \eta$, as in \eqref{eq:G0_class} and \eqref{eq:suff_0max}, we find that $\zeta_- < 0$ always, and so it is never a critical point.
 
-\item From \eqref{eq:zeta_pm}, $\zeta_+ > 0$ for $b < 0$, and for $c < 0$ when $b > 0$. Working this through, we find $\zeta_+ > 0$ when ${\cal G}(0)$ is a local maximum, and $\zeta_+ < 0$ when ${\cal G}(0)$ is a local minimum. Thus, $\zeta_+$ is a local minimum, which is always less than unity, when ${\cal G}(0)$ is a local maximum. And $\zeta_+$ is not a critical point when ${\cal G}(0)$ is a local minimum.
+\item From \eqref{eq:zeta_pm}, $\zeta_+ > 0$ for any $b < 0$, and for $b > 0$, we'd require $c < 0$ to have $\zeta_+ > 0$. Working this through, we find $\zeta_+ > 0$ when ${\cal G}(0)$ is a local maximum, and $\zeta_+ < 0$ when ${\cal G}(0)$ is a local minimum. Thus, $\zeta_+$ is a local minimum when ${\cal G}(0)$ is a local maximum. And $\zeta_+$ is not a critical point when ${\cal G}(0)$ is a local minimum. Moreover, we know that when $\lambda = \sqrt{\zeta_+}$ is a local minimum of ${\cal  G}$, ${\cal G}(\sqrt{\zeta_+}) < 1$ due to ${\cal G}$ approaching unity from below as $\lambda \to \infty$, as in \eqref{eq:ass1}, and ${\cal G}(0)$ being the only other turning point.
 
 \end{enumerate}
 
 
-
-\item Combining the above discussions, we can express the extrema of ${\cal G}$ as follows. The minimum of ${\cal G}$ is
+\item Combining the above discussions, we can express the extrema of ${\cal G}_{\gamma}$ as follows. The minimum of ${\cal G}_{\gamma}$ is
 \begin{align}
 \min \limits_{\lambda \in \mathbb{R}} {\cal G}(\lambda)
 =
 \begin{cases}
-{\cal G}(0) < 1, \quad &\textrm{ if } {\cal G}(0) \textrm{ is a local minimum}, \\
-{\cal G}(\sqrt{\zeta_+}) < 1, &\quad \textrm{else}.
+{\cal G}_{\gamma}(0) < 1, \quad &\textrm{ if } {\cal G}(0) \textrm{ is a local minimum}, \\
+{\cal G}_{\gamma}(\sqrt{\zeta_+}) < 1, &\quad \textrm{else}.
 \end{cases}
 \end{align}
 %
 The maximum of ${\cal G}$ is
 \begin{align}
-\max \limits_{\lambda \in \mathbb{R}} {\cal G}(\lambda)
+\max \limits_{\lambda \in \mathbb{R}} {\cal G}_{\gamma}(\lambda)
 =
 \begin{cases}
-{\cal G}(0) \geq 1, \quad & 0 < \gamma \leq \eta + \frac{\beta^2}{\eta}, \\
+{\cal G}_{\gamma}(0) \geq 1, \quad & 0 < \gamma \leq \eta + \frac{\beta^2}{\eta}, \\
 1, \quad & \eta + \frac{\beta^2}{\eta} \leq \gamma  < \infty.
 \end{cases}
 \end{align}
 
-Noting that ${\cal G}(0)$ is always a local maximum for $\gamma \leq \eta + \beta^2/\eta$, we can write condition number \eqref{eq:cond_skew_def} as
-\begin{align} \label{eq:cond_}
+Noting that ${\cal G}_{\gamma}(0)$ is always a local maximum for $\gamma < {\cal K}$, as in \eqref{eq:Kdef}, we can express the square of the condition number, as defined in \eqref{eq:cond_skew_def}, as
+\begin{align} \label{eq:cond_val_skew}
 \kappa^2({\cal P}_{\gamma}) =
 \begin{cases}
 \displaystyle
-\frac{{\cal G}(0)}{{\cal G}(\sqrt{\zeta_+})}, 
+\frac{{\cal G}_{\gamma}(0)}{{\cal G}_{\gamma}(\sqrt{\zeta_+})}, 
 \quad \sqrt{\max(\eta^2 - 2 \beta^2, 0)} < \gamma \leq \eta + \frac{\beta^2}{\eta}, \\[2.5ex]
+\displaystyle
+\frac{1}{{\cal G}_{\gamma}(\sqrt{\zeta_+})}, \quad \eta + \frac{\beta^2}{\eta} \leq \gamma < {\cal K}, \\[2.5ex]
 \begin{cases}
 \displaystyle
-\frac{1}{{\cal G}(\sqrt{\zeta_+})}, \quad &\textrm{ if } {\cal G}(0) \textrm{ is a local minimum}, \\[2.5ex]
+\frac{1}{{\cal G}_{\gamma}(\sqrt{\zeta_+})}, \quad &\textrm{ if } {\cal G}_{\gamma}(0) \textrm{ is a local maximum}, \\[2.5ex]
 \displaystyle
-\frac{1}{{\cal G}(0)}, \quad &\textrm{ if } {\cal G}(0) \textrm{ is a local minimum}, \quad \\
+\frac{1}{{\cal G}_{\gamma}(0)}, \quad &\textrm{ if } {\cal G}_{\gamma}(0) \textrm{ is a local minimum}, \quad \\
 \end{cases},
-\quad \eta + \frac{\beta^2}{\eta} \leq \gamma < \infty
+\quad {\cal K} \leq \gamma < \infty.
 \end{cases}
 \end{align}
 
+I had mostly given up at this point because computing ${\cal G}_{\gamma}(\sqrt{\zeta_+})$ as a function of $\gamma$ is awful, and Mathematica's \texttt{Simplify} just gave me a big mess. But actually, using Mathematica's \texttt{FullSimplify} to evaluate $1/{\cal G}_{\gamma}(\sqrt{\zeta_+})$ we get something tractable! Funnily enough, told to fully simplify ${\cal G}_{\gamma}(\sqrt{\zeta_+})$, it does so by putting a removable singularity at $\gamma = \eta$, which is not very helpful...\\
 
+Anyway, we find that ${\cal G}_{\gamma}(\sqrt{\zeta_+})$ has the relatively simple form,
+\begin{align}
+\label{eq:g_d_def}
+{\cal G}_{\gamma}(\sqrt{\zeta_+}) 
+=
+\frac{8 \eta^2 \beta}{g_{\rm d}(\gamma)}, \quad
+g_{\rm d}(\gamma) \coloneqq
+\beta \big( 3 \eta^2 + \beta^2 + \gamma^2 \big)  +  \sqrt{4 \eta^2 + \beta^2} \sqrt{w(\gamma)},
+\end{align}
+where $w$ is given by \eqref{eq:w_def}. Now we have the main result!
 \begin{theorem}
-Condition number \eqref{eq:cond_} is minimized with respect to $\gamma$ for 
+Condition number \eqref{eq:cond_val_skew} is minimized with respect to $\gamma$ for 
 \begin{align} 
 \label{eq:gamma_opt_skew}
 \gamma_* \coloneqq \underset{\sqrt{\max(\eta^2 - 2 \beta^2, 0)} < \gamma < \infty}{\textrm{argmin}} \kappa({\cal P}_{\gamma}) = \eta + \frac{\beta^2}{\eta},
@@ -1291,18 +1319,62 @@ and its minimum value is
 \end{theorem}
 \begin{proof}
 
-\tcr{TODO: write out proof for this next bit...} First we establish that for $\gamma > \eta + \frac{\beta^2}{\eta}$ condition number \eqref{eq:cond_} is strictly increasing, and thus cannot be minimized in this interval. 
+The outline of the proof is as follows: We will first establish that for $\gamma > \eta + \beta^2/\eta$ condition number \eqref{eq:cond_val_skew} is strictly increasing. Then we will establish that the condition number is strictly decreasing in the interval $\sqrt{\max(\eta^2 - 2 \beta^2, 0)} < \gamma < \eta + \beta^2 / \eta$. It will therefore follow that the minimum is achieved at the intersection of these two domains, as in \eqref{eq:gamma_opt_skew}. 
+%
 
-Having established that $\kappa(\gamma)$ is increasing for $\gamma > \eta + \frac{\beta^2}{eta}$, we now show that it is strictly decreasing for $\gamma \in (\sqrt{\max(\eta^2 - 2 \beta^2, 0)}, \eta + \beta^2\eta]$. Again, we work with the square of condition number \eqref{eq:cond_}, which in this interval, can be expressed as
+Again, for simplicity, we work with the square of the condition number rather than the function itself. We remark that the derivative of function and the derivative of its square have the same sign because the function is positive: $[\kappa^2(\gamma)]' = 2 \kappa \kappa'$ implies $\textrm{sign}([\kappa^2]') = \textrm{sign}(\kappa')$ because $\kappa > 0$. \\
+
+\underline{Case 1: $\gamma > \eta + \beta^2/\eta$} \quad We first consider the case in which ${\cal G}_{\gamma}(0)$ is a local maximum, such that the condition number \eqref{eq:cond_val_skew} is simply $1/{\cal G}_{\gamma}(\sqrt{\zeta_+})$. Notice from \eqref{eq:g_d_def}, that the only dependence of $1/{\cal G}_{\gamma}(\sqrt{\zeta_+})$ on $\gamma$ occurs through the dependence of $g_{\rm d}(\gamma)$ on it, so we just analyze the behaviour of this function.
+
+Setting the derivative of $g_{\rm d}$ to zero, and searching for critical points $\gamma$, we immediately identify $\gamma =  0$ as a critical point (which it must be  by symmetry of the function in $\pm \gamma$ anyway). Working through the algebra, we find that the remaining critical points must satisfy the following equation
+\begin{align}
+\beta \sqrt{w} = - \sqrt{4 \eta^2 + \beta^2} (-  \eta^2 + \beta^2 + \gamma^2).
+\end{align}
+Notice that the equation has no solution if $\gamma^2 > \eta^2 - \beta^2$ since the left-hand side is positive while the right-hand side is negative. Thus, we conclude that critical points of $g_{\rm}$, if they exist, must occur for $\gamma^2 < \eta^2 - \beta^2$. \\
+
+Actually, I guess this is enough to conclude that $g_{\rm d}$ is strictly increasing for $\gamma > \eta + \beta^2/\eta$, because we know that $g_{\rm d} \to \infty$ as $\gamma \to \infty$, and we've shown that if the function has critical points they must occur for $\gamma^2 < \eta^2 - \beta^2$, but $(\eta + \beta^2/\eta)^2 >  \eta^2 > \eta^2 - \beta^2$, therefore there are no critical points for $\gamma > \eta + \beta^2/\eta$. The following section in blue shows that actually the function is increasing for $\gamma > \sqrt{\max(\eta^2 - 2 \beta^2,0)}$, which I was initially using in the proof to show that $\kappa^2$ is increasing for $\gamma \in (\sqrt{\max(\eta^2 - 2 \beta^2,0)}, \eta + \beta^2/\eta)$, but no longer am.
+
+\tcb{
+Further working through the algebra, assuming that $\gamma^2 < \eta^2 - \beta^2$, we find that such roots must satisfy a quartic equation, which can be expressed in factored form as
+\begin{align*}
+(\gamma^2 - \eta) \left[\gamma^2 - (\eta^2 - 2 \beta^2) \right] = 0.
+\end{align*}
+which we see immediately has the following pairs of solutions
+\begin{align*}
+\gamma^2 = \eta, \quad \gamma^2 = \eta^2 - 2 \beta^2.
+\end{align*}
+The first pair of solutions $\gamma^2 = \eta$ can be discarded immediately since they violate the inequality $\gamma^2 < \eta^2 - \beta^2$. Moreover, notice that the second pair of solutions is only valid when $\eta^2 - 2 \beta^2 > 0$.
+%
+Thus, we are left with three possible critical points of $g_{\rm d}$, $\gamma \in  \{0, \pm \sqrt{\eta^2 - 2 \beta^2} \}$. To classify these critical points, it is sufficient to examine the sign of $g_{\rm d}''(0)$ as follows. Computing this quantity, we find
+\begin{align*}
+g_{\rm d}''(0) = 2 \left( \beta - \sqrt{4 \eta^2 + \beta^2} \frac{ \eta^2 - \beta^2}{\eta^2 + \beta^2}  \right).
+\end{align*}
+If $g_{\rm d}''(0) > 0$, $\gamma = 0$ is a local minimum. If $g_{\rm d}''(0) < 0$, $\gamma =  0$ is a local maximum.
+%
+Working through, we find the following:
+\begin{enumerate}
+\setlength{\itemsep}{0.5ex}
+\item $\gamma = 0$ is a local minimum if $\eta^2 - 2 \beta^2 < 0$
+\item $\gamma = 0$ is a local maximum if $\eta^2 - 2 \beta^2 > 0$
+\end{enumerate}
+Remarking that $g_{\rm d}$ is unbounded as $\gamma \to \pm \infty$, and that the critical points $\gamma = \pm \sqrt{\eta^2 - 2 \beta^2}$ don't exist for $\eta^2 - 2 \beta^2 < 0$ allows us to classify the latter as local minima when they exist. Therefore, we can conclude the following:
+\begin{align*}
+g_{\rm d} \textrm{ is strictly increasing for } \gamma > \sqrt{\max(0, \eta^2 - 2 \beta^2)}.  
+\end{align*}}
+
+As such, when condition number \eqref{eq:cond_val_skew} is equal to $1/{\cal G}(\sqrt{\zeta_+}) \propto g_{\rm d}(\gamma)$ (see \eqref{eq:g_d_def}), is strictly increasing for $\gamma > \eta + \beta^2/\eta$. Consequently, the condition number does not achieve its minimum value in this interval, unless it occurs at the boundary, $\gamma = \eta + \beta^2/\eta$.\\
+
+Now we briefly consider the case in which condition number \eqref{eq:cond_val_skew} is given by $1/{\cal G}_{\gamma}(0)$. As the critical point $\lambda = \sqrt{\zeta_+} \to 0^+$ of ${\cal G}_{\gamma}$, the local maximum at $\lambda = 0$ becomes a local minimum, and it is precisely this case in which condition number \eqref{eq:cond_val_skew} transitions from $1/{\cal G}_{\gamma}(\sqrt{\zeta_+})$ into $1/{\cal G}(0)$. Since $1/{\cal G}_{\gamma}(\sqrt{\zeta_+})$ and $1/{\cal G}_{\gamma}(0)$ are always decreasing for $\gamma > \eta + \beta^2/\eta$, it follows that ${\cal G}_{\gamma}(0)$ for $\gamma > {\cal K}$ is smaller than ${\cal G}_{\gamma}(\sqrt{\zeta_+})$ is for $\eta + \beta^2/\eta < \gamma < {\cal K}$. That is to say, when condition number \eqref{eq:cond_val_skew} is equal to $1/{\cal G}_{\gamma}(0)$, it is always larger than when it is equal to $1/{\cal G}_{\gamma}(\sqrt{\zeta_+})$.\\
+
+\underline{Case 2: $\sqrt{\max(\eta^2 - 2 \beta^2, 0)} < \gamma \leq \eta + \beta^2/\eta$} \quad Having now established that $\kappa^2(\gamma)$ is strictly increasing for $\gamma > \eta + \beta^2/\eta$, we now show that it is strictly decreasing for $\gamma \in (\sqrt{\max(\eta^2 - 2 \beta^2, 0)}, \eta + \beta^2/\eta)$. Again, we work with the square of condition number \eqref{eq:cond_val_skew}, which in this interval can be expressed as
 \begin{align}
 \label{eq:cond_2}
 \kappa^2(\gamma) = 
 \frac{(\eta^2 + \beta^2)^2}{8 \eta^4 \beta} \frac{g_{\rm d}(\gamma)}{\gamma^2},
 \quad
-\gamma \in \left( \sqrt{\max(\eta^2 - 2 \beta^2, 0)}, \eta + \frac{\beta^2}{\eta} \right].
+\gamma \in \left( \sqrt{\max(\eta^2 - 2 \beta^2, 0)}, \eta + \frac{\beta^2}{\eta} \right],
 \end{align}
-
-For $\beta > 0$, the derivative is given by and can be bounded above as follows
+with $g_{\rm d}$ given in \eqref{eq:g_d_def}. The derivative is given by and can be bounded above as follows
 \begin{align*}
 [\kappa^2(\gamma)]' 
 &= 
@@ -1330,38 +1402,112 @@ Now, we consider two cases individually. If $\eta \leq \beta$, the first term is
 \begin{align*}
 (\eta^2 - \beta^2) \gamma^2 - (\eta^2 + \beta^2) \leq - \left[ \frac{\beta (\eta^2 + \beta^2)}{\eta} \right]^2 < 0.
 \end{align*}
-Applying both of the above results, we find $[\kappa^2]' < 0$ for $\gamma \leq \eta + \beta^2 / \eta$. Note that $[\kappa^2(\gamma)]' = 2 \kappa \kappa'$, and since $\kappa > 0$, $[\kappa^2]' < 0$ implies $\kappa' < 0$.
-%
-Since $\kappa$ is strictly decreasing for $\gamma \leq \eta + \beta^2/\eta$, and $\kappa$ is increasing for $\gamma > \eta + \beta^2/\eta$, it is minimized at the interface, $\gamma = \gamma_* = \eta + \beta^2/\eta$, as in \eqref{eq:gamma_opt_skew}. Evaluating \eqref{eq:cond_2} at $\gamma_*$ gives result \eqref{eq:cond_opt_skew}.
+Applying both of the above results, we find $[\kappa^2]' < 0$ for $\gamma \leq \eta + \beta^2 / \eta$. \\
 
-
+Finally, by virtue of its relationship with $\kappa^2$, $\kappa$ is strictly decreasing for $\sqrt{\max(\eta^2 - 2 \beta^2, 0)} < \gamma < \eta + \beta^2/\eta$, and strictly increasing for $\gamma > \eta + \beta^2/\eta$. Therefore $\kappa$ is minimized at the interface, $\gamma = \gamma_* = \eta + \beta^2/\eta$, as in \eqref{eq:gamma_opt_skew}. Evaluating \eqref{eq:cond_2} at $\gamma_*$ gives result \eqref{eq:cond_opt_skew}.\\
 \end{proof}
 
 
-Another case of interest is $\gamma = \eta$. Evaluating this condition number we find
+Another case of interest is $\gamma = \eta$. Evaluating condition number \eqref{eq:cond_val_skew} for $\gamma = \eta$ we find
 \begin{align}
 \kappa({\cal P}_{\eta}) = \frac{1}{2} \sqrt{4 + \left( \frac{\beta}{\eta} \right)^2} \left[ 1 + \left( \frac{\beta}{\eta} \right)^2 \right].
 \end{align}
-Clearly $\kappa({\cal P}_{\eta + \beta^2/\eta}) < \kappa({\cal P}_{\eta})$ by a long way! However, $\kappa({\cal P}_{\eta + \beta^2/\eta})$ is only just smaller than the bound on it that Ben derived using the general analysis! I guess this says that 1: That bound is fairly tight. 2: Skew symmetric matrices lead to a fairly poorly conditioned ${\cal P}_{\gamma}$, in general, since we saw for SSPD matrices that the operator has a much smaller condition number.
+Clearly $\kappa({\cal P}_{\eta + \beta^2/\eta}) < \kappa({\cal P}_{\eta})$. However, $\kappa({\cal P}_{\eta + \beta^2/\eta})$ is only just smaller than the bound on it that Ben derived using the general analysis, which was 
+\begin{align}
+\kappa(\mathcal{P}_{\gamma_*}) \leq 2+\frac{\beta^2}{2\eta^2} - \frac{\beta^2}{2\eta^2+2\beta^2}.
+\end{align}
+And note that actually, as $\beta/\eta \to \infty$, this bound is equal to \eqref{eq:cond_opt_skew}.
+
+I guess this says that 1: That the bound Ben derived for general matrices is fairly tight because here we have a specific class of matrix for which it is tight. 2: Skew symmetric matrices lead to a fairly poorly conditioned ${\cal P}_{\gamma}$, in general, since we saw for SSPD matrices that the operator has a much smaller condition number.\\
+
+See Figure \ref{fig:conds_all} for a comparison of the condition numbers for the SS and SSPD cases.
+
+\begin{figure}[!htb]
+\label{fig:conds_all}
+\centering
+\includegraphics[width=0.65\textwidth]{conds_all}
+\caption{Condition numbers for SSPD and SS matrices ${\cal L}$ as a function of $(\beta/\eta)^2$.}
+\end{figure}
+
+\subsubsection{Convergence of GMRES}
+
+Convergence of GMRES applied to the $2 \times 2$ system is defined by convergence of GMRES on the preconditioned Schur complement, ${\cal P}_{\gamma}$ (at least I think that's how it works; pretty sure Ben has written that somewhere). So, given the above analysis, what can be said about the convergence of GMRES? \\
+
+Assuming that the symmetric part of ${\cal P}_{\gamma}$, that is $\tfrac{1}{2}\left({\cal P}_{\gamma} +  {\cal P}_{\gamma}^\top \right)$, is positive definite, the $k$th GMRES residual may be bounded as
+\begin{align} 
+\label{eq:gmres_eig_bound}
+\frac{\Vert \mathbf{r}_k \Vert_2}{\Vert \mathbf{r}_0 \Vert} \leq
+\left[1 -  \frac{\mu_{\min} \left( \tfrac{1}{2} \left( {\cal P}_{\gamma} +  {\cal P}_{\gamma}^\top \right) \right)}{\mu_{\max} \left( {\cal P}_{\gamma} {\cal P}_{\gamma}^\top \right)}  \right]^{k/2} \eqqcolon {\cal Z}_{\gamma}^{k/2},
+\end{align}
+where $\mu_{\min},\mu_{\max}$ represent  the minimum,maximum eigenvalues of the associated operator.
+
+By the skew symmetry of ${\cal L}$, we have
+\begin{align}
+\label{eq:PT_gamma_skew}
+{\cal P}_{\gamma}^\top = \left[ \eta I + {\cal L} +  \beta^2 (\eta I + {\cal L})^{-1} \right] (\gamma I + {\cal L})^{-1}.
+\end{align}
+So notice that ${\cal P}_{\gamma}^\top$ is the same as ${\cal P}_{\gamma}$, just with ${\cal L} \mapsto - {\cal L}$. As such, the spectrum of \eqref{eq:PT_gamma_skew} is simply ${\cal F}_{\gamma}(- \lambda)$, where ${\cal F}_{\gamma}(\lambda)$ is the spectrum of ${\cal P}_{\gamma}$ defined in \eqref{eq:F_skew}. Furthermore, the spectrum of ${\cal P}_{\gamma} {\cal P}_{\gamma}^\top $ is simply ${\cal F}_{\gamma}(- \lambda) {\cal F}_{\gamma}(\lambda) = {\cal F}_{\gamma}^*(\lambda) {\cal F}_{\gamma}(\lambda) = {\cal G}_{\gamma}(\lambda)$, as defined in \eqref{eq:G_def}.
+
+So, we can immediately compute the maximum eigenvalue as follows
+\begin{equation}
+\begin{aligned}
+\label{eq:mu_skew}
+\mu_{\max} \left( {\cal P}_{\eta} {\cal P}_{\eta}^\top \right) 
+&= {\cal G}_{\eta}(0)
+= 
+\left[ \left(\frac{\beta}{\eta}\right)^2 +1 \right]^2, 
+\\
+\mu_{\max} \left( {\cal P}_{\eta + \beta^2/\eta} {\cal P}_{\eta + \beta^2/\eta}^\top \right) 
+&= {\cal G}_{\eta + \beta^2/\eta}(0) 
+= 
+1,
+\end{aligned}
+\end{equation}
+since we know that the max of ${\cal G}_{\gamma}$ is at $\lambda = 0$ for $\gamma \leq \eta + \beta^2 / \eta$. 
+
+Letting
+\begin{align*}
+{\cal H}_{\gamma}(\lambda) \coloneqq \tfrac{1}{2} \left( {\cal F}_{\gamma}(- \lambda) + {\cal F}_{\gamma}(\lambda) \right)
+\end{align*}
+denote the spectrum of the symmetric part of ${\cal P}_{\gamma}$, we find
+\begin{align*}
+{\cal H}_{\eta}(\lambda) 
+&= 
+1 + \beta^2 \frac{(\eta - \lambda)(\eta + \lambda)}{(\eta^2 + \lambda^2)^2}
+\\
+{\cal H}_{\eta + \beta^2/\eta}(\lambda) 
+&= 
+\eta^2 \frac{\beta^4 + 2 \eta^2 \beta^2 +  (\eta^2 + \lambda^2)^2}{(\eta^2 + \lambda^2) \left[ (\eta^2 + \beta^2)^2 + (\eta \lambda)^2 \right]}.
+\end{align*}
+Notice that ${\cal H}_{\eta + \beta^2/\eta}(\lambda) > 0$, meaning that the symmetric part of ${\cal P}_{\gamma}$ is always positive definite.
+
+For the global minima of these functions, we find
+\begin{align}
+\label{eq:H_min_skew}
+\underset{\lambda \in \mathbb{R}}{\min} \,  {\cal H}_{\eta}(\lambda) = 1 - \frac{1}{8} \left( \frac{\beta}{\eta} \right)^2, 
+\quad
+\underset{\lambda \in \mathbb{R}}{\min} \,  {\cal H}_{\eta + \beta^2/\eta}(\lambda) =  \frac{2}{\left( \beta/\eta \right)^2 + 2}. 
+\end{align}
+Observe that the symmetric part of ${\cal P}_{\eta}$ is not always positive definite; for this to remain positive definite, it requires that $\beta / \eta < 2 \sqrt{2} \lesssim 2.83$. As such, bound \eqref{eq:gmres_eig_bound} cannot be applied for $(\beta / \eta)^2 > 8$, or $\beta / \eta \geq 2 \sqrt{2}$. Conversely, the symmetric part of ${\cal P}_{\eta + \beta^2/\eta}$ is always positive definite since its minimum eigenvalue is positive.\footnote{This is interesting. Is there any significance other than GMRES bound \eqref{eq:gmres_eig_bound} cannot be applied? E.g., is it known that GMRES convergence for matrices with indefinite symmetric components is worse than those without? If something like this is true, then it definitely says that $\gamma = \eta$ is a poor choice for skew symmetric matrices.} \\
+
+Plugging the maxima and minima from \eqref{eq:mu_skew} and \eqref{eq:H_min_skew} into GMRES bound \eqref{eq:gmres_eig_bound} we find
+\begin{align}
+{\cal Z}_{\eta} &= \left( \frac{\beta}{\eta} \right)^2 \frac{8 \left( \frac{\beta}{\eta} \right)^2 + 17}{ 8 \left[\left( \frac{\beta}{\eta} \right)^2 + 1 \right]^2}, \quad \left( \frac{\beta}{\eta} \right)^2 < 8, \\
+{\cal Z}_{\eta + \beta^2 / \eta} &= \frac{ \left( \frac{\beta}{\eta} \right)^2}{\left( \frac{\beta}{\eta} \right)^2 + 2}.
+\end{align}
+
+\begin{figure}[!htb]
+\label{fig:gmres_bounds}
+\centering
+\includegraphics[width=0.65\textwidth]{gmres_bounds}
+\caption{GMRES bound ${\cal Z}_{\gamma}$ from \eqref{eq:gmres_eig_bound} for SSPD and SS matrices ${\cal L}$ as a function of $(\beta/\eta)^2$.}
+\end{figure}
+
+See Figure \ref{fig:gmres_bounds} for a plot of the GMRES bounds which also includes the SSPD convergence bounds. Note that in the case of SPD ${\cal P}_{\gamma}$, ${\cal Z}_{\gamma} = (\kappa^2 - 1)/\kappa^2$.
 
 
-\item \tcr{TODO: write out proof for this}. For $\gamma \geq 0$, $g$ has 2 critical points: $\gamma = 0$, and $\gamma = \sqrt{2 \beta^2 - \eta^2}$. Note that the second of the two does not exist if $2 \beta^2 - \eta^2 < 0$. Anyway, we only consider $\gamma > \max (0, \sqrt{2 \beta^2 - \eta})$, as per assumption \eqref{eq:ass1}. Thus, in the interval we care about, $g$ is monotone. Moreover, we can show it's decreasing.
-
-
-
-
-
-
-
-
-
-\tcr{Regarding taking $c \to \infty$. Can I quantify the difference between $c$ and $\zeta_+$, which is the min? E.g., $\zeta_+ = {\cal O}(...)$, so  that if  $c$ is of this order, or bigger, then the assumption of taking $c \to \infty$ is not so bad because it's not min anyways.
-%
-If $c < \zeta_+$, then it is the minimum over the domain... Can formulate $\kappa$ for this case easily, since $c$ is always the minimum? Well provided 0 doesn't turn into the minimum, that is. But $\zeta_+$ depends on $\gamma$... So not sure how this works...
-Alternatively, can assume $c$ corresponds to the minimum, and work out what the optimum would be for gamma, then just directly compare the two condition numbers...
-}
-
-\tcr{Note the bound here is big in beta/eta, as is much larger than in the linear algorithm for general operators. So, why is this the case?}
+So one thing I was hoping to get out of this analysis was that for skew symmetric matrices, it was much more important that we use $\gamma_*$ v.s. $\eta$ than it is for SSPD problems. Recalling that in the linear algorithm, for a hyperbolic example, Ben saw a much larger reduction in iteration count when using $\gamma_*$ v.s. $\eta$ for a hyperbolic problem over a diffusive one. However, the plots in Figure \ref{fig:gmres_bounds} don't strongly suggest this is the case...
+Something else I don't really understand is that ${\cal P}_{\gamma_*}$ is much better conditioned in the SSPD than in the skew symmetric case, but the GMRES bound plotted in Figure \ref{fig:gmres_bounds} doesn't really seem to reflect this...? Ditto for ${\cal P}_{\eta}$ in both of the cases. Also, the condition number of ${\cal P}_{\gamma_*}$ in the SS case and ${\cal P}_{\eta}$ for the SSPD case basically grow at the same rate in $\beta/\eta$, but this is not really reflected in the GMRES bounds shown in Figure \ref{fig:gmres_bounds}.
 
 \end{itemize}
 
