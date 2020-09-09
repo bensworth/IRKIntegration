@@ -3,7 +3,7 @@ x = linspace(0, 8, 50); % Note one of the bounds is only valid for x < 8
 
 
 %%% SPSD case: GMRES bounds as a function of (beta/eta)^2
-Z_spd = @(kappa) (kappa.^2 - 1)./kappa.^2; % General SPD GMRES bound for condition number kappa
+Z_spd = @(kappa) 1 - 1./kappa.^2; % General SPD GMRES bound for condition number kappa
 kappa_gamma_star = @(x) 0.5*(1 + sqrt(1 + x));
 kappa_eta = @(x) 1 + x;
 plot(x, Z_spd(kappa_gamma_star(x)), 'b', 'LineWidth', 2, 'DisplayName', 'SPSD: $\gamma = \gamma_*$')
@@ -18,8 +18,9 @@ plot(x, Z_spd(kappa_eta(x)), 'b--', 'LineWidth', 2, 'DisplayName', 'SPSD: $\gamm
 
 
 %%% SS case: GMRES bounds as a function of (beta/eta)^2
-Z_gamma_star = @(x) x./(x + 2);
-Z_eta = @(x) x.*(8*x + 17)./(8*(x + 1).^2); % Note this is only valid for x < 8!
+Z_gamma_star = @(x) 1 - 4./(x + 2).^2;
+Z_eta = @(x) 9/64*x.*(7*x + 16)./(x + 1).^2; % Note this is only valid for x < 8!
+
 plot(x, Z_gamma_star(x), 'r', 'LineWidth', 2, 'DisplayName', 'SS: $\gamma = \gamma_*$')
 hold on
 plot(x, Z_eta(x), 'r--', 'LineWidth', 2, 'DisplayName', 'SS: $\gamma = \eta$')
