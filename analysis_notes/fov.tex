@@ -738,6 +738,8 @@ So, if $(\gamma + \lambda) (\eta + \lambda) > 0$, which is always true if we ass
 This last statement is always true, and the only assumption we made in arriving here is $\gamma > 0$. Therefore ${\cal F} > 0$ and the operator is positive definite?
 ]}
 
+\tcr{TODO: come back through and fix proofs to use $\gamma > 0$  rather than $\gamma > \eta$.}
+
 %
 As $h,\delta t\to 0$, it is typical for parabolic problems that
 the spectrum $\lambda\in\sigma\left(-\widehat{\mathcal{L}}\right)$
@@ -977,8 +979,8 @@ Method & Stages & 2 & \multicolumn{2}{c}{3} & \multicolumn{2}{|c}{4} & \multicol
 
 \begin{figure}[h!]
 \centering
-\includegraphics[width = 0.7\textwidth]{conds}
-\caption{Optimal ($\gamma = \gamma_*$) and non-optimal ($\gamma = \eta$) condition numbers \eqref{eq:c1_non-opt} and \eqref{eq:cond_min} as a function of $\beta^2/\eta^2$. }
+\includegraphics[width = 0.7\textwidth]{figures/conds_spsd}
+\caption{Condition number of SPD ${\cal P}_{\gamma}$ for the optimal case of $\gamma = \gamma_*$ (see \eqref{eq:cond_min}), and non-optimal case of $\gamma = \eta$ (see \eqref{eq:c1_non-opt}) as a function of $(\beta/\eta)^2$. }
 \label{fig:conds}
 \end{figure}
 
@@ -1034,11 +1036,149 @@ Actually, note that $\gamma I - \zeta {\cal L} = \zeta ( \gamma /\zeta I - {\cal
 }
 
 
+\newpage
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+\subsection{The SPD case: Differing diagonal blocks}
+
+As in later sections, here we consider a preconditioner of the form
+\begin{align}
+\widehat{S} = \gamma I -  {\cal L}_2,
+\end{align}
+for Schur complement
+\begin{align}
+S
+= 
+\left[ \eta I - {\cal L}_2 + \beta^2(\eta I - {\cal L}_1)^{-1} \right].
+\end{align}
+This results in a preconditioned operator
+\begin{align}
+{\cal P}
+= 
+S \widehat{S}^{-1} 
+&= 
+\left[ \eta I - {\cal L}_2 + \beta^2(\eta I - {\cal L}_1)^{-1} \right] 
+\big[ \gamma I -  {\cal L}_2 \big]^{-1}, \\
+&=
+\big( \eta I - {\cal L}_2 \big) \big( \gamma I -  {\cal L}_2 \big)^{-1}  + \beta^2(\eta I - {\cal L}_1)^{-1} \big( \gamma I -  {\cal L}_2 \big)^{-1}.
+\end{align}
+Assuming that ${\cal L}_1$ and ${\cal L}_2$ are symmetric, and that they commute, ${\cal L}_1 {\cal L}_2 = {\cal L}_2 {\cal L}_1$, the preconditioned operator ${\cal P}$ is also symmetric by noting that if $AB = BA$, as is the case for $A = a I - {\cal L}_1$, $B = b I - {\cal L}_2$, then $A^{-1} B = B  A^{-1}$ and $A^{-1} B^{-1} = B^{-1} A^{-1}$.
+
+Let $\lambda_1 \in \sigma(- {\cal L}_1) \subset [0,\infty)$ and $\lambda_2 \in \sigma(- {\cal L}_2) \subset [0,\infty)$. Denoting the spectrum of ${\cal P}$ by ${\cal F}$, we have
+\begin{align}
+{\cal F} 
+= 
+1 - 
+\frac{\gamma - \eta}{\gamma + \lambda_2}
++
+\frac{\beta^2}{(\eta + \lambda_1)(\gamma + \lambda_2)}.
+\end{align}
+Note that ${\cal F} > 0$ if $\gamma > 0$, i.e., ${\cal P}$ is SPD for $\gamma > 0$.
+
+Differentiating ${\cal F}$ w.r.t. $\lambda_1$ and $\lambda_2$ we have
+\begin{align}
+{\cal F}_{\lambda_1} = -  \frac{\beta^2}{(\eta + \lambda_1)^2(\gamma + \lambda_2)}, 
+\quad
+{\cal F}_{\lambda_1} =  \frac{(\gamma-\eta)(\eta + \lambda_1) - \beta^2}{(\eta + \lambda_1)(\gamma + \lambda_2)}.
+\end{align}
+Clearly ${\cal F}_{\lambda_1} < 0$, while ${\cal F}_{\lambda_2} = 0$ for $\lambda_1^* = \frac{\beta^2}{\gamma - \eta} - \eta$. However, we also observe that ${\cal F}_{\lambda_2 \lambda_2}$ vanishes at  $\lambda_1^*$, so this is a point of inflection rather than a minimum or maximum, which is what we care  about. Thus, the extrema of ${\cal F}$ must occur at the boundaries of its domain. \tcb{This is fundamentally different to what occurred previously when the diagonal blocks were identical: The minimum of ${\cal F}$ occurred at a critical point in the eigenvalue $\lambda$.}
+
+Basically, we find the following for ${\cal F}(\lambda_1, \lambda_2)$:
+\begin{align}
+{\cal F}(0,0) = \frac{1}{\gamma} \left( \eta + \frac{\beta^2}{\eta} \right), 
+\quad 
+{\cal F}(\infty, 0) = \frac{\eta}{\gamma},
+\quad 
+{\cal F}(0, \infty) = {\cal F}(\infty, \infty) = 1.
+\end{align}
+Assuming the spectra of  ${\cal L}_1$ and ${\cal L}_2$ are dense in $[0, \infty)$, this leads to the condition number
+\begin{align}
+\textrm{cond} ({\cal P}) = 
+\begin{cases}
+\displaystyle
+\frac{1}{\gamma} \left( \eta + \frac{\beta^2}{\eta} \right), \quad &0 < \gamma \leq \eta, \\
+\displaystyle
+1 + \frac{\beta^2}{\eta^2}, \quad &\eta \leq \gamma \leq \eta + \frac{\beta^2}{\eta}, \\
+\displaystyle
+\frac{\gamma}{\eta}, \quad &\eta + \frac{\beta^2}{\eta} \leq \gamma < \infty.
+\end{cases}
+\end{align}
+This condition number is minimized for \underline{\textbf{the entire inverval}} $\gamma \in \gamma_*  \coloneqq [\eta, \eta + \frac{\beta^2}{\eta}]$, in which case the minimum condition number is
+\begin{align}
+\textrm{cond} ({\cal P}_{\gamma \in \gamma_*}) = 1 + \frac{\beta^2}{\eta^2}.
+\end{align}
+A few remarks are in order:
+\begin{itemize}
+\setlength\itemsep{2ex}
+ 
+\item Very weird how there is no longer an optimal value of $\gamma$, but instead a continuous interval of them. 
+
+\item This condition number is dissapointingly large compared to the one in \eqref{eq:cond_min} that we get when ${\cal L}_1 = {\cal L}_2$. I think this is saying something about $\gamma I - {\cal L}_2$ not being a very good preconditioner... Since this grows too quickly w.r.t. $\beta$, I think it says that we're not doing a good enough job on the $\beta^2 (\eta I - {\cal L}_1)^{-1}$ that appears in the Schur complement. See the analysis I started in the next section to try and overcome this, but I'm not really sure it's any better/even makes sense.
+  
+\item Note that the analysis in here works out much the same as for the ${\cal L}_1 = {\cal L}_2$ case, except for the fact that the minimum of ${\cal F}$ does not occur at a critical point in $\lambda$, but instead at the boundary.
+ 
+\item I somehow would have expected to recover the previous result in the case  that ${\cal L}_1 = {\cal L}_2$... But I guess the reason that this didn't happen is because when we differentiated, we assumed that $\lambda_1$ and $\lambda_2$ are independent, where, to actually recover the previous result, we'd have to assume they're the same. Is there any reason to assume that $\lambda_1$ and $\lambda_2$ would be related if ${\cal L}_1$ and ${\cal L}_2$ commute?
+ 
+\item This result is consistent with the general analysis that arrived at bound \eqref{eq:gammastar}. It also explains why that bound is so much larger than in the case that ${\cal L}_1 \neq {\cal L}_2$: I.e., the preconditioner for ${\cal L}_1 \neq {\cal L}_2$ is simply not as good, as we've shown here for the SPD case.
+ 
+\end{itemize}
+
 
 \newpage
 % ---------------------------------------------------------------------------------------------- %
 % ---------------------------------------------------------------------------------------------- %
-\subsection{The skew symmetric case}
+\subsection{The SPD case: Differing diagonal blocks with a modified preconditioner}
+
+As we saw in the previous section, the preconditioner $\widehat{S} = \gamma I - {\cal L}_2$ doesn't produce great results in the sense that the condition number of the preconditioned operator grows quadratically in $\beta/\eta$. Notice in the Schur complement, the $\beta$ term weights a term containing an ${\cal L}_1$, but not a ${\cal L}_2$ term. Given that the condition number of the preconditioner grows too quickly with $\beta$, this possibly suggests that we try a preconditioner which also includes some ${\cal L}_1$ dependence. \tcb{I guess this follows on kind of from the discussion at the end of the SPD case with ${\cal L}_1 = {\cal L}_2$, where we see that modifying the ${\cal L}$ perturbation in the preconditioner influences the $\beta^2$ term. E.g., you can do the same Taylor series trick here for the Schur complement where ${\cal L}_1 \neq {\cal L}_2$.}
+
+Let's again assume that ${\cal L}_1 {\cal L}_2 = {\cal L}_2 {\cal L}_1$, but let's say now we try a preconditioner of the form
+\begin{align}
+\widehat{S} = \gamma I - (\alpha {\cal L}_1 + (1 - \alpha) {\cal L}_2),
+\end{align}
+where the coefficients must sum to one for consistency with the case that ${\cal L}_1 = {\cal L}_2$ [although, I'm not sure this is necessary, actually...]. The preconditioned operator takes the form
+\begin{align}
+{\cal P}
+= 
+S \widehat{S}^{-1} 
+= 
+\left[ \eta I - {\cal L}_2 + \beta^2(\eta I - {\cal L}_1)^{-1} \right] 
+\big[ \gamma I - (\alpha {\cal L}_1 + (1 - \alpha) {\cal L}_2) \big]^{-1}.
+\end{align}
+Let $\lambda_1 \in \sigma(- {\cal L}_1)$ and $\lambda_2 \in \sigma(- {\cal L}_2)$. Denoting the spectrum of ${\cal P}$ by ${\cal F}$, we have
+\begin{align*}
+{\cal F} 
+&= \frac{\eta + \lambda_2}{\gamma + \alpha \lambda_1 + (1-\alpha) \lambda_2} + \frac{\beta^2}{(\eta + \lambda_1)(\gamma + \alpha \lambda_1 + (1-\alpha) \lambda_2)}, \\
+\end{align*}
+We can put some conditions on $\alpha$ as follows. We require ${\cal F} > 0$ to maintain positive definiteness. Noting that the numerators of each fraction are non-negative, and assuming $\gamma > 0$, this means
+\begin{align*}
+\gamma + \alpha \lambda_1 + (1 - \alpha) \lambda_2 > 0 
+\quad \Longrightarrow \quad 
+\alpha > - \frac{\lambda_2 + \gamma}{\lambda_1 - \lambda_2} < 0
+\quad \textrm{and} \quad 
+\alpha < \frac{\lambda_2 + \gamma}{\lambda_2 - \lambda_1} < 1.
+\end{align*}
+Thus, $\quad 0 \leq \alpha < 1$.
+%
+Also, we require that the first fraction in ${\cal F}$ remains bounded w.r.t. $\lambda_2$. We have
+\begin{align*}
+\lim \limits_{\lambda_2 \to \infty} \frac{\eta + \lambda_2}{\gamma + \alpha \lambda_1 + (1-\alpha) \lambda_2} 
+&= 
+\lim \limits_{\lambda_2 \to \infty} \frac{\tfrac{\eta}{\lambda_2} + 1}{\tfrac{\gamma}{\lambda_2} + \alpha \tfrac{\lambda_1}{\lambda_2} + (1-\alpha) } 
+=
+\lim \limits_{\lambda_2 \to \infty}
+\frac{1}{1 - \alpha + \alpha \tfrac{\lambda_1}{\lambda_2}}.
+\end{align*}
+Noting that $\lambda_1$ and $\lambda_2$ are independent, this fraction remaining bounded and positive once again requires $0 \leq \alpha < 1$. Note that for $\alpha = 0$ we recover the previous preconditioner, $\gamma I - {\cal L}_2$.
+
+Computing critical points is painful... Also, not quite sure how to compute ${\cal F}$ as $\lambda_1, \lambda_2 \to \infty$ due to them appearing together in first fraction...
+
+
+
+
+\newpage
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+\section{Eigenvalue analysis of the skew symmetric case}
 Assume ${\cal L}^\top = - {\cal L}$, as for central-finite-difference discretizations of a constant-coefficient advection problem, for example. While ${\cal L}$ is not going to be skew symmetric for a \textit{real-world problem}, it is a useful case to analyze because a \textit{good} advection discretization will have eigenvalues with large imaginary components, and skew symmetric matrices have purely imaginary eigenvalues; note that an \textit{exact} advection discretization would have purely imaginary eigenvalues. So while this case probably won't play out exactly in practice, I think it's a useful one to analyze and will hopefully provide some insight.
 
 Some motivation here is that with the linear algorithm, which has a slightly different setup than this $2 \times 2$ problem, Ben observed a huge reduction in iteration count for an advection-dominated problem when using $\gamma = \gamma_*$ v.s. $\gamma = \eta$ compared with the typical types of reduction in iterations we see for diffusion-dominated problems. So, can we say anything about the optimal value $\gamma_*$, and/or whether $\gamma_*$ is significantly better than $\eta$ in this instance? Let's not set any restrictions of $\gamma$ yet, except that $\gamma \in \mathbb{R}$, so that we are left with a real matrix to invert. \tcr{Maybe it's worth redoing the following analysis for the linear case, because I'm not really sure the results I get here entirely correspond with what Ben observed numerically. Although, this difference could possibly have arisen because of an assumption I make on the size of the eigenvalues (see below), or maybe the skew-symmetric assumption I make is not a good one for the discretization/problem he tested.}
@@ -1054,7 +1194,7 @@ S \widehat{S}_{\gamma}^{-1}
 = 
 \left[ \eta I - {\cal L} +  \beta^2 (\eta I - {\cal L})^{-1} \right] (\gamma I - {\cal L})^{-1}
 \end{align} 
-Assuming ${\cal L}$ is diagonalizable, the spectrum ${\cal F}$ of ${\cal P}_{\gamma}$ is given by
+Assuming ${\cal L}$ is diagonalizable, the spectrum ${\cal F}_{\gamma}$ of ${\cal P}_{\gamma}$ is given by
 \begin{align}
 \label{eq:F_skew}
 {\cal F}_{\gamma}(\lambda) = \frac{(\eta + \mathrm{i} \lambda)^2 + \beta^2}{(\gamma + \mathrm{i} \lambda) (\eta + \mathrm{i} \lambda)}.
@@ -1063,7 +1203,7 @@ Since ${\cal L}$ is normal, ${\cal P}_{\gamma}$ is too, and, thus, has a conditi
 \begin{align*}
 \kappa ({\cal P}_{\gamma}) = \frac{\max \limits_{\lambda \in [-c, c]}  |{\cal F}_{\gamma}(\lambda)|}{\min \limits_{\lambda \in [-c, c]}  |{\cal F}_{\gamma}(\lambda)|}.
 \end{align*}
-To analyze the extrema of $|{\cal F}|$ we work with its square since it's easier,
+To analyze the extrema of $|{\cal F}_{\gamma}|$ we work with its square since it's easier,
 \begin{align} 
 \label{eq:G_def}
 {\cal G}_{\gamma}(\lambda) 
@@ -1088,7 +1228,7 @@ where
 
 \item I'm just going to \underline{assume $\beta > 0$} because it's too complicated to allow for all the edge cases if I don't. Anyway, it's obvious from \eqref{eq:P_gamma_skew} that the optimal choice if $\beta = 0$ is $\gamma = \eta$ since we get ${\cal P}_{\gamma} = I$.
 
-\item For simplicity, let's just consider $c \to \infty$. While this won't arise in practice (where $c \sim \delta t / h$), it's helpful from an analysis point of view, since determining whether ${\cal G}$ for some arbitrary $c < \infty$ is an extremum will be too complicated. However, note that considering $c \to \infty$ results in an upper bound on the condition number for finite $c$, since the min/max of $|{\cal F}|$ for $\lambda \in [-c,c]$ are bounded below/above by those in $(-\infty, \infty)$. Also, I think letting $c \to \infty$ is not such a bad assumption for big time steps, like $\delta t \sim 10 \delta x$. \tcr{Maybe come back and think some more about the case of finite $c$, I have some thoughts.}
+\item For simplicity, let's just consider $c \to \infty$. While this won't arise in practice (where $c \sim \delta t / h$), it's helpful from an analysis point of view, since determining whether ${\cal G}_{\gamma}$ for some arbitrary $c < \infty$ is an extremum will be too complicated. However, note that considering $c \to \infty$ results in an upper bound on the condition number for finite $c$, since the min/max of $|{\cal F}|$ for $\lambda \in [-c,c]$ are bounded below/above by those in $(-\infty, \infty)$. Also, I think letting $c \to \infty$ is not such a bad assumption for big time steps, like $\delta t \sim 10 \delta x$. \tcr{Maybe come back and think some more about the case of finite $c$, I have some thoughts.}
 
 \item Observe that as $\lambda \to \pm \infty$, ${\cal G}_{\gamma}$ approaches unity:
 \begin{align}
@@ -1247,16 +1387,16 @@ Now we examine the signs of these roots to understand the nature of the critical
 \begin{enumerate}
 \setlength{\itemsep}{2ex}
 
-\item From \eqref{eq:zeta_pm}, $\zeta_- < 0$ for any $b > 0$, and for $b<0$, we'd require $c < 0$ to have $\zeta_- < 0$. Working this through, and noting that ${\cal G}(0)$ is never a local minimum for $\gamma < \eta + \beta^2 / \eta$, as in \eqref{eq:G0_class} and \eqref{eq:suff_0max}, we find that $\zeta_- < 0$ always, and so it is never a critical point.
+\item From \eqref{eq:zeta_pm}, $\zeta_- < 0$ for any $b > 0$, and for $b<0$, we'd require $c < 0$ to have $\zeta_- < 0$. Working this through, and noting that ${\cal G}_{\gamma}(0)$ is never a local minimum for $\gamma < \eta + \beta^2 / \eta$, as in \eqref{eq:G0_class} and \eqref{eq:suff_0max}, we find that $\zeta_- < 0$ always, and so it is never a critical point.
 
-\item From \eqref{eq:zeta_pm}, $\zeta_+ > 0$ for any $b < 0$, and for $b > 0$, we'd require $c < 0$ to have $\zeta_+ > 0$. Working this through, we find $\zeta_+ > 0$ when ${\cal G}(0)$ is a local maximum, and $\zeta_+ < 0$ when ${\cal G}(0)$ is a local minimum. Thus, $\zeta_+$ is a local minimum when ${\cal G}(0)$ is a local maximum. And $\zeta_+$ is not a critical point when ${\cal G}(0)$ is a local minimum. Moreover, we know that when $\lambda = \sqrt{\zeta_+}$ is a local minimum of ${\cal  G}$, ${\cal G}(\sqrt{\zeta_+}) < 1$ due to ${\cal G}$ approaching unity from below as $\lambda \to \infty$, as in \eqref{eq:ass1}, and ${\cal G}(0)$ being the only other turning point.
+\item From \eqref{eq:zeta_pm}, $\zeta_+ > 0$ for any $b < 0$, and for $b > 0$, we'd require $c < 0$ to have $\zeta_+ > 0$. Working this through, we find $\zeta_+ > 0$ when ${\cal G}_{\gamma}(0)$ is a local maximum, and $\zeta_+ < 0$ when ${\cal G}_{\gamma}(0)$ is a local minimum. Thus, $\zeta_+$ is a local minimum when ${\cal G}_{\gamma}(0)$ is a local maximum. And $\zeta_+$ is not a critical point when ${\cal G}_{\gamma}(0)$ is a local minimum. Moreover, we know that when $\lambda = \sqrt{\zeta_+}$ is a local minimum of ${\cal  G}_{\gamma}$, ${\cal G}_{\gamma}(\sqrt{\zeta_+}) < 1$ due to ${\cal G}_{\gamma}$ approaching unity from below as $\lambda \to \infty$, as in \eqref{eq:ass1}, and ${\cal G}_{\gamma}(0)$ being the only other turning point.
 
 \end{enumerate}
 
 
 \item Combining the above discussions, we can express the extrema of ${\cal G}_{\gamma}$ as follows. The minimum of ${\cal G}_{\gamma}$ is
 \begin{align}
-\min \limits_{\lambda \in \mathbb{R}} {\cal G}(\lambda)
+\min \limits_{\lambda \in \mathbb{R}} {\cal G}_{\gamma}(\lambda)
 =
 \begin{cases}
 {\cal G}_{\gamma}(0) < 1, \quad &\textrm{ if } {\cal G}(0) \textrm{ is a local minimum}, \\
@@ -1366,7 +1506,7 @@ As such, when condition number \eqref{eq:cond_val_skew} is equal to $1/{\cal G}(
 
 Now we briefly consider the case in which condition number \eqref{eq:cond_val_skew} is given by $1/{\cal G}_{\gamma}(0)$. As the critical point $\lambda = \sqrt{\zeta_+} \to 0^+$ of ${\cal G}_{\gamma}$, the local maximum at $\lambda = 0$ becomes a local minimum, and it is precisely this case in which condition number \eqref{eq:cond_val_skew} transitions from $1/{\cal G}_{\gamma}(\sqrt{\zeta_+})$ into $1/{\cal G}(0)$. Since $1/{\cal G}_{\gamma}(\sqrt{\zeta_+})$ and $1/{\cal G}_{\gamma}(0)$ are always decreasing for $\gamma > \eta + \beta^2/\eta$, it follows that ${\cal G}_{\gamma}(0)$ for $\gamma > {\cal K}$ is smaller than ${\cal G}_{\gamma}(\sqrt{\zeta_+})$ is for $\eta + \beta^2/\eta < \gamma < {\cal K}$. That is to say, when condition number \eqref{eq:cond_val_skew} is equal to $1/{\cal G}_{\gamma}(0)$, it is always larger than when it is equal to $1/{\cal G}_{\gamma}(\sqrt{\zeta_+})$.\\
 
-\underline{Case 2: $\sqrt{\max(\eta^2 - 2 \beta^2, 0)} < \gamma \leq \eta + \beta^2/\eta$} \quad Having now established that $\kappa^2(\gamma)$ is strictly increasing for $\gamma > \eta + \beta^2/\eta$, we now show that it is strictly decreasing for $\gamma \in (\sqrt{\max(\eta^2 - 2 \beta^2, 0)}, \eta + \beta^2/\eta)$. Again, we work with the square of condition number \eqref{eq:cond_val_skew}, which in this interval can be expressed as
+\underline{Case 2: $\sqrt{\max(\eta^2 - 2 \beta^2, 0)} < \gamma < \eta + \beta^2/\eta$} \quad Having now established that $\kappa^2(\gamma)$ is strictly increasing for $\gamma > \eta + \beta^2/\eta$, we now show that it is strictly decreasing for $\gamma \in (\sqrt{\max(\eta^2 - 2 \beta^2, 0)}, \eta + \beta^2/\eta)$. Again, we work with the square of condition number \eqref{eq:cond_val_skew}, which in this interval can be expressed as
 \begin{align}
 \label{eq:cond_2}
 \kappa^2(\gamma) = 
@@ -1407,29 +1547,33 @@ Applying both of the above results, we find $[\kappa^2]' < 0$ for $\gamma \leq \
 Finally, by virtue of its relationship with $\kappa^2$, $\kappa$ is strictly decreasing for $\sqrt{\max(\eta^2 - 2 \beta^2, 0)} < \gamma < \eta + \beta^2/\eta$, and strictly increasing for $\gamma > \eta + \beta^2/\eta$. Therefore $\kappa$ is minimized at the interface, $\gamma = \gamma_* = \eta + \beta^2/\eta$, as in \eqref{eq:gamma_opt_skew}. Evaluating \eqref{eq:cond_2} at $\gamma_*$ gives result \eqref{eq:cond_opt_skew}.\\
 \end{proof}
 
-
-Another case of interest is $\gamma = \eta$. Evaluating condition number \eqref{eq:cond_val_skew} for $\gamma = \eta$ we find
-\begin{align}
-\kappa({\cal P}_{\eta}) = \frac{1}{2} \sqrt{4 + \left( \frac{\beta}{\eta} \right)^2} \left[ 1 + \left( \frac{\beta}{\eta} \right)^2 \right].
+While $\kappa({\cal P}_{\gamma_*})$ in \eqref{eq:cond_opt_skew} is disappointingly large, it is only just smaller than the bound on it that Ben derived for general matrices ${\cal L}$, which was 
+\begin{align} 
+\label{eq:kappa_star_bound}
+\kappa(\mathcal{P}_{\gamma_*}) \leq 2+\frac{\beta^2}{2\eta^2} - \frac{\beta^2}{2\eta^2+2\beta^2}
+= 2 + \frac{1}{2} \left( \frac{\beta}{\eta} \right)^2 \frac{1}{(\eta/\beta)^2 + 1}
 \end{align}
-Clearly $\kappa({\cal P}_{\eta + \beta^2/\eta}) < \kappa({\cal P}_{\eta})$. However, $\kappa({\cal P}_{\eta + \beta^2/\eta})$ is only just smaller than the bound on it that Ben derived using the general analysis, which was 
-\begin{align}
-\kappa(\mathcal{P}_{\gamma_*}) \leq 2+\frac{\beta^2}{2\eta^2} - \frac{\beta^2}{2\eta^2+2\beta^2}.
-\end{align}
-And note that actually, as $\beta/\eta \to \infty$, this bound is equal to \eqref{eq:cond_opt_skew}.
+Notice that as $\beta/\eta \to \infty$, or $\eta/\beta \to 0$, this bound sits just slightly above $\kappa({\cal P}_{\gamma_*})$ for the SS case of \eqref{eq:cond_opt_skew}.
 
 I guess this says that 1: That the bound Ben derived for general matrices is fairly tight because here we have a specific class of matrix for which it is tight. 2: Skew symmetric matrices lead to a fairly poorly conditioned ${\cal P}_{\gamma}$, in general, since we saw for SSPD matrices that the operator has a much smaller condition number.\\
 
-See Figure \ref{fig:conds_all} for a comparison of the condition numbers for the SS and SSPD cases.
+Another case of interest is $\gamma = \eta$. Evaluating condition number \eqref{eq:cond_val_skew} for $\gamma = \eta$ we find
+\begin{align}
+\label{eq:kappa_eta_skew}
+\kappa({\cal P}_{\eta}) = \frac{1}{2} \sqrt{4 + \left( \frac{\beta}{\eta} \right)^2} \left[ 1 + \left( \frac{\beta}{\eta} \right)^2 \right].
+\end{align}
+Clearly $\kappa({\cal P}_{\gamma_*}) < \kappa({\cal P}_{\eta})$. 
+
+See Figure \ref{fig:conds_all} for a comparison of the condition numbers for the SS and SPSD cases, which also includes the general upper bound \eqref{eq:kappa_star_bound}.
 
 \begin{figure}[!htb]
 \label{fig:conds_all}
 \centering
-\includegraphics[width=0.65\textwidth]{conds_all}
-\caption{Condition numbers for SSPD and SS matrices ${\cal L}$ as a function of $(\beta/\eta)^2$.}
+\includegraphics[width=0.65\textwidth]{figures/conds_spsd_ss}
+\caption{Condition numbers of ${\cal P}_{\gamma}$ for SPSD and SS matrices ${\cal L}$ as a function of $(\beta/\eta)^2$. The SS condition numbers are \eqref{eq:cond_opt_skew} and \eqref{eq:kappa_eta_skew} for $\gamma = \gamma_*$ and $\gamma = \eta$, respectively. Also included is the general upper bound for the condition number of ${\cal P}_{\gamma_*}$ from \eqref{eq:kappa_star_bound}.}
 \end{figure}
 
-\subsubsection{Convergence of GMRES}
+\subsection{Convergence of GMRES}
 
 Convergence of GMRES applied to the $2 \times 2$ system is defined by convergence of GMRES on the preconditioned Schur complement, ${\cal P}_{\gamma}$ (at least I think that's how it works; pretty sure Ben has written that somewhere). So, given the above analysis, what can be said about the convergence of GMRES? \\
 
@@ -1457,8 +1601,8 @@ So, we can immediately compute the maximum eigenvalue as follows
 = 
 \left[ \left(\frac{\beta}{\eta}\right)^2 +1 \right]^2, 
 \\
-\mu_{\max} \left( {\cal P}_{\eta + \beta^2/\eta} {\cal P}_{\eta + \beta^2/\eta}^\top \right) 
-&= {\cal G}_{\eta + \beta^2/\eta}(0) 
+\mu_{\max} \left( {\cal P}_{\gamma_*} {\cal P}_{\gamma_*}^\top \right) 
+&= {\cal G}_{\gamma_*}(0) 
 = 
 1,
 \end{aligned}
@@ -1475,35 +1619,42 @@ denote the spectrum of the symmetric part of ${\cal P}_{\gamma}$, we find
 &= 
 1 + \beta^2 \frac{(\eta - \lambda)(\eta + \lambda)}{(\eta^2 + \lambda^2)^2}
 \\
-{\cal H}_{\eta + \beta^2/\eta}(\lambda) 
+{\cal H}_{\gamma_*}(\lambda) 
 &= 
 \eta^2 \frac{\beta^4 + 2 \eta^2 \beta^2 +  (\eta^2 + \lambda^2)^2}{(\eta^2 + \lambda^2) \left[ (\eta^2 + \beta^2)^2 + (\eta \lambda)^2 \right]}.
 \end{align*}
-Notice that ${\cal H}_{\eta + \beta^2/\eta}(\lambda) > 0$, meaning that the symmetric part of ${\cal P}_{\gamma}$ is always positive definite.
+Notice that ${\cal H}_{\gamma_*}(\lambda) > 0$, meaning that the symmetric part of ${\cal P}_{\gamma_*}$ is always positive definite.
 
 For the global minima of these functions, we find
 \begin{align}
 \label{eq:H_min_skew}
 \underset{\lambda \in \mathbb{R}}{\min} \,  {\cal H}_{\eta}(\lambda) = 1 - \frac{1}{8} \left( \frac{\beta}{\eta} \right)^2, 
 \quad
-\underset{\lambda \in \mathbb{R}}{\min} \,  {\cal H}_{\eta + \beta^2/\eta}(\lambda) =  \frac{2}{\left( \beta/\eta \right)^2 + 2}. 
+\underset{\lambda \in \mathbb{R}}{\min} \,  {\cal H}_{\gamma_*}(\lambda) =  \frac{2}{\left( \beta/\eta \right)^2 + 2}. 
 \end{align}
 Observe that the symmetric part of ${\cal P}_{\eta}$ is not always positive definite; for this to remain positive definite, it requires that $\beta / \eta < 2 \sqrt{2} \lesssim 2.83$. As such, bound \eqref{eq:gmres_eig_bound} cannot be applied for $(\beta / \eta)^2 > 8$, or $\beta / \eta \geq 2 \sqrt{2}$. Conversely, the symmetric part of ${\cal P}_{\eta + \beta^2/\eta}$ is always positive definite since its minimum eigenvalue is positive.\footnote{This is interesting. Is there any significance other than GMRES bound \eqref{eq:gmres_eig_bound} cannot be applied? E.g., is it known that GMRES convergence for matrices with indefinite symmetric components is worse than those without? If something like this is true, then it definitely says that $\gamma = \eta$ is a poor choice for skew symmetric matrices.} \\
 
 Plugging the maxima and minima from \eqref{eq:mu_skew} and \eqref{eq:H_min_skew} into GMRES bound \eqref{eq:gmres_eig_bound} we find
 \begin{align}
-{\cal Z}_{\eta} &= \left( \frac{\beta}{\eta} \right)^2 \frac{8 \left( \frac{\beta}{\eta} \right)^2 + 17}{ 8 \left[\left( \frac{\beta}{\eta} \right)^2 + 1 \right]^2}, \quad \left( \frac{\beta}{\eta} \right)^2 < 8, \\
-{\cal Z}_{\eta + \beta^2 / \eta} &= \frac{ \left( \frac{\beta}{\eta} \right)^2}{\left( \frac{\beta}{\eta} \right)^2 + 2}.
+\label{eq:GMRES_bounds_skew}
+{\cal Z}_{\eta} = \left( \frac{\beta}{\eta} \right)^2 \frac{8 \left( \frac{\beta}{\eta} \right)^2 + 17}{ 8 \left[\left( \frac{\beta}{\eta} \right)^2 + 1 \right]^2}, \quad \left( \frac{\beta}{\eta} \right)^2 < 8, 
+\quad
+{\cal Z}_{\gamma_*} = \frac{ \left( \frac{\beta}{\eta} \right)^2}{\left( \frac{\beta}{\eta} \right)^2 + 2}.
 \end{align}
 
 \begin{figure}[!htb]
 \label{fig:gmres_bounds}
 \centering
-\includegraphics[width=0.65\textwidth]{gmres_bounds}
-\caption{GMRES bound ${\cal Z}_{\gamma}$ from \eqref{eq:gmres_eig_bound} for SSPD and SS matrices ${\cal L}$ as a function of $(\beta/\eta)^2$.}
+\includegraphics[width=0.65\textwidth]{figures/gmres_bounds_spsd_ss}
+\caption{GMRES bound ${\cal Z}_{\gamma}$ from \eqref{eq:gmres_eig_bound} for SPSD and SS matrices ${\cal L}$ as a function of $(\beta/\eta)^2$. The SS bounds are given in \eqref{eq:GMRES_bounds_skew}. Also included is the GMRES bound for SPD ${\cal P}_{\gamma_*}$ that's calculated from upper bound on $\kappa({\cal P}_{\gamma_*})$ in \eqref{eq:kappa_star_bound}. The latter bound demonstrates how condition number doesn't directly translate into GMRES convergence because the condition number for $\gamma = \gamma_*$ for general matrices and SS matrices is very similar, as discussed in \eqref{eq:kappa_star_bound}, yet GMRES convergence for the SS case is much faster. The SPD bounds are computed via their condition number with \eqref{eq:gmres_bounds_spd}.}.
 \end{figure}
 
-See Figure \ref{fig:gmres_bounds} for a plot of the GMRES bounds which also includes the SSPD convergence bounds. Note that in the case of SPD ${\cal P}_{\gamma}$, ${\cal Z}_{\gamma} = (\kappa^2 - 1)/\kappa^2$.
+See Figure \ref{fig:gmres_bounds} for a plot of the GMRES bounds which also includes the SSPD convergence bounds. In the case of SPD ${\cal P}_{\gamma}$, bound \eqref{eq:gmres_eig_bound} can be computed in terms of condition number as 
+\begin{align}
+\label{eq:gmres_bounds_spd}
+{\cal Z}_{\gamma} = \frac{\kappa^2({\cal P}_{\gamma}) - 1}{\kappa^2({\cal P}_{\gamma})}.
+\end{align}
+
 
 
 So one thing I was hoping to get out of this analysis was that for skew symmetric matrices, it was much more important that we use $\gamma_*$ v.s. $\eta$ than it is for SSPD problems. Recalling that in the linear algorithm, for a hyperbolic example, Ben saw a much larger reduction in iteration count when using $\gamma_*$ v.s. $\eta$ for a hyperbolic problem over a diffusive one. However, the plots in Figure \ref{fig:gmres_bounds} don't strongly suggest this is the case...
@@ -1512,141 +1663,6 @@ Something else I don't really understand is that ${\cal P}_{\gamma_*}$ is much b
 \end{itemize}
 
 
-\newpage
-% ---------------------------------------------------------------------------------------------- %
-% ---------------------------------------------------------------------------------------------- %
-\subsection{The SPD case: Differing diagonal blocks}
-
-As in later sections, here we consider a preconditioner of the form
-\begin{align}
-\widehat{S} = \gamma I -  {\cal L}_2,
-\end{align}
-for Schur complement
-\begin{align}
-S
-= 
-\left[ \eta I - {\cal L}_2 + \beta^2(\eta I - {\cal L}_1)^{-1} \right].
-\end{align}
-This results in a preconditioned operator
-\begin{align}
-{\cal P}
-= 
-S \widehat{S}^{-1} 
-&= 
-\left[ \eta I - {\cal L}_2 + \beta^2(\eta I - {\cal L}_1)^{-1} \right] 
-\big[ \gamma I -  {\cal L}_2 \big]^{-1}, \\
-&=
-\big( \eta I - {\cal L}_2 \big) \big( \gamma I -  {\cal L}_2 \big)^{-1}  + \beta^2(\eta I - {\cal L}_1)^{-1} \big( \gamma I -  {\cal L}_2 \big)^{-1}.
-\end{align}
-Assuming that ${\cal L}_1$ and ${\cal L}_2$ are symmetric, and that they commute, ${\cal L}_1 {\cal L}_2 = {\cal L}_2 {\cal L}_1$, the preconditioned operator ${\cal P}$ is also symmetric by noting that if $AB = BA$, as is the case for $A = a I - {\cal L}_1$, $B = b I - {\cal L}_2$, then $A^{-1} B = B  A^{-1}$ and $A^{-1} B^{-1} = B^{-1} A^{-1}$.
-
-Let $\lambda_1 \in \sigma(- {\cal L}_1) \subset [0,\infty)$ and $\lambda_2 \in \sigma(- {\cal L}_2) \subset [0,\infty)$. Denoting the spectrum of ${\cal P}$ by ${\cal F}$, we have
-\begin{align}
-{\cal F} 
-= 
-1 - 
-\frac{\gamma - \eta}{\gamma + \lambda_2}
-+
-\frac{\beta^2}{(\eta + \lambda_1)(\gamma + \lambda_2)}.
-\end{align}
-Note that ${\cal F} > 0$ if $\gamma > 0$, i.e., ${\cal P}$ is SPD for $\gamma > 0$.
-
-Differentiating ${\cal F}$ w.r.t. $\lambda_1$ and $\lambda_2$ we have
-\begin{align}
-{\cal F}_{\lambda_1} = -  \frac{\beta^2}{(\eta + \lambda_1)^2(\gamma + \lambda_2)}, 
-\quad
-{\cal F}_{\lambda_1} =  \frac{(\gamma-\eta)(\eta + \lambda_1) - \beta^2}{(\eta + \lambda_1)(\gamma + \lambda_2)}.
-\end{align}
-Clearly ${\cal F}_{\lambda_1} < 0$, while ${\cal F}_{\lambda_2} = 0$ for $\lambda_1^* = \frac{\beta^2}{\gamma - \eta} - \eta$. However, we also observe that ${\cal F}_{\lambda_2 \lambda_2}$ vanishes at  $\lambda_1^*$, so this is a point of inflection rather than a minimum or maximum, which is what we care  about. Thus, the extrema of ${\cal F}$ must occur at the boundaries of its domain. \tcb{This is fundamentally different to what occurred previously when the diagonal blocks were identical: The minimum of ${\cal F}$ occurred at a critical point in the eigenvalue $\lambda$.}
-
-Basically, we find the following for ${\cal F}(\lambda_1, \lambda_2)$:
-\begin{align}
-{\cal F}(0,0) = \frac{1}{\gamma} \left( \eta + \frac{\beta^2}{\eta} \right), 
-\quad 
-{\cal F}(\infty, 0) = \frac{\eta}{\gamma},
-\quad 
-{\cal F}(0, \infty) = {\cal F}(\infty, \infty) = 1.
-\end{align}
-Assuming the spectra of  ${\cal L}_1$ and ${\cal L}_2$ are dense in $[0, \infty)$, this leads to the condition number
-\begin{align}
-\textrm{cond} ({\cal P}) = 
-\begin{cases}
-\displaystyle
-\frac{1}{\gamma} \left( \eta + \frac{\beta^2}{\eta} \right), \quad &0 < \gamma \leq \eta, \\
-\displaystyle
-1 + \frac{\beta^2}{\eta^2}, \quad &\eta \leq \gamma \leq \eta + \frac{\beta^2}{\eta}, \\
-\displaystyle
-\frac{\gamma}{\eta}, \quad &\eta + \frac{\beta^2}{\eta} \leq \gamma < \infty.
-\end{cases}
-\end{align}
-This condition number is minimized for \underline{\textbf{the entire inverval}} $\gamma \in \gamma_*  \coloneqq [\eta, \eta + \frac{\beta^2}{\eta}]$, in which case the minimum condition number is
-\begin{align}
-\textrm{cond} ({\cal P}_{\gamma \in \gamma_*}) = 1 + \frac{\beta^2}{\eta^2}.
-\end{align}
-A few remarks are in order:
-\begin{itemize}
-\setlength\itemsep{2ex}
- 
-\item Very weird how there is no longer an optimal value of $\gamma$, but instead a continuous interval of them. 
-
-\item This condition number is dissapointingly large compared to the one in \eqref{eq:cond_min} that we get when ${\cal L}_1 = {\cal L}_2$. I think this is saying something about $\gamma I - {\cal L}_2$ not being a very good preconditioner... Since this grows too quickly w.r.t. $\beta$, I think it says that we're not doing a good enough job on the $\beta^2 (\eta I - {\cal L}_1)^{-1}$ that appears in the Schur complement. See the analysis I started in the next section to try and overcome this, but I'm not really sure it's any better/even makes sense.
-  
-\item Note that the analysis in here works out much the same as for the ${\cal L}_1 = {\cal L}_2$ case, except for the fact that the minimum of ${\cal F}$ does not occur at a critical point in $\lambda$, but instead at the boundary.
- 
-\item I somehow would have expected to recover the previous result in the case  that ${\cal L}_1 = {\cal L}_2$... But I guess the reason that this didn't happen is because when we differentiated, we assumed that $\lambda_1$ and $\lambda_2$ are independent, where, to actually recover the previous result, we'd have to assume they're the same. Is there any reason to assume that $\lambda_1$ and $\lambda_2$ would be related if ${\cal L}_1$ and ${\cal L}_2$ commute?
- 
-\item This result is consistent with the general analysis that arrived at bound \eqref{eq:gammastar}. It also explains why that bound is so much larger than in the case that ${\cal L}_1 \neq {\cal L}_2$: I.e., the preconditioner for ${\cal L}_1 \neq {\cal L}_2$ is simply not as good, as we've shown here for the SPD case.
- 
-\end{itemize}
-
-
-\newpage
-% ---------------------------------------------------------------------------------------------- %
-% ---------------------------------------------------------------------------------------------- %
-\subsection{The SPD case: Differing diagonal blocks with a modified preconditioner}
-
-As we saw in the previous section, the preconditioner $\widehat{S} = \gamma I - {\cal L}_2$ doesn't produce great results in the sense that the condition number of the preconditioned operator grows quadratically in $\beta/\eta$. Notice in the Schur complement, the $\beta$ term weights a term containing an ${\cal L}_1$, but not a ${\cal L}_2$ term. Given that the condition number of the preconditioner grows too quickly with $\beta$, this possibly suggests that we try a preconditioner which also includes some ${\cal L}_1$ dependence. \tcb{I guess this follows on kind of from the discussion at the end of the SPD case with ${\cal L}_1 = {\cal L}_2$, where we see that modifying the ${\cal L}$ perturbation in the preconditioner influences the $\beta^2$ term. E.g., you can do the same Taylor series trick here for the Schur complement where ${\cal L}_1 \neq {\cal L}_2$.}
-
-Let's again assume that ${\cal L}_1 {\cal L}_2 = {\cal L}_2 {\cal L}_1$, but let's say now we try a preconditioner of the form
-\begin{align}
-\widehat{S} = \gamma I - (\alpha {\cal L}_1 + (1 - \alpha) {\cal L}_2),
-\end{align}
-where the coefficients must sum to one for consistency with the case that ${\cal L}_1 = {\cal L}_2$ [although, I'm not sure this is necessary, actually...]. The preconditioned operator takes the form
-\begin{align}
-{\cal P}
-= 
-S \widehat{S}^{-1} 
-= 
-\left[ \eta I - {\cal L}_2 + \beta^2(\eta I - {\cal L}_1)^{-1} \right] 
-\big[ \gamma I - (\alpha {\cal L}_1 + (1 - \alpha) {\cal L}_2) \big]^{-1}.
-\end{align}
-Let $\lambda_1 \in \sigma(- {\cal L}_1)$ and $\lambda_2 \in \sigma(- {\cal L}_2)$. Denoting the spectrum of ${\cal P}$ by ${\cal F}$, we have
-\begin{align*}
-{\cal F} 
-&= \frac{\eta + \lambda_2}{\gamma + \alpha \lambda_1 + (1-\alpha) \lambda_2} + \frac{\beta^2}{(\eta + \lambda_1)(\gamma + \alpha \lambda_1 + (1-\alpha) \lambda_2)}, \\
-\end{align*}
-We can put some conditions on $\alpha$ as follows. We require ${\cal F} > 0$ to maintain positive definiteness. Noting that the numerators of each fraction are non-negative, and assuming $\gamma > 0$, this means
-\begin{align*}
-\gamma + \alpha \lambda_1 + (1 - \alpha) \lambda_2 > 0 
-\quad \Longrightarrow \quad 
-\alpha > - \frac{\lambda_2 + \gamma}{\lambda_1 - \lambda_2} < 0
-\quad \textrm{and} \quad 
-\alpha < \frac{\lambda_2 + \gamma}{\lambda_2 - \lambda_1} < 1.
-\end{align*}
-Thus, $\quad 0 \leq \alpha < 1$.
-%
-Also, we require that the first fraction in ${\cal F}$ remains bounded w.r.t. $\lambda_2$. We have
-\begin{align*}
-\lim \limits_{\lambda_2 \to \infty} \frac{\eta + \lambda_2}{\gamma + \alpha \lambda_1 + (1-\alpha) \lambda_2} 
-&= 
-\lim \limits_{\lambda_2 \to \infty} \frac{\tfrac{\eta}{\lambda_2} + 1}{\tfrac{\gamma}{\lambda_2} + \alpha \tfrac{\lambda_1}{\lambda_2} + (1-\alpha) } 
-=
-\lim \limits_{\lambda_2 \to \infty}
-\frac{1}{1 - \alpha + \alpha \tfrac{\lambda_1}{\lambda_2}}.
-\end{align*}
-Noting that $\lambda_1$ and $\lambda_2$ are independent, this fraction remaining bounded and positive once again requires $0 \leq \alpha < 1$. Note that for $\alpha = 0$ we recover the previous preconditioner, $\gamma I - {\cal L}_2$.
-
-Computing critical points is painful... Also, not quite sure how to compute ${\cal F}$ as $\lambda_1, \lambda_2 \to \infty$ due to them appearing together in first fraction...
 
 % ---------------------------------------------------------------------------------------------- %
 % ---------------------------------------------------------------------------------------------- %
