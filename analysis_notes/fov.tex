@@ -1659,6 +1659,14 @@ For the global minima of these functions, we find
 \begin{remark}[Indefiniteness of symmetric part of ${\cal P}_{\eta}$]
 Observe from \eqref{eq:H_min_skew} that the symmetric part of ${\cal P}_{\eta}$ is not always positive definite; for this to remain positive definite, it requires that $\beta / \eta < 2 \sqrt{2} \lesssim 2.83$. As such, bound \eqref{eq:gmres_eig_bound} cannot be applied for $(\beta / \eta)^2 > 8$, or $\beta / \eta \geq 2 \sqrt{2}$. Conversely, the symmetric part of ${\cal P}_{\gamma_*}$ is always positive definite since its minimum eigenvalue is positive (which we could see from the fact that the equation for ${\cal H}_{\gamma_*}(\lambda) $ above is always positive).
 %
+For reference, we also have
+\begin{align*}
+\underset{\lambda \in \mathbb{R}}{\max} \,  {\cal H}_{\eta}(\lambda) = 1 + \left( \frac{\beta}{\eta} \right)^2,
+\quad
+\underset{\lambda \in \mathbb{R}}{\max} \,  {\cal H}_{\gamma_*}(\lambda) = 1.
+\end{align*}
+So as $\left( \frac{\beta}{\eta} \right)^2$ increases and the symmetric component of ${\cal P}_{\eta}$ loses positive definitess, it become more and more indefinite since its maximum eigenvalue continues to increase also.   
+%
 This is interesting. Is there any significance other than GMRES bound \eqref{eq:gmres_eig_bound} cannot be applied? E.g., is it known that GMRES convergence for matrices with indefinite symmetric components is worse than those without? If something like this is true, then it definitely says that $\gamma = \eta$ is a poor choice for skew symmetric matrices. 
 \end{remark}
 I don't really know anything about GMRES convergence theory. But I did find the following From Corollary 3 of the GMRES paper by Saad and Schultz: ``\textit{...
