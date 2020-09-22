@@ -39,10 +39,10 @@
 % ------------------------------------------------------------------------------------ %
 % ------------------------------------------------------------------------------------ %
 
-\newcommand{\TheTitle}{Fast parallel solution of fully implict Runge-Kutta and discontinous
-	Galerkin in time for numerical PDEs, Part II: the nonlinear setting}
+\newcommand{\TheTitle}{Fast parallel solution of fully implicit Runge-Kutta and discontinuous
+	Galerkin in time for numerical PDEs, Part II: nonlinearities and DAEs}
 \newcommand{\TheAuthors}{B.S. Southworth, O. Krzysik, and W. Pazner}
-\headers{Parallel solution of fully implict Runge-Kutta and DG in time I}{\TheAuthors}
+\headers{Parallel solution of fully implicit Runge-Kutta and DG in time II}{\TheAuthors}
 \title{{\TheTitle}\thanks{This research was conducted ...
   }}
 
@@ -138,6 +138,8 @@ solution of the block linear system,
 & = \begin{bmatrix} \mathbf{f}_1 \\ \vdots \\ \mathbf{f}_s \end{bmatrix}.
 \end{align}
 %
+\tcb{Motivate this form via linearization of $\mathcal{N}$, chain rule
+yields same linearization across row as a function of $\mathbf{k}_1,\mathbf{k}_2,...$}
 
 The difficulty in fully implicit Runge-Kutta methods (which we will denote IRK) lies in
 solving the $Ns\times Ns$ block linear system in \eqref{eq:k0}. This paper focuses on the
@@ -175,7 +177,8 @@ problems are provided in \Cref{sec:numerics_nonlin}, \todo{including ...}
 % ------------------------------------------------------------------------------------- %
 \subsection{Why fully implicit and previous work}\label{sec:intro:hist}
 
-
+\tcb{See Ch. 4 of Numerical Solution of Initial-Value Problems in Differential-Algebraic Equations
+for nice comparison w/ BDF for DAEs.}
 
 
 % Simplified newton scheme uses fixed Jacobian for all stages
@@ -334,7 +337,7 @@ solving a $2\times 2$ block system along the lines of
 -\frac{\beta^2}{\phi} I & \eta I - \widehat{\mathcal{L}}_2\end{bmatrix},
 \end{align}
 %
-for some $\phi \neq 0$ and where it is assumed that $W(\widehat{\mathcal{L}}_i) \geq 0$
+for some $\phi \neq 0$ and where it is assumed that $W(\widehat{\mathcal{L}}_i) \leq 0$
 in \Cref{ass:fov} for $i=1,2$. In some
 cases (in particular, simplified Newton methods) $\widehat{\mathcal{L}}_1 =
 \widehat{\mathcal{L}}_2$, but we are particularly interested in the more general
@@ -1364,6 +1367,182 @@ Picard iteration.
 % ------------------------------------------------------------------------------------- %
 \section{Differential algebraic equations}\label{sec:dae}
 
+This section considers differential algebraic equations (DAEs) that result from
+the spatial discretization of a time-dependent PDE with a spatial constraint.
+DAEs account for many interesting physical problems, with obvious examples
+including the many variations in incompressible flow that arise in fluid
+dynamics and plasma simulations. Special treatment is also required for
+the time integration of DAEs, and this section discusses how to extend
+methods developed in this paper to DAEs.
+
+DAEs arising from numerical PDEs take the general form
+%
+\begin{align}\label{eq:dae}
+\begin{split}
+M\mathbf{u}_t & = \mathcal{N}(\mathbf{u},\mathbf{w},t), \\
+\mathbf{0} & = \mathcal{G}(\mathbf{u},\mathbf{w},t),
+\end{split}
+\end{align}
+%
+where $M$ is a mass matrix and $\mathcal{N}$ and $\mathcal{G}$ nonlinear
+functions of the time-dependent variable, $\mathbf{u}$, the constraint
+variable, $\mathbf{w}$, and time. 
+Time propagation using Runge-Kutta integration then takes a similar form to
+\eqref{eq:update}, where
+%
+\begin{align*}
+\mathbf{u}_{n+1} = \mathbf{u}_n + \delta t\sum_{i=1}^s b_i\mathbf{k}_i, \hspace{5ex}
+\mathbf{w}_{n+1} = \mathbf{w}_n + \delta t\sum_{i=1}^s b_i\boldsymbol{\ell}_i,
+\end{align*}
+%
+and stage vectors $\{\mathbf{k}_i\}$ and $\{\boldsymbol{\ell}_i\}$ are
+given as the solution of the nonlinear set of equations
+%
+\begin{align}\label{eq:dae_stage}
+\begin{split}
+\mathcal{N}_i :&= M\mathbf{k}_i -
+	\mathcal{N} \left (\mathbf{u}_{n} + \delta t\sum_{j=1}^s a_{ij}\mathbf{k}_j,
+	\mathbf{w}_{n} + \delta t\sum_{j=1}^s a_{ij}\boldsymbol{\ell}_j, t_{n} + c_i\delta t\right)
+	= \mathbf{0}, \\
+\mathcal{G}_i :&= - \left (\mathbf{u}_{n} + \delta t\sum_{j=1}^s a_{ij}\mathbf{k}_j,
+	\mathbf{w}_{n} + \delta t\sum_{j=1}^s a_{ij}\boldsymbol{\ell}_j, t_{n} + c_i\delta t\right)
+	= \mathbf{0}.
+\end{split}
+\end{align}
+%
+
+\textbf{The linear case:} As a simple example, consider a
+linear set of DAEs, where \eqref{eq:dae} can be expressed as the linear set of
+equations
+%
+\begin{align}\label{eq:dae_lin}
+\begin{bmatrix} M\mathbf{u}_t \\ \mathbf{0} \end{bmatrix}
+& = \begin{bmatrix} \mathcal{L}_u & \mathcal{L}_w \\
+	\mathcal{G}_u & \mathcal{G}_w\end{bmatrix}
+	\begin{bmatrix} \mathbf{u} \\ \mathbf{w} \end{bmatrix} + 
+		\begin{bmatrix}\mathbf{f}(t) \\ \mathbf{g}(t)\end{bmatrix}.
+\end{align}
+%
+Then, the equations defining stage vectors \eqref{eq:dae_stage} can
+be expressed as a large block linear system,
+%
+{\small
+\begin{align}\label{eq:daestage_lin}
+\left( \begin{bmatrix} \begin{bmatrix} M \\ & \mathbf{0}\end{bmatrix} & &
+	\mathbf{0} \\ & \ddots \\ \mathbf{0} & & \begin{bmatrix} M \\ & \mathbf{0}\end{bmatrix}
+		\end{bmatrix}
+	- \delta t \begin{bmatrix}
+		a_{11}\begin{bmatrix} \mathcal{L}_{u} & \mathcal{L}_{w} \\
+			\mathcal{G}_{u} & \mathcal{G}_w \end{bmatrix} & ... & a_{1s}
+		\begin{bmatrix} \mathcal{L}_{u} & \mathcal{L}_{w} \\ \mathcal{G}_{u} & \mathcal{G}_w
+		\end{bmatrix} \\
+		\vdots & \ddots & \vdots \\
+		a_{s1}\begin{bmatrix} \mathcal{L}_{u} & \mathcal{L}_{w} \\
+			\mathcal{G}_{u} & \mathcal{G}_w \end{bmatrix}
+		& ... & a_{ss} \begin{bmatrix} \mathcal{L}_{u} & \mathcal{L}_{w} \\
+			\mathcal{G}_{u} & \mathcal{G}_w \end{bmatrix}
+	\end{bmatrix} \right)
+	\begin{bmatrix} \mathbf{k}_1 \\ \boldsymbol{\ell}_1 \\ \vdots \\
+		\mathbf{k}_s \\ \boldsymbol{\ell}_s\end{bmatrix} 
+& = \begin{bmatrix} \mathbf{f}_1 \\ \mathbf{g}_1 \\ \vdots \\
+	\mathbf{f}_s \\ \mathbf{g}_s \end{bmatrix},
+\end{align}
+}
+%
+where $\mathbf{f}_i = ( \mathbf{f}(t_i + c_i\delta t) + \mathcal{L}_u\mathbf{u}_n
++ \mathcal{L}_w\mathbf{w}_n) $ and $\mathbf{g}_i = (\mathbf{g}(t_i + c_i\delta t) +
+\mathcal{G}_u\mathbf{u}_n + \mathcal{G}_w\mathbf{w}_n)$. In this case,
+\eqref{eq:daestage_lin} can be reduced to the Kronecker-product form
+%
+\begin{align*}
+\left( I\otimes \begin{bmatrix} M \\ & \mathbf{0}\end{bmatrix} 
+	- \delta t A_0\otimes
+		\begin{bmatrix} \mathcal{L}_{u} & \mathcal{L}_{w} \\
+			\mathcal{G}_{u} & \mathcal{G}_w \end{bmatrix}\right)
+	\mathbf{K} 
+& = \mathbf{F}.
+\end{align*}
+%
+
+\textbf{The nonlinear case:} For general nonlinear DAEs \eqref{eq:dae} that arise
+in the context of numerical PDEs, it is often the case (although we do not
+claim always) that linearizing \eqref{eq:dae_stage} results in a linear set of
+equations similar to \eqref{eq:daestage_lin}, but with linearized operator that
+depends on stages. Similar to the nonlinear ODE case (see \todo{ref}), it is
+generally the case that the $2\times 2$ linearized operator is fixed for a
+given stage (i.e., block row of the matrix), a natural result of the chain
+rule applied to \eqref{eq:dae_stage}. Pulling out an $A_0\otimes I$ as
+in the ODE case yields a block linear system of the form
+%
+{\small
+\begin{align}\label{eq:daestage_nonlin}
+\left( A_0^{-1}\otimes \begin{bmatrix}M & \mathbf{0} \\ \mathbf{0} & \mathbf{0}\end{bmatrix}
+	- \delta t\begin{bmatrix}
+		\begin{bmatrix} \mathcal{L}_{u}^{(1)} & \mathcal{L}_{w}^{(1)} \\
+			\mathcal{G}_{u}^{(1)} & \mathcal{G}_w^{(1)} \end{bmatrix} & & \mathbf{0} \\
+		& \ddots & \\
+		\mathbf{0} &&\begin{bmatrix} \mathcal{L}_{u}^{(s)} & \mathcal{L}_{w}^{(s)} \\
+			\mathcal{G}_{u}^{(s)} & \mathcal{G}_w^{(s)} \end{bmatrix}
+	\end{bmatrix} \right)
+	(A_0 \otimes I)
+	\begin{bmatrix} \mathbf{k}_1 \\ \boldsymbol{\ell}_1 \\ \vdots \\
+		\mathbf{k}_s \\ \boldsymbol{\ell}_s\end{bmatrix} 
+& = \begin{bmatrix} \mathbf{f}_1 \\ \mathbf{g}_1 \\ \vdots \\
+	\mathbf{f}_s \\ \mathbf{g}_s \end{bmatrix}.
+\end{align}
+}
+%
+
+\textbf{Solving linear systems:}
+Now, techniques developed in \Cref{sec:nonlinear} can be applied to solve
+or approximate \eqref{eq:daestage_nonlin} as a single step in the larger
+nonlinear iteration to solve \eqref{eq:dae_stage}. Now, the $2\times 2$
+block systems discussed in \Cref{sec:theory} are $4\times 4$ systems of
+the form
+%
+\begin{align*}
+\begin{bmatrix} \eta M - \delta t\mathcal{L}_{u}^{(1)} & -\delta t\mathcal{L}_{w}^{(1)}
+		& \phi M & \mathbf{0} \\
+	-\delta t\mathcal{G}_{u}^{(1)} & -\delta t\mathcal{G}_w^{(1)}
+		& \mathbf{0} & \mathbf{0} \\
+	-\tfrac{\beta^2}{\phi}M & \mathbf{0} & \eta M - \delta t\mathcal{L}_{u}^{(2)} &
+		-\delta t\mathcal{L}_{w}^{(2)} \\
+	\mathbf{0} & \mathbf{0} & -\delta t\mathcal{G}_{u}^{(2)} &
+		-\delta t\mathcal{G}_w^{(2)} \end{bmatrix}
+\end{align*}
+%
+If we form a $2\times 2$ Schur complement by eliminating the $2\times 2$
+block with $(1)$ superscripts,
+%
+\begin{align*}
+S :& = \begin{bmatrix} \eta M - \delta t\mathcal{L}_{u}^{(2)} &
+	-\delta t\mathcal{L}_{w}^{(2)} \\ -\delta t\mathcal{G}_{u}^{(2)} &
+		-\delta t\mathcal{G}_w^{(2)} \end{bmatrix}
+	+ \beta^2 \begin{bmatrix} M & \mathbf{0} \\\mathbf{0} & \mathbf{0} \end{bmatrix}
+	\begin{bmatrix} \eta M - \delta t\mathcal{L}_{u}^{(1)} &
+	-\delta t\mathcal{L}_{w}^{(1)} \\ -\delta t\mathcal{G}_{u}^{(1)} &
+		-\delta t\mathcal{G}_w^{(1)} \end{bmatrix}^{-1}
+	\begin{bmatrix} M & \mathbf{0} \\\mathbf{0} & \mathbf{0} \end{bmatrix} \\
+& = \begin{bmatrix} \eta M - \delta t\mathcal{L}_{u}^{(2)} + \beta^2M \widehat{S}_1^{-1}M &
+	-\delta t\mathcal{L}_{w}^{(2)} \\ -\delta t\mathcal{G}_{u}^{(2)} &
+		-\delta t\mathcal{G}_w^{(2)} \end{bmatrix}.
+\end{align*}
+%
+In the case that $\mathcal{G}_w^{(2)}$ is invertible (which typically occurs
+in semi-explicit index-1 DAEs), we get the simplified form
+%
+\begin{align*}
+S & = \begin{bmatrix} \eta M - \delta t\mathcal{L}_{u}^{(2)} + \beta^2M \left(
+	\eta M - \delta t\mathcal{L}_{u}^{(1)} + \delta t\mathcal{L}_{w}^{(1)}
+		(\mathcal{G}_w^{(1)})^{-1}\mathcal{G}_{u}^{(2)}\right)^{-1} M &
+	-\delta t\mathcal{L}_{w}^{(2)} \\ -\delta t\mathcal{G}_{u}^{(2)} &
+		-\delta t\mathcal{G}_w^{(2)} \end{bmatrix}.
+\end{align*}
+
+
+% Assume that the Jacobian $\partial\mathcal{G}/\partial \mathbf{w}$ exists and
+% is invertible in a neighborhood of the exact solution. These are so-called
+% semi-explicit index-1 DAEs. 
 
 
 % ------------------------------------------------------------------------------------- %
