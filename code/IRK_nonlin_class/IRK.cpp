@@ -262,6 +262,67 @@ void RKData::SizeData() {
 }
 
 
+/** Set dummy 2x2 RK data that has the specified value of beta_on_eta == beta/eta
+    and real part of eigenvalue equal to eta_ */
+void RKData::SetDummyData(double beta_on_eta, double eta_) {
+    s = 2;      // 2 stages
+    s_eff = 1;  // Have one 2x2 system
+    
+    SizeData();
+    /* --- eta --- */
+    eta(0) = eta_; // 
+    /* --- beta --- */
+    beta(0) = beta_on_eta*eta(0);
+    /* --- R block sizes --- */
+    R0_block_sizes[0] = 2;
+    
+    double phi = 1.0; // Some non-zero constant...
+    double a = eta(0);
+    double b = phi;
+    double c = -beta(0)*beta(0)/phi;
+    double d = eta(0);
+    
+    /* --- inv(A) --- */
+    invA0(0, 0) = a;
+    invA0(0, 1) = b;
+    invA0(1, 0) = c;
+    invA0(1, 1) = d;
+    
+    /* --- A --- */
+    double det = a*d - b*d;
+    A0(0, 0) = d/det;
+    A0(0, 1) = -b/det;
+    A0(1, 0) = -c/det;
+    A0(1, 1) = a/det;
+    
+    /* --- Q --- */
+    // choose Q as identity, so inv(A) is equal to R.
+    Q0(0, 0) = 1.0;
+    Q0(0, 1) = 0.0;
+    Q0(1, 0) = 0.0;
+    Q0(1, 1) = 1.0;
+    /* --- R --- */
+    // Set R = inv(A0)
+    R0(0, 0) = a;
+    R0(0, 1) = b;
+    R0(1, 0) = c;
+    R0(1, 1) = d;
+    
+    /* --- b --- */
+    // These are just non-zero dummy values.
+    b0(0) = 0.5;
+    b0(1) = 0.5;
+    /* --- c --- */
+    // c is the row sums of A
+    c0(0) = A0(0, 0) + A0(0, 1);
+    c0(1) = A0(1, 0) + A0(1, 1);
+    /* --- d --- */
+    // d = inv(A0)^T * b
+    d0(0) = invA0(0, 0)*b0(0) + invA0(1, 0)*b0(1);
+    d0(1) = invA0(0, 1)*b0(0) + invA0(1, 1)*b0(1);;
+}
+
+
 /// Set data required by solvers 
 void RKData::SetData() {
     switch(ID) {

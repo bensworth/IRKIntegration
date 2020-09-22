@@ -246,6 +246,7 @@ public:
     //  + 3 = Lobatto IIIC
     //  Second digit: order of scheme
     enum Type { 
+        DUMMY = -1000000000, 
         ASDIRK3 = -13, ASDIRK4 = -14,
         LSDIRK1 = 01, LSDIRK2 = 02, LSDIRK3 = 03, LSDIRK4 = 04,
         Gauss2 = 12, Gauss4 = 14, Gauss6 = 16, Gauss8 = 18, Gauss10 = 110,
@@ -261,8 +262,20 @@ private:
     /// Set dimensions of data structures 
     void SizeData();    
     
+    /** Set dummy 2x2 RK data that has the specified values of 
+        beta_on_eta == beta/eta and eta */
+    void SetDummyData(double beta_on_eta, double eta);
+    
 public:
+    /// Constructor for real RK schemes
     RKData(Type ID_) : ID{ID_} { SetData(); };
+    
+    /** Constructor for setting dummy RK data with 2x2 matrix having complex 
+        conjugate eigenvalues with ratio beta_on_eta and real-component of eta */
+    RKData(double beta_on_eta, double eta = 1.0) : ID(DUMMY) { 
+        mfem_warning("This is not a valid RK scheme. Setting beta/eta is to be used for testing purposes only!\n"); 
+        SetDummyData(beta_on_eta, eta); 
+    };
     
     ~RKData() {};
     
@@ -548,7 +561,7 @@ public:
         JacSparsity jac_solver_sparsity = JacSparsity::DENSE;
         JacSparsity jac_prec_sparsity  = JacSparsity::DIAGONAL;
         
-        int gamma_idx = 0; // Constant used when preconditioning (2,2) block [0==eta, 1==(eta^2+beta^2)/eta; 2==sqrt{eta^2+beta^2}].
+        int gamma_idx = 0; // Constant used when preconditioning (2,2) block [0==eta, 1==eta+beta^2/eta].
     }; 
 
 private:    
@@ -1379,10 +1392,8 @@ private:
                     gamma = eta;
                 } else if (gamma_idx == 1) {
                     gamma = eta + beta*beta/eta;
-                } else if (gamma_idx == 2) {
-                    gamma = std::sqrt(eta*eta + beta*beta);    
                 } else {
-                    mfem_error("gamma must be 0, 1, or 2");
+                    mfem_error("gamma must be 0, 1");
                 }
             }
             
