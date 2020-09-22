@@ -23,6 +23,7 @@
 }
 \usepackage{cleveref}
 \usepackage{multirow}
+\usepackage{bm}
 
 
 \newtheorem{lemma}{Lemma}
@@ -97,7 +98,7 @@ the preconditioned operator, where $((\eta + i\beta)I -
 preconditioned with $(\gamma I - \widehat{\mathcal{L}})^{-2}$.
 Define $\gamma_* = \sqrt{\eta^2+\beta^2}$. Then
 %
-\begin{align}\label{eq:gammastar}
+\begin{align}\label{eq:gammastar_}
 \textnormal{cond}(\mathcal{P}_{\gamma_*}) \leq 
 	3\sqrt{1+\frac{\beta^2}{\eta^2}} - 2.
 \end{align}
@@ -355,11 +356,11 @@ Combining with \eqref{eq:Pgamma} completes the proof of \eqref{eq:cond_gen}.
 \end{proof}
 %
 
-
+%
 % % ---------------------------------------------------------------------------------------------- %
 % \subsubsection{$\gamma = \sqrt{\eta^2+\beta^2}$}
-
-% Consider the choice of $\gamma = \gamma_* = \sqrt{\eta^2+\beta^2}$. Recall $\gamma_*$
+%
+%% Consider the choice of $\gamma = \gamma_* = \sqrt{\eta^2+\beta^2}$. Recall $\gamma_*$
 % is optimal when $\mathcal{L}$ is SPD with spectrum $\subset[0,\infty)$. It turns out,
 % $\gamma_*$ provides a unique simplification here as well. From \eqref{eq:smin0}, we have
 % %
@@ -409,8 +410,8 @@ Combining with \eqref{eq:Pgamma} completes the proof of \eqref{eq:cond_gen}.
 % where in the last step we note that if $\mathcal{L}\mathbf{w} = \mathbf{0}$, the only
 % nonzero term is $\|\mathbf{w}+\tfrac{1}{\gamma_*^2}\mathcal{L}^2\mathbf{w}\|^2 = \|\mathbf{w}\|^2$
 % in the denominator, which yields one for the full equation.
-
-% Now note that all of the terms in the numerator and denominator are non-negative,
+%
+%% Now note that all of the terms in the numerator and denominator are non-negative,
 % and we can bound the maximum from above by ensuring the leading numerator and
 % denominator constants, say $c_n$ and $c_d$, satisfy $c_n/c_d \leq K$. For
 % $\|\mathcal{L}\mathbf{w}\|^2$, we require
@@ -441,8 +442,8 @@ Combining with \eqref{eq:Pgamma} completes the proof of \eqref{eq:cond_gen}.
 % 	1 - \frac{\eta}{\gamma_*} \leq K.
 % \end{align*}
 % %
-
-% Because $\gamma_* >\eta$, the largest $K$ is in \eqref{eq:Kproof}, where we define
+%
+%% Because $\gamma_* >\eta$, the largest $K$ is in \eqref{eq:Kproof}, where we define
 % $K = \frac{\beta^2}{\eta^2+\beta^2} = 1 - \tfrac{\eta^2}{\gamma_*^2} >
 % 1 - \tfrac{\eta}{\gamma}$. Altogether, this yields
 % $s_{\min}(P_{\gamma_*}^{-1})^2 \geq 1 - K$, and
@@ -453,9 +454,201 @@ Combining with \eqref{eq:Pgamma} completes the proof of \eqref{eq:cond_gen}.
 % 	= \sqrt{1 + \frac{\beta^2}{\eta^2}}.
 % \end{align*}
 % %
-
-% It is worth noting that in practice, $\|P_{\gamma_*}^{-1}\|$ is likely
+%
+%% It is worth noting that in practice, $\|P_{\gamma_*}^{-1}\|$ is likely
 % smaller and more independent of $\eta$ and $\beta$.
+
+
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+\section{Tighter linear theory}
+Provided I'm not making some silly mistake, it turns out we can get tighter bounds on  condition numbers \eqref{eq:gammastar_} and \eqref{eq:cond_gen} by applying the same trick to bound $\Vert {\cal P}_{\gamma} \Vert$ as we do $\Vert {\cal P}_{\gamma}^{-1} \Vert$. This leads to much tighter bounds on both $\kappa({\cal P}_{\gamma_*})$, and on $\kappa({\cal P}_{\gamma})$ for the special case of $W({\cal L}^2) \geq 0$. The new results are summarized in the following theorem.
+
+\begin{theorem}[Conditioning of preconditioned operator]\label{th:cond_lin}
+Suppose $\eta > 0$ and $W(\mathcal{L}) \leq 0$. Let $\mathcal{P}_\gamma$ denote
+the preconditioned operator, where $((\eta + \mathrm{i}\beta)I -
+\mathcal{L})((\eta - \mathrm{i}\beta)I - \mathcal{L})$ is
+preconditioned with $(\gamma I - \mathcal{L})^{-2}$.
+Define $\gamma_* = \sqrt{\eta^2+\beta^2}$ and let $\kappa(\cdot)$ denote the two-norm condition number of a matrix. Then
+%
+\begin{align*}
+\kappa(\mathcal{P}_{\gamma_*}) \leq \sqrt{1+\frac{\beta^2}{\eta^2}}.
+\end{align*}
+Assume additionally that $W(\mathcal{L}^2) \geq 0$. Then 
+\begin{align*}
+\kappa({\cal P}_{\gamma}) \leq 
+\begin{cases}
+\displaystyle \frac{\eta^2 + \beta^2}{\gamma^2}, \quad \gamma \in (0, \eta], \\[2ex]
+\displaystyle \frac{\eta^2 + \beta^2}{\eta \gamma}, \quad \gamma \in [\eta, \sqrt{\eta^2 + \beta^2}].
+\end{cases}
+\end{align*}
+\end{theorem}
+
+\tcb{Now we work through the details of the proof.} The square of the condition number can be written as
+\begin{align}
+\nonumber
+\kappa^2({\cal P}_{\gamma}) 
+&= 
+\Vert {\cal P}_{\gamma} \Vert^2 
+\Vert {\cal P}_{\gamma}^{-1} \Vert^2 \\
+\nonumber
+&=
+s_{\rm max} ({\cal P}_{\gamma})^2 \times \frac{1}{s_{\rm min} ({\cal P}_{\gamma})^2},\\
+\label{eq:kappa_def}
+&=
+\underset{{\bm{v} \neq 0}}{\max} \frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2 }{\Vert \bm{v} \Vert^2} 
+\times 
+\frac{1}{\displaystyle{\underset{{\bm{v} \neq 0}}{\min} \frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2 }{\Vert \bm{v} \Vert^2}}}.
+\end{align}
+The key here will be bounding $\max \frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2 }{\Vert \bm{v} \Vert^2}$ from above, and bounding $\min \frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2 }{\Vert \bm{v} \Vert^2}$ from below.
+
+We write the preconditioned operator ${\cal P}_{\gamma}$ as follows
+\begin{align*}
+{\cal P}_{\gamma} = I + 2(\eta - \gamma) (\gamma I - {\cal L})^{-1} + \big[ \beta^2 + (\eta - \gamma)^2 \big] (\gamma I - {\cal L})^{-2}.
+\end{align*}
+Now putting $\bm{v} = (\gamma I - {\cal L})^{2} \bm{w}$, we have
+\begin{align*}
+{\cal P}_{\gamma} \bm{v} = \big( \eta^2 + \beta^2 - 2\eta{\cal L} + {\cal L}^2 \big) \bm{w} = \big[ \big( \eta I - {\cal L} \big)^2 +  \beta^2 \big] \bm{w}.
+\end{align*}
+Working through the algebra, we find the squared norm of this term can be written as
+\begin{align*}
+\Vert {\cal P}_{\gamma} \bm{v} \Vert^2
+=
+\Vert (\eta^2 + \beta^2) \bm{w} + {\cal L}^2 \bm{w} \Vert^2  - 4 \eta \langle {\cal L}({\cal L} \bm{w}), \bm{w} \rangle + 4 \eta^2 \Vert {\cal L} \bm{w} \Vert^2 - 4 \eta (\eta^2 +\beta^2) \langle {\cal L} \bm{w}, \bm{w} \rangle.
+\end{align*}
+Thus, we can write the fraction we care about in \eqref{eq:kappa_def} in the form
+\begin{align}
+\label{eq:P_gamma_frac}
+\frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2}{\Vert \bm{v} \Vert^2}
+=
+\frac{
+c_0(\bm{w}) f_0(\bm{w}) + c_1 f_1(\bm{w}) + c_2 f_2(\bm{w}) + c_3 f_3(\bm{w})
+}
+{
+f_0(\bm{w}) + c_1 f_1(\bm{w}) + c_2 f_2(\bm{w}) + c_3 f_3(\bm{w})
+},
+\end{align}
+where we define functions and constants
+\begin{align*}
+f_0 &= \Vert \gamma^2 \bm{w} + {\cal L}^2 \bm{w} \Vert^2 > 0,
+\quad
+c_0 = \frac{\Vert (\eta^2 + \beta^2) \bm{w} + {\cal L}^2 \bm{w} \Vert^2}{\Vert \gamma^2 \bm{w} + {\cal L}^2 \bm{w} \Vert^2} > 0,
+\\
+f_1 &= -4 \gamma \langle {\cal L}({\cal L} \bm{w}), {\cal L} \bm{w} \rangle \geq 0,
+\quad 
+c_1 = \frac{\eta}{\gamma} > 0,\\
+f_2 &= 4 \gamma^2 \Vert {\cal L} \bm{w} \Vert^2 \geq 0, 
+\quad
+c_2 = \left( \frac{\eta}{\gamma} \right)^2 > 0, \\
+f_3 &= -4 \gamma^3 \langle {\cal L} \bm{w}, \bm{w} \rangle \geq 0, 
+\quad
+c_3 = \frac{\eta (\eta^2 + \beta^2)}{\gamma^3} > 0.
+\end{align*}
+Noting that all of these functions and constants are non-negative, and that at least one term in the numerator and denominator is positive, we can put lower and upper bounds on \eqref{eq:P_gamma_frac} as
+\begin{align}
+\min \{ c_0, c_1, c_2, c_3 \} \eqqcolon c_{\min}
+\leq
+\frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2}{\Vert \bm{v} \Vert^2} 
+\leq c_{\max} 
+\coloneqq \max \{ c_0, c_1, c_2, c_3 \}.
+\end{align}
+This allows us to bound condition number \eqref{eq:kappa_def} as
+\begin{align} \label{eq:kappa_sq_bound}
+\kappa^2({\cal P}_{\gamma}) \leq \frac{c_{\max}}{c_{\min}}
+\end{align}
+This is the same strategy we used previously for the lower bound, but now we're also going to do it for the upper bound since it's tighter!\\
+
+Assuming $\gamma \in [\eta, \sqrt{\eta^2 + \beta^2}]$ because it makes the analysis easier, we find
+\begin{align} 
+\label{eq:c_partial}
+c_2 = \underset{\gamma \in [\eta , \sqrt{\eta^2 + \beta^2}]}{\min} \{c_1, c_2, c_3 \} < 1, \quad c_3 = \underset{\gamma \in [\eta, \sqrt{\eta^2 + \beta^2}]}{\max} \{c_1, c_2, c_3 \},
+\end{align}
+but note that the edge case of $c_2 = 1$ at $\gamma = \eta$ (this is inconsequential, however). Now we consider two special cases as follows.\\
+
+\underline{\textbf{Case 1,} $\bm{\gamma = \gamma_* \coloneqq \sqrt{\eta^2 + \beta^2}}$\textbf{:}} Notice for this special case $c_0 = 1$, and so we have
+\begin{align}
+\label{eq:extremal_c_case1}
+c_{\min} = c_2 = \frac{\eta^2}{\eta^2 + \beta^2}, \quad c_{\max} = c_0 = 1 > c_3 = \frac{1}{\sqrt{1 + \beta^2/\eta^2}}.
+\end{align}
+This is where we end up getting a much tighter result than we did previously: We've now shown $\Vert {\cal P}_{\gamma_*} \Vert \leq 1$, where as previously \eqref{eq:Pgamma} was used to say $\Vert {\cal P}_{\gamma_*} \Vert < 3 - 2/\sqrt{1 + \beta^2 / \eta^2} \to 3^-$ as $\beta/\eta \to \infty$.
+%
+Substituting \eqref{eq:extremal_c_case1} into \eqref{eq:kappa_sq_bound} yields the following bound on the condition number
+\begin{align} \label{eq:kappa_case1}
+\kappa({\cal P}_{\gamma_*}) \leq \frac{1}{\sqrt{c_{\rm min}}} = \sqrt{1 + \left( \frac{\beta}{\eta} \right)^2}.
+\end{align}
+Notice that this is tighter than the previous bound of \eqref{eq:gammastar_} by a smidge less than a factor of 3.
+
+\tcb{While this is tighter than what we had previously, it's still quite a bit larger than that for the case in which ${\cal L}$ is SPSD, as given in \eqref{eq:cases0}. Will be interesting to see if it's tight for skew-symmetric matrices.}\\
+
+\underline{\textbf{Case 2, Non-negative $\bm{{\cal L}^2}$\textbf{:}}} Suppose $W({\cal L}^2) \geq 0$. First of all note now that terms in the denominator of $c_0$ are non-negative. Thus, $c_0$ is a strictly decreasing function for $\gamma > 0$ which passes through $1$ at $\gamma^2 = \eta^2 + \beta^2$. Therefore it follows that
+\begin{align*}
+\underset{\bm{w} \neq 0}{\max} \; c_0(\bm{w}) \geq 1, \quad \gamma^2 \leq \eta^2 + \beta^2.
+\end{align*}
+As such, $c_0$ is not a contender for the minimum of the $c$'s because $c_2$ is less than $1$, as in \eqref{eq:c_partial}, but it is a contender for the maximum of the $c$'s. Since we cannot explicitly compute $\underset{\bm{w} \neq 0}{\max} \; c_0(\bm{w})$ independently of $\bm{w}$, we bound it from above as follows
+\begin{align*}
+c_0 &= 
+\frac{
+\displaystyle{
+(\eta^2 + \beta^2})^2 \Vert \bm{w} \Vert^2 
++
+2(\eta^2 + \beta^2) \langle {\cal L}^2 \bm{w}, \bm{w} \rangle 
++ \Vert {\cal L}^2 \bm{w} \Vert^2
+}
+{
+\gamma^4 \Vert \bm{w} \Vert^2 + 2 \gamma^2 \langle {\cal L}^2 \bm{w}, \bm{w} \rangle + \Vert {\cal L}^2 \bm{w} \Vert^2
+},\\
+&=
+\frac{
+\displaystyle{
+\left(\frac{\eta^2 + \beta^2}{\gamma^2}\right)^2 \big[ \gamma^4 \Vert \bm{w} \Vert^2 \big]
++
+\frac{\eta^2 + \beta^2}{\gamma^2} \big[ 2 \gamma^2 \langle {\cal L}^2 \bm{w}, \bm{w} \rangle \big]
++ \big[\Vert {\cal L}^2 \bm{w} \Vert^2\big]
+}
+}
+{
+\big[\gamma^4 \Vert \bm{w} \Vert^2\big] + \big[ 2 \gamma^2 \langle {\cal L}^2 \bm{w}, \bm{w} \rangle \big] + \big[\Vert {\cal L}^2 \bm{w} \Vert^2\big]
+},
+\\
+&\leq
+\underset{\gamma \in [\eta , \sqrt{\eta^2 + \beta^2}]}{\max} \left\{ \left(\frac{\eta^2 + \beta^2}{\gamma^2}\right)^2,
+\left(\frac{\eta^2 + \beta^2}{\gamma^2}\right),
+1 \right\},\\
+&= \left(\frac{\eta^2 + \beta^2}{\gamma^2}\right)^2 \eqqcolon \tilde{c}_0.
+\end{align*} 
+Carrying out further algebra we find
+\begin{align}
+c_{\max} \leq \underset{\gamma \in [\eta , \sqrt{\eta^2 + \beta^2}]}{\max} \{ \tilde{c}_0, c_3\} = \tilde{c}_0.
+\end{align}
+Plugging $\tilde{c}_0$ and $c_2$ into \eqref{eq:kappa_sq_bound} we obtain the following bound for the condition number when $W({\cal L}^2) \geq 0$:
+\begin{align}
+\label{eq:kappa_part1}
+\kappa({\cal P}_{\gamma}) \leq \sqrt{\frac{\tilde{c}_0}{c_2}} = \frac{\eta^2 + \beta^2}{\eta \gamma}, \quad \gamma \in [\eta, \sqrt{\eta^2 + \beta^2}].
+\end{align}
+It's also not too hard to carry out similar calculations for $\gamma \in (0,\eta]$. In this case, we have the same maximum of $\tilde{c}_0$, but the minimum changes from $c_2$ and is replaced with a lower bound on $c_0$, which turns out to be 1. Thus,
+\begin{align}
+\label{eq:kappa_part2}
+\kappa({\cal P}_{\gamma}) \leq \sqrt{\frac{\tilde{c}_0}{1}} = \frac{\eta^2 + \beta^2}{\gamma^2}, \quad \gamma \in (0, \eta].
+\end{align}
+Piecing \eqref{eq:kappa_part1} and \eqref{eq:kappa_part2} together we have
+\begin{align}
+\label{eq:kappa_final}
+\kappa({\cal P}_{\gamma}) \leq 
+\begin{cases}
+\displaystyle \frac{\eta^2 + \beta^2}{\gamma^2}, \quad \gamma \in (0, \eta], \\[2ex]
+\displaystyle \frac{\eta^2 + \beta^2}{\eta \gamma}, \quad \gamma \in [\eta, \sqrt{\eta^2 + \beta^2}].
+\end{cases}
+\end{align}
+
+What's interesting is that condition number bound \eqref{eq:kappa_final} is strictly decreasing with $\gamma$, and so it achieves its minimum value at the right-hand boundary of the interval with $\gamma = \gamma_* \coloneqq \sqrt{\eta^2 + \beta^2}$. While $\gamma_*$ is the minimizer of this bound, it does not mean it's the minimizer of the true condition number, but it is strongly suggestive. Plugging $\gamma = \gamma_*$ into the bound above, we see that its minimum value is actually the same as the bound we derived in \eqref{eq:kappa_case1},
+\begin{align*} 
+\kappa({\cal P}_{\gamma_*}) \leq \sqrt{1 + \left( \frac{\beta}{\eta} \right)^2}.
+\end{align*}\\
+
+
+
+
 
 % ---------------------------------------------------------------------------------------------- %
 % ---------------------------------------------------------------------------------------------- %
