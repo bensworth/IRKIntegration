@@ -190,7 +190,7 @@ s_{\min}(\mathcal{P}_\gamma) =
 	\min_{\mathbf{v}\neq\mathbf{0}} \frac{\|\mathcal{P}_\gamma\mathbf{v}\|}{\|\mathbf{v}\|}.
 \end{align*}
 %
-Thus, consider the minimum singular value of $P_\gamma$. Letting $\mathbf{v} :=
+Thus, consider the minimum singular value of $\mathcal{P}_\gamma$. Letting $\mathbf{v} :=
 (I - \tfrac{1}{\gamma}\mathcal{L})^{2}\mathbf{w}$,
 %
 \begin{align}\nonumber
@@ -2057,7 +2057,7 @@ s_{\min}(\mathcal{P}_\gamma) =
 	\min_{\mathbf{v}\neq\mathbf{0}} \frac{\|\mathcal{P}_\gamma\mathbf{v}\|}{\|\mathbf{v}\|}.
 \end{align*}
 %
-Thus, consider the minimum singular value of $P_\gamma$. Letting $\mathbf{v} :=
+Thus, consider the minimum singular value of $\mathcal{P}_\gamma$. Letting $\mathbf{v} :=
 (I - \tfrac{1}{\gamma}\mathcal{L}_2)(I - \tfrac{1}{\eta}\mathcal{L}_1)\mathbf{w}$,
 %
 \begin{align}\nonumber
@@ -2308,7 +2308,7 @@ s_{\min}(\mathcal{P}_\gamma) =
 	\min_{\mathbf{v}\neq\mathbf{0}} \frac{\|\mathcal{P}_\gamma\mathbf{v}\|}{\|\mathbf{v}\|}.
 \end{align}
 %
-Thus, consider the minimum singular value of $P_\gamma$. Letting $\mathbf{v} :=
+Thus, consider the minimum singular value of $\mathcal{P}_\gamma$. Letting $\mathbf{v} :=
 (I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})(I - \tfrac{1}{\eta}\widehat{\mathcal{L}})\mathbf{w}$,
 %
 \begin{align}\nonumber
@@ -2442,6 +2442,238 @@ which completes the proof.
 \end{proof}
 %
 
+
+
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+\subsection{Better block conditioning theory: $\mathcal{L}_1 = \mathcal{L}_2$}
+
+Here we use Oliver's approach to get a tighter bound.
+Consider the more general problem of the \tcb{right} preconditioning 
+%
+\begin{align}\nonumber
+\mathcal{P}_\gamma :&=
+S(\gamma I- \widehat{\mathcal{L}}_2)^{-1} \\
+& = \left[ (\gamma I - \widehat{\mathcal{L}}_2) + (\eta-\gamma)I +
+	\beta^2 (\eta I - \widehat{\mathcal{L}}_1)^{-1}\right]
+	(\gamma I - \widehat{\mathcal{L}}_2)^{-1} \\
+& = I - (\gamma - \eta)( \gamma I- \widehat{\mathcal{L}}_2)^{-1} + 
+	\beta^2( \eta I-\widehat{\mathcal{L}}_1)^{-1}
+	( \gamma I- \widehat{\mathcal{L}}_2)^{-1}\nonumber
+\end{align}
+%
+In considering $\|\mathcal{P}_\gamma\mathbf{w}\|/\|\mathbf{w}\|$, let $\mathbf{w}:= 
+(\gamma I- \widehat{\mathcal{L}}_2)(\eta I-\widehat{\mathcal{L}}_1)\mathbf{v}$.
+Then,
+%
+\begin{align*}
+\mathcal{P}_\gamma\mathbf{w} & = \left[
+	(\gamma I- \widehat{\mathcal{L}}_2)(\eta I-\widehat{\mathcal{L}}_1) ]
+	 - (\gamma - \eta)(\eta I-\widehat{\mathcal{L}}_1) + \beta^2 I\right]\mathbf{v} \\
+& = \left[\eta\gamma I - \gamma\widehat{\mathcal{L}}_2 - \eta \widehat{\mathcal{L}}_1
+	+ \widehat{\mathcal{L}}_2\widehat{\mathcal{L}}_1 - \gamma\eta I + \eta^2 I
+	+ \gamma \widehat{\mathcal{L}}_1 - \eta \widehat{\mathcal{L}}_1 + \beta^2\right]\mathbf{v} \\
+& = \left[ (\eta^2+\beta^2) I - 2\eta \widehat{\mathcal{L}}_1 +
+	\widehat{\mathcal{L}}_2\widehat{\mathcal{L}}_1 +
+	\gamma (\widehat{\mathcal{L}}_1 - \widehat{\mathcal{L}}_2) \right]\mathbf{v}, \\
+\mathbf{w} & = \left[ \gamma\eta I - \gamma\widehat{\mathcal{L}}_2 -
+	\eta \widehat{\mathcal{L}}_1 +
+	\widehat{\mathcal{L}}_2\widehat{\mathcal{L}}_1 \right]\mathbf{v}.
+\end{align*}
+%
+For now, assume $ \widehat{\mathcal{L}}_1 = \widehat{\mathcal{L}}_2$. Then,
+%
+\begin{align*}
+\mathcal{P}_\gamma\mathbf{w} & = \left[ (\eta^2+\beta^2) I - 2\eta \widehat{\mathcal{L}} +
+	\widehat{\mathcal{L}}^2 \right]\mathbf{v}, \\
+\mathbf{w} & = \left[ \eta\gamma I - (\eta+\gamma)\widehat{\mathcal{L}} +
+	\widehat{\mathcal{L}}^2\right]\mathbf{v}.
+\end{align*}
+%
+Then, 
+%
+\begin{align*}
+\frac{\|\mathcal{P}_\gamma\mathbf{w}\|^2}{\|\mathbf{w}\|^2}
+	& = \frac{\left\|\left[ (\eta^2+\beta^2) I - 2\eta \widehat{\mathcal{L}} +
+	\widehat{\mathcal{L}}^2 \right]\mathbf{v}\right\|^2}
+		{\left\|\left[ \eta\gamma I - (\eta+\gamma)\widehat{\mathcal{L}} +
+	\widehat{\mathcal{L}}^2\right]\mathbf{v}\right\|^2 } \\
+& = \frac{\left\| (\eta^2+\beta^2) \mathbf{v} + \widehat{\mathcal{L}}^2\mathbf{v}\right\|^2
+	+ 4\eta^2\|\widehat{\mathcal{L}}\mathbf{v}\|^2 - 
+	4\eta (\eta^2+\beta^2)\langle \widehat{\mathcal{L}}\mathbf{v},\mathbf{v}\rangle -
+	4\eta \langle \widehat{\mathcal{L}}(\widehat{\mathcal{L}}\mathbf{v}),
+		\widehat{\mathcal{L}}\mathbf{v}\rangle}
+	{\left\| \eta\gamma \mathbf{v} + \widehat{\mathcal{L}}^2\mathbf{v}\right\|^2
+	+ (\eta+\gamma)^2\|\widehat{\mathcal{L}}\mathbf{v}\|^2 -
+	2(\eta+\gamma)\eta\gamma\langle \widehat{\mathcal{L}}\mathbf{v},\mathbf{v}\rangle -
+	2(\eta+\gamma) \langle \widehat{\mathcal{L}}(\widehat{\mathcal{L}}\mathbf{v}),
+		\widehat{\mathcal{L}}\mathbf{v}\rangle}
+\end{align*}
+%
+Notice all terms in the numerator and denominator are nonnegative, with at least
+one strictly positive. Making the strategic choice $\gamma = (\eta^2+\beta^2)/\eta$,
+we get the simplification 
+%
+\begin{align*}
+\frac{\|\mathcal{P}_\gamma\mathbf{w}\|^2}{\|\mathbf{w}\|^2}
+& = \frac{\left\| (\eta^2+\beta^2) \mathbf{v} + \widehat{\mathcal{L}}^2\mathbf{v}\right\|^2
+	+ 4\eta^2\|\widehat{\mathcal{L}}\mathbf{v}\|^2 - 
+	4\eta (\eta^2+\beta^2)\langle \widehat{\mathcal{L}}\mathbf{v},\mathbf{v}\rangle -
+	4\eta \langle \widehat{\mathcal{L}}(\widehat{\mathcal{L}}\mathbf{v}),
+		\widehat{\mathcal{L}}\mathbf{v}\rangle}
+	{\left\| (\eta^2+\beta^2) \mathbf{v} + \widehat{\mathcal{L}}^2\mathbf{v}\right\|^2
+	+ (\eta+\gamma)^2\|\widehat{\mathcal{L}}\mathbf{v}\|^2 -
+	2(\eta+\gamma)\eta\gamma\langle \widehat{\mathcal{L}}\mathbf{v},\mathbf{v}\rangle -
+	2(\eta+\gamma) \langle \widehat{\mathcal{L}}(\widehat{\mathcal{L}}\mathbf{v}),
+		\widehat{\mathcal{L}}\mathbf{v}\rangle}
+\end{align*}
+%
+Taking the ratio of terms in the numerator and denominator, we have
+%
+\begin{align*}
+c_0 & = 1, \\
+c_1 & = \frac{4\eta^2}{(\eta+\gamma^2)} = \frac{4\eta^4}{4\eta^4+\beta^4+4\eta^2\beta^2}
+	= \left(\frac{2\eta^2}{2\eta^2+\beta^2}\right)^2, \\
+c_2 & = \frac{4\eta(\eta^2+\beta^2)}{2\eta\gamma(\eta+\gamma)} 
+	= \frac{2\eta^2}{2\eta^2+\beta^2}, \\
+c_3 & = \frac{4\eta}{2(\eta+\gamma)} = \frac{2\eta^2}{2\eta^2+\beta^2}.
+\end{align*}
+%
+Then,
+%
+\begin{align*}
+\textnormal{cond}(\mathcal{P}_\gamma) \leq \frac{\max_i \sqrt{c_i}}{\min_i \sqrt{c_i}} 
+	& = \frac{2\eta^2+\beta^2}{2\eta^2} = 1 + \frac{\beta^2}{2\eta^2}.
+\end{align*}
+
+
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+\subsection{Better block conditioning theory: $\mathcal{L}_1 \neq \mathcal{L}_2$}
+
+Here we use Oliver's approach to get a tighter upper bound.
+Consider the more general problem of the \tcb{right} preconditioning 
+%
+\begin{align}\nonumber
+\mathcal{P}_\gamma & = I - (\gamma - \eta)( \gamma I- \widehat{\mathcal{L}}_2)^{-1} + 
+	\beta^2( \eta I-\widehat{\mathcal{L}}_1)^{-1}
+	( \gamma I- \widehat{\mathcal{L}}_2)^{-1}\nonumber
+\end{align}
+%
+In considering $\|\mathcal{P}_\gamma\mathbf{w}\|/\|\mathbf{w}\|$, let $\mathbf{w}:= 
+(\gamma I- \widehat{\mathcal{L}}_2)(\eta I-\widehat{\mathcal{L}}_1)\mathbf{v}$.
+Then,
+%
+\begin{align*}
+\mathcal{P}_\gamma\mathbf{w} & = \left[
+	(\gamma I- \widehat{\mathcal{L}}_2)(\eta I-\widehat{\mathcal{L}}_1) ]
+	 - (\gamma - \eta)(\eta I-\widehat{\mathcal{L}}_1) + \beta^2 I\right]\mathbf{v} \\
+% & = \left[\eta\gamma I - \gamma\widehat{\mathcal{L}}_2 - \eta \widehat{\mathcal{L}}_1
+% 	+ \widehat{\mathcal{L}}_2\widehat{\mathcal{L}}_1 - \gamma\eta I + \eta^2 I
+% 	+ \gamma \widehat{\mathcal{L}}_1 - \eta \widehat{\mathcal{L}}_1 + \beta^2\right]\mathbf{v} \\
+& = \left[ (\eta^2+\beta^2) I +	\widehat{\mathcal{L}}_2\widehat{\mathcal{L}}_1 -
+	( (2\eta - \gamma)\widehat{\mathcal{L}}_1 +
+	\gamma \widehat{\mathcal{L}}_2) \right]\mathbf{v}, \\
+\mathbf{w} & = \left[ \gamma\eta I + \widehat{\mathcal{L}}_2\widehat{\mathcal{L}}_1 
+	- (\eta \widehat{\mathcal{L}}_1 + \gamma\widehat{\mathcal{L}}_2)
+	\right]\mathbf{v}.
+\end{align*}
+%
+Then, 
+%
+\begin{align}\nonumber
+\max_{\mathbf{w}\neq\mathbf{0}}
+\frac{\|\mathcal{P}_\gamma\mathbf{w}\|^2}{\|\mathbf{w}\|^2}
+	& = \max_{\mathbf{v}\neq\mathbf{0}}
+	 \frac{\left\|\left[ (\eta^2+\beta^2) I +
+		\widehat{\mathcal{L}}_2\widehat{\mathcal{L}}_1 -
+		( (2\eta - \gamma)\widehat{\mathcal{L}}_1 +
+		\gamma \widehat{\mathcal{L}}_2) \right]\mathbf{v}\right\|^2}
+	{\left\|\left[ \gamma\eta I + \widehat{\mathcal{L}}_2\widehat{\mathcal{L}}_1 
+		- (\eta \widehat{\mathcal{L}}_1 + \gamma\widehat{\mathcal{L}}_2)
+		\right]\mathbf{v}\right\|^2 } \\
+& = \max_{\mathbf{v}\neq\mathbf{0}}
+	\frac{\left\| (\eta^2+\beta^2) \mathbf{v} +
+	\widehat{\mathcal{L}}_2\widehat{\mathcal{L}}_1\mathbf{v}\right\|^2
+	+ \left\|(2\eta - \gamma)\widehat{\mathcal{L}}_1\mathbf{v} +
+		\gamma \widehat{\mathcal{L}}_2\mathbf{v}\right\|^2 + \mathcal{C}_N}
+	{\left\| \eta\gamma \mathbf{v} +
+		\widehat{\mathcal{L}}_2\widehat{\mathcal{L}}_1\mathbf{v}\right\|^2
+	+ \left\|\eta\widehat{\mathcal{L}}_1\mathbf{v} +
+		\gamma \widehat{\mathcal{L}}_2\mathbf{v}\right\|^2 + \mathcal{C}_D},\label{eq:ratio}
+\end{align}
+%
+where
+%
+\begin{align*}
+\mathcal{C}_N :&= -2 \Big\langle (\eta^2+\beta^2) \mathbf{v} +
+	\widehat{\mathcal{L}}_2\widehat{\mathcal{L}}_1\mathbf{v}, 
+	(2\eta - \gamma)\widehat{\mathcal{L}}_1\mathbf{v} +
+		\gamma \widehat{\mathcal{L}}_2\mathbf{v} \Big\rangle \\
+& = -2(\eta^2+\beta^2)(2\eta-\gamma)\langle \widehat{\mathcal{L}}_1\mathbf{v},
+	\mathbf{v}\rangle -2\gamma(\eta^2+\beta^2) \langle \widehat{\mathcal{L}}_2\mathbf{v},
+	\mathbf{v}\rangle - \\ 
+	& \hspace{10ex} 2(2\eta-\gamma)\langle \widehat{\mathcal{L}}_2
+	(\widehat{\mathcal{L}}_1\mathbf{v}), \widehat{\mathcal{L}}_1\mathbf{v}\rangle
+	- 2\gamma\langle \widehat{\mathcal{L}}_2
+	(\widehat{\mathcal{L}}_1\mathbf{v}), \widehat{\mathcal{L}}_2\mathbf{v}\rangle, \\
+\mathcal{C}_D &=  -2 \Big\langle \eta\gamma\mathbf{v} +
+	\widehat{\mathcal{L}}_2\widehat{\mathcal{L}}_1\mathbf{v}, 
+	\eta\widehat{\mathcal{L}}_1\mathbf{v} +
+		\gamma \widehat{\mathcal{L}}_2\mathbf{v} \Big\rangle \\
+& = -2\eta^2\gamma\langle \widehat{\mathcal{L}}_1\mathbf{v},
+	\mathbf{v}\rangle -2\eta\gamma^2 \langle \widehat{\mathcal{L}}_2\mathbf{v},
+	\mathbf{v}\rangle - \\ 
+	& \hspace{10ex} 2\eta\langle \widehat{\mathcal{L}}_2
+	(\widehat{\mathcal{L}}_1\mathbf{v}), \widehat{\mathcal{L}}_1\mathbf{v}\rangle
+	- 2\gamma\langle \widehat{\mathcal{L}}_2
+	(\widehat{\mathcal{L}}_1\mathbf{v}), \widehat{\mathcal{L}}_2\mathbf{v}\rangle
+\end{align*}
+
+Letting $\gamma = \gamma_*:= (\eta^2+\beta^2)/\eta$,
+%
+\begin{align*}
+\mathcal{C}_N - \mathcal{C}_D & = (2\eta^2\gamma - 2(\eta^2+\beta^2)(2\eta-\gamma))
+	\langle \widehat{\mathcal{L}}_1\mathbf{v},\mathbf{v}\rangle
+	+ (2\eta\gamma^2 - 2\gamma(\eta^2+\beta^2))\langle \widehat{\mathcal{L}}_2\mathbf{v},
+	\mathbf{v}\rangle +
+	\\& \hspace{5ex}
+	(2\eta - 2(2\eta - \gamma))\langle \widehat{\mathcal{L}}_2
+	(\widehat{\mathcal{L}}_1\mathbf{v}), \widehat{\mathcal{L}}_1\mathbf{v}\rangle \\
+& = \frac{2\beta^2(\eta^2+\beta^2)}{\eta}
+	\langle \widehat{\mathcal{L}}_1\mathbf{v},\mathbf{v}\rangle +
+	\frac{2\beta^2}{\eta} \langle \widehat{\mathcal{L}}_2
+	(\widehat{\mathcal{L}}_1\mathbf{v}), \widehat{\mathcal{L}}_1\mathbf{v}\rangle \\
+& \leq 0.
+\end{align*}
+%
+Also note that $\gamma_*$ yields
+$\| \eta\gamma_* \mathbf{v} + \widehat{\mathcal{L}}_2\widehat{\mathcal{L}}_1\mathbf{v}\|
+= \| (\eta^2+\beta^2) \mathbf{v} + \widehat{\mathcal{L}}_2\widehat{\mathcal{L}}_1\mathbf{v}\|$
+and expanding the other terms,
+%
+\begin{align*}
+\left\|(2\eta - \gamma)\widehat{\mathcal{L}}_1\mathbf{v} +
+		\gamma \widehat{\mathcal{L}}_2\mathbf{v}\right\|^2
+	& = (2\eta-\gamma)^2\|\widehat{\mathcal{L}}_1\mathbf{v}\|^2 + \gamma^2
+		\|\widehat{\mathcal{L}}_2\mathbf{v}\|^2 - 2(2\eta-\gamma)\gamma
+		\langle \widehat{\mathcal{L}}_1\mathbf{v},\widehat{\mathcal{L}}_2\mathbf{v}\rangle, \\
+\left\|\eta\widehat{\mathcal{L}}_1\mathbf{v} +
+		\gamma \widehat{\mathcal{L}}_2\mathbf{v}\right\|^2
+	& = \eta^2\|\widehat{\mathcal{L}}_1\mathbf{v}\|^2 + \gamma^2
+		\|\widehat{\mathcal{L}}_2\mathbf{v}\|^2 - 2\eta\gamma
+		\langle \widehat{\mathcal{L}}_1\mathbf{v},\widehat{\mathcal{L}}_2\mathbf{v}\rangle.
+\end{align*}
+%
+Taking the difference yields
+%
+\begin{align*}
+\frac{\beta^2(\beta^2 - 2\eta^2)}{\eta^2}\|\widehat{\mathcal{L}}_1\mathbf{v}\|^2 
+	-\frac{2\beta^2(\eta^2+\beta^2)}{\eta^2}
+	\langle \widehat{\mathcal{L}}_1\mathbf{v},\widehat{\mathcal{L}}_2\mathbf{v}\rangle
+\end{align*}
+%
+\tcb{This could be positive, doesn't seem to be working out well.}
 
 \end{document}
 

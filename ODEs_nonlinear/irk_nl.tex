@@ -942,17 +942,10 @@ If $\widehat{\mathcal{L}}_1 = \widehat{\mathcal{L}}_2$, similar derivations as i
 \Cref{th:cond} yield a tighter condition number
 \begin{align*}
 \textnormal{cond}(\mathcal{P}_{\gamma_*}) \leq
-	2+\frac{\beta^2}{2\eta^2} - \frac{\beta^2}{2\eta^2 + 2\beta^2}.
+	1+\frac{\beta^2}{2\eta^2}.
 \end{align*}
 This still has dependence on $\eta$ and $\beta$, but grows at about half the rate
 of the bound derived for $\widehat{\mathcal{L}}_1 \neq \widehat{\mathcal{L}}_2$.
-It is worth pointing out that some of the PRESB methods \todo{cite} may also be
-effective for $\widehat{\mathcal{L}}_1 = \widehat{\mathcal{L}}_2$ (or potentially
-more effective than the block preconditioning considered here). We do not consider
-such methods because the $2\times 2$ Schur complement approach has proven effective
-in practice and, moreover, PRESB methods do not naturally generalize to
-$\widehat{\mathcal{L}}_1 \neq \widehat{\mathcal{L}}_2$, which is one of the
-focuses of this paper.
 \end{remark}
 %
 
@@ -1496,8 +1489,8 @@ in the ODE case yields a block linear system of the form
 \textbf{Solving linear systems:}
 Now, techniques developed in \Cref{sec:nonlinear} can be applied to solve
 or approximate \eqref{eq:daestage_nonlin} as a single step in the larger
-nonlinear iteration to solve \eqref{eq:dae_stage}. Now, the $2\times 2$
-block systems discussed in \Cref{sec:theory} are $4\times 4$ systems of
+nonlinear iteration to solve \eqref{eq:dae_stage}. For DAEs, the $2\times 2$
+block systems discussed in \Cref{sec:theory} are now $4\times 4$ systems of
 the form
 %
 \begin{align*}
@@ -1511,8 +1504,8 @@ the form
 		-\delta t\mathcal{G}_w^{(2)} \end{bmatrix}
 \end{align*}
 %
-If we form a $2\times 2$ Schur complement by eliminating the $2\times 2$
-block with $(1)$ superscripts,
+If we form a $2\times 2$ Schur complement by eliminating the leading
+$2\times 2$ block with $(1)$-superscripts,
 %
 \begin{align*}
 S :& = \begin{bmatrix} \eta M - \delta t\mathcal{L}_{u}^{(2)} &
@@ -1558,103 +1551,223 @@ S & = \begin{bmatrix} \eta M - \delta t\mathcal{L}_{u}^{(2)} + \beta^2M \left(
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
-\subsection{Nonlinear heat conduction}\label{sec:numerics_nonlin:heat}
+% \subsection{Nonlinear heat conduction}\label{sec:numerics_nonlin:heat}
 
-Consider Example 16p in MFEM, which solves a nonlinear heat conduction equation
-%
-\begin{align*}
-u_t  & = \nabla\cdot (\kappa + \alpha u) \nabla u.
-\end{align*}
-%
-Let us express the diffusion as a nonlinear matrix-valued operator $K(u)$ with
-potential forcing function $f(t)$. Discretizing in space we can express the semidiscrete 
-system as the nonlinear set of equations
-%
-\begin{align*}
-M\mathbf{u}_t & = K(\mathbf{u})\mathbf{u} + \mathbf{f}.
-\end{align*}
-%
-Here we demonstrate how a typical Picard linearization can fit into the 
-framework developed above. Let $\mathbf{u}_i$ denote $\mathbf{u}$ at the $i$th
-time step, and consider a backward Euler step,
-%
-\begin{align*}
-M\mathbf{u}_{i+1} & = M\mathbf{u}_i + \delta tK(\mathbf{u}_{i+1}) + \mathbf{f}.
-\end{align*}
-%
-Rearranging yields a nonlinear system $\mathcal{F}(\mathbf{u}_{i+1}) = \mathbf{0}$,
-where
-%
-\begin{align*}
-\mathcal{F}(\mathbf{u}_{i+1}) := 
-	(M - \delta t K(\mathbf{u}_{i+1}))\mathbf{u}_{i+1} - M\mathbf{u}_i - \mathbf{f}.
-\end{align*}
-%
-We can invert the matrix-valued operator as a linear preconditioning, leading
-to an equivalent nonlinear system $\mathcal{H}(\mathbf{u}_{i+1}) = \mathbf{0}$,
-where
-%
-\begin{align*}
-\mathcal{H}(\mathbf{u}_{i+1}) := 
-	(M - \delta t K(\mathbf{u}_{i+1}))^{-1}(M\mathbf{u}_i + \mathbf{f}) - \mathbf{u}_{i+1}.
-\end{align*}
-%
-Finally, we formulate a Picard iteration by defining $\mathcal{G}(\mathbf{u}_{i+1}) :=
-\mathcal{H}(\mathbf{u}_{i+1}) + \mathbf{u}_{i+1}$, and noting that
-$\mathbf{G}(\mathbf{u}_{i+1}) = \mathbf{u}_{i+1}$ if and only if
-$\mathcal{F}(\mathbf{u}_{i+1}) = \mathbf{0}$. Fixed-point iterations are then
-given by 
-%
-\begin{align*}
-\mathbf{u}_{i+1}^{k+1} & = \mathcal{G}(\mathbf{u}_{i+1}^k) \\
-& = (M - \delta t K(\mathbf{u}_{i+1}^k))^{-1}(M\mathbf{u}_i + \mathbf{f}), \\
-\Longleftrightarrow\hspace{5ex}
-(M - \delta t K(\mathbf{u}_{i+1}^k))\mathbf{u}_{i+1}^k& = M\mathbf{u}_i + \mathbf{f}.\
-\end{align*}
-%
+% Consider Example 16p in MFEM, which solves a nonlinear heat conduction equation
+% %
+% \begin{align*}
+% u_t  & = \nabla\cdot (\kappa + \alpha u) \nabla u.
+% \end{align*}
+% %
+% Let us express the diffusion as a nonlinear matrix-valued operator $K(u)$ with
+% potential forcing function $f(t)$. Discretizing in space we can express the semidiscrete 
+% system as the nonlinear set of equations
+% %
+% \begin{align*}
+% M\mathbf{u}_t & = K(\mathbf{u})\mathbf{u} + \mathbf{f}.
+% \end{align*}
+% %
+% Here we demonstrate how a typical Picard linearization can fit into the 
+% framework developed above. Let $\mathbf{u}_i$ denote $\mathbf{u}$ at the $i$th
+% time step, and consider a backward Euler step,
+% %
+% \begin{align*}
+% M\mathbf{u}_{i+1} & = M\mathbf{u}_i + \delta tK(\mathbf{u}_{i+1}) + \mathbf{f}.
+% \end{align*}
+% %
+% Rearranging yields a nonlinear system $\mathcal{F}(\mathbf{u}_{i+1}) = \mathbf{0}$,
+% where
+% %
+% \begin{align*}
+% \mathcal{F}(\mathbf{u}_{i+1}) := 
+% 	(M - \delta t K(\mathbf{u}_{i+1}))\mathbf{u}_{i+1} - M\mathbf{u}_i - \mathbf{f}.
+% \end{align*}
+% %
+% We can invert the matrix-valued operator as a linear preconditioning, leading
+% to an equivalent nonlinear system $\mathcal{H}(\mathbf{u}_{i+1}) = \mathbf{0}$,
+% where
+% %
+% \begin{align*}
+% \mathcal{H}(\mathbf{u}_{i+1}) := 
+% 	(M - \delta t K(\mathbf{u}_{i+1}))^{-1}(M\mathbf{u}_i + \mathbf{f}) - \mathbf{u}_{i+1}.
+% \end{align*}
+% %
+% Finally, we formulate a Picard iteration by defining $\mathcal{G}(\mathbf{u}_{i+1}) :=
+% \mathcal{H}(\mathbf{u}_{i+1}) + \mathbf{u}_{i+1}$, and noting that
+% $\mathbf{G}(\mathbf{u}_{i+1}) = \mathbf{u}_{i+1}$ if and only if
+% $\mathcal{F}(\mathbf{u}_{i+1}) = \mathbf{0}$. Fixed-point iterations are then
+% given by 
+% %
+% \begin{align*}
+% \mathbf{u}_{i+1}^{k+1} & = \mathcal{G}(\mathbf{u}_{i+1}^k) \\
+% & = (M - \delta t K(\mathbf{u}_{i+1}^k))^{-1}(M\mathbf{u}_i + \mathbf{f}), \\
+% \Longleftrightarrow\hspace{5ex}
+% (M - \delta t K(\mathbf{u}_{i+1}^k))\mathbf{u}_{i+1}^k& = M\mathbf{u}_i + \mathbf{f}.\
+% \end{align*}
+% %
 
-In fact, this is exactly a Newton-like iteration approximating the Jacobian of
-$\mathcal{F}(\mathbf{u}_{i+1})$ evaluated at $\mathbf{u}_{i+1}^k$ as
-$J[\mathbf{u}_{i+1}^k] \approx (M - \delta t K(\mathbf{u}_{i+1}^k))$. We use
-this observation to extend the same principle to IRK methods, approximating
-the Jacobian for the stage equations \eqref{eq:stages} evaluated at the previous
-stage vectors as
-%
-\begin{align*}
-&J[\mathbf{k}_1^{k},...,\mathbf{k}_s^k] \approx \\
-&\begin{bmatrix} M \\ & \ddots & \\ && M \end{bmatrix} - \delta t
-	\begin{bmatrix} a_{11}K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
-	a_{1j}\mathbf{k}_j^k\right) & ... & a_{1s}K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
-	a_{ij}\mathbf{k}_j^k\right) \\
-	\vdots & \ddots & \vdots \\
-	a_{s1}K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
-	a_{sj}\mathbf{k}_j^k\right) & ... & a_{ss}K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
-	a_{sj}\mathbf{k}_j^k\right)
-	\end{bmatrix}.
-\end{align*}
-%
-Letting $\mathcal{L}_i := K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
-a_{ij}\mathbf{k}_j^k\right)$ denote the approximate jacobian for the
-$i$th row, we can proceed exactly as discussed in \Cref{sec:nonlinear}.
+% In fact, this is exactly a Newton-like iteration approximating the Jacobian of
+% $\mathcal{F}(\mathbf{u}_{i+1})$ evaluated at $\mathbf{u}_{i+1}^k$ as
+% $J[\mathbf{u}_{i+1}^k] \approx (M - \delta t K(\mathbf{u}_{i+1}^k))$. We use
+% this observation to extend the same principle to IRK methods, approximating
+% the Jacobian for the stage equations \eqref{eq:stages} evaluated at the previous
+% stage vectors as
+% %
+% \begin{align*}
+% &J[\mathbf{k}_1^{k},...,\mathbf{k}_s^k] \approx \\
+% &\begin{bmatrix} M \\ & \ddots & \\ && M \end{bmatrix} - \delta t
+% 	\begin{bmatrix} a_{11}K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
+% 	a_{1j}\mathbf{k}_j^k\right) & ... & a_{1s}K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
+% 	a_{ij}\mathbf{k}_j^k\right) \\
+% 	\vdots & \ddots & \vdots \\
+% 	a_{s1}K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
+% 	a_{sj}\mathbf{k}_j^k\right) & ... & a_{ss}K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
+% 	a_{sj}\mathbf{k}_j^k\right)
+% 	\end{bmatrix}.
+% \end{align*}
+% %
+% Letting $\mathcal{L}_i := K\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
+% a_{ij}\mathbf{k}_j^k\right)$ denote the approximate jacobian for the
+% $i$th row, we can proceed exactly as discussed in \Cref{sec:nonlinear}.
 
-%
-\begin{remark}[Picard as a Newton-like method]
-Note, it is important to express Picard and fixed-point iterations in the 
-form of a Newton-like method to use the preconditioning techniques developed
-in this paper! By expressing it as a Newton-like method, we are approximating
-the Jacobian and will still converge to the solution of the nonlinear functional
-$\mathcal{F} = 0$ when adding levels of approximation as in \Cref{sec:nonlinear:gen}.
-A traditional Picard iteration relies on converging exactly to the fixed-point
-$\mathcal{G}(\mathbf{k}) = \mathbf{k}$ via iterates $\mathbf{k}^{k+1} =
-\mathcal{G}(\mathbf{k}^k)$. Within this iteration there is delicate cancellation
-that result from solving directly for $\mathbf{k}^{k+1}$ rather than a correction,
-and approximating $\mathcal{G}$ would result in convergence to a different problem.
-\end{remark}
-%
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
 \subsection{Compressible Navier Stokes}\label{sec:numerics_nonlin:ns}
+
+
+
+
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+\subsection{(Incompressible) Kelvin-Helmholtz instability}\label{sec:numerics_nonlin:khi}
+
+Define $\mathbf{v}$ as a curl, such that $\nabla \cdot\mathbf{v}w =
+\mathbf{v}\cdot\nabla w$, and
+consider the equations
+%
+\begin{align}\label{eq:2dfluid}
+\begin{split}
+\partial_t w + \mathbf{v}\cdot\nabla w - \nabla_\perp \cdot\mu\nabla_\perp w & = 0, \\
+-\nabla_\perp^2\phi + w & = 0, \\
+\mathbf{v} + \nabla \times \phi\hat{\mathbf{z}} & = \mathbf{0}.
+\end{split}
+\end{align}
+%
+Here $\mu$ is a fixed (spatially dependent) diffusion constant or tensor, and $\nabla_\perp$
+indicates the gradient in the $xy$-plane. $\mathbf{v}$ is the drift velocity, and is a nonlinear
+coupling in the time propagation of \eqref{eq:2dfluid}. Equation \eqref{eq:2dfluid} can
+be represented as a $3\times 3$ block set of equations with nonlinearity in the leading block,
+%
+\begin{align*}
+\begin{bmatrix} \partial_t w \\ 0 \\ \mathbf{0}\end{bmatrix} =
+\begin{bmatrix} {N}(\mathbf{v}) + \nabla_\perp \cdot\mu\nabla_\perp &
+		\mathbf{0} & \mathbf{0} \\
+	-M_w &  \nabla_\perp^2 & \mathbf{0} \\ \mathbf{0} & \nabla\times \mathbf{z} & M_{\mathbf{v}}
+\end{bmatrix}
+	\begin{bmatrix} w \\ \phi \\ \mathbf{v}\end{bmatrix} ,
+\end{align*}
+%
+where $N(\mathbf{v}) := -\mathbf{v}\cdot\nabla$.
+
+
+Assume we have used the method of lines to discretize in space, and arrive at a coupled
+set of nonlinear DAEs in time. In the context of a DAE \eqref{eq:dae}, we have nonlinear
+function $F$ corresponding to $M\partial_t w - F = 0$, for mass matrix $M$, and linear
+constraint $G$, where
+%
+\begin{align}\label{eq:FandG}
+- F(w,\phi,\mathbf{v}) := \mathbf{v}\cdot\nabla w - \nabla_\perp \cdot\mu\nabla_\perp w, 
+\hspace{5ex} G(w,\phi,\mathbf{v}) :=
+	\begin{bmatrix} -\nabla_\perp^2\phi + w \\
+		\mathbf{v} + \nabla \times \phi\hat{\mathbf{z}}
+	\end{bmatrix}.
+\end{align}
+%
+For DIRK schemes, where Butcher coefficients satisfy $a_{ij} = 0$ for $j > i$, each stage
+vector is defined as in \eqref{eq:rk_dae}. The first stage vector
+$\mathbf{k}_1 = [k_{w,1}; k_{\phi,1}; \mathbf{k}_{v,1}]$ is defined by the following
+nonlinear set of equations,
+%
+\begin{align*}
+\begin{bmatrix} Mw_n \\ 0 \\ 0\end{bmatrix} & = 
+	\begin{bmatrix}
+	Mk_{w,1} + a_{11}\delta t\left(\mathbf{k}_{v,1}\cdot\nabla k_{w,1} -
+		\nabla_\perp \cdot\mu\nabla_\perp k_{w,1}\right) \\
+	-\nabla_\perp^2 k_{\phi,1} + k_{w,1} \\
+	\mathbf{k}_{v,1} + \nabla \times k_{\phi,1}\hat{\mathbf{z}}
+	\end{bmatrix}.
+\end{align*}
+%
+The stages $\mathbf{k}_i$, $i=2,...,s$ are given by the solution of a similar nonlinear
+set of equations, with an updated right-hand-side based on previous stage vectors, 
+%
+\begin{align*}
+\begin{bmatrix} Mw_n - a_{i1}\delta tF(\mathbf{k}_1) - ... - a_{i,i-1}\delta tF(\mathbf{k}_{i-1}) \\ 0 \\ 0\end{bmatrix} & = 
+	\begin{bmatrix}
+	Mk_{w,i} + a_{ii}\delta t\left(\mathbf{k}_{v,i}\cdot\nabla k_{w,i} -
+		\nabla_\perp \cdot\mu\nabla_\perp k_{w,i}\right) \\
+	-\nabla_\perp^2 k_{\phi,i} + k_{w,i} \\
+	\mathbf{k}_{v,i} + \nabla \times k_{\phi,i}\hat{\mathbf{z}}
+	\end{bmatrix}.
+\end{align*}
+%
+Following from \eqref{eq:rk_dae2}, the updates to $\{w,\phi,\mathbf{v}\}$ are
+then given by 
+%
+\begin{align*}
+Mw_{n+1} & = Mw_n + \delta t \sum_{i=1}^s b_iF(\mathbf{k}_i), \\
+-\nabla_\perp^2 \phi_{n+1} & = -w_{n+1}, \\
+\mathbf{v}_{n+1} & = -\nabla\times \phi\hat{\mathbf{z}}.
+\end{align*}
+%
+
+Fully implicit Runge-Kutta methods take a more complicated form, which is not
+discussed here. Each stage above requires the solution of a nonlinear set of
+equations, which we discuss the linearization and solution of below. 
+
+% ------------------------------------------------------------------------------------- %
+\subsubsection{Picard iteration}
+
+The simplest linearization is a Picard iteration. Here, a Picard iteration takes a simple
+form, where we linearize by defining $\mathbf{v}$ using the previous iterate of $\phi$.
+For ease of notation, we will denote the stage vectors associated with $\{w,\phi,\mathbf{v}\}$
+as such (rather than using $k$), because the equations for each stage are more-or-less
+analogous. Formally, define the nonlinear matrix-valued operator
+%
+\begin{align*}
+\mathcal{G}(w,\phi,\mathbf{v}) & =
+	\begin{bmatrix}
+	M + \zeta\delta t\left( \mathbf{v}\cdot\nabla  - \nabla_\perp \cdot\mu\nabla_\perp\right)
+		& \mathbf{0} & \mathbf{0} \\
+	I & -\nabla_\perp^2 & \mathbf{0} \\
+	\mathbf{0} & \nabla \times \hat{\mathbf{z}} & I 
+	\end{bmatrix}.
+\end{align*}
+%
+Then, we seek the solution of $\mathcal{G}(\mathbf{u})\mathbf{u} - \mathbf{f} = \mathbf{0}$,
+which we iterate towards using the Picard iterations $\mathbf{u}_{n+1} =
+\mathcal{G}(\mathbf{u}_n)^{-1}\mathbf{f}$. In matrix form, each iteration requires the
+solution of
+%
+\begin{align}\label{eq:Gsol1}
+\begin{bmatrix}
+	M + \zeta\delta t\left( \hat{\mathbf{v}}\cdot\nabla  - \nabla_\perp \cdot\mu\nabla_\perp\right)
+		& \mathbf{0} & \mathbf{0} \\
+	I & -\nabla_\perp^2 & \mathbf{0} \\
+	\mathbf{0} & \nabla \times \hat{\mathbf{z}} & I 
+\end{bmatrix}
+\begin{bmatrix} {w} \\ \phi \\ \mathbf{v} \end{bmatrix}
+- \begin{bmatrix} f \\ \mathbf{0} \\ \mathbf{0} \end{bmatrix}
+= \mathbf{0},
+\end{align}
+%
+where $\hat{\mathbf{v}}$ is the vector field $\mathbf{v}$ from the previous iteration. 
+Note the inverse of \eqref{eq:Gsol1} can be done sequentially, and requires the solution of
+the advection-diffusion operator, $Mw + \zeta\delta t( \hat{\mathbf{v}}\cdot\nabla w  -
+\nabla_\perp \cdot\mu\nabla_\perp w) = f$, the anisotropic diffusion operator,
+$-\nabla_\perp^2 \phi = {w}$, and an application of the curl operator, $\mathbf{v} =
+-\nabla\times\hat{\mathbf{z}}\phi$. 
 
 
 
