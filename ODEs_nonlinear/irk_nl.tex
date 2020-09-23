@@ -170,7 +170,7 @@ systems along the lines of $\eta M - \delta t\mathcal{L}$, exactly as would be
 used for, e.g., SDIRK methods. Extensions are then introduced for applying IRK
 methods with a true Newton or Picard iteration, where $\mathcal{L}_i\neq
 \mathcal{L}_j$, in \Cref{sec:nonlinear:gen}. Numerical results for nonlinear
-problems are provided in \Cref{sec:numerics_nonlin}, \todo{including ...}
+problems are provided in \Cref{sec:numerics}, \todo{including ...}
 
 
 % ------------------------------------------------------------------------------------- %
@@ -1485,6 +1485,12 @@ in the ODE case yields a block linear system of the form
 \end{align}
 }
 %
+Inverting \eqref{eq:daestage_nonlin} corresponds to the application of
+$\mathcal{P}^{-1}$ in the nonlinear Richardson iteration \eqref{eq:non_rich}
+applied to solving the nonlinear stage equations \eqref{eq:dae_stage}. Note,
+in a nonlinear iteration, the operator in \eqref{eq:daestage_nonlin} is
+usually updated each iteration to reflect the latest nonlinear iterate.
+
 
 \textbf{Solving linear systems:}
 Now, techniques developed in \Cref{sec:nonlinear} can be applied to solve
@@ -1493,7 +1499,7 @@ nonlinear iteration to solve \eqref{eq:dae_stage}. For DAEs, the $2\times 2$
 block systems discussed in \Cref{sec:theory} are now $4\times 4$ systems of
 the form
 %
-\begin{align*}
+\begin{align}\label{eq:dae_block}
 \begin{bmatrix} \eta M - \delta t\mathcal{L}_{u}^{(1)} & -\delta t\mathcal{L}_{w}^{(1)}
 		& \phi M & \mathbf{0} \\
 	-\delta t\mathcal{G}_{u}^{(1)} & -\delta t\mathcal{G}_w^{(1)}
@@ -1502,7 +1508,11 @@ the form
 		-\delta t\mathcal{L}_{w}^{(2)} \\
 	\mathbf{0} & \mathbf{0} & -\delta t\mathcal{G}_{u}^{(2)} &
 		-\delta t\mathcal{G}_w^{(2)} \end{bmatrix}
-\end{align*}
+	\begin{bmatrix} \mathbf{k}_1 \\ \boldsymbol{\ell}_1 \\
+		 \mathbf{k}_2 \\ \boldsymbol{\ell}_2 \end{bmatrix}
+	= 	\begin{bmatrix} \mathbf{f}_1 \\ \mathbf{g}_1 \\
+		 \mathbf{f}_2 \\ \mathbf{g}_2 \end{bmatrix}
+\end{align}
 %
 If we form a $2\times 2$ Schur complement by eliminating the leading
 $2\times 2$ block with $(1)$-superscripts,
@@ -1521,17 +1531,21 @@ S :& = \begin{bmatrix} \eta M - \delta t\mathcal{L}_{u}^{(2)} &
 		-\delta t\mathcal{G}_w^{(2)} \end{bmatrix}.
 \end{align*}
 %
-In the case that $\mathcal{G}_w^{(2)}$ is invertible (which typically occurs
-in semi-explicit index-1 DAEs), we get the simplified form
-%
-\begin{align*}
-S & = \begin{bmatrix} \eta M - \delta t\mathcal{L}_{u}^{(2)} + \beta^2M \left(
-	\eta M - \delta t\mathcal{L}_{u}^{(1)} + \delta t\mathcal{L}_{w}^{(1)}
-		(\mathcal{G}_w^{(1)})^{-1}\mathcal{G}_{u}^{(2)}\right)^{-1} M &
-	-\delta t\mathcal{L}_{w}^{(2)} \\ -\delta t\mathcal{G}_{u}^{(2)} &
-		-\delta t\mathcal{G}_w^{(2)} \end{bmatrix}.
-\end{align*}
 
+Preconditioning \eqref{eq:dae_block} and the corresponding
+Schur complement requires more problem-specific analysis than the general
+theory developed for ODEs in \Cref{sec:theory}. In particular, \Cref{ass:fov}
+does not necessarily hold for the larger linear system that includes
+time-dependent variables and constraints (the obvious example being indefinite
+saddle-point systems that often arise in incompressible fluid dynamics).
+However, \Cref{sec:numerics:khi} considers \tcb{incompressible Navier Stokes
+in potential formulation}, where \eqref{eq:dae_block} can be reordered to
+be block triangular, and the theory and preconditioning developed in
+\Cref{sec:theory} can be applied directly to the leading $2\times 2$ block
+representing time-dependent variables ($\mathbf{k}_1$ and $\mathbf{k}_2$).
+
+% In the case that $\mathcal{G}_w^{(2)}$ is invertible (which typically occurs
+% in semi-explicit index-1 DAEs), we get the simplified form
 
 % Assume that the Jacobian $\partial\mathcal{G}/\partial \mathbf{w}$ exists and
 % is invertible in a neighborhood of the exact solution. These are so-called
@@ -1541,17 +1555,17 @@ S & = \begin{bmatrix} \eta M - \delta t\mathcal{L}_{u}^{(2)} + \beta^2M \left(
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
-\section{Numerical results}\label{sec:numerics_nonlin}
+\section{Numerical results}\label{sec:numerics}
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
-\subsection{Nonlinear advection-diffusion}\label{sec:numerics_nonlin:advdiff}
+\subsection{Nonlinear advection-diffusion}\label{sec:numerics:advdiff}
 
 
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
-% \subsection{Nonlinear heat conduction}\label{sec:numerics_nonlin:heat}
+% \subsection{Nonlinear heat conduction}\label{sec:numerics:heat}
 
 % Consider Example 16p in MFEM, which solves a nonlinear heat conduction equation
 % %
@@ -1633,14 +1647,14 @@ S & = \begin{bmatrix} \eta M - \delta t\mathcal{L}_{u}^{(2)} + \beta^2M \left(
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
-\subsection{Compressible Navier Stokes}\label{sec:numerics_nonlin:ns}
+\subsection{Compressible Navier Stokes}\label{sec:numerics:ns}
 
 
 
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
-\subsection{(Incompressible) Kelvin-Helmholtz instability}\label{sec:numerics_nonlin:khi}
+\subsection{(Incompressible) Kelvin-Helmholtz instability}\label{sec:numerics:khi}
 
 Define $\mathbf{v}$ as a curl, such that $\nabla \cdot\mathbf{v}w =
 \mathbf{v}\cdot\nabla w$, and
@@ -1659,117 +1673,88 @@ indicates the gradient in the $xy$-plane. $\mathbf{v}$ is the drift velocity, an
 coupling in the time propagation of \eqref{eq:2dfluid}. Equation \eqref{eq:2dfluid} can
 be represented as a $3\times 3$ block set of equations with nonlinearity in the leading block,
 %
-\begin{align*}
+\begin{align}\label{eq:block_khi}
 \begin{bmatrix} \partial_t w \\ 0 \\ \mathbf{0}\end{bmatrix} =
 \begin{bmatrix} {N}(\mathbf{v}) + \nabla_\perp \cdot\mu\nabla_\perp &
 		\mathbf{0} & \mathbf{0} \\
 	-M_w &  \nabla_\perp^2 & \mathbf{0} \\ \mathbf{0} & \nabla\times \mathbf{z} & M_{\mathbf{v}}
 \end{bmatrix}
 	\begin{bmatrix} w \\ \phi \\ \mathbf{v}\end{bmatrix} ,
-\end{align*}
+\end{align}
 %
 where $N(\mathbf{v}) := -\mathbf{v}\cdot\nabla$.
 
-
-Assume we have used the method of lines to discretize in space, and arrive at a coupled
-set of nonlinear DAEs in time. In the context of a DAE \eqref{eq:dae}, we have nonlinear
-function $F$ corresponding to $M\partial_t w - F = 0$, for mass matrix $M$, and linear
-constraint $G$, where
+A Picard linearization of the nonlinear operator in \eqref{eq:block_khi} takes
+the simple block lower triangular form,
 %
-\begin{align}\label{eq:FandG}
-- F(w,\phi,\mathbf{v}) := \mathbf{v}\cdot\nabla w - \nabla_\perp \cdot\mu\nabla_\perp w, 
-\hspace{5ex} G(w,\phi,\mathbf{v}) :=
-	\begin{bmatrix} -\nabla_\perp^2\phi + w \\
-		\mathbf{v} + \nabla \times \phi\hat{\mathbf{z}}
-	\end{bmatrix}.
-\end{align}
-%
-For DIRK schemes, where Butcher coefficients satisfy $a_{ij} = 0$ for $j > i$, each stage
-vector is defined as in \eqref{eq:rk_dae}. The first stage vector
-$\mathbf{k}_1 = [k_{w,1}; k_{\phi,1}; \mathbf{k}_{v,1}]$ is defined by the following
-nonlinear set of equations,
-%
-\begin{align*}
-\begin{bmatrix} Mw_n \\ 0 \\ 0\end{bmatrix} & = 
-	\begin{bmatrix}
-	Mk_{w,1} + a_{11}\delta t\left(\mathbf{k}_{v,1}\cdot\nabla k_{w,1} -
-		\nabla_\perp \cdot\mu\nabla_\perp k_{w,1}\right) \\
-	-\nabla_\perp^2 k_{\phi,1} + k_{w,1} \\
-	\mathbf{k}_{v,1} + \nabla \times k_{\phi,1}\hat{\mathbf{z}}
-	\end{bmatrix}.
-\end{align*}
-%
-The stages $\mathbf{k}_i$, $i=2,...,s$ are given by the solution of a similar nonlinear
-set of equations, with an updated right-hand-side based on previous stage vectors, 
-%
-\begin{align*}
-\begin{bmatrix} Mw_n - a_{i1}\delta tF(\mathbf{k}_1) - ... - a_{i,i-1}\delta tF(\mathbf{k}_{i-1}) \\ 0 \\ 0\end{bmatrix} & = 
-	\begin{bmatrix}
-	Mk_{w,i} + a_{ii}\delta t\left(\mathbf{k}_{v,i}\cdot\nabla k_{w,i} -
-		\nabla_\perp \cdot\mu\nabla_\perp k_{w,i}\right) \\
-	-\nabla_\perp^2 k_{\phi,i} + k_{w,i} \\
-	\mathbf{k}_{v,i} + \nabla \times k_{\phi,i}\hat{\mathbf{z}}
-	\end{bmatrix}.
-\end{align*}
-%
-Following from \eqref{eq:rk_dae2}, the updates to $\{w,\phi,\mathbf{v}\}$ are
-then given by 
-%
-\begin{align*}
-Mw_{n+1} & = Mw_n + \delta t \sum_{i=1}^s b_iF(\mathbf{k}_i), \\
--\nabla_\perp^2 \phi_{n+1} & = -w_{n+1}, \\
-\mathbf{v}_{n+1} & = -\nabla\times \phi\hat{\mathbf{z}}.
-\end{align*}
-%
-
-Fully implicit Runge-Kutta methods take a more complicated form, which is not
-discussed here. Each stage above requires the solution of a nonlinear set of
-equations, which we discuss the linearization and solution of below. 
-
-% ------------------------------------------------------------------------------------- %
-\subsubsection{Picard iteration}
-
-The simplest linearization is a Picard iteration. Here, a Picard iteration takes a simple
-form, where we linearize by defining $\mathbf{v}$ using the previous iterate of $\phi$.
-For ease of notation, we will denote the stage vectors associated with $\{w,\phi,\mathbf{v}\}$
-as such (rather than using $k$), because the equations for each stage are more-or-less
-analogous. Formally, define the nonlinear matrix-valued operator
-%
-\begin{align*}
-\mathcal{G}(w,\phi,\mathbf{v}) & =
-	\begin{bmatrix}
-	M + \zeta\delta t\left( \mathbf{v}\cdot\nabla  - \nabla_\perp \cdot\mu\nabla_\perp\right)
-		& \mathbf{0} & \mathbf{0} \\
-	I & -\nabla_\perp^2 & \mathbf{0} \\
-	\mathbf{0} & \nabla \times \hat{\mathbf{z}} & I 
-	\end{bmatrix}.
-\end{align*}
-%
-Then, we seek the solution of $\mathcal{G}(\mathbf{u})\mathbf{u} - \mathbf{f} = \mathbf{0}$,
-which we iterate towards using the Picard iterations $\mathbf{u}_{n+1} =
-\mathcal{G}(\mathbf{u}_n)^{-1}\mathbf{f}$. In matrix form, each iteration requires the
-solution of
-%
-\begin{align}\label{eq:Gsol1}
-\begin{bmatrix}
-	M + \zeta\delta t\left( \hat{\mathbf{v}}\cdot\nabla  - \nabla_\perp \cdot\mu\nabla_\perp\right)
-		& \mathbf{0} & \mathbf{0} \\
-	I & -\nabla_\perp^2 & \mathbf{0} \\
-	\mathbf{0} & \nabla \times \hat{\mathbf{z}} & I 
+\begin{align}\label{eq:dae_pic}
+L[w_k,\phi_k,\mathbf{v}_k] := 
+	\begin{bmatrix} \mathbf{v}_k\cdot\nabla + \nabla_\perp \cdot\mu\nabla_\perp &
+		\mathbf{0} & \mathbf{0} \\
+	-M_w &  \nabla_\perp^2 & \mathbf{0} \\ \mathbf{0} & \nabla\times \mathbf{z} & M_{\mathbf{v}}
 \end{bmatrix}
-\begin{bmatrix} {w} \\ \phi \\ \mathbf{v} \end{bmatrix}
-- \begin{bmatrix} f \\ \mathbf{0} \\ \mathbf{0} \end{bmatrix}
-= \mathbf{0},
 \end{align}
 %
-where $\hat{\mathbf{v}}$ is the vector field $\mathbf{v}$ from the previous iteration. 
-Note the inverse of \eqref{eq:Gsol1} can be done sequentially, and requires the solution of
-the advection-diffusion operator, $Mw + \zeta\delta t( \hat{\mathbf{v}}\cdot\nabla w  -
-\nabla_\perp \cdot\mu\nabla_\perp w) = f$, the anisotropic diffusion operator,
-$-\nabla_\perp^2 \phi = {w}$, and an application of the curl operator, $\mathbf{v} =
--\nabla\times\hat{\mathbf{z}}\phi$. 
+Now, let us swap the rows and columns of $\phi$ and $\mathbf{v}$. Then, a
+Newton linearization can be expressed in strong form as the Jacobian as a
+function of previous nonlinear iterates,
+%
+\begin{align*}
+J[w_k,\mathbf{v}_k, \phi_k] := 
+	\begin{bmatrix} \mathbf{v}_k\cdot\nabla + \nabla_\perp \cdot\mu\nabla_\perp &
+		(\nabla w_k)\cdot  & \mathbf{0} \\
+	\mathbf{0} & M_{\mathbf{v}} & \nabla\times \mathbf{z} \\
+	-M_w & \mathbf{0} & \nabla_\perp^2 \\ 
+\end{bmatrix}.
+\end{align*}
+%
+A reasonable Newton-like method would be to ignore the weak mass-matrix
+coupling between $w$ and $\phi$ and consider the block upper triangular
+nonlinear preconditioning,
+%
+\begin{align}\label{eq:dae_jac}
+\widehat{J}[w_k,\mathbf{v}_k, \phi_k] := 
+	\begin{bmatrix} \mathbf{v}_k\cdot\nabla + \nabla_\perp \cdot\mu\nabla_\perp &
+		(\nabla w_k)\cdot  & \mathbf{0} \\
+	\mathbf{0} & M_{\mathbf{v}} & \nabla\times \mathbf{z} \\
+	\mathbf{0} & \mathbf{0} & \nabla_\perp^2 \\ 
+\end{bmatrix}.
+\end{align}
+%
 
-
+Note that in both \eqref{eq:dae_pic} and \eqref{eq:dae_jac}, one of the
+off-diagonal blocks coupling time-dependent variables with algebraic
+constraints is zero (in the notation of \Cref{sec:dae}, either
+$\mathcal{L}_{w}=\mathbf{0}$ \eqref{eq:dae_pic} or $\mathcal{G}_{u} = \mathbf{0}$
+\eqref{eq:dae_jac}). Without loss of generality, consider the Picard
+linearization \eqref{eq:dae_pic} -- the $4\times 4$ block linear system
+\eqref{eq:dae_block} that arises in IRK integration can be reordered
+to take the block lower triangular form
+%
+\begin{align}\label{eq:dae_block_pic}
+\begin{bmatrix} \eta M - \delta t\mathcal{L}_{u}^{(1)} & \phi M & \mathbf{0} & \mathbf{0} \\
+	-\tfrac{\beta^2}{\phi}M & \eta M - \delta t\mathcal{L}_{u}^{(2)} & \mathbf{0} & \mathbf{0} \\
+	-\delta t\mathcal{G}_{u}^{(1)} & \mathbf{0} & -\delta t\mathcal{G}_w^{(1)} & \mathbf{0} \\
+	\mathbf{0} & -\delta t\mathcal{G}_{u}^{(2)}  & \mathbf{0} &
+		-\delta t\mathcal{G}_w^{(2)} \end{bmatrix}
+	\begin{bmatrix} \mathbf{k}_1 \\ \mathbf{k}_2 \\
+		\boldsymbol{\ell}_1 \\ \boldsymbol{\ell}_2 \end{bmatrix}
+	= 	\begin{bmatrix} \mathbf{f}_1 \\ \mathbf{f}_2 \\
+		 \mathbf{g}_1 \\ \mathbf{g}_2 \end{bmatrix}.
+\end{align}
+%
+where $\mathcal{L}_{u}\sim \mathbf{v}_k\cdot\nabla + \nabla_\perp \cdot\mu\nabla_\perp$,
+$\mathcal{G}_{u} \sim [-M_w;\mathbf{0}]$, and $\mathcal{G}_w\sim
+\begin{bmatrix} \nabla_\perp^2 & \mathbf{0} \\ \nabla\times \mathbf{z} & M_{\mathbf{v}}
+\end{bmatrix}$. Here, the theory and $2\times 2$ preconditioners developed in
+\Cref{sec:theory} can be applied to invert the leading $2\times 2$ block in
+\eqref{eq:dae_block_pic}, and the algebraic constraints can then be
+applied by inverting $\mathcal{G}_w^{(1)}$ and $\mathcal{G}_w^{(2)}$,
+exactly as would be done in DIRK integration. Analogous results hold
+for the Newton-like iteration \eqref{eq:dae_jac}, but the resulting system
+ends up being upper triangular. There, the algebraic constraints are
+enforced first and the leading $2\times 2$ block in \eqref{eq:dae_block_pic}
+then inverted to update the time-dependent variable.
 
 
 
