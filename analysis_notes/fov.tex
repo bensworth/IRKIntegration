@@ -42,241 +42,7 @@
 \begin{document}
 \allowdisplaybreaks
 
-% ---------------------------------------------------------------------------------------------- %
-% ---------------------------------------------------------------------------------------------- %
-% ---------------------------------------------------------------------------------------------- %
-\section{Linear theory: The skew symmetric case}
-Assuming $\beta > 0$, the preconditioned operator can be written in the form
-\begin{align} 
-\label{eq:ss_lin_P_gamma}
-{\cal P}_{\gamma} &= (\gamma I - {\cal L})^{-2} \big[ (\eta I - {\cal L})^2 + \beta^2 I \big],\\
-\label{eq:ss_lin_P_y}
-&= (y I - {\cal N})^{-2} \big[ (x I - {\cal L})^2 + I \big] \eqqcolon {\cal P}_y,
-\end{align}
-where we define the scaled quantities 
-\begin{align} 
-\label{eq:ss_lin_scaled_var}
-x \coloneqq \frac{\eta}{\beta}, 
-\quad 
-y \coloneqq \frac{\gamma}{\beta}, 
-\quad 
-{\cal N} \coloneqq \frac{1}{\beta} {\cal L}.
-\end{align}
-Letting $\lambda \in \sigma(- {\cal N})$, the spectrum ${\cal F}_y$ of the preconditioned operator \eqref{eq:ss_lin_P_y} is
-\begin{align}
-{\cal F}_y(\lambda) = \frac{(x+\lambda)^2 + 1}{(y + \lambda)^2}.
-\end{align}
-Furthermore, the condition number of ${\cal P}_y$ is 
-\begin{align} \label{eq:ss_lin_kappa_def}
-\kappa({\cal P}_y) = \frac{\underset{\lambda}{\max} \, | {\cal F}_y(\lambda) |}{\underset{\lambda}{\min} \, | {\cal F}_y(\lambda)|}
-\end{align}
 
-Since ${\cal N}$ is skew-symmetric, i.e., ${\cal N}^\top = - {\cal N}$, it has purely imaginary eigenvalues. We write the eigenvalues of $-{\cal N}$ as $\lambda = \im \mu$, for $\mu \in \mathbb{R}$. To avoid working with the imaginary $\lambda$, we instead work with the real-valued variable $\mu$. Since ${\cal F}_y$ is complex, we consider its magnitude squared,
-\begin{align}
-\label{eq:ss_lin_G}
-{\cal G}_y(\mu) \coloneqq |{\cal F}_y(\mu)|^2 = 
-\frac{\mu^4 + 2(x^2-1)\mu^2 + (x^2 + 1)^2}{(y^2 + \mu^2)} > 0.
-\end{align}\\
-
-Now we present some of the calculations to determine the extrema of ${\cal G}_y$. Note that we assume $y > 0$ (sometimes this is said explicitly, but sometimes it is not). First we consider the value of ${\cal G}_y$ at the end points of its domain,
-\begin{align*}
-\lim_{\mu \to \pm \infty} {\cal G}_y(\mu) 
-=
-\lim_{\mu \to \pm \infty} \frac{1 + 2 \frac{x^2-1}{\mu^2} + \frac{(x^2+1)^2}{\mu^4}}{1 + 2 \frac{y^2}{\mu^2} + \frac{y^4}{\mu^4}}
-=
-\begin{cases}
-1^+, \quad a \leq 0, \\
-1^-, \quad a > 0,
-\end{cases}
-\end{align*}
-where the constant $a$ is
-\begin{align*}
-a \coloneqq 1 - x^2  + y^2.
-\end{align*}
-Now, computing the derivative of \eqref{eq:ss_lin_G} we find
-\begin{align*}
-\frac{\textrm{d} {\cal G}_y}{\textrm{d} \mu} = 
-4 \mu \frac{a \mu^2 - c}{(\mu^2 + y^2)^2},
-\end{align*}
-where we define the constant
-\begin{align*}
-c \coloneqq (1+x^2)^2 + (1 - x^2)y^2.
-\end{align*}
-Thus, there exist at most three critical points of ${\cal G}_y$,
-\begin{align*}
-\mu = 0, \quad \mu = \pm \sqrt{\frac{c}{a}} \eqqcolon \mu_{\pm}.
-\end{align*}
-Note that the latter two critical points do not exist when $a = 0$ and are discarded when $\textrm{sign}(a) \neq \textrm{sign}(c)$ since they are imaginary.
-Working through the algebra, we find
-\begin{align*}
-\textrm{sign}(a) 
-&=
-\begin{cases}
--1, \quad &y^2 < 1 - x^2, \\
-0, \quad &y^2 = 1-x^2, \\
-1, \quad &y^2 > 1-x^2.
-\end{cases} \\
-\textrm{sign}(c) 
-&=
-\begin{cases}
--1, \quad &x^2 > 1, \quad y > \frac{x^2+1}{\sqrt{x^2-1}}, \\
-0, \quad &x^2 > 1, \quad y = \frac{x^2+1}{\sqrt{x^2-1}}, \\
-1, \quad &\textrm{else}.
-\end{cases}
-\end{align*}
-%
-Now considering the second derivative of \eqref{eq:ss_lin_G} at the critical point $\mu = 0$, we find
-\begin{align*}
-\left. \frac{\textrm{d}^2 {\cal G}_y}{\textrm{d}^2 \mu} \right|_{\mu = 0} = - \frac{4c}{y^5}.
-\end{align*}
-Thus, when $c < 0$, $\mu  =  0$ is a local minimum and when $c > 0$, $\mu = 0$ is a local maximum. Further calculations reveal that when $c = 0$, $\mu = 0$ is a local minimum.\\
-
-
-All of the above observations are sufficient for determining the extrema of \eqref{eq:ss_lin_G}. The maxima of ${\cal G}_y$ are
-\begin{align}
-\label{eq:ss_lin_maxG}
-\underset{\mu \in \mathbb{R}}{\max} \, {\cal G}_y(\mu) &= 
-\begin{cases}
-{\cal G}_y(0), \quad &0 <  y \leq \sqrt{x^2 + 1},\\[1ex]
-{\cal G}_y(\pm \infty), \quad &\sqrt{x^2 + 1} \leq  y < \infty.
-\end{cases}
-\end{align}
-The minima are more complicated and are split into two cases:
-\begin{itemize}
-\setlength{\itemsep}{2ex}
-\item \underline{$\bm{x^2\leq1}:$}
-\begin{align}
-\label{eq:ss_lin_minG_case1}
-\underset{\mu \in \mathbb{R}}{\min} \, {\cal G}_y(\mu) &= {\cal G}_y(\mu_{\pm}), \quad 0 <  y < \infty.
-\end{align}
-
-\item \underline{$\bm{x^2>1}:$}
-\begin{align}
-\label{eq:ss_lin_minG_case2}
-\underset{\mu \in \mathbb{R}}{\min} \, {\cal G}_y(\mu) &= 
-\begin{cases}
-{\cal G}_y(\pm \infty), \quad &0 <  y \leq \sqrt{x^2 - 1},\\[1ex]
-{\cal G}_y(\mu_{\pm}), \quad & \sqrt{x^2 - 1} \leq  y \leq \frac{x^2+1}{\sqrt{x^2 - 1}}, \\[1ex]
-{\cal G}_y(0), \quad & \frac{x^2+1}{\sqrt{x^2 - 1}} \leq  y < \infty.
-\end{cases}
-\end{align}
-\end{itemize}
-Where the extremal values of ${\cal G}_y(\mu)$ used in \eqref{eq:ss_lin_maxG}, \eqref{eq:ss_lin_minG_case1}, and \eqref{eq:ss_lin_minG_case2} are given by
-\begin{align*}
-{\cal G}_y(0) &= \left(\frac{x^2 + 1}{y^2}\right)^2, \\
-{\cal G}_y(\mu_{\pm}) &= \frac{4x^4}{y^4 + 2(1-x^2)y^2 + (x^2 + 1)^2}, \\
-{\cal G}_y(\pm \infty) &= 1.
-\end{align*}
-In some of the above calculations the following bound was used
-\begin{align*}
-\sqrt{x^2+1} = \frac{x^2+1}{\sqrt{x^2+1}} < \frac{x^2+1}{\sqrt{x^2-1}}, \quad x^2 > 1.
-\end{align*}
-
-\begin{theorem}\label{th:ss_lin_min}
-The condition number of operator \eqref{eq:ss_lin_P_y} is minimized with respect to $y$ with
-\begin{align}
-\label{eq:ss_lin_y_star}
-y_* \coloneqq \underset{0 < y < \infty}{\rm argmin} \, \kappa({\cal P}_y) = \sqrt{x^2 + 1}.
-\end{align}
-Moreover, its minimum value is
-\begin{align}
-\label{eq:ss_lin_k_y_star}
-\kappa({\cal P}_{y_*}) = \sqrt{1 + x^{-2}}.
-\end{align}
-\end{theorem}
-\begin{proof}
-Using the extrema of ${\cal G}_y(\mu)$ from \eqref{eq:ss_lin_maxG}, \eqref{eq:ss_lin_minG_case1} and \eqref{eq:ss_lin_minG_case2}, the square of condition number \eqref{eq:ss_lin_kappa_def} can be expressed as
-\begin{itemize}
-\setlength{\itemsep}{1ex}
-
-\item \underline{$\bm{x^2 \leq 1}:$}
-
-\begin{subnumcases}{\kappa^2({\cal P}_y)=}
-\label{eq:ss_lin_k1_case1}
-\kappa_1^2, \quad 0 < y \leq \sqrt{x^2+1}, 
-\\
-\label{eq:ss_lin_k2_case1}
-\kappa_2^2, \quad \sqrt{x^2+1} \leq y < \infty.
-\end{subnumcases}
-
-\item \underline{$\bm{x^2 > 1}:$}
-\begin{subnumcases}{\kappa^2({\cal P}_y)=}
-\label{eq:ss_lin_k0_case2}
-\kappa_0^2, \quad 0 < y \leq \sqrt{x^2-1}, 
-\\
-\label{eq:ss_lin_k1_case2}
-\kappa_1^2, \quad \sqrt{x^2-1} \leq y \leq \sqrt{x^2+1}, 
-\\
-\label{eq:ss_lin_k2_case2}
-\kappa_2^2, \quad \sqrt{x^2+1} \leq y \leq \frac{x^2+1}{\sqrt{x^2 - 1}}, 
-\\
-\label{eq:ss_lin_k3_case2}
-\kappa_3^2, \quad \frac{x^2+1}{\sqrt{x^2 - 1}} \leq y < \infty.
-\end{subnumcases}
-
-\end{itemize}
-
-Where we have used the following functions
-\begin{align}
-\label{eq:ss_lin_k0}
-\kappa_0^2
-&\coloneqq \frac{{\cal G}_y(0)}{{\cal G}_y(\pm \infty)} 
-= 
-\left( \frac{x^2+1}{y^2} \right)^2, 
-\\
-\label{eq:ss_lin_k1}
-\kappa_1^2
-&\coloneqq 
-\frac{{\cal G}_y(0)}{{\cal G}_y(\mu_{\pm})}
-= 
-\left( \frac{x^2+1}{2x^2} \right)^2 \left[1 + 2 \frac{(1-x^2)}{y^2} + \frac{(x^2 + 1)^2}{y^4} \right], 
-\\
-\label{eq:ss_lin_k2}
-\kappa_2^2
-&\coloneqq 
-\frac{{\cal G}_y(\pm \infty)}{{\cal G}_y(\mu_{\pm})}
-= 
-\frac{y^4 + 2(1-x^2)y^2 + (x^2 + 1)^2}{4x^4},
-\\
-\label{eq:ss_lin_k3}
-\kappa_3^2 
-&\coloneqq 
-\frac{1}{\kappa_0^2({\cal P}_y)}.
-\end{align}
-
-
-To show $\kappa^2({\cal P}_y)$ is minimized when $y = y_*$ we make the following observations. Notice first that $\kappa_0^2$ \eqref{eq:ss_lin_k0} is strictly decreasing for $y > 0$, and therefore that $\kappa_3^2 = 1/\kappa_0^2$ \eqref{eq:ss_lin_k3} is strictly increasing for $y > 0$. Thus, the condition number in \eqref{eq:ss_lin_k0_case2} is strictly decreasing for $y \in (0, \sqrt{x^2-1})$ while in \eqref{eq:ss_lin_k3_case2} it is strictly increasing for $y > (x^2+1)/\sqrt{x^2-1}$.
-
-Considering the derivative of \eqref{eq:ss_lin_k1} we have
-\begin{align*}
-\frac{\textrm{d} \kappa_1^2}{\textrm{d} y} 
-= 
-- \frac{1}{y^5}\left( \frac{x^2+1}{x^2} \right)^2 
-\left[
-(1-x^2) y^2 + (1+x^2)^2
-\right].
-\end{align*}
-If $x^2 < 1$, this is negative for all $y > 0$ such that \eqref{eq:ss_lin_k2_case1} is strictly decreasing for $y \in (0, \sqrt{x^2+1})$. If $x^2 > 1$, this derivative is negative when $y \in (0, (x^2+1)/\sqrt{x^2-1})$, and thus the condition number in \eqref{eq:ss_lin_k1_case2} is strictly decreasing for $y \in (\sqrt{x^2-1},\sqrt{x^2+1})$.
-
-Finally, considering the derivative of \eqref{eq:ss_lin_k2} we have
-\begin{align*}
-\frac{\textrm{d} \kappa_2^2}{\textrm{d} y} = \frac{y}{x^4} (y^2 + 1 - x^2).
-\end{align*}
-When $x^2 > 1$, this derivative is always positive for $y > 0$ such that condition number \eqref{eq:ss_lin_k2_case1} is strictly increasing for $y > \sqrt{x^2+1}$. When $x^2<1$, this derivative is positive for $y > \sqrt{x^2-1}$, and therefore condition number \eqref{eq:ss_lin_k2_case2} is strictly increasing for $y \in (\sqrt{x^2 + 1}, (x^2+1)/\sqrt{x^2-1})$.
-
-By the continuity of the piecewise condition numbers \eqref{eq:ss_lin_k1_case1}--\eqref{eq:ss_lin_k2_case1} and \eqref{eq:ss_lin_k0_case2}--\eqref{eq:ss_lin_k3_case2}, it is therefore the case that they are minimized with respect to $y$ at $y = y_* = \sqrt{x^2 + 1}$, as in \eqref{eq:ss_lin_y_star}. Finally, evaluating \eqref{eq:ss_lin_k1} or \eqref{eq:ss_lin_k2} at $y = y_*$ yields the claimed result of \eqref{eq:ss_lin_k_y_star}.
-\end{proof}
-
-\begin{remark}
-Restated in the original variables used to define those in \eqref{eq:ss_lin_scaled_var}, Theorem \ref{th:ss_lin_min} states that condition number of operator \eqref{eq:ss_lin_P_gamma} is minimized with respect to $\gamma$ with
-\begin{align}
-\gamma_* \coloneqq \underset{0 < \gamma < \infty}{\rm argmin} \, \kappa({\cal P}_{\gamma}) = \sqrt{\eta^2 + \beta^2}.
-\end{align}
-Moreover, its minimum value is
-\begin{align}
-\kappa({\cal P}_{\gamma_*}) = \sqrt{1 + \frac{\beta^2}{\eta^2}}.
-\end{align}
-\end{remark}
 
 % ---------------------------------------------------------------------------------------------- %
 % ---------------------------------------------------------------------------------------------- %
@@ -700,62 +466,307 @@ Combining with \eqref{eq:Pgamma} completes the proof of \eqref{eq:cond_gen}.
 % ---------------------------------------------------------------------------------------------- %
 % ---------------------------------------------------------------------------------------------- %
 % ---------------------------------------------------------------------------------------------- %
-\section{Tighter linear theory}
-Provided I'm not making some silly mistake, it turns out we can get tighter bounds on  condition numbers \eqref{eq:gammastar_} and \eqref{eq:cond_gen} by applying the same trick to bound $\Vert {\cal P}_{\gamma} \Vert$ as we do $\Vert {\cal P}_{\gamma}^{-1} \Vert$. This leads to much tighter bounds on both $\kappa({\cal P}_{\gamma_*})$, and on $\kappa({\cal P}_{\gamma})$ for the special case of $W({\cal L}^2) \geq 0$. The new results are summarized in the following theorem.
+\section{Linear setting: The skew symmetric case}
+\label{sec:lin_ss}
+Assuming $\beta > 0$, the preconditioned operator can be written in the form
+\begin{align} 
+\label{eq:ss_lin_P_gamma}
+{\cal P}_{\gamma} &= (\gamma I - {\cal L})^{-2} \big[ (\eta I - {\cal L})^2 + \beta^2 I \big],\\
+\label{eq:ss_lin_P_y}
+&= (y I - {\cal N})^{-2} \big[ (x I - {\cal L})^2 + I \big] \eqqcolon {\cal P}_y,
+\end{align}
+where we define the scaled quantities 
+\begin{align} 
+\label{eq:ss_lin_scaled_var}
+x \coloneqq \frac{\eta}{\beta}, 
+\quad 
+y \coloneqq \frac{\gamma}{\beta}, 
+\quad 
+{\cal N} \coloneqq \frac{1}{\beta} {\cal L}.
+\end{align}
+Letting $\lambda \in \sigma(- {\cal N})$, the spectrum ${\cal F}_y$ of the preconditioned operator \eqref{eq:ss_lin_P_y} is
+\begin{align}
+{\cal F}_y(\lambda) = \frac{(x+\lambda)^2 + 1}{(y + \lambda)^2}.
+\end{align}
+Furthermore, the condition number of ${\cal P}_y$ is 
+\begin{align} \label{eq:ss_lin_kappa_def}
+\kappa({\cal P}_y) = \frac{\underset{\lambda}{\max} \, | {\cal F}_y(\lambda) |}{\underset{\lambda}{\min} \, | {\cal F}_y(\lambda)|}
+\end{align}
 
-\begin{theorem}[Conditioning of preconditioned operator]\label{th:cond_lin}
-Suppose $\eta > 0$ and $W(\mathcal{L}) \leq 0$. Let $\mathcal{P}_\gamma$ denote
-the preconditioned operator, where $((\eta + \mathrm{i}\beta)I -
-\mathcal{L})((\eta - \mathrm{i}\beta)I - \mathcal{L})$ is
-preconditioned with $(\gamma I - \mathcal{L})^{-2}$.
-Define $\gamma_* = \sqrt{\eta^2+\beta^2}$ and let $\kappa(\cdot)$ denote the two-norm condition number of a matrix. Then
-%
+Since ${\cal N}$ is skew-symmetric, i.e., ${\cal N}^\top = - {\cal N}$, it has purely imaginary eigenvalues. We write the eigenvalues of $-{\cal N}$ as $\lambda = \im \mu$, for $\mu \in \mathbb{R}$. To avoid working with the imaginary $\lambda$, we instead work with the real-valued variable $\mu$. Since ${\cal F}_y$ is complex, we consider its magnitude squared,
+\begin{align}
+\label{eq:ss_lin_G}
+{\cal G}_y(\mu) \coloneqq |{\cal F}_y(\mu)|^2 = 
+\frac{\mu^4 + 2(x^2-1)\mu^2 + (x^2 + 1)^2}{(y^2 + \mu^2)} > 0.
+\end{align}\\
+
+Now we present some of the calculations to determine the extrema of ${\cal G}_y$. Note that we assume $y > 0$ (sometimes this is said explicitly, but sometimes it is not). First we consider the value of ${\cal G}_y$ at the end points of its domain,
 \begin{align*}
-\kappa(\mathcal{P}_{\gamma_*}) \leq \sqrt{1+\frac{\beta^2}{\eta^2}}.
-\end{align*}
-Assume additionally that $W(\mathcal{L}^2) \geq 0$. Then 
-\begin{align*}
-\kappa({\cal P}_{\gamma}) \leq 
+\lim_{\mu \to \pm \infty} {\cal G}_y(\mu) 
+=
+\lim_{\mu \to \pm \infty} \frac{1 + 2 \frac{x^2-1}{\mu^2} + \frac{(x^2+1)^2}{\mu^4}}{1 + 2 \frac{y^2}{\mu^2} + \frac{y^4}{\mu^4}}
+=
 \begin{cases}
-\displaystyle \frac{\eta^2 + \beta^2}{\gamma^2}, \quad \gamma \in (0, \eta], \\[2ex]
-\displaystyle \frac{\eta^2 + \beta^2}{\eta \gamma}, \quad \gamma \in [\eta, \sqrt{\eta^2 + \beta^2}].
+1^+, \quad a \leq 0, \\
+1^-, \quad a > 0,
 \end{cases}
 \end{align*}
-\end{theorem}
+where the constant $a$ is
+\begin{align*}
+a \coloneqq 1 - x^2  + y^2.
+\end{align*}
+Now, computing the derivative of \eqref{eq:ss_lin_G} we find
+\begin{align*}
+\frac{\textrm{d} {\cal G}_y}{\textrm{d} \mu} = 
+4 \mu \frac{a \mu^2 - c}{(\mu^2 + y^2)^2},
+\end{align*}
+where we define the constant
+\begin{align*}
+c \coloneqq (1+x^2)^2 + (1 - x^2)y^2.
+\end{align*}
+Thus, there exist at most three critical points of ${\cal G}_y$,
+\begin{align*}
+\mu = 0, \quad \mu = \pm \sqrt{\frac{c}{a}} \eqqcolon \mu_{\pm}.
+\end{align*}
+Note that the latter two critical points do not exist when $a = 0$ and are discarded when $\textrm{sign}(a) \neq \textrm{sign}(c)$ since they are imaginary.
+Working through the algebra, we find
+\begin{align*}
+\textrm{sign}(a) 
+&=
+\begin{cases}
+-1, \quad &y^2 < 1 - x^2, \\
+0, \quad &y^2 = 1-x^2, \\
+1, \quad &y^2 > 1-x^2.
+\end{cases} \\
+\textrm{sign}(c) 
+&=
+\begin{cases}
+-1, \quad &x^2 > 1, \quad y > \frac{x^2+1}{\sqrt{x^2-1}}, \\
+0, \quad &x^2 > 1, \quad y = \frac{x^2+1}{\sqrt{x^2-1}}, \\
+1, \quad &\textrm{else}.
+\end{cases}
+\end{align*}
+%
+Now considering the second derivative of \eqref{eq:ss_lin_G} at the critical point $\mu = 0$, we find
+\begin{align*}
+\left. \frac{\textrm{d}^2 {\cal G}_y}{\textrm{d}^2 \mu} \right|_{\mu = 0} = - \frac{4c}{y^5}.
+\end{align*}
+Thus, when $c < 0$, $\mu  =  0$ is a local minimum and when $c > 0$, $\mu = 0$ is a local maximum. Further calculations reveal that when $c = 0$, $\mu = 0$ is a local minimum.\\
 
-\tcb{Now we work through the details of the proof.} The square of the condition number can be written as
+
+All of the above observations are sufficient for determining the extrema of \eqref{eq:ss_lin_G}. The maxima of ${\cal G}_y$ are
 \begin{align}
-\nonumber
-\kappa^2({\cal P}_{\gamma}) 
-&= 
-\Vert {\cal P}_{\gamma} \Vert^2 
-\Vert {\cal P}_{\gamma}^{-1} \Vert^2 \\
-\nonumber
-&=
-s_{\rm max} ({\cal P}_{\gamma})^2 \times \frac{1}{s_{\rm min} ({\cal P}_{\gamma})^2},\\
+\label{eq:ss_lin_maxG}
+\underset{\mu \in \mathbb{R}}{\max} \, {\cal G}_y(\mu) &= 
+\begin{cases}
+{\cal G}_y(0), \quad &0 <  y \leq \sqrt{x^2 + 1},\\[1ex]
+{\cal G}_y(\pm \infty), \quad &\sqrt{x^2 + 1} \leq  y < \infty.
+\end{cases}
+\end{align}
+The minima are more complicated and are split into two cases:
+\begin{itemize}
+\setlength{\itemsep}{2ex}
+\item \underline{$\bm{x^2\leq1}:$}
+\begin{align}
+\label{eq:ss_lin_minG_case1}
+\underset{\mu \in \mathbb{R}}{\min} \, {\cal G}_y(\mu) &= {\cal G}_y(\mu_{\pm}), \quad 0 <  y < \infty.
+\end{align}
+
+\item \underline{$\bm{x^2>1}:$}
+\begin{align}
+\label{eq:ss_lin_minG_case2}
+\underset{\mu \in \mathbb{R}}{\min} \, {\cal G}_y(\mu) &= 
+\begin{cases}
+{\cal G}_y(\pm \infty), \quad &0 <  y \leq \sqrt{x^2 - 1},\\[1ex]
+{\cal G}_y(\mu_{\pm}), \quad & \sqrt{x^2 - 1} \leq  y \leq \frac{x^2+1}{\sqrt{x^2 - 1}}, \\[1ex]
+{\cal G}_y(0), \quad & \frac{x^2+1}{\sqrt{x^2 - 1}} \leq  y < \infty.
+\end{cases}
+\end{align}
+\end{itemize}
+Where the extremal values of ${\cal G}_y(\mu)$ used in \eqref{eq:ss_lin_maxG}, \eqref{eq:ss_lin_minG_case1}, and \eqref{eq:ss_lin_minG_case2} are given by
+\begin{align*}
+{\cal G}_y(0) &= \left(\frac{x^2 + 1}{y^2}\right)^2, \\
+{\cal G}_y(\mu_{\pm}) &= \frac{4x^4}{y^4 + 2(1-x^2)y^2 + (x^2 + 1)^2}, \\
+{\cal G}_y(\pm \infty) &= 1.
+\end{align*}
+In some of the above calculations the following bound was used
+\begin{align*}
+\sqrt{x^2+1} = \frac{x^2+1}{\sqrt{x^2+1}} < \frac{x^2+1}{\sqrt{x^2-1}}, \quad x^2 > 1.
+\end{align*}
+
+\begin{theorem}\label{th:ss_lin_min}
+The condition number of operator \eqref{eq:ss_lin_P_y} is minimized with respect to $y$ with
+\begin{align}
+\label{eq:ss_lin_y_star}
+y_* \coloneqq \underset{0 < y < \infty}{\rm argmin} \, \kappa({\cal P}_y) = \sqrt{x^2 + 1}.
+\end{align}
+Moreover, its minimum value is
+\begin{align}
+\label{eq:ss_lin_k_y_star}
+\kappa({\cal P}_{y_*}) = \sqrt{1 + x^{-2}}.
+\end{align}
+\end{theorem}
+\begin{proof}
+Using the extrema of ${\cal G}_y(\mu)$ from \eqref{eq:ss_lin_maxG}, \eqref{eq:ss_lin_minG_case1} and \eqref{eq:ss_lin_minG_case2}, the square of condition number \eqref{eq:ss_lin_kappa_def} can be expressed as
+\begin{itemize}
+\setlength{\itemsep}{1ex}
+
+\item \underline{$\bm{x^2 \leq 1}:$}
+
+\begin{subnumcases}{\kappa^2({\cal P}_y)=}
+\label{eq:ss_lin_k1_case1}
+\kappa_1^2, \quad 0 < y \leq \sqrt{x^2+1}, 
+\\
+\label{eq:ss_lin_k2_case1}
+\kappa_2^2, \quad \sqrt{x^2+1} \leq y < \infty.
+\end{subnumcases}
+
+\item \underline{$\bm{x^2 > 1}:$}
+\begin{subnumcases}{\kappa^2({\cal P}_y)=}
+\label{eq:ss_lin_k0_case2}
+\kappa_0^2, \quad 0 < y \leq \sqrt{x^2-1}, 
+\\
+\label{eq:ss_lin_k1_case2}
+\kappa_1^2, \quad \sqrt{x^2-1} \leq y \leq \sqrt{x^2+1}, 
+\\
+\label{eq:ss_lin_k2_case2}
+\kappa_2^2, \quad \sqrt{x^2+1} \leq y \leq \frac{x^2+1}{\sqrt{x^2 - 1}}, 
+\\
+\label{eq:ss_lin_k3_case2}
+\kappa_3^2, \quad \frac{x^2+1}{\sqrt{x^2 - 1}} \leq y < \infty.
+\end{subnumcases}
+
+\end{itemize}
+
+Where we have used the following functions
+\begin{align}
+\label{eq:ss_lin_k0}
+\kappa_0^2
+&\coloneqq \frac{{\cal G}_y(0)}{{\cal G}_y(\pm \infty)} 
+= 
+\left( \frac{x^2+1}{y^2} \right)^2, 
+\\
+\label{eq:ss_lin_k1}
+\kappa_1^2
+&\coloneqq 
+\frac{{\cal G}_y(0)}{{\cal G}_y(\mu_{\pm})}
+= 
+\left( \frac{x^2+1}{2x^2} \right)^2 \left[1 + 2 \frac{(1-x^2)}{y^2} + \frac{(x^2 + 1)^2}{y^4} \right], 
+\\
+\label{eq:ss_lin_k2}
+\kappa_2^2
+&\coloneqq 
+\frac{{\cal G}_y(\pm \infty)}{{\cal G}_y(\mu_{\pm})}
+= 
+\frac{y^4 + 2(1-x^2)y^2 + (x^2 + 1)^2}{4x^4},
+\\
+\label{eq:ss_lin_k3}
+\kappa_3^2 
+&\coloneqq 
+\frac{1}{\kappa_0^2({\cal P}_y)}.
+\end{align}
+
+To show $\kappa^2({\cal P}_y)$ is minimized when $y = y_*$ we make the following observations. Notice first that $\kappa_0^2$ \eqref{eq:ss_lin_k0} is strictly decreasing for $y > 0$, and therefore that $\kappa_3^2 = 1/\kappa_0^2$ \eqref{eq:ss_lin_k3} is strictly increasing for $y > 0$. Thus, the condition number in \eqref{eq:ss_lin_k0_case2} is strictly decreasing for $y \in (0, \sqrt{x^2-1})$ while in \eqref{eq:ss_lin_k3_case2} it is strictly increasing for $y > (x^2+1)/\sqrt{x^2-1}$.
+
+Considering the derivative of \eqref{eq:ss_lin_k1} we have
+\begin{align*}
+\frac{\textrm{d} \kappa_1^2}{\textrm{d} y} 
+= 
+- \frac{1}{y^5}\left( \frac{x^2+1}{x^2} \right)^2 
+\left[
+(1-x^2) y^2 + (1+x^2)^2
+\right].
+\end{align*}
+If $x^2 < 1$, this is negative for all $y > 0$ such that \eqref{eq:ss_lin_k2_case1} is strictly decreasing for $y \in (0, \sqrt{x^2+1})$. If $x^2 > 1$, this derivative is negative when $y \in (0, (x^2+1)/\sqrt{x^2-1})$, and thus the condition number in \eqref{eq:ss_lin_k1_case2} is strictly decreasing for $y \in (\sqrt{x^2-1},\sqrt{x^2+1})$.
+
+Finally, considering the derivative of \eqref{eq:ss_lin_k2} we have
+\begin{align*}
+\frac{\textrm{d} \kappa_2^2}{\textrm{d} y} = \frac{y}{x^4} (y^2 + 1 - x^2).
+\end{align*}
+When $x^2 > 1$, this derivative is always positive for $y > 0$ such that condition number \eqref{eq:ss_lin_k2_case1} is strictly increasing for $y > \sqrt{x^2+1}$. When $x^2<1$, this derivative is positive for $y > \sqrt{x^2-1}$, and therefore condition number \eqref{eq:ss_lin_k2_case2} is strictly increasing for $y \in (\sqrt{x^2 + 1}, (x^2+1)/\sqrt{x^2-1})$.
+
+By the continuity of the piecewise condition numbers \eqref{eq:ss_lin_k1_case1}--\eqref{eq:ss_lin_k2_case1} and \eqref{eq:ss_lin_k0_case2}--\eqref{eq:ss_lin_k3_case2}, it is therefore the case that they are minimized with respect to $y$ at $y = y_* = \sqrt{x^2 + 1}$, as in \eqref{eq:ss_lin_y_star}. Finally, evaluating \eqref{eq:ss_lin_k1} or \eqref{eq:ss_lin_k2} at $y = y_*$ yields the claimed result of \eqref{eq:ss_lin_k_y_star}.
+\end{proof}
+
+\begin{remark}
+Restated in the original variables used to define those in \eqref{eq:ss_lin_scaled_var}, Theorem \ref{th:ss_lin_min} states that condition number of operator \eqref{eq:ss_lin_P_gamma} is minimized with respect to $\gamma$ with
+\begin{align}
+\gamma_* \coloneqq \underset{0 < \gamma < \infty}{\rm argmin} \, \kappa({\cal P}_{\gamma}) = \sqrt{\eta^2 + \beta^2}.
+\end{align}
+Moreover, its minimum value is
+\begin{align}
+\kappa({\cal P}_{\gamma_*}) = \sqrt{1 + \frac{\beta^2}{\eta^2}}.
+\end{align}
+\end{remark}
+
+
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+\section{The linear setting: Tight general theory}
+\tcb{
+It turns out we can get tighter bounds on condition numbers \eqref{eq:gammastar_} and \eqref{eq:cond_gen} by applying the same trick to bound $\Vert {\cal P}_{\gamma} \Vert$ as we do $\Vert {\cal P}_{\gamma}^{-1} \Vert$. The new results are summarized in the following theorem.
+}
+
+\begin{theorem}[Conditioning of preconditioned operator]\label{th:cond_lin}
+\label{th:conditioning_lin}
+Suppose $\eta > 0$ and $W(\mathcal{L}) \leq 0$. Let $\mathcal{P}_\gamma$ denote
+the preconditioned operator, where $[(\eta + \mathrm{i}\beta)I -
+\mathcal{L}][(\eta - \mathrm{i}\beta)I - \mathcal{L}]$ is
+preconditioned with $(\gamma I - \mathcal{L})^{-2}$.
+Define $\gamma_* = \sqrt{\eta^2+\beta^2}$ and let $\kappa({\cal P}_{\gamma})$ denote the two-norm condition number of matrix ${\cal P}_{\gamma}$. Then
+%
+\begin{align} \label{eq:cond_P_gamma*_bnd}
+\kappa(\mathcal{P}_{\gamma_*}) \leq \sqrt{1+\frac{\beta^2}{\eta^2}}.
+\end{align}
+\end{theorem}
+\begin{proof}
+
+The square of the condition number of ${\cal P}_{\gamma}$ is
+\begin{align}
 \label{eq:kappa_def}
-&=
+\kappa^2({\cal P}_{\gamma}) 
+= 
+\Vert {\cal P}_{\gamma} \Vert^2 
+\times
+\Vert {\cal P}_{\gamma}^{-1} \Vert^2
+=
 \underset{{\bm{v} \neq 0}}{\max} \frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2 }{\Vert \bm{v} \Vert^2} 
 \times 
 \frac{1}{\displaystyle{\underset{{\bm{v} \neq 0}}{\min} \frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2 }{\Vert \bm{v} \Vert^2}}}.
 \end{align}
-The key here will be bounding $\max \frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2 }{\Vert \bm{v} \Vert^2}$ from above, and bounding $\min \frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2 }{\Vert \bm{v} \Vert^2}$ from below.
-
-We write the preconditioned operator ${\cal P}_{\gamma}$ as follows
+The key here will be bounding $\Vert {\cal P}_{\gamma} \Vert^2$ and $\Vert {\cal P}_{\gamma}^{-1} \Vert^2$ from above by bounding $\frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2 }{\Vert \bm{v} \Vert^2}$ from above and below, respectively.
+%
+The preconditioned operator ${\cal P}_{\gamma}$ is 
 \begin{align*}
-{\cal P}_{\gamma} = I + 2(\eta - \gamma) (\gamma I - {\cal L})^{-1} + \big[ \beta^2 + (\eta - \gamma)^2 \big] (\gamma I - {\cal L})^{-2}.
+{\cal P}_{\gamma} 
+&= 
+[(\eta + \mathrm{i}\beta)I -
+\mathcal{L}][(\eta - \mathrm{i}\beta)I - \mathcal{L}] (\gamma I - {\cal L})^{-2}, \\
+&=
+[(\eta^2 + \beta^2) I - 2 \eta {\cal L} + {\cal L}^2] (\gamma I - {\cal L})^{-2}
 \end{align*}
-Now putting $\bm{v} = (\gamma I - {\cal L})^{2} \bm{w}$, we have
-\begin{align*}
-{\cal P}_{\gamma} \bm{v} = \big( \eta^2 + \beta^2 - 2\eta{\cal L} + {\cal L}^2 \big) \bm{w} = \big[ \big( \eta I - {\cal L} \big)^2 +  \beta^2 \big] \bm{w}.
-\end{align*}
-Working through the algebra, we find the squared norm of this term can be written as
-\begin{align*}
+Now putting $\bm{v} = (\gamma I - {\cal L})^{2} \bm{w}$ and assuming $\bm{v}$ (and hence $\bm{w}$ also) is real, the squared norm of ${\cal P}_{\gamma} \bm{v}$ can be expressed as
+\begin{align}
+\label{eq:norm_Pv}
 \Vert {\cal P}_{\gamma} \bm{v} \Vert^2
-=
+&=
+\Vert ( \eta^2 + \beta^2 - 2\eta{\cal L} + {\cal L}^2 ) \bm{w} \Vert^2, \\
+&=
+\nonumber
 \Vert (\eta^2 + \beta^2) \bm{w} + {\cal L}^2 \bm{w} \Vert^2  - 4 \eta \langle {\cal L}({\cal L} \bm{w}), {\cal L}\bm{w} \rangle + 4 \eta^2 \Vert {\cal L} \bm{w} \Vert^2 - 4 \eta (\eta^2 +\beta^2) \langle {\cal L} \bm{w}, \bm{w} \rangle.
-\end{align*}
-Thus, we can write the fraction we care about in \eqref{eq:kappa_def} in the form
+\end{align}
+Similarly, the squared norm of $\bm{v}$ can be written as
+\begin{align}
+\label{eq:norm_v}
+\Vert \bm{v} \Vert^2
+&=
+\Vert ( \gamma^2 - 2\gamma{ \cal L} + {\cal L}^2 ) \bm{w} \Vert^2, \\
+&=
+\nonumber
+\Vert \gamma^2 \bm{w} + {\cal L}^2 \bm{w} \Vert^2  - 4 \gamma \langle {\cal L}({\cal L} \bm{w}), {\cal L}\bm{w} \rangle + 4 \gamma^2 \Vert {\cal L} \bm{w} \Vert^2 - 4 \gamma^3 \langle {\cal L} \bm{w}, \bm{w} \rangle.
+\end{align}
+Thus, we can write the key term from \eqref{eq:kappa_def} in the form
 \begin{align}
 \label{eq:P_gamma_frac}
 \frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2}{\Vert \bm{v} \Vert^2}
@@ -768,125 +779,153 @@ f_0(\bm{w}) + f_1(\bm{w}) + f_2(\bm{w}) + f_3(\bm{w})
 },
 \end{align}
 where we define functions and constants
-\begin{align*}
+\begin{align}
+\label{eq:c0_def}
 f_0 &= \Vert \gamma^2 \bm{w} + {\cal L}^2 \bm{w} \Vert^2 > 0,
 \quad
 c_0 = \frac{\Vert (\eta^2 + \beta^2) \bm{w} + {\cal L}^2 \bm{w} \Vert^2}{\Vert \gamma^2 \bm{w} + {\cal L}^2 \bm{w} \Vert^2} > 0,
 \\
+\nonumber
 f_1 &= -4 \gamma \langle {\cal L}({\cal L} \bm{w}), {\cal L} \bm{w} \rangle \geq 0,
 \quad 
 c_1 = \frac{\eta}{\gamma} > 0,\\
+\nonumber
 f_2 &= 4 \gamma^2 \Vert {\cal L} \bm{w} \Vert^2 \geq 0, 
 \quad
-c_2 = \left( \frac{\eta}{\gamma} \right)^2 > 0, \\
+c_2 = \frac{\eta^2}{\gamma^2} > 0, \\
+\nonumber
 f_3 &= -4 \gamma^3 \langle {\cal L} \bm{w}, \bm{w} \rangle \geq 0, 
 \quad
 c_3 = \frac{\eta (\eta^2 + \beta^2)}{\gamma^3} > 0.
-\end{align*}
-Noting that all of these functions and constants are non-negative, and that at least one term in the numerator and denominator is positive, we can put lower and upper bounds on \eqref{eq:P_gamma_frac} as
-\begin{align}
+\end{align}
+Terms $f_1$ and $f_3$ are non-negative by assumption of $W({\cal L}) \leq 0$.
+%
+Note that $f_0 > 0$ because it can be zero only if $(\mathrm{i} \gamma, \bm{w})$ is an eigenpair of ${\cal L}$, but this would violate the assumption that $\bm{w}$ is real since ${\cal L}$ is real. It is for analogous reasons that $c_0 > 0$. 
+
+Since all of the terms in \eqref{eq:P_gamma_frac} are non-negative, and at least one in both the numerator and denominator is positive, the following bounds can be placed on it
+\begin{align*}
 \min \{ c_0, c_1, c_2, c_3 \} \eqqcolon c_{\min}
 \leq
 \frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2}{\Vert \bm{v} \Vert^2} 
 \leq c_{\max} 
 \coloneqq \max \{ c_0, c_1, c_2, c_3 \}.
-\end{align}
-This allows us to bound condition number \eqref{eq:kappa_def} as
-\begin{align} \label{eq:kappa_sq_bound}
-\kappa^2({\cal P}_{\gamma}) \leq \frac{c_{\max}}{c_{\min}}
-\end{align}
-This is the same strategy we used previously for the lower bound, but now we're also going to do it for the upper bound since it's tighter!\\
-
-Assuming $\gamma \in [\eta, \sqrt{\eta^2 + \beta^2}]$ because it makes the analysis easier, we find
-\begin{align} 
-\label{eq:c_partial}
-c_2 = \underset{\gamma \in [\eta , \sqrt{\eta^2 + \beta^2}]}{\min} \{c_1, c_2, c_3 \} < 1, \quad c_3 = \underset{\gamma \in [\eta, \sqrt{\eta^2 + \beta^2}]}{\max} \{c_1, c_2, c_3 \},
-\end{align}
-but note that the edge case of $c_2 = 1$ at $\gamma = \eta$ (this is inconsequential, however). Now we consider two special cases as follows.\\
-
-\underline{\textbf{Case 1,} $\bm{\gamma = \gamma_* \coloneqq \sqrt{\eta^2 + \beta^2}}$\textbf{:}} Notice for this special case $c_0 = 1$, and so we have
-\begin{align}
-\label{eq:extremal_c_case1}
-c_{\min} = c_2 = \frac{\eta^2}{\eta^2 + \beta^2}, \quad c_{\max} = c_0 = 1 > c_3 = \frac{1}{\sqrt{1 + \beta^2/\eta^2}}.
-\end{align}
-This is where we end up getting a much tighter result than we did previously: We've now shown $\Vert {\cal P}_{\gamma_*} \Vert \leq 1$, where as previously \eqref{eq:Pgamma} was used to say $\Vert {\cal P}_{\gamma_*} \Vert < 3 - 2/\sqrt{1 + \beta^2 / \eta^2} \to 3^-$ as $\beta/\eta \to \infty$.
-%
-Substituting \eqref{eq:extremal_c_case1} into \eqref{eq:kappa_sq_bound} yields the following bound on the condition number
-\begin{align} \label{eq:kappa_case1}
-\kappa({\cal P}_{\gamma_*}) \leq \frac{1}{\sqrt{c_{\rm min}}} = \sqrt{1 + \left( \frac{\beta}{\eta} \right)^2}.
-\end{align}
-Notice that this is tighter than the previous bound of \eqref{eq:gammastar_} by a smidge less than a factor of 3.
-
-\tcb{While this is tighter than what we had previously, it's still quite a bit larger than that for the case in which ${\cal L}$ is SPSD, as given in \eqref{eq:cases0}. Will be interesting to see if it's tight for skew-symmetric matrices.}\\
-
-\underline{\textbf{Case 2, Non-negative $\bm{{\cal L}^2}$\textbf{:}}} Suppose $W({\cal L}^2) \geq 0$. First of all note now that terms in the denominator of $c_0$ are non-negative. Thus, $c_0$ is a strictly decreasing function for $\gamma > 0$ which passes through $1$ at $\gamma^2 = \eta^2 + \beta^2$. Therefore it follows that
-\begin{align*}
-\underset{\bm{w} \neq 0}{\max} \; c_0(\bm{w}) \geq 1, \quad \gamma^2 \leq \eta^2 + \beta^2.
 \end{align*}
-As such, $c_0$ is not a contender for the minimum of the $c$'s because $c_2$ is less than $1$, as in \eqref{eq:c_partial}, but it is a contender for the maximum of the $c$'s. Since we cannot explicitly compute $\underset{\bm{w} \neq 0}{\max} \; c_0(\bm{w})$ independently of $\bm{w}$, we bound it from above as follows
-\begin{align*}
-c_0 &= 
-\frac{
-\displaystyle{
-(\eta^2 + \beta^2})^2 \Vert \bm{w} \Vert^2 
-+
-2(\eta^2 + \beta^2) \langle {\cal L}^2 \bm{w}, \bm{w} \rangle 
-+ \Vert {\cal L}^2 \bm{w} \Vert^2
+Applying these bounds to the norms in \eqref{eq:kappa_def} yields
+\begin{align} \label{eq:P_gamma_bounds}
+\Vert {\cal P}_{\gamma} \Vert^2 \leq c_{\max}, 
+\quad
+\Vert {\cal P}_{\gamma}^{-1} \Vert^2 \leq \frac{1}{c_{\min}}.
+\end{align}
+
+Bounding $c_0$ for general $\gamma$, and hence $c_{\min}$ and $c_{\max}$, is difficult because the sign of $\langle {\cal L}^2 \bm{w}, \bm{w} \rangle$ (which appears in expanding $\Vert \gamma^2 \bm{w} + {\cal L}^2 \bm{w} \Vert^2$) is not known for general ${\cal L}$, noting that the sign of $W({\cal L})$ does not determine that of $W({\cal L}^2)$. However, observe from \eqref{eq:c0_def} that for the judicious choice of $\gamma = \gamma_* \coloneqq \sqrt{\eta^2 + \beta^2}$, $c_0(\bm{w}) = 1$. Furthermore, in the following Theorem (Theorem \ref{th:tight_bound_P_gamma*}) we establish that the choice of $\gamma = \gamma_*$ is optimal, and, as such, moving forward we analyze \eqref{eq:P_gamma_frac} only for the case of $\gamma = \gamma_*$.
+
+Considering $\gamma = \gamma_*$, one has $1 = c_0 > c_1 = c_3 = \sqrt{c_2}$. Thus, for $\gamma = \gamma_*$, bounds \eqref{eq:P_gamma_bounds} are
+\begin{align}
+\label{eq:P_gamma*_bounds}
+\Vert {\cal P}_{\gamma_*} \Vert^2 \leq 1,
+\quad
+\Vert {\cal P}_{\gamma_*}^{-1} \Vert^2 \leq 1 + \frac{\beta^2}{\eta^2}.
+\end{align}
+Substituting these bounds into the condition number \eqref{eq:kappa_def} yields the claimed result of \eqref{eq:cond_P_gamma*_bnd}.
+\end{proof}
+
+\tcb{
+Now it turns of that in fact \eqref{eq:cond_P_gamma*_bnd} is tight and that $\gamma = \gamma_*$ is the unique minimizer of $\kappa({\cal P}_{\gamma})$ as shown in the following theorem.
 }
-{
-\gamma^4 \Vert \bm{w} \Vert^2 + 2 \gamma^2 \langle {\cal L}^2 \bm{w}, \bm{w} \rangle + \Vert {\cal L}^2 \bm{w} \Vert^2
-},\\
-&=
-\frac{
-\displaystyle{
-\left(\frac{\eta^2 + \beta^2}{\gamma^2}\right)^2 \big[ \gamma^4 \Vert \bm{w} \Vert^2 \big]
-+
-\frac{\eta^2 + \beta^2}{\gamma^2} \big[ 2 \gamma^2 \langle {\cal L}^2 \bm{w}, \bm{w} \rangle \big]
-+ \big[\Vert {\cal L}^2 \bm{w} \Vert^2\big]
-}
-}
-{
-\big[\gamma^4 \Vert \bm{w} \Vert^2\big] + \big[ 2 \gamma^2 \langle {\cal L}^2 \bm{w}, \bm{w} \rangle \big] + \big[\Vert {\cal L}^2 \bm{w} \Vert^2\big]
-},
+
+\begin{theorem}[Tight bounds on $\kappa({\cal P}_{\gamma_*})$ and optimal $\gamma$]
+\label{th:tight_bound_P_gamma*}
+For general matrices ${\cal L}$ having $W({\cal L}) \leq 0$, the choice of $\gamma = \gamma_* \coloneqq \sqrt{\eta^2 + \beta^2}$ is optimal with respect to $\kappa({\cal P}_{\gamma})$ in the sense that there exists a matrix ${\cal L}$ for which the upper bound \eqref{eq:cond_P_gamma*_bnd} on $\kappa({\cal P}_{\gamma_*})$ achieves equality and for which $\kappa({\cal P}_{\gamma}) > \kappa({\cal P}_{\gamma_*}), \gamma \in (0, \infty) \setminus \gamma_*$.
+\end{theorem}
+\begin{proof}
+To establish these results, we will place lower bounds on condition number \eqref{eq:kappa_def}.
+%
+Let $~\bm{v}=(\gamma I - {\cal L})^2 \bm{w}$ as in the proof of Theorem \ref{th:conditioning_lin}, but now suppose that $(\alpha, \bm{w})$ is an eigenpair of ${\cal L}$, with $\alpha$ imaginary and $\bm{w}$ complex. We use this eigenpair with \eqref{eq:norm_Pv} and \eqref{eq:norm_v} to define the following function
+\begin{align} \label{eq:H_def}
+{\cal H}_{\gamma}(\alpha) 
+\coloneqq 
+\left. \frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2 }{\Vert \bm{v} \Vert^2} \right|_{{\cal L} \bm{w} = \alpha \bm{w}}
+=
+\frac{|(\eta-\alpha)^2 + \beta^2|^2}{|(\gamma - \alpha)^2|^2}.
+\end{align}
+Now observe from \eqref{eq:kappa_def} that
+\begin{align}
+\label{eq:H_bounds}
+\frac{1}{\Vert {\cal P}_{\gamma}^{-1} \Vert^2}
+=
+\underset{\bm{v} \neq 0}{\min} \frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2}{\Vert \bm{v} \Vert^2}
+\leq {\cal H}_{\gamma}(\alpha) \leq 
+\underset{\bm{v} \neq 0}{\max} \frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2}{\Vert \bm{v} \Vert^2} = \Vert {\cal P}_{\gamma} \Vert^2.
+\end{align}
+That is, any value of $\tfrac{1}{{\cal H}_{\gamma}(\alpha)}$ serves as a lower bound on $\Vert {\cal P}_{\gamma}^{-1} \Vert^2$, while any value of ${\cal H}_{\gamma}(\alpha)$ serves as a lower bound on $\Vert {\cal P}_{\gamma} \Vert^2$. Therefore the ratio of any two such values of ${\cal H}_{\gamma}(\alpha)$ provide a lower bound on $\kappa^2({\cal P}_{\gamma})$.
+
+Note that while we are now considering $\bm{v}$ to be a complex vector but previously assumed in the proof of Theorem \ref{th:conditioning_lin} that it was real does not matter because the min/max of $\frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2}{\Vert \bm{v} \Vert^2}$ are equivalent whether $\bm{v}$ is real or complex for real-valued ${\cal P}_{\gamma}$.
+
+Now consider the specific case of a matrix ${\cal L}$ judiciously chosen to have eigenvalues $\alpha \in \{0, \pm \mathrm{i} \sqrt{\eta^2 + \beta^2}, \pm \mathrm{i} \infty\}$. Evaluating \eqref{eq:H_def} at these eigenvalues we find
+\begin{align}
+\label{eq:H1}
+{\cal H}_{\gamma}(0) 
+&= 
+\left( \frac{\eta^2 + \beta^2}{\gamma^2} \right)^2, \\
+\label{eq:H2}
+{\cal H}_{\gamma}(\pm \mathrm{i} \sqrt{\eta^2 + \beta^2}) 
+&= 
+\frac{4 \eta^2 ( \eta^2 + \beta^2)}{(\gamma^2 + \eta^2 + \beta^2)^2}, 
 \\
-&\leq
-\underset{\gamma \in [\eta , \sqrt{\eta^2 + \beta^2}]}{\max} \left\{ \left(\frac{\eta^2 + \beta^2}{\gamma^2}\right)^2,
-\left(\frac{\eta^2 + \beta^2}{\gamma^2}\right),
-1 \right\},\\
-&= \left(\frac{\eta^2 + \beta^2}{\gamma^2}\right)^2 \eqqcolon \tilde{c}_0.
-\end{align*} 
-Carrying out further algebra we find
-\begin{align}
-c_{\max} \leq \underset{\gamma \in [\eta , \sqrt{\eta^2 + \beta^2}]}{\max} \{ \tilde{c}_0, c_3\} = \tilde{c}_0.
-\end{align}
-Plugging $\tilde{c}_0$ and $c_2$ into \eqref{eq:kappa_sq_bound} we obtain the following bound for the condition number when $W({\cal L}^2) \geq 0$:
-\begin{align}
-\label{eq:kappa_part1}
-\kappa({\cal P}_{\gamma}) \leq \sqrt{\frac{\tilde{c}_0}{c_2}} = \frac{\eta^2 + \beta^2}{\eta \gamma}, \quad \gamma \in [\eta, \sqrt{\eta^2 + \beta^2}].
-\end{align}
-It's also not too hard to carry out similar calculations for $\gamma \in (0,\eta]$. In this case, we have the same maximum of $\tilde{c}_0$, but the minimum changes from $c_2$ and is replaced with a lower bound on $c_0$, which turns out to be 1. Thus,
-\begin{align}
-\label{eq:kappa_part2}
-\kappa({\cal P}_{\gamma}) \leq \sqrt{\frac{\tilde{c}_0}{1}} = \frac{\eta^2 + \beta^2}{\gamma^2}, \quad \gamma \in (0, \eta].
-\end{align}
-Piecing \eqref{eq:kappa_part1} and \eqref{eq:kappa_part2} together we have
-\begin{align}
-\label{eq:kappa_final}
-\kappa({\cal P}_{\gamma}) \leq 
-\begin{cases}
-\displaystyle \frac{\eta^2 + \beta^2}{\gamma^2}, \quad \gamma \in (0, \eta], \\[2ex]
-\displaystyle \frac{\eta^2 + \beta^2}{\eta \gamma}, \quad \gamma \in [\eta, \sqrt{\eta^2 + \beta^2}].
-\end{cases}
+\label{eq:H3}
+\lim_{\substack{c \to \pm \infty\\ c \in \mathbb{R}}} {\cal H}_{\gamma}(\mathrm{i} c) 
+&=
+1.
 \end{align}
 
-What's interesting is that condition number bound \eqref{eq:kappa_final} is strictly decreasing with $\gamma$, and so it achieves its minimum value at the right-hand boundary of the interval with $\gamma = \gamma_* \coloneqq \sqrt{\eta^2 + \beta^2}$. While $\gamma_*$ is the minimizer of this bound, it does not mean it's the minimizer of the true condition number, but it is strongly suggestive. Plugging $\gamma = \gamma_*$ into the bound above, we see that its minimum value is actually the same as the bound we derived in \eqref{eq:kappa_case1},
-\begin{align*} 
-\kappa({\cal P}_{\gamma_*}) \leq \sqrt{1 + \left( \frac{\beta}{\eta} \right)^2}.
-\end{align*}\\
+We now show that the bound \eqref{eq:cond_P_gamma*_bnd} on $\kappa({\cal P}_{\gamma_*})$ is tight because it achieves equality for this specific matrix ${\cal L}$. First observe from \eqref{eq:H_bounds} and \eqref{eq:H1} that $\Vert {\cal P}_{\gamma_*} \Vert^2 \geq {\cal H}_{\gamma_*}(0) = 1$, and thus the upper bound on $\Vert {\cal P}_{\gamma} \Vert^2$ from \eqref{eq:P_gamma*_bounds} achieves equality for a matrix ${\cal L}$ having an eigenvalue of $\alpha = 0$. Secondly, observe from \eqref{eq:H_bounds} and \eqref{eq:H2} that $\Vert {\cal P}_{\gamma_*}^{-1} \Vert^2 \geq \tfrac{1}{{\cal H}_{\gamma_*}(\pm \mathrm{i} \sqrt{\eta^2 + \beta^2})}= 1 + \tfrac{\beta^2}{\eta^2}$, and thus the upper bound on $\Vert {\cal P}_{\gamma}^{-1} \Vert^2$ from \eqref{eq:P_gamma*_bounds} achieves equality for a matrix ${\cal L}$ having eigenvalues $\alpha = \pm \mathrm{i} \sqrt{\eta^2 + \beta^2}$. 
 
+Having established that $\kappa^2({\cal P}_{\gamma_*}) = 1 + \tfrac{\beta^2}{\eta^2}$ for this particular ${\cal L}$, we now show that any other choice of $\gamma \neq \gamma_*$ leads to worse conditioning. To do so, we consider ratios of the judiciously chosen values of ${\cal H}_{\gamma}$ given in \eqref{eq:H1}, \eqref{eq:H2}, and \eqref{eq:H3}, recalling that the ratio of any two values of ${\cal H}_{\gamma}(\alpha)$ serve as a lower bound on the square of the condition number of ${\cal P}_{\gamma}$ (see \eqref{eq:H_bounds}). Firstly, we observe that
+\begin{align*}
+\kappa^2({\cal P}_{\gamma_*})
+=
+1 + \frac{\beta^2}{\eta^2}
+<
+\frac{(\eta^2 + \beta^2) (\gamma^2 + \eta^2 + \beta^2)^2}{4 \eta^2 \gamma^4}
+=
+\frac{{\cal H}_{\gamma}(0)}{{\cal H}_{\gamma}(\pm \mathrm{i} \sqrt{\eta^2 + \beta^2})}
+\leq
+\kappa^2({\cal P}_{\gamma}),
+\quad 0 < \gamma < \gamma_*.
+\end{align*}
+And secondly, we observe that
+\begin{align*}
+\kappa^2({\cal P}_{\gamma_*})
+=
+1 + \frac{\beta^2}{\eta^2}
+< 
+\frac{(\gamma^2 + \eta^2 + \beta^2)^2}{4 \eta^2 (\eta^2 + \beta^2)}
+=
+\frac{{\cal H}_{\gamma}(\pm \mathrm{i} \infty)}{{\cal H}_{\gamma}(\pm \mathrm{i} \sqrt{\eta^2 + \beta^2})}
+\leq
+\kappa^2({\cal P}_{\gamma}), 
+\quad \gamma_* < \gamma < \infty.
+\end{align*}
+Therefore $\gamma = \gamma_*$ is optimal since $\kappa({\cal P}_{\gamma}) > \kappa({\cal P}_{\gamma_*}), \gamma \in (0, \infty) \setminus \gamma_*$.
+\end{proof}
 
+\begin{remark}[On the matrix ${\cal L}$ considered in Theorem \ref{th:tight_bound_P_gamma*}]
+The matrix used to prove Theorem \ref{th:tight_bound_P_gamma*} was assumed to have eigenvalues $\{0, \pm \mathrm{i} \sqrt{\eta^2 + \beta^2}, \pm \mathrm{i} \infty\}$. One such matrix having these eigenvalues is a skew-symmetric spatial discretization with a time step size $\delta t \to \infty$. These judiciously chosen eigenvalues were considered since they arise as special cases in the eigenvalue analysis of $\kappa({\cal P}_{\gamma})$ when ${\cal L}$ is skew-symmetric and assumed to have a spectrum densely filling $(-\mathrm{i} \infty,\mathrm{i} \infty)$.
+%
+A matrix with this kind of structure could potentially occur, for example, in the pseudo time-stepping solution of an advection-dominated PDE. 
+\end{remark}
 
+\begin{remark}[Skew-symmetric matrices yield worse conditioning than symmetric positive semi-definite matrices]
+In the proof of Theorem \ref{th:tight_bound_P_gamma*} we show that the upper bound \eqref{eq:cond_P_gamma*_bnd} on $\kappa({\cal P}_{\gamma_*})$ is tight for a skew-symmetric matrices ${\cal L}$. Notice that this general bound is significantly larger than the upper bound for symmetric negative semi-definite ${\cal L}$,
+\begin{align*}
+\kappa({\cal P}_{\gamma_*}) \leq 2 - 2 \frac{\eta^2}{\beta^2} \left(\sqrt{1 + \frac{\beta^2}{\eta^2}} - 1 \right) \leq 2.
+\end{align*}
+Thus is can be expected that skew symmetric matrices (and thus advection-dominated problems) lead to a much worse conditioned ${\cal P}_{\gamma_*}$ than symmetric negative semi-definite matrices (and thus diffusion-dominated problems).
+\end{remark}
 
+\begin{remark}[Alternative proof to Theorem \ref{th:tight_bound_P_gamma*}]
+If we include the skew-symmetric analysis of Section \ref{sec:lin_ss}, then a proof of Theorem \ref{th:tight_bound_P_gamma*} is just to take the skew-symmetric matrix ${\cal L}$ with spectrum densely filling $(-\mathrm{i} \infty,\mathrm{i} \infty)$ that was analyzed there.
+\end{remark}
 
 % ---------------------------------------------------------------------------------------------- %
 % ---------------------------------------------------------------------------------------------- %
