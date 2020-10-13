@@ -363,35 +363,87 @@ for nice comparison w/ BDF for DAEs.}
 % ------------------------------------------------------------------------------------- %
 \subsection{A preconditioning framework and stability}\label{sec:intro:stab}
 
+Similar to \cite{pazner17}\todo{cite}, methods developed in this paper appeal
+to pulling an $A_0\otimes I$ out of \eqref{eq:k0}, yielding an equivalent problem
 %
 \begin{align}\label{eq:keq}
 \left( A_0^{-1}\otimes M - \delta t \begin{bmatrix} \mathcal{L}_1  & \\ & \ddots \\ && \mathcal{L}_s\end{bmatrix}\right)
 	(A_0\otimes I)	\begin{bmatrix} \mathbf{k}_1 \\ \vdots \\ \mathbf{k}_s \end{bmatrix}
 & = \begin{bmatrix} \mathbf{f}_1 \\ \vdots \\ \mathbf{f}_s \end{bmatrix}.
 \end{align}
-
+%
+Off-diagonal blocks in the reformulated system \eqref{eq:keq} now consist of
+mass matrices, rather than differential operators, which simplifies the
+development and analysis of preconditioning, and also reduces the number
+of sparse matrix-vector operations with $\{\mathcal{L}_i\}$. Algorithms
+developed in this paper rely on the following assumption regarding
+eigenvalues of $A_0$ and $A_0^{-1}$:
 %
 \begin{assumption}\label{ass:eig}
 Assume that all eigenvalues of $A_0$ (and equivalently $A_0^{-1})$ have positive real part.
 \end{assumption}
+%
+Recall that if an IRK method is A-stable, irreducible, and $A_0$ is invertible
+(which includes DIRK, Gauss, Radau IIA, and Lobatto IIIC methods, among others),
+then \Cref{ass:eig} holds \cite{hairer96}; that is, \Cref{ass:eig} is
+straightforward to satisfy in practice. 
 
-
+The second assumption we make for analysis in this paper is derived from
+stability of ODE solvers applied to numerical PDEs using the method-of-lines. 
+The Dalhquist test problem extends naturally to this setting, where we are
+interested in the stability of the linearized operator $\mathcal{L}$, for
+the ODE(s) $\mathbf{u}'(t) = \mathcal{L}\mathbf{u}$, with solution
+$e^{t\mathcal{L}}\mathbf{u}$. In \cite{reddy92}, necessary and sufficient
+conditions for stability are derived as the $\varepsilon$ pseudo-eigenvalues
+of $\mathcal{L}$ being within $\mathcal{O}(\varepsilon) + \mathcal{O}(\delta t)$
+of the stability region as $\varepsilon,\delta t\to 0$. Here we relax this
+assumption to something that is more tractable to work with by noting that
+the $\varepsilon$ pseudo-eigenvalues are contained within the field of values
+to $\mathcal{O}(\varepsilon)$ \cite[Eq. (17.9)]{trefethen2005spectra},
+where the field of values is defined as
+%
 \begin{align}\label{eq:fov}
 W(\mathcal{L}) := \left\{ \langle \mathcal{L}\mathbf{x},\mathbf{x}\rangle \text{ : }
 	\|\mathbf{x}\| = 1 \right\}.
 \end{align}
-
-
+%
+This motivates the following assumption for the analysis done in this paper:
 %
 \begin{assumption}\label{ass:fov}
-Let $\mathcal{L}$ be the linear spatial operator, and assume that $W(\mathcal{L}) \leq 0$.
+Let $\mathcal{L}$ be a linearized spatial operator, and assume that $W(\mathcal{L}) \leq 0$.
 \end{assumption}
+%
+As discussed in \todo{cite}, note that the field of values has an additional
+connection to stability. From \cite[Theorem 17.1]{trefethen2005spectra}, we
+have that $\|e^{t\mathcal{L}}\|\leq 1$ for all $t\geq 0$ if and only if
+$W(\mathcal{L}) \leq 0$. This is analogous to the ``strong stability'' discussed
+by Leveque \cite[Chapter 9.5]{leveque2007finite}, as opposed to the weaker (but
+still sufficient) condition $\|e^{t\mathcal{L}}\|\leq C$ for all $t\geq 0$ and
+some constant $C$. In practice, \Cref{ass:fov} often holds when
+simulating numerical PDEs, and in \Cref{sec:theory} it is proven that
+\Cref{ass:eig} and \ref{ass:fov} guarantee the preconditioning methods
+proposed here yield $\mathcal{O}(1)$ conditioning of the preconditioned Schur
+complement, within the larger $2\times 2$ system discussed in
+\Cref{sec:intro:outline}.
 
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
 \section{Nonlinear iterations}\label{sec:nonlinear}
+
+For ease of notation, in this section and \Cref{sec:theory}, we will scale
+both sides of \eqref{eq:keq} by a block diagonal operator, with diagonal
+blocks $M^{-1}$, and define
+%
+\begin{equation*}
+\widehat{\mathcal{L}}_i := \delta t M^{-1}\mathcal{L}_i,
+\end{equation*}
+%
+for $i=1,...,s$. This is not necessary, but simplifies the derivations. Note,
+such a scaling is not used when considering DAEs in \Cref{sec:dae}. 
+Additionally, let $\zeta_{\pm} := \eta \pm \mathrm{i}\beta$ denote an
+eigenvalue of $A_0^{-1}$, where under \Cref{ass:eig} $\eta > 0$. 
 
 % In \todo{cite}, an IRK preconditioning method is developed that can be applied on the
 % solution level, rather than solving for all stages and updating the solution
@@ -421,8 +473,8 @@ Let $\mathcal{L}$ be the linear spatial operator, and assume that $W(\mathcal{L}
 \subsection{Simplified Newton}\label{sec:nonlinear:simp}
 
 Suppose $\mathcal{L}_i = \mathcal{L}_j$ for all $i,j$ (as in a simplified Newton method).
-Then, the linear system for stage vectors \eqref{eq:keq} can be written in condensed
-Kronecker product notation
+Then, the linear system for stage vectors \eqref{eq:keq} (diagonally scaled by $M^{-1}$)
+can be written in condensed Kronecker product notation
 %
 \begin{align}\label{eq:keq2}
 \left( A_0^{-1}\otimes I - I\otimes\widehat{\mathcal{L}}\right)
@@ -456,24 +508,9 @@ corresponding to complex eigenvalues take the form
 -\frac{\beta^2}{\phi} I & \eta I - \widehat{\mathcal{L}}\end{bmatrix}.
 \end{align}
 %
-
-Convergence of GMRES with a block lower triangular preconditioner as in
-\eqref{eq:Lprec} is then based on the preconditioned Schur complement 
-problem. \Cref{th:eig} (symmetric semi-definite $\widehat{\mathcal{L}}$)
-and \Cref{th:cond} (general $\widehat{\mathcal{L}}$) prove that defining
-$\widehat{S}:= \gamma_*I -  \widehat{\mathcal{L}}$ yields a preconditioned
-Schur complement with $\mathcal{O}(1)$ conditioning. In practice, we typically
-do not want to apply $(\eta I - \widehat{\mathcal{L}})^{-1}$ or
-$\widehat{S}^{-1}$ exactly for each iteration of the preconditioner
-\eqref{eq:Lprec}. It is well-known in the block-preconditioning community
-that a few iterations of an effective preconditioner, such as multigrid,
-to represent the inverse of diagonal blocks in \eqref{eq:Lprec} typically
-yields convergence on the larger $2\times 2$ operator just as fast as if
-performing direct solves, at a fraction of the cost. Thus, we propose
-a block-triangular preconditioner similar to \eqref{eq:Lprec}, but which
-only applies some approximation to the diagonal block inverses,
-$(\eta I - \widehat{\mathcal{L}})^{-1}$ and
-$\widehat{S}^{-1} := (\gamma_* I - \widehat{\mathcal{L}})^{-1}$. 
+Effective block preconditioners for \eqref{eq:block} are developed in
+\Cref{sec:theory}, including theory guaranteeing $\mathcal{O}(1)$
+conditioning of the preconditioned operator. 
 
 %
 \begin{remark}[Real Schur decomposition]
@@ -586,7 +623,7 @@ Newton) in the following section.
 % ------------------------------------------------------------------------------------- %
 \subsection{General nonlinear iterations}\label{sec:nonlinear:gen}
 
-We start by noting that most nonlinear iterations, including Newton, Picard, and
+Note that most nonlinear iterations, including Newton, Picard, and
 other fixed-point iterations, can all be expressed as linearly preconditioned
 nonlinear Richardson iterations. For nonlinear functional
 $\mathcal{F}(\mathbf{x}) = 0$, such an iteration takes the form
@@ -619,9 +656,9 @@ this yields the linear system
 Picard and Newton iterations both require the solution of such a system each
 iteration (see $\mathcal{P}^{-1}$ in \eqref{eq:non_rich}). Here we propose 
 approximations to the solution of \eqref{eq:keq4} that are (i) solvable using
-techniques similar to \Cref{sec:nonlinear:simp}, and (ii) yield nonlinear 
-convergence close to a true Newton or Picard iteration. In principle, these
-approximations can also be iterated to convergence in the linear sense, yielding
+techniques similar to the simplified Newton setting \Cref{sec:nonlinear:simp}, and
+(ii) yield nonlinear  convergence close to a true Newton or Picard iteration. In principle,
+these approximations can also be iterated to convergence in the linear sense, yielding
 a precise Newton or Picard iteration, but here we opt to resolve the approximations
 (i.e., converge) in the nonlinear iteration. Similar to inexact Newton methods,
 such an approach is often more efficient in practice than computing, e.g., an exact
@@ -694,8 +731,8 @@ one and off-diagonal sum to zero, wherein if $\widehat{\mathcal{L}}_i = \widehat
 for all $i,j$, each of the operators is the identity.
 
 Note that there is no approximation in two-stage Gauss, that is, it is
-straightforward to apply a true Newton or Picard iteration to two-stage
-Gauss using preconditioning techniques developed in \Cref{sec:nonlinear:simp}.
+straightforward to apply a true Newton or Picard iteration to two-stage Gauss
+using analogous block-preconditioning techniques as used for simplified Newton.
 For two-stage RadauIIA, we see that the diagonal blocks are almost
 defined by the (linearized) operator evaluated at a single time step, which
 provides a natural and simple approximation. The off-diagonal blocks are
@@ -780,21 +817,21 @@ Picard iteration.
 % ------------------------------------------------------------------------------------- %
 \section{Linear preconditioning theory}\label{sec:theory}
 
-Let $\zeta_{\pm} := \eta \pm \mathrm{i}\beta$ denote an eigenvalue of $A_0^{-1}$,
-where under \Cref{ass:eig} $\eta > 0$. The methods derived in this paper depend on
-solving a $2\times 2$ block system along the lines of
+The methods derived in \Cref{sec:nonlinear} all depend on
+solving $2\times 2$ block systems along the lines of
 %
 \begin{align}\label{eq:block0}
 \begin{bmatrix} \eta I - \widehat{\mathcal{L}}_1 & \phi I\\
 -\frac{\beta^2}{\phi} I & \eta I - \widehat{\mathcal{L}}_2\end{bmatrix},
 \end{align}
 %
-for some $\phi \neq 0$ and where it is assumed that $W(\widehat{\mathcal{L}}_i) \leq 0$
-in \Cref{ass:fov} for $i=1,2$. In some
+for some $\eta > 0, \phi \neq 0$, and where it is assumed that
+$W(\widehat{\mathcal{L}}_i) \leq 0$ for $i=1,2$ (see \Cref{ass:fov}). In some
 cases (in particular, simplified Newton methods) $\widehat{\mathcal{L}}_1 =
-\widehat{\mathcal{L}}_2$, but we are particularly interested in the more general
+\widehat{\mathcal{L}}_2$, but we are also interested in the more general
 setting of $\widehat{\mathcal{L}}_1 \neq \widehat{\mathcal{L}}_2$. We will solve
-this system using Krylov methods with block lower-triangular preconditioners of the form
+this system using Krylov methods with block lower-triangular preconditioners
+of the form
 %
 \begin{equation}\label{eq:Lprec}
 L_P := \begin{bmatrix} \eta I - \widehat{\mathcal{L}}_1 & \mathbf{0} \\ -\frac{\beta^2}{\phi} I
@@ -824,7 +861,7 @@ To that end, we consider preconditioners of the form
 \widehat{S}_\gamma := \gamma I - \widehat{\mathcal{L}}_2
 \end{align*}
 %
-for some $\gamma \geq \eta$. \Cref{sec:theory:spd} considers the simplest case
+for some $\gamma > 0$. \Cref{sec:theory:spd} considers the simplest case
 of symmetric semi-definite $\widehat{\mathcal{L}}_1 = \widehat{\mathcal{L}}_2$
 and uses eigenvalues to determine an optimal choice of $\gamma\mapsto\gamma_*$,
 with the resulting preconditioned operator having norm $\mathcal{O}(1)$ with
@@ -832,6 +869,20 @@ only weak dependence on number of stages/polynomial order. \Cref{sec:theory:gen}
 then extends the theory to prove that cond$(\widehat{S}_{\gamma_*}^{-1}S)
 \leq 2 + \tfrac{\beta^2}{\eta^2}$ under minimal assumptions on
 $\widehat{\mathcal{L}}_1 \neq \widehat{\mathcal{L}}_2$. 
+
+In practice, we typically
+do not want to apply $(\eta I - \widehat{\mathcal{L}})^{-1}$ or
+$\widehat{S}_\gamma^{-1}$ exactly for each iteration of the preconditioner
+\eqref{eq:Lprec}. It is well-known in the block-preconditioning community
+that a few iterations of an effective preconditioner, such as multigrid,
+to represent the inverse of diagonal blocks in \eqref{eq:Lprec} typically
+yields convergence on the larger $2\times 2$ operator just as fast as if
+performing direct solves, at a fraction of the cost. Thus, in practice we
+propose a block-triangular preconditioner similar to \eqref{eq:Lprec}, but
+which only applies some approximation to the diagonal block inverses,
+$(\eta I - \widehat{\mathcal{L}})^{-1}$ and
+$\widehat{S}^{-1} := (\gamma_* I - \widehat{\mathcal{L}})^{-1}$.
+
 
 % ---------------------------------------------------------------------------------------------- %
 % ---------------------------------------------------------------------------------------------- %

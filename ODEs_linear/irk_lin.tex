@@ -353,13 +353,13 @@ Assume that all eigenvalues of $A_0$ (and equivalently $A_0^{-1})$ have positive
 %
 Recall that if an IRK method is A-stable, irreducible, and $A_0$ is invertible
 (which includes DIRK, Gauss, Radau IIA, and Lobatto IIIC methods, among others),
-then \Cref{ass:eig} holds \cite{hairer96}; that is, this assumption is
+then \Cref{ass:eig} holds \cite{hairer96}; that is, \Cref{ass:eig} is
 straightforward to satisfy in practice.
 
 Stability must be taken into consideration when applying ODE solvers within a
 method-of-lines approach to numerical PDEs. The Dalhquist test problem extends
 naturally to this setting, where we are interested in the stability of the
-linearized operator $\mathcal{L}$, for the ODE(s)
+linear operator $\mathcal{L}$, for the ODE(s)
 $\mathbf{u}'(t) = \mathcal{L}\mathbf{u}$, with solution $e^{t\mathcal{L}}\mathbf{u}$.
 A necessary condition for stability is that the eigenvalues of $\mathcal{L}$
 lie within distance $\mathcal{O}(\delta t)$ of the region of stability for
@@ -386,7 +386,7 @@ W(\mathcal{L}) := \left\{ \langle \mathcal{L}\mathbf{x},\mathbf{x}\rangle \text{
 	\|\mathbf{x}\| = 1 \right\}.
 \end{align}
 %
-This motivates the following assumption for the analysis done in this paper.
+This motivates the following assumption for the analysis done in this paper:
 %
 \begin{assumption}\label{ass:fov}
 Let $\mathcal{L}$ be the linear spatial operator, and assume that $W(\mathcal{L}) \leq 0$.
@@ -400,8 +400,8 @@ This is analogous to the ``strong stability'' discussed by Leveque
 sufficient) condition $\|e^{t\mathcal{L}}\|\leq C$ for all $t\geq 0$ and
 some constant $C$. In practice, \Cref{ass:fov} often holds when
 simulating numerical PDEs, and in \Cref{sec:solve:prec}, it is proven that
-\Cref{ass:eig} and \ref{ass:fov} provide sufficient conditions to guarantee
-fast Krylov convergence of the proposed methods.
+\Cref{ass:eig} and \ref{ass:fov} guarantee the methods proposed here yield
+$\mathcal{O}(1)$ conditioning of the preconditioned operator.
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
