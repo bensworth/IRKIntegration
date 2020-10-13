@@ -95,12 +95,13 @@ differential equations (ODEs) in time,
 	M\mathbf{u}'(t) =  \mathcal{N}(\mathbf{u},t) \quad\text{in }(0,T], \quad \mathbf{u}(0) = \mathbf{u}_0,
 \end{align}
 %
-where $M$ is a mass matrix and $\mathcal{N}\in\mathbb{R}^{N\times N}$ is a discrete, time-dependent, nonlinear operator depending on $t$ and $\mathbf{u}$ (including potential
-forcing terms).\footnote{Note, PDEs with an algebraic constraint, for example, the divergence-free
-constraint in Navier Stokes, instead yield a differential algebraic equation (DAE), which
-requires separate careful treatment and will be the subject of a forthcoming paper.}
-Then, consider time propagation using an $s$-stage Runge-Kutta scheme,
-characterized by the Butcher tableaux 
+where $M$ is a mass matrix and $\mathcal{N}\in\mathbb{R}^{N\times N}$ is a discrete,
+time-dependent, nonlinear operator depending on $t$ and $\mathbf{u}$ (including potential
+forcing terms). Note, PDEs with an algebraic constraint, for example, the divergence-free
+constraint in Navier Stokes, instead yield a system of differential algebraic equations
+(DAEs). DAEs require separate treatment and are addressed in \Cref{sec:dae}.
+Now, consider time propagation of \eqref{eq:problem} using an $s$-stage
+Runge-Kutta scheme, characterized by the Butcher tableaux 
 %
 \begin{align*}
 	\renewcommand\arraystretch{1.2}
@@ -118,28 +119,35 @@ and quadrature nodes $\mathbf{c}_0 = (c_0, \ldots, c_s)$.
 Runge-Kutta methods update the solution using a sum over stage vectors,
 %
 \begin{align}\label{eq:update}
-\mathbf{u}_{n+1} & = \mathbf{u}_n + \delta t \sum_{i=1}^s b_i\mathbf{k}_i, \\
+\mathbf{u}_{n+1} & = \mathbf{u}_n + \delta t \sum_{i=1}^s b_i\mathbf{k}_i, 
+	\hspace{5ex}\textnormal{where}\\
 M\mathbf{k}_i & = \mathcal{N}\left(\mathbf{u}_n + \delta t\sum_{j=1}^s a_{ij}\mathbf{k}_j, t_n+\delta tc_i\right).\label{eq:stages}
 \end{align}
 %
-For nonlinear PDEs, $\mathcal{N}$ is linearized using, for example, a Newton or a Picard
-linearization of the underlying PDE. Let us denote this linearization
-${\mathcal{L}}\in\mathbb{R}^{N\times N}$
-(or, in the case of a linear PDE, let $\mathcal{L} := \mathcal{N}$).
-Expanding, solving for the stages $\mathbf{k}$ as each step in a nonlinear iteration, or
-as the update to $\mathbf{u}$ for a linear PDE, can then be expressed as the
-solution of the block linear system,
+For nonlinear PDEs, $\mathcal{N}$ is linearized using, for example, a Newton or a
+Picard linearization, and each nonlinear iteration then consists of solving the
+linearized system of equations. In most cases, such a linearization
+is designed to approximate (or equal) the Jacobian of \eqref{eq:stages}. Applying
+a chain rule to \eqref{eq:stages} for the partial
+$\partial(M\mathbf{k}_i-\mathcal{N}_i)/\partial\mathbf{k}_j$, we see that
+the linearized system should take the form
 %
 \begin{align}\label{eq:k0}
 \left( \begin{bmatrix} M  & & \mathbf{0} \\ & \ddots \\ \mathbf{0} & & M\end{bmatrix}
 	- \delta t \begin{bmatrix} a_{11}\mathcal{L}_1 & ... & a_{1s}\mathcal{L}_1 \\
 	\vdots & \ddots & \vdots \\ a_{s1}\mathcal{L}_s & ... & a_{ss} \mathcal{L}_s \end{bmatrix} \right)
 	\begin{bmatrix} \mathbf{k}_1 \\ \vdots \\ \mathbf{k}_s \end{bmatrix} 
-& = \begin{bmatrix} \mathbf{f}_1 \\ \vdots \\ \mathbf{f}_s \end{bmatrix}.
+& = \begin{bmatrix} \mathbf{f}_1 \\ \vdots \\ \mathbf{f}_s \end{bmatrix},
 \end{align}
 %
-\tcb{Motivate this form via linearization of $\mathcal{N}$, chain rule
-yields same linearization across row as a function of $\mathbf{k}_1,\mathbf{k}_2,...$}
+where $\mathcal{L}_i\in\mathbb{R}^{N\times N}$
+denotes a linearization of the nonlinear function
+corresponding to the $i$th stage vector, $\mathcal{N}_i:= \mathcal{N}\left(\mathbf{u}_n +
+\delta t\sum_{j=1}^s a_{ij}\mathbf{k}_j, t_n+\delta tc_i\right)$ (the main
+point being that the spatially linearized operators, $\mathcal{L}_i$, should
+be fixed for a given block row of the full linearized system, as in \eqref{eq:k0}).
+Moving forward, we let $\mathcal{L}$ refer to a general, spatially linearized
+operator when the stage index is not relevant.
 
 The difficulty in fully implicit Runge-Kutta methods (which we will denote IRK) lies in
 solving the $Ns\times Ns$ block linear system in \eqref{eq:k0}. This paper focuses on the
@@ -148,34 +156,91 @@ and $\mathcal{L}$ is highly ill-conditioned. In such cases, direct
 solution techniques to solve \eqref{eq:k0} are not a viable option, and fast, parallel 
 iterative methods must be used. However, IRK methods are rarely employed in practice due
 to the difficulties of solving \eqref{eq:k0}. Even for relatively simple
-parabolic PDEs where $\mathcal{L}$ is symmetric positive definite, \eqref{eq:k0}
+parabolic PDEs where $-\mathcal{L}$ is symmetric positive definite (SPD), \eqref{eq:k0}
 instead yields a large nonsymmetric system with significant block coupling. For
 nonsymmetric systems $\mathcal{L}$ that already have variable coupling, fast iterative
 methods are even less likely to yield acceptable performance in solving \eqref{eq:k0}.
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
+\subsection{Discontinuous Galerkin in time}\label{sec:intro:dg}
+
+For completeness, here we repeat the discussion from the companion paper \todo{cite}
+regarding the relation of Discontinuous Galerkin (DG) discretizations in time to IRK
+methods. After linearization, DG discretizations in time give rise to linear
+algebraic systems of the form
+\begin{equation} \label{eq:dg-in-time}
+	\left( \begin{bmatrix}
+		\delta_{11} M  & & \delta_{1s} M \\
+		& \ddots \\
+		\delta_{s1} M & & \delta_{ss} M
+	\end{bmatrix}
+	- \delta t \begin{bmatrix}
+		m_{11}\mathcal{L}_1 & ... & m_{1s}\mathcal{L}_1 \\
+		\vdots & \ddots & \vdots \\
+		m_{s1}\mathcal{L}_s & ... & m_{ss} \mathcal{L}_s
+	\end{bmatrix} \right)
+		\begin{bmatrix} \mathbf{u}_1 \\ \vdots \\ \mathbf{u}_s \end{bmatrix}
+		= \begin{bmatrix} \mathbf{r}_1 \\ \vdots \\ \mathbf{r}_s \end{bmatrix}.
+\end{equation}
+The coefficients $m_{ij}$ correspond to a temporal mass matrix, the coefficients
+$\delta_{ij}$ correspond to a DG weak derivative with upwind numerical flux, and
+the unknowns $\mathbf{u}_i$ are the coefficients of the polynomial expansion of
+the approximate solution (for example, see \cite{hn,Akrivis2011,Lasaint1974,Makridakis2006}).
+Both of the coefficient matrices $\{m_{ij}\}$ and $\{\delta_{ij}\}$ are
+invertible. It can be seen that the algebraic form of the DG in time
+discretization is closely related to the implicit Runge-Kutta system
+\eqref{eq:k0} and, in fact, \eqref{eq:dg-in-time} can be recast in the form of
+\eqref{eq:k0} using the invertibility of the matrix $\{\delta_{ij}\}$. In
+particular, the degree-$p$ DG method using $(p+1)$-point
+Radau quadrature, which is exact for polynomials of degree $2p$, is equivalent
+to the Radau IIA collocation method \cite{Makridakis2006}, which is used for
+many of the numerical results in \Cref{sec:numerics}.
+Thus, although the remainder of this paper focuses on fully implicit Runge-Kutta,
+the algorithms developed here can also be applied to DG discretizations in time on
+fixed slab-based meshes.
+
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
 \subsection{Outline}\label{sec:intro:outline}
 
-Nonlinear problems are then addressed in \Cref{sec:nonlinear}. First, a
-simplified Newton method is considered in \Cref{sec:nonlinear:simp},
-wherein we develop a method to precondition
-\eqref{eq:keq} under the assumption that $\mathcal{L}_i=\mathcal{L}_j$ for all
-$i,j$. The proposed method is based on the real Schur decomposition, a technique
-not new to Runge-Kutta literature \todo{cite}. However, building on theory from
-Section \ref{sec:solve}, we are able to \textit{prove} rapid Krylov convergence
-on \eqref{eq:keq}
-under basic assumptions of stability and having an effective preconditioner for
-systems along the lines of $\eta M - \delta t\mathcal{L}$, exactly as would be
-used for, e.g., SDIRK methods. Extensions are then introduced for applying IRK
-methods with a true Newton or Picard iteration, where $\mathcal{L}_i\neq
-\mathcal{L}_j$, in \Cref{sec:nonlinear:gen}. Numerical results for nonlinear
-problems are provided in \Cref{sec:numerics}, \todo{including ...}
+In \todo{cite}, fast parallel preconditioning techniques are developed for
+the solution of fully implicit Runge Kutta methods and DG discretizations 
+in time applied to linear numerical PDEs. This paper builds on ideas from
+\todo{cite} to address nonlinearities and DAEs. First, new ways to pose the
+linearized problem \eqref{eq:k0} are introduced in \Cref{sec:nonlinear},
+which can be used as either a preconditioning to solve \eqref{eq:k0} exactly,
+or as a modified linearization. The new approach only requires the solution
+of a block $2\times 2$ set of equations for each pair of stages, rather than
+the fully coupled $s\times s$ system in \eqref{eq:k0}. Moreover, unlike many
+of the simplified Newton approaches seen previously in the literature, the
+new approach can yield convergence comparable to true Newton iterations, as
+demonstrated numerically in \Cref{sec:numerics}.
+
+Although the linear IRK preconditioning developed in \todo{cite} takes
+advantage of certain properties that are not available in the nonlinear
+setting, we can use a similar framework to develop preconditioners for the
+aforementioned $2\times 2$ systems. \Cref{sec:theory} introduces block
+preconditioners for the $2\times 2$ systems, where the preconditioned
+Schur-complement (which effectively defines convergence of fixed-point
+and Krylov iterations applied to the larger $2\times 2$ system
+\cite{2x2block}) is proven to have conditioning $\sim\mathcal{O}(1)$,
+with only weak dependence on the order of integration/number of stages.
+The theory is quite general, relying on only basic stability assumptions
+from \Cref{sec:intro:stab}, and the block preconditioning only requires
+an effective preconditioner for systems along the lines of
+$\eta M - \delta t\mathcal{L}$, exactly as would be used for, e.g.,
+SDIRK methods.
+
+Numerical results for nonlinear problems are then provided in
+\Cref{sec:numerics}, \todo{including ...}
 
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
 \subsection{Why fully implicit and previous work}\label{sec:intro:hist}
+
+
 
 \tcb{See Ch. 4 of Numerical Solution of Initial-Value Problems in Differential-Algebraic Equations
 for nice comparison w/ BDF for DAEs.}
@@ -321,6 +386,393 @@ W(\mathcal{L}) := \left\{ \langle \mathcal{L}\mathbf{x},\mathbf{x}\rangle \text{
 \begin{assumption}\label{ass:fov}
 Let $\mathcal{L}$ be the linear spatial operator, and assume that $W(\mathcal{L}) \leq 0$.
 \end{assumption}
+
+
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+\section{Nonlinear iterations}\label{sec:nonlinear}
+
+% In \todo{cite}, an IRK preconditioning method is developed that can be applied on the
+% solution level, rather than solving for all stages and updating the solution
+% by summing over stages.
+% This is beneficial from a memory perspective, being able to achieve very
+% high order accuracy while only storing the solution and an auxilliary vector, and
+% also allows for the use of CG and MINRES when applicable to the spatial operator.
+
+% The time-dependent and nonlinear case is more complicated. Consider
+% the simplest cast of a time-independent nonlinear problem and simplified Newton method,
+% which only applies the Jacobian based on the current solution. Each
+% nonlinear iteration requires the action of the nonlinear operator to compute a residual,
+% and this action is implicitly defined by individual stage vectors. The linear algorithm
+% developed in \Cref{sec:solve} solves for the summation over stage vectors, and individual
+% stages cannot be extracted. Without each stage vector, the action of the nonlinear 
+% operator cannot be computed, and even the simplified Newton method cannot be applied.
+% Similar difficulties apply for full Newton and Picard iterations for operators with
+% and without time-dependent differential components. Reformulating the algorithm
+% from \Cref{sec:solve} to store stage vectors also ends up being impractical --
+% applying det$\mathcal{M}_s^{-1}$ requires the solution of $s$ linear systems. To store
+% each stage vector requires applying det$\mathcal{M}_s^{-1}$ to each one. This
+% requires $s^2$ linear solves, which is too expensive to be appealling in practice.
+
+
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+\subsection{Simplified Newton}\label{sec:nonlinear:simp}
+
+Suppose $\mathcal{L}_i = \mathcal{L}_j$ for all $i,j$ (as in a simplified Newton method).
+Then, the linear system for stage vectors \eqref{eq:keq} can be written in condensed
+Kronecker product notation
+%
+\begin{align}\label{eq:keq2}
+\left( A_0^{-1}\otimes I - I\otimes\widehat{\mathcal{L}}\right)
+	(A_0\otimes I) \mathbf{k} & = \mathbf{f}.
+\end{align}
+%
+Now, let $A_0^{-1} = Q_0R_0Q_0^T$ be the real Schur decomposition of $A_0^{-1}$, where
+$Q_0$ is real-valued and orthogonal, and $R_0$ is a block
+upper triangular matrix, where each block corresponds to an eigenvalue (pair) of
+$A_0^{-1}$. Real-valued eigenvalues have block size one, and complex eigenvalues
+$\eta\pm i\beta$ are in $2\times 2$ blocks,
+$\begin{bmatrix} \eta & \phi \\-\beta^2/\phi & \eta\end{bmatrix}$, for some
+constant $\phi$.
+Pulling out a $Q_0\otimes I$ and $Q_0^T\otimes I$ from the left and right of
+\eqref{eq:keq2} yields the equivalent linear system
+%
+\begin{align}\label{eq:keq3}
+\left( R_0\otimes I - I \otimes \widehat{\mathcal{L}}\right)
+	(R_0^{-1}Q_0^T\otimes I) \mathbf{k} & = (Q_0^T\otimes I)\mathbf{f}.
+\end{align}
+%
+The left-most matrix is now block upper triangular, which can be solved
+using block backward substitution, and requires inverting each diagonal block.
+Diagonal blocks corresponding to real-valued eigenvalues $\eta$ take the form
+$(\eta I - \widehat{\mathcal{L}})$, and are amenable to standard preconditioning
+techniques as used for, e.g., backward Euler. $2\times 2$ diagonal blocks
+corresponding to complex eigenvalues take the form
+%
+\begin{align}\label{eq:block}
+\begin{bmatrix} \eta I - \widehat{\mathcal{L}} & \phi I\\
+-\frac{\beta^2}{\phi} I & \eta I - \widehat{\mathcal{L}}\end{bmatrix}.
+\end{align}
+%
+
+Convergence of GMRES with a block lower triangular preconditioner as in
+\eqref{eq:Lprec} is then based on the preconditioned Schur complement 
+problem. \Cref{th:eig} (symmetric semi-definite $\widehat{\mathcal{L}}$)
+and \Cref{th:cond} (general $\widehat{\mathcal{L}}$) prove that defining
+$\widehat{S}:= \gamma_*I -  \widehat{\mathcal{L}}$ yields a preconditioned
+Schur complement with $\mathcal{O}(1)$ conditioning. In practice, we typically
+do not want to apply $(\eta I - \widehat{\mathcal{L}})^{-1}$ or
+$\widehat{S}^{-1}$ exactly for each iteration of the preconditioner
+\eqref{eq:Lprec}. It is well-known in the block-preconditioning community
+that a few iterations of an effective preconditioner, such as multigrid,
+to represent the inverse of diagonal blocks in \eqref{eq:Lprec} typically
+yields convergence on the larger $2\times 2$ operator just as fast as if
+performing direct solves, at a fraction of the cost. Thus, we propose
+a block-triangular preconditioner similar to \eqref{eq:Lprec}, but which
+only applies some approximation to the diagonal block inverses,
+$(\eta I - \widehat{\mathcal{L}})^{-1}$ and
+$\widehat{S}^{-1} := (\gamma_* I - \widehat{\mathcal{L}})^{-1}$. 
+
+%
+\begin{remark}[Real Schur decomposition]
+It should be pointed out that a real Schur decomposition is by no means
+unique to Runge-Kutta literature. Many papers have considered similar
+approaches as above, particularly for systems of ODEs (rather than PDEs)
+\todo{cite}.
+The key contribution here for the simplified Newton setting is proving a
+robust and general way to precondition the resulting operators in the
+context of numerical PDEs (see \Cref{sec:theory}). Moreover, the real
+Schur decomposition applied to the simplified Newton setting after
+pulling out an $A_0^{-1}\otimes I$ provides the key motivation for
+the development of more general nonlinear iterations introduced in 
+the following section.
+\end{remark}
+
+
+%
+\begin{comment}
+\begin{remark}[Closed form Inverse]
+One might note that the two Schur complements of \eqref{eq:block} are the same, and
+\begin{align*}
+S^{-1} = \mathcal{Q}_\eta^{-1}(\eta I - \widehat{\mathcal{L}}),
+\end{align*}
+with $\mathcal{Q}_\eta$ as in \eqref{eq:imag1}. Using this, one can get a simple
+closed form for the inverse of \eqref{eq:imag1} based on $\mathcal{Q}_\eta^{-1}$.
+However, consistent with the algorithm developed in \Cref{sec:solve}, applying the
+$2\times 2$ inverse requires applying $\mathcal{Q}_\eta^{-1}$ to both stage vectors,
+which doubles the number of linear solves. 
+\end{remark}
+%
+
+
+% See "Parallel iterative linear solvers for multistep Runge-Kutta methods"
+%
+%
+%
+\begin{remark}[A similar approach for $A_0$]
+This is not the first work to consider a real Schur decomposition of $A_0$
+\todo{cite?}. A similar approach can be applied to the traditional Kronkecker
+product form \eqref{eq:kron1}, now transforming $A_0$ (instead of $A_0^{-1}$)
+using the real Schur decomposition. Solving for all stage vectors can then 
+be achieved by solving a similar block upper triangular matrix as in
+\eqref{eq:keq3}, but now the $2\times 2$ block linear systems correspond
+to complex eigenvalues of $A_0$, say $\mu + i\zeta$, and take the form 
+\begin{align*}
+\begin{bmatrix} I - \mu\widehat{\mathcal{L}} & \phi\widehat{\mathcal{L}} \\
+	-\frac{\zeta^2}{\phi}\widehat{\mathcal{L}} & I - \mu\widehat{\mathcal{L}} \end{bmatrix}.
+\end{align*}
+
+An analogous approach as used with the $A_0^{-1}$ transformation
+can be applied here. If we precondition the Schur complement
+$S_0 = (I - \mu \widehat{\mathcal{L}}) +
+\zeta^2(I - \mu \widehat{\mathcal{L}})^{-1}\widehat{\mathcal{L}}^2$ with the
+term associated with the real-valued eigenvalue, $(I - \mu \widehat{\mathcal{L}})$,
+the preconditioned Schur complement is given by
+%
+\begin{align*}
+(I - \mu \widehat{\mathcal{L}})^{-1}S_0
+	& = I -  \frac{\zeta^2}{\mu^2}(I - \tfrac{1}{\mu} \widehat{\mathcal{L}}^{-1})^{-2}.
+\end{align*}
+%
+Note that this closely resembles the preconditioned operator from \eqref{eq:prec1}
+and \eqref{eq:prec2}, but here with a $\widehat{\mathcal{L}}^{-1}$ inside of the
+inverse term, as opposed to a $\widehat{\mathcal{L}}$ in \eqref{eq:prec1}
+and \eqref{eq:prec2}. In \Cref{th:fov}, we assumed that $\widehat{\mathcal{L}}$
+is negative in a field of values sense, equivalent to saying that
+$(\widehat{\mathcal{L}} + \widehat{\mathcal{L}}^T)$ is negative semi-definite.
+However, it holds that if $(\widehat{\mathcal{L}} + \widehat{\mathcal{L}}^T)$ is
+negative semi-definite, then $(\widehat{\mathcal{L}}^{-1} +
+\widehat{\mathcal{L}}^{-T})$ is also negative semi-definite, which yields the
+following corollary.
+\end{remark}
+%
+
+%
+\begin{corollary}[Preconditioned field of values]\label{cor:fov}
+Assume that $\mu > 0$ and the symmetric part of $\widehat{\mathcal{L}}^{-1}$
+satisfies $(\widehat{\mathcal{L}}^{-1}+\widehat{\mathcal{L}}^{-T}) \leq 0$. Let
+$\mathcal{P}_\mu$ denote the preconditioned operator, where
+$(I - \mu \widehat{\mathcal{L}}) +
+	\zeta^2(I - \mu \widehat{\mathcal{L}})^{-1}\widehat{\mathcal{L}}^2$ is
+preconditioned with $(\mu I - \widehat{\mathcal{L}})^{-1}$. Then 
+$W(\mathcal{P}_\mu)$ is contained within a region analogous to $\Omega$ 
+in \Cref{fig:bound}, but with radius $\zeta^2/\mu^2$ (based on the eigenvalues
+of $A_0$) rather than $\beta^2/\eta^2$. 
+\end{corollary}
+\begin{proof}
+The proof follows from the above discussion and analagous derivations to the
+proof of \Cref{th:fov}.
+\end{proof}
+%
+
+\todo{rewrite, comment on $\beta^2/\eta^2$ and $\zeta^2/\mu^2$ being the same
+for all Gauss and RadauIIA methods.}
+\Cref{cor:fov} suggests the $A_0^{-1}$ transformation is not necessary -- one
+can apply the real Schur decomposition to the traditional Kronecker product form 
+\eqref{eq:kron1} and use a similar block preconditioning as introduced in 
+\eqref{eq:Lprec} and \eqref{eq:prec2} to solve the $2\times 2$ blocks associated
+with complex eigenvalues, with similarly nice theoretical bounds on the
+conditioning of the preconditioned operator. Here, we use the $A_0^{-1}$
+approach as it \textit{is} necessary for the linear algorithm developed in
+\Cref{sec:solve}, and also more naturally suggests an extension to the
+general nonlinear setting (for example, full Newton as opposed to simplified
+Newton) in the following section.
+\end{comment}
+
+
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+\subsection{General nonlinear iterations}\label{sec:nonlinear:gen}
+
+We start by noting that most nonlinear iterations, including Newton, Picard, and
+other fixed-point iterations, can all be expressed as linearly preconditioned
+nonlinear Richardson iterations. For nonlinear functional
+$\mathcal{F}(\mathbf{x}) = 0$, such an iteration takes the form
+%
+\begin{align}\label{eq:non_rich}
+\mathbf{x}_{k+1} = \mathbf{x}_k + \mathcal{P}^{-1}\mathcal{F}(\mathbf{x}_k).
+\end{align}
+%
+For preconditioner $\mathcal{P} := -J[\mathbf{x}_k]$ given by the (negative)
+Jacobian of $\mathcal{F}(\mathbf{x})$ evaluated at $\mathbf{x}_k$, \eqref{eq:non_rich}
+yields a Newton iteration. For $\mathcal{P}$ given by a zero-th order linearization
+of $\mathcal{F}(\mathbf{x})$ (the nonlinear operator evaluated at $\mathbf{x}_k$),
+\eqref{eq:non_rich} yields a Picard iteration. In general, thinking of nonlinear
+iterations as linear preconditioners for nonlinear Richardson iterations
+\eqref{eq:non_rich} naturally allows for various levels of approximation,
+which is the focus of this section. 
+
+Now let us return to \eqref{eq:keq} for $\mathcal{L}_i\neq\mathcal{L}_j$, but
+extract the real Schur decomposition as in \Cref{sec:nonlinear:gen}. Continuing
+with the simplified representation $\widehat{\mathcal{L}}_i := \delta t M^{-1}\mathcal{L}_i$,
+this yields the linear system
+%
+\begin{align}\label{eq:keq4}
+\left( R_0\otimes I - (Q_0^T\otimes I) \begin{bmatrix}
+	\widehat{\mathcal{L}}_1  & \\ & \ddots \\ && \widehat{\mathcal{L}}_s\end{bmatrix}
+	(Q_0\otimes I)\right) (R_0^{-1}Q_0^T\otimes I) \mathbf{k}\
+= (Q_0^T\otimes I)\mathbf{f}.
+\end{align}
+%
+Picard and Newton iterations both require the solution of such a system each
+iteration (see $\mathcal{P}^{-1}$ in \eqref{eq:non_rich}). Here we propose 
+approximations to the solution of \eqref{eq:keq4} that are (i) solvable using
+techniques similar to \Cref{sec:nonlinear:simp}, and (ii) yield nonlinear 
+convergence close to a true Newton or Picard iteration. In principle, these
+approximations can also be iterated to convergence in the linear sense, yielding
+a precise Newton or Picard iteration, but here we opt to resolve the approximations
+(i.e., converge) in the nonlinear iteration. Similar to inexact Newton methods,
+such an approach is often more efficient in practice than computing, e.g., an exact
+Jacobian. 
+
+% Note, it is important to express Picard and fixed-point iterations in the 
+% form of a Newton-like method to use the preconditioning techniques developed
+% in this paper! By expressing it as a Newton-like method, we are approximating
+% the Jacobian and will still converge to the solution of the nonlinear functional
+% $\mathcal{F} = 0$ when adding levels of approximation as in \Cref{sec:nonlinear:gen}.
+% A traditional Picard iteration relies on converging exactly to the fixed-point
+% $\mathcal{G}(\mathbf{k}) = \mathbf{k}$ via iterates $\mathbf{k}^{k+1} =
+% \mathcal{G}(\mathbf{k}^k)$. Within this iteration there is delicate cancellation
+% that result from solving directly for $\mathbf{k}^{k+1}$ rather than a correction,
+% and approximating $\mathcal{G}$ would result in convergence to a different problem.
+
+To develop effective approximations, we are particularly interested in the operator
+%
+\begin{align}\label{eq:Q0approx}
+\widehat{P} \coloneqq (Q_0^T\otimes I) \begin{bmatrix}
+	\widehat{\mathcal{L}}_1  & \\ & \ddots \\ && \widehat{\mathcal{L}}_s\end{bmatrix}
+	(Q_0\otimes I)
+= \begin{bmatrix}
+	\bm{c}^\top_{1,1} \bm{{\cal L}}' & \cdots & \bm{c}^\top_{1,s} \bm{{\cal L}}' \\
+	\vdots & & \vdots \\
+	\bm{c}^\top_{s,1} \bm{{\cal L}}' & \cdots & \bm{c}^\top_{s,s} \bm{{\cal L}}'
+	\end{bmatrix},
+\end{align}
+%
+where $\bm{c}^\top_{k,\ell} = \Big((Q_0^\top)_{k ,1} (Q_0)_{1, \ell},
+\ldots, (Q_0^\top)_{k, s} (Q_0)_{s, \ell} \Big) \in \mathbb{R}^s$ is a scalar row
+vector, $\bm{{\cal L}}' = (\widehat{\mathcal{L}}_1; \ldots; \widehat{\mathcal{L}}_s)$
+is a block column vector of the linearized operators, and
+%
+\begin{align*}
+\bm{c}^\top_{k,\ell} \bm{{\cal L}}' = \sum \limits_{i = 1}^s (\bm{c}_{k, \ell})_i
+	\widehat{\mathcal{L}}_i.
+\end{align*}
+%
+For $\widehat{\mathcal{L}}_i = \widehat{\mathcal{L}}_j$, \eqref{eq:Q0approx}
+is block diagonal, given by $I\otimes\widehat{\mathcal{L}}$. For
+$\widehat{\mathcal{L}}_i \neq \widehat{\mathcal{L}}_j$, note that
+$\sum_{i=1}^s (\bm{c}_{k, \ell})_i = 1$, while for off-diagonal blocks
+$\sum_{i=1}^s (\bm{c}_{k, \ell})_i = 0$.
+Due to the off-diagonal zero sums, here we claim that \eqref{eq:Q0approx}
+can be well-approximated by some block-diagonal or block upper triangular
+approximation, which can then be easily inverted using block backward
+substitution.
+
+As an example, consider \eqref{eq:Q0approx} for the two-stage Gauss and
+RadauIIA methods in bracket notation, where, e.g., $\{a_1,a_2,a_3\}\mapsto 
+a_1\widehat{\mathcal{L}}_1 + a_2\widehat{\mathcal{L}}_2 + a_3\widehat{\mathcal{L}}_3$:
+%
+\begin{align*}
+\textnormal{Gauss(2):} \hspace{1ex}
+	\begin{bmatrix}
+	\{1,0\} & \{0,0\} \\
+	 \{0,0\} & \{0,1\} \\
+	\end{bmatrix},
+	\hspace{3ex}
+\textnormal{RadauIIA(2):} \hspace{1ex}
+	\begin{bmatrix}
+	\{0.985,0.014\} & \{0.121,-0.121\}\\
+	\{0.121,-0.121\} & \{0.014,0.985\}\\
+	\end{bmatrix}.
+\end{align*}
+%
+Recall in the matrices above, the constants in diagonal brackets always sum to
+one and off-diagonal sum to zero, wherein if $\widehat{\mathcal{L}}_i = \widehat{\mathcal{L}}_j$
+for all $i,j$, each of the operators is the identity.
+
+Note that there is no approximation in two-stage Gauss, that is, it is
+straightforward to apply a true Newton or Picard iteration to two-stage
+Gauss using preconditioning techniques developed in \Cref{sec:nonlinear:simp}.
+For two-stage RadauIIA, we see that the diagonal blocks are almost
+defined by the (linearized) operator evaluated at a single time step, which
+provides a natural and simple approximation. The off-diagonal blocks are
+simply a measure of commutation, $0.121(\widehat{\mathcal{L}}_1 - \widehat{\mathcal{L}}_2)$.
+Such entries could be included in the preconditioning for the upper
+triangular portion of the matrix (adding a few additional mat-vecs and
+memory usage), or simply ignored under the assumption that $\widehat{\mathcal{L}}_1 -
+\widehat{\mathcal{L}}_2$ is ``small'' in some sense. Even for reasonably stiff 
+problems, the operator often does not change substantially between
+two stages -- if it did, e.g., due to a shockwave, the larger time step
+may not be small enough to accurately resolve the nonlinear behavior in
+the first place. Similar structure as discussed for the two-stage methods
+holds for other methods as well. For example, the coefficients for four-stage
+Gauss are given by:
+%
+\begin{align*}
+\textnormal{Gauss(4):}& \hspace{1ex}
+\left[\begin{matrix}
+\{0.002,0.014,0.012,\mathbf{0.970}\} & \{0.001,-0.011,-0.110,0.120\} \\
+\{0.001,-0.011,-0.110,0.120\} & \{0.000,0.008,\mathbf{0.975},0.014\} \\
+\{-0.016,-0.113,0.010,0.119\} & \{-0.007,0.085,-0.093,0.014\} \\
+\{-0.045,0.041,-0.005,0.009\} & \{-0.021,-0.031,0.051,0.001\}
+\end{matrix}\right.
+\\&\hspace{5ex}
+\left.\begin{matrix}
+\{-0.016,-0.113,0.010,0.119\} & \{-0.045,0.041,-0.005,0.009\}\\
+\{-0.007,0.085,-0.093,0.014\} & \{-0.021,-0.031,0.051,0.001\}\\
+\{0.113,\mathbf{0.863},0.008,0.014\} & \{0.316,-0.312,-0.004,0.001\}\\
+\{0.316,-0.312,-0.004,0.001\} & \{\mathbf{0.883},0.113,0.002,0.000\}\\
+\end{matrix}\right].
+\end{align*}
+%
+Analogous to the two-stage case, note that the diagonal blocks are largely
+defined by $\widehat{\mathcal{L}}$ evaluated at a single time point (coefficient
+shown in bold). Moreover, not only are the off-diagonal constants
+a measure of commutivity, many of them are quite small in the first place;
+then, regardless of commutivity, ignoring such terms in the lower-triangular
+or off-diagonal blocks is a natural preconditioning. 
+
+Motivated by the above discussion, we construct {block upper triangular}
+$\widetilde{P} \approx \widehat{P}$ as Newton-like methods (or more
+generally some fixed-point iteration as in \eqref{eq:non_rich}) which has
+a (block) sparsity pattern contained within that of $R_0 \otimes I$. Recall
+by constructing $\widetilde{P}$ to be block upper triangular, we can then
+invert the resulting operator
+%
+\begin{align}
+R_0 \otimes M - \delta t \widehat{P} \approx R_0 \otimes I -  \delta t \widetilde{P}
+\end{align}
+%
+via block backward substitution, preconditioning each $1\times 1$
+or $2\times 2$ diagonal block as in \Cref{sec:nonlinear:simp}.
+In addition to the simplified Newton
+method discussed in \Cref{sec:nonlinear:simp}, we propose three (successively
+more accurate) approximations to \eqref{eq:Q0approx}:
+\vspace{1ex}
+%
+\begin{enumerate}
+\setlength\itemsep{0.5em}
+\item[0.] \underline{Simplified Newton:} as in \Cref{sec:nonlinear:simp}, apply a
+simplified Newton method by evaluating $\mathcal{L}$ at the same time point for
+all stages.
+
+\item \underline{Newton-Like(1):} Truncate $\widehat{P}$ to be block diagonal and
+lump the coefficients of $\bm{c}_{ii}$ to the largest one so that each diagonal
+block of $\widehat{P}$ contains only one matrix from $\bm{{\cal L}}'$.
+
+\item \underline{Newton-Like(2):} Truncate $\widehat{P}$ to be block diagonal
+(can include the off-diagonal entries in $2 \times 2$ diagonal blocks, or not)
+\todo{How is this implemented?}
+
+\item \underline{Newton-Like(3):} Truncate $\widehat{P}$ to be block upper triangular.
+This option adds a number of matrix-vector products and requires storing $\mathcal{L}_i$ 
+in memory for multiple $i$, but is also the best approximation to an exact Newton or
+Picard iteration.
+
+\end{enumerate}
 
 
 % ------------------------------------------------------------------------------------- %
@@ -967,394 +1419,6 @@ are made in bounding the denominator \eqref{eq:den_gen}.
 \end{remark}
 %
 
-
-% ------------------------------------------------------------------------------------- %
-% ------------------------------------------------------------------------------------- %
-% ------------------------------------------------------------------------------------- %
-\section{Nonlinear iterations}\label{sec:nonlinear}
-
-% In \todo{cite}, an IRK preconditioning method is developed that can be applied on the
-% solution level, rather than solving for all stages and updating the solution
-% by summing over stages.
-% This is beneficial from a memory perspective, being able to achieve very
-% high order accuracy while only storing the solution and an auxilliary vector, and
-% also allows for the use of CG and MINRES when applicable to the spatial operator.
-
-% The time-dependent and nonlinear case is more complicated. Consider
-% the simplest cast of a time-independent nonlinear problem and simplified Newton method,
-% which only applies the Jacobian based on the current solution. Each
-% nonlinear iteration requires the action of the nonlinear operator to compute a residual,
-% and this action is implicitly defined by individual stage vectors. The linear algorithm
-% developed in \Cref{sec:solve} solves for the summation over stage vectors, and individual
-% stages cannot be extracted. Without each stage vector, the action of the nonlinear 
-% operator cannot be computed, and even the simplified Newton method cannot be applied.
-% Similar difficulties apply for full Newton and Picard iterations for operators with
-% and without time-dependent differential components. Reformulating the algorithm
-% from \Cref{sec:solve} to store stage vectors also ends up being impractical --
-% applying det$\mathcal{M}_s^{-1}$ requires the solution of $s$ linear systems. To store
-% each stage vector requires applying det$\mathcal{M}_s^{-1}$ to each one. This
-% requires $s^2$ linear solves, which is too expensive to be appealling in practice.
-
-
-% ------------------------------------------------------------------------------------- %
-% ------------------------------------------------------------------------------------- %
-\subsection{Simplified Newton}\label{sec:nonlinear:simp}
-
-Suppose $\mathcal{L}_i = \mathcal{L}_j$ for all $i,j$ (as in a simplified Newton method).
-Then, the linear system for stage vectors \eqref{eq:keq} can be written in condensed
-Kronecker product notation
-%
-\begin{align}\label{eq:keq2}
-\left( A_0^{-1}\otimes I - I\otimes\widehat{\mathcal{L}}\right)
-	(A_0\otimes I) \mathbf{k} & = \mathbf{f}.
-\end{align}
-%
-Now, let $A_0^{-1} = Q_0R_0Q_0^T$ be the real Schur decomposition of $A_0^{-1}$, where
-$Q_0$ is real-valued and orthogonal, and $R_0$ is a block
-upper triangular matrix, where each block corresponds to an eigenvalue (pair) of
-$A_0^{-1}$. Real-valued eigenvalues have block size one, and complex eigenvalues
-$\eta\pm i\beta$ are in $2\times 2$ blocks,
-$\begin{bmatrix} \eta & \phi \\-\beta^2/\phi & \eta\end{bmatrix}$, for some
-constant $\phi$.
-Pulling out a $Q_0\otimes I$ and $Q_0^T\otimes I$ from the left and right of
-\eqref{eq:keq2} yields the equivalent linear system
-%
-\begin{align}\label{eq:keq3}
-\left( R_0\otimes I - I \otimes \widehat{\mathcal{L}}\right)
-	(R_0^{-1}Q_0^T\otimes I) \mathbf{k} & = (Q_0^T\otimes I)\mathbf{f}.
-\end{align}
-%
-The left-most matrix is now block upper triangular, which can be solved
-using block backward substitution, and requires inverting each diagonal block.
-Diagonal blocks corresponding to real-valued eigenvalues $\eta$ take the form
-$(\eta I - \widehat{\mathcal{L}})$, and are amenable to standard preconditioning
-techniques. $2\times 2$ diagonal blocks corresponding to complex eigenvalues
-take the form
-%
-\begin{align}\label{eq:block}
-\begin{bmatrix} \eta I - \widehat{\mathcal{L}} & \phi I\\
--\frac{\beta^2}{\phi} I & \eta I - \widehat{\mathcal{L}}\end{bmatrix}.
-\end{align}
-%
-
-Convergence of GMRES with a block lower triangular preconditioner as in
-\eqref{eq:Lprec} is then based on the preconditioned Schur complement 
-problem. \Cref{th:eig} (symmetric semi-definite $\widehat{\mathcal{L}}$)
-and \Cref{th:cond} (general $\widehat{\mathcal{L}}$) prove that defining
-$\widehat{S}:= \gamma_*I -  \widehat{\mathcal{L}}$ yields a preconditioned
-Schur complement with $\mathcal{O}(1)$ conditioning. In practice, we typically
-do not want to apply $(\eta I - \widehat{\mathcal{L}})^{-1}$ or
-$\widehat{S}^{-1}$ exactly for each iteration of the preconditioner
-\eqref{eq:Lprec}. It is well-known in the block-preconditioning community
-that a few iterations of an effective preconditioner, such as multigrid,
-to represent the inverse of diagonal blocks in \eqref{eq:Lprec} typically
-yields convergence on the larger $2\times 2$ operator just as fast as if
-performing direct solves, at a fraction of the cost. Thus, we propose
-a block-triangular preconditioner similar to \eqref{eq:Lprec}, but which
-only applies some approximation to the diagonal block inverses,
-$(\eta I - \widehat{\mathcal{L}})^{-1}$ and
-$\widehat{S}^{-1} := (\gamma_* I - \widehat{\mathcal{L}})^{-1}$. 
-
-%
-\begin{remark}[Real Schur decomposition]
-It should be pointed out that a real Schur decomposition is by no means
-unique to Runge-Kutta literature. Many papers have considered similar
-approaches as above, particularly for systems of ODEs (rather than PDEs)
-\todo{cite}.
-The key contribution here for the simplified Newton setting is proving a
-robust and general way to precondition the resulting operators in the
-context of numerical PDEs (see \Cref{sec:theory}). Moreover, the real
-Schur decomposition applied to the simplified Newton setting after
-pulling out an $A_0^{-1}\otimes I$ provides the key motivation for
-the development of more general nonlinear iterations introduced in 
-the following section.
-\end{remark}
-
-
-%
-\begin{comment}
-\begin{remark}[Closed form Inverse]
-One might note that the two Schur complements of \eqref{eq:block} are the same, and
-\begin{align*}
-S^{-1} = \mathcal{Q}_\eta^{-1}(\eta I - \widehat{\mathcal{L}}),
-\end{align*}
-with $\mathcal{Q}_\eta$ as in \eqref{eq:imag1}. Using this, one can get a simple
-closed form for the inverse of \eqref{eq:imag1} based on $\mathcal{Q}_\eta^{-1}$.
-However, consistent with the algorithm developed in \Cref{sec:solve}, applying the
-$2\times 2$ inverse requires applying $\mathcal{Q}_\eta^{-1}$ to both stage vectors,
-which doubles the number of linear solves. 
-\end{remark}
-%
-
-
-% See "Parallel iterative linear solvers for multistep Runge-Kutta methods"
-%
-%
-%
-\begin{remark}[A similar approach for $A_0$]
-This is not the first work to consider a real Schur decomposition of $A_0$
-\todo{cite?}. A similar approach can be applied to the traditional Kronkecker
-product form \eqref{eq:kron1}, now transforming $A_0$ (instead of $A_0^{-1}$)
-using the real Schur decomposition. Solving for all stage vectors can then 
-be achieved by solving a similar block upper triangular matrix as in
-\eqref{eq:keq3}, but now the $2\times 2$ block linear systems correspond
-to complex eigenvalues of $A_0$, say $\mu + i\zeta$, and take the form 
-\begin{align*}
-\begin{bmatrix} I - \mu\widehat{\mathcal{L}} & \phi\widehat{\mathcal{L}} \\
-	-\frac{\zeta^2}{\phi}\widehat{\mathcal{L}} & I - \mu\widehat{\mathcal{L}} \end{bmatrix}.
-\end{align*}
-
-An analogous approach as used with the $A_0^{-1}$ transformation
-can be applied here. If we precondition the Schur complement
-$S_0 = (I - \mu \widehat{\mathcal{L}}) +
-\zeta^2(I - \mu \widehat{\mathcal{L}})^{-1}\widehat{\mathcal{L}}^2$ with the
-term associated with the real-valued eigenvalue, $(I - \mu \widehat{\mathcal{L}})$,
-the preconditioned Schur complement is given by
-%
-\begin{align*}
-(I - \mu \widehat{\mathcal{L}})^{-1}S_0
-	& = I -  \frac{\zeta^2}{\mu^2}(I - \tfrac{1}{\mu} \widehat{\mathcal{L}}^{-1})^{-2}.
-\end{align*}
-%
-Note that this closely resembles the preconditioned operator from \eqref{eq:prec1}
-and \eqref{eq:prec2}, but here with a $\widehat{\mathcal{L}}^{-1}$ inside of the
-inverse term, as opposed to a $\widehat{\mathcal{L}}$ in \eqref{eq:prec1}
-and \eqref{eq:prec2}. In \Cref{th:fov}, we assumed that $\widehat{\mathcal{L}}$
-is negative in a field of values sense, equivalent to saying that
-$(\widehat{\mathcal{L}} + \widehat{\mathcal{L}}^T)$ is negative semi-definite.
-However, it holds that if $(\widehat{\mathcal{L}} + \widehat{\mathcal{L}}^T)$ is
-negative semi-definite, then $(\widehat{\mathcal{L}}^{-1} +
-\widehat{\mathcal{L}}^{-T})$ is also negative semi-definite, which yields the
-following corollary.
-\end{remark}
-%
-
-%
-\begin{corollary}[Preconditioned field of values]\label{cor:fov}
-Assume that $\mu > 0$ and the symmetric part of $\widehat{\mathcal{L}}^{-1}$
-satisfies $(\widehat{\mathcal{L}}^{-1}+\widehat{\mathcal{L}}^{-T}) \leq 0$. Let
-$\mathcal{P}_\mu$ denote the preconditioned operator, where
-$(I - \mu \widehat{\mathcal{L}}) +
-	\zeta^2(I - \mu \widehat{\mathcal{L}})^{-1}\widehat{\mathcal{L}}^2$ is
-preconditioned with $(\mu I - \widehat{\mathcal{L}})^{-1}$. Then 
-$W(\mathcal{P}_\mu)$ is contained within a region analogous to $\Omega$ 
-in \Cref{fig:bound}, but with radius $\zeta^2/\mu^2$ (based on the eigenvalues
-of $A_0$) rather than $\beta^2/\eta^2$. 
-\end{corollary}
-\begin{proof}
-The proof follows from the above discussion and analagous derivations to the
-proof of \Cref{th:fov}.
-\end{proof}
-%
-
-\todo{rewrite, comment on $\beta^2/\eta^2$ and $\zeta^2/\mu^2$ being the same
-for all Gauss and RadauIIA methods.}
-\Cref{cor:fov} suggests the $A_0^{-1}$ transformation is not necessary -- one
-can apply the real Schur decomposition to the traditional Kronecker product form 
-\eqref{eq:kron1} and use a similar block preconditioning as introduced in 
-\eqref{eq:Lprec} and \eqref{eq:prec2} to solve the $2\times 2$ blocks associated
-with complex eigenvalues, with similarly nice theoretical bounds on the
-conditioning of the preconditioned operator. Here, we use the $A_0^{-1}$
-approach as it \textit{is} necessary for the linear algorithm developed in
-\Cref{sec:solve}, and also more naturally suggests an extension to the
-general nonlinear setting (for example, full Newton as opposed to simplified
-Newton) in the following section.
-\end{comment}
-
-
-% ------------------------------------------------------------------------------------- %
-% ------------------------------------------------------------------------------------- %
-\subsection{General nonlinear iterations}\label{sec:nonlinear:gen}
-
-We start by noting that most nonlinear iterations, including Newton, Picard, and
-other fixed-point iterations, can all be expressed as linearly preconditioned
-nonlinear Richardson iterations. For nonlinear functional
-$\mathcal{F}(\mathbf{x}) = 0$, such an iteration takes the form
-%
-\begin{align}\label{eq:non_rich}
-\mathbf{x}_{k+1} = \mathbf{x}_k + \mathcal{P}^{-1}\mathcal{F}(\mathbf{x}_k).
-\end{align}
-%
-For preconditioner $\mathcal{P} := -J[\mathbf{x}_k]$ given by the (negative)
-Jacobian of $\mathcal{F}(\mathbf{x})$ evaluated at $\mathbf{x}_k$, \eqref{eq:non_rich}
-yields a Newton iteration. For $\mathcal{P}$ given by a zero-th order linearization
-of $\mathcal{F}(\mathbf{x})$ (the nonlinear operator evaluated at $\mathbf{x}_k$),
-\eqref{eq:non_rich} yields a Picard iteration. In general, thinking of nonlinear
-iterations as linear preconditioners for nonlinear Richardson iterations
-\eqref{eq:non_rich} naturally allows for various levels of approximation,
-which is the focus of this section. 
-
-Now let us return to \eqref{eq:keq} for $\mathcal{L}_i\neq\mathcal{L}_j$, but
-extract the real Schur decomposition as in \Cref{sec:nonlinear:gen}. Continuing
-with the simplified representation $\widehat{\mathcal{L}}_i := \delta t M^{-1}\mathcal{L}_i$,
-this yields the linear system
-%
-\begin{align}\label{eq:keq4}
-\left( R_0\otimes I - (Q_0^T\otimes I) \begin{bmatrix}
-	\widehat{\mathcal{L}}_1  & \\ & \ddots \\ && \widehat{\mathcal{L}}_s\end{bmatrix}
-	(Q_0\otimes I)\right) (R_0^{-1}Q_0^T\otimes I) \mathbf{k}\
-= (Q_0^T\otimes I)\mathbf{f}.
-\end{align}
-%
-Picard and Newton iterations both require the solution of such a system each
-iteration (see $\mathcal{P}^{-1}$ in \eqref{eq:non_rich}). Here we propose 
-approximations to the solution of \eqref{eq:keq4} that are (i) solvable using
-techniques similar to \Cref{sec:nonlinear:simp}, and (ii) yield nonlinear 
-convergence close to a true Newton or Picard iteration. In principle, these
-approximations can also be iterated to convergence in the linear sense, yielding
-a precise Newton or Picard iteration, but here we opt to resolve the approximations
-(i.e., converge) in the nonlinear iteration. Similar to inexact Newton methods,
-such an approach is often more efficient in practice than computing, e.g., an exact
-Jacobian. 
-
-% Note, it is important to express Picard and fixed-point iterations in the 
-% form of a Newton-like method to use the preconditioning techniques developed
-% in this paper! By expressing it as a Newton-like method, we are approximating
-% the Jacobian and will still converge to the solution of the nonlinear functional
-% $\mathcal{F} = 0$ when adding levels of approximation as in \Cref{sec:nonlinear:gen}.
-% A traditional Picard iteration relies on converging exactly to the fixed-point
-% $\mathcal{G}(\mathbf{k}) = \mathbf{k}$ via iterates $\mathbf{k}^{k+1} =
-% \mathcal{G}(\mathbf{k}^k)$. Within this iteration there is delicate cancellation
-% that result from solving directly for $\mathbf{k}^{k+1}$ rather than a correction,
-% and approximating $\mathcal{G}$ would result in convergence to a different problem.
-
-To develop effective approximations, we are particularly interested in the operator
-%
-\begin{align}\label{eq:Q0approx}
-\widehat{P} \coloneqq (Q_0^T\otimes I) \begin{bmatrix}
-	\widehat{\mathcal{L}}_1  & \\ & \ddots \\ && \widehat{\mathcal{L}}_s\end{bmatrix}
-	(Q_0\otimes I)
-= \begin{bmatrix}
-	\bm{c}^\top_{1,1} \bm{{\cal L}}' & \cdots & \bm{c}^\top_{1,s} \bm{{\cal L}}' \\
-	\vdots & & \vdots \\
-	\bm{c}^\top_{s,1} \bm{{\cal L}}' & \cdots & \bm{c}^\top_{s,s} \bm{{\cal L}}'
-	\end{bmatrix},
-\end{align}
-%
-where $\bm{c}^\top_{k,\ell} = \Big((Q_0^\top)_{k ,1} (Q_0)_{1, \ell},
-\ldots, (Q_0^\top)_{k, s} (Q_0)_{s, \ell} \Big) \in \mathbb{R}^s$ is a scalar row
-vector, $\bm{{\cal L}}' = (\widehat{\mathcal{L}}_1; \ldots; \widehat{\mathcal{L}}_s)$
-is a block column vector of the linearized operators, and
-%
-\begin{align*}
-\bm{c}^\top_{k,\ell} \bm{{\cal L}}' = \sum \limits_{i = 1}^s (\bm{c}_{k, \ell})_i
-	\widehat{\mathcal{L}}_i.
-\end{align*}
-%
-For $\widehat{\mathcal{L}}_i = \widehat{\mathcal{L}}_j$, \eqref{eq:Q0approx}
-is block diagonal, given by $I\otimes\widehat{\mathcal{L}}$. For
-$\widehat{\mathcal{L}}_i \neq \widehat{\mathcal{L}}_j$, note that
-$\sum_{i=1}^s (\bm{c}_{k, \ell})_i = 1$, while for off-diagonal blocks
-$\sum_{i=1}^s (\bm{c}_{k, \ell})_i = 0$.
-Due to the off-diagonal zero sums, here we claim that \eqref{eq:Q0approx}
-can be well-approximated by some block-diagonal or block upper triangular
-approximation, which can then be easily inverted using block backward
-substitution.
-
-As an example, consider \eqref{eq:Q0approx} for the two-stage Gauss and
-RadauIIA methods in bracket notation, where, e.g., $\{a_1,a_2,a_3\}\mapsto 
-a_1\widehat{\mathcal{L}}_1 + a_2\widehat{\mathcal{L}}_2 + a_3\widehat{\mathcal{L}}_3$:
-%
-\begin{align*}
-\textnormal{Gauss(2):} \hspace{1ex}
-	\begin{bmatrix}
-	\{1,0\} & \{0,0\} \\
-	 \{0,0\} & \{0,1\} \\
-	\end{bmatrix},
-	\hspace{3ex}
-\textnormal{RadauIIA(2):} \hspace{1ex}
-	\begin{bmatrix}
-	\{0.985,0.014\} & \{0.121,-0.121\}\\
-	\{0.121,-0.121\} & \{0.014,0.985\}\\
-	\end{bmatrix}.
-\end{align*}
-%
-Recall in the matrices above, the constants in diagonal brackets always sum to
-one and off-diagonal sum to zero, wherein if $\widehat{\mathcal{L}}_i = \widehat{\mathcal{L}}_j$
-for all $i,j$, each of the operators is the identity.
-
-Note that there is no approximation in two-stage Gauss, that is, it is
-straightforward to apply a true Newton or Picard iteration to two-stage
-Gauss using preconditioning techniques developed in \Cref{sec:nonlinear:simp}.
-For two-stage RadauIIA, we see that the diagonal blocks are almost
-defined by the (linearized) operator evaluated at a single time step, which
-provides a natural and simple approximation. The off-diagonal blocks are
-simply a measure of commutation, $0.121(\widehat{\mathcal{L}}_1 - \widehat{\mathcal{L}}_2)$.
-Such entries could be included in the preconditioning for the upper
-triangular portion of the matrix (adding a few additional mat-vecs and
-memory usage), or simply ignored under the assumption that $\widehat{\mathcal{L}}_1 -
-\widehat{\mathcal{L}}_2$ is ``small'' in some sense. Even for reasonably stiff 
-problems, the operator often does not change substantially between
-two stages -- if it did, e.g., due to a shockwave, the larger time step
-may not be small enough to accurately resolve the nonlinear behavior in
-the first place. Similar structure as discussed for the two-stage methods
-holds for other methods as well. For example, the coefficients for four-stage
-Gauss are given by:
-%
-\begin{align*}
-\textnormal{Gauss(4):}& \hspace{1ex}
-\left[\begin{matrix}
-\{0.002,0.014,0.012,\mathbf{0.970}\} & \{0.001,-0.011,-0.110,0.120\} \\
-\{0.001,-0.011,-0.110,0.120\} & \{0.000,0.008,\mathbf{0.975},0.014\} \\
-\{-0.016,-0.113,0.010,0.119\} & \{-0.007,0.085,-0.093,0.014\} \\
-\{-0.045,0.041,-0.005,0.009\} & \{-0.021,-0.031,0.051,0.001\}
-\end{matrix}\right.
-\\&\hspace{5ex}
-\left.\begin{matrix}
-\{-0.016,-0.113,0.010,0.119\} & \{-0.045,0.041,-0.005,0.009\}\\
-\{-0.007,0.085,-0.093,0.014\} & \{-0.021,-0.031,0.051,0.001\}\\
-\{0.113,\mathbf{0.863},0.008,0.014\} & \{0.316,-0.312,-0.004,0.001\}\\
-\{0.316,-0.312,-0.004,0.001\} & \{\mathbf{0.883},0.113,0.002,0.000\}\\
-\end{matrix}\right].
-\end{align*}
-%
-Analogous to the two-stage case, note that the diagonal blocks are largely
-defined by $\widehat{\mathcal{L}}$ evaluated at a single time point (coefficient
-shown in bold). Moreover, not only are the off-diagonal constants
-a measure of commutivity, many of them are quite small in the first place;
-then, regardless of commutivity, ignoring such terms in the lower-triangular
-or off-diagonal blocks is a natural preconditioning. 
-
-Motivated by the above discussion, we construct {block upper triangular}
-$\widetilde{P} \approx \widehat{P}$ as Newton-like methods (or more
-generally some fixed-point iteration as in \eqref{eq:non_rich}) which has
-a (block) sparsity pattern contained within that of $R_0 \otimes I$. Recall
-by constructing $\widetilde{P}$ to be block upper triangular, we can then
-invert the resulting operator
-%
-\begin{align}
-R_0 \otimes M - \delta t \widehat{P} \approx R_0 \otimes I -  \delta t \widetilde{P}
-\end{align}
-%
-via block backward substitution, preconditioning each $1\times 1$
-or $2\times 2$ diagonal block as in \Cref{sec:nonlinear:simp}.
-In addition to the simplified Newton
-method discussed in \Cref{sec:nonlinear:simp}, we propose three (successively
-more accurate) approximations to \eqref{eq:Q0approx}:
-\vspace{1ex}
-%
-\begin{enumerate}
-\setlength\itemsep{0.5em}
-\item[0.] \underline{Simplified Newton:} as in \Cref{sec:nonlinear:simp}, apply a
-simplified Newton method by evaluating $\mathcal{L}$ at the same time point for
-all stages.
-
-\item \underline{Newton-Like(1):} Truncate $\widehat{P}$ to be block diagonal and
-lump the coefficients of $\bm{c}_{ii}$ to the largest one so that each diagonal
-block of $\widehat{P}$ contains only one matrix from $\bm{{\cal L}}'$.
-
-\item \underline{Newton-Like(2):} Truncate $\widehat{P}$ to be block diagonal
-(can include the off-diagonal entries in $2 \times 2$ diagonal blocks, or not)
-\todo{How is this implemented?}
-
-\item \underline{Newton-Like(3):} Truncate $\widehat{P}$ to be block upper triangular.
-This option adds a number of matrix-vector products and requires storing $\mathcal{L}_i$ 
-in memory for multiple $i$, but is also the best approximation to an exact Newton or
-Picard iteration.
-
-\end{enumerate}
-
-
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -1404,7 +1468,7 @@ given as the solution of the nonlinear set of equations
 \end{align}
 %
 
-\textbf{The linear case:} As a simple example, consider a
+\textbf{The linear case:} As an initial example, consider a
 linear set of DAEs, where \eqref{eq:dae} can be expressed as the linear set of
 equations
 %
