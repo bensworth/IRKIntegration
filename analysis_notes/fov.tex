@@ -24,6 +24,7 @@
 \usepackage{cleveref}
 \usepackage{multirow}
 \usepackage{bm}
+\usepackage{cases}
 
 
 \newtheorem{lemma}{Lemma}
@@ -36,9 +37,246 @@
 \newcommand{\tcr}{\textcolor{red}}
 \newcommand{\todo}[1]{\textcolor{red}{[TODO\@: #1]}}
 
+\newcommand{\im}{\mathrm{i}}
 
 \begin{document}
 \allowdisplaybreaks
+
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+\section{Linear theory: The skew symmetric case}
+Assuming $\beta > 0$, the preconditioned operator can be written in the form
+\begin{align} 
+\label{eq:ss_lin_P_gamma}
+{\cal P}_{\gamma} &= (\gamma I - {\cal L})^{-2} \big[ (\eta I - {\cal L})^2 + \beta^2 I \big],\\
+\label{eq:ss_lin_P_y}
+&= (y I - {\cal N})^{-2} \big[ (x I - {\cal L})^2 + I \big] \eqqcolon {\cal P}_y,
+\end{align}
+where we define the scaled quantities 
+\begin{align} 
+\label{eq:ss_lin_scaled_var}
+x \coloneqq \frac{\eta}{\beta}, 
+\quad 
+y \coloneqq \frac{\gamma}{\beta}, 
+\quad 
+{\cal N} \coloneqq \frac{1}{\beta} {\cal L}.
+\end{align}
+Letting $\lambda \in \sigma(- {\cal N})$, the spectrum ${\cal F}_y$ of the preconditioned operator \eqref{eq:ss_lin_P_y} is
+\begin{align}
+{\cal F}_y(\lambda) = \frac{(x+\lambda)^2 + 1}{(y + \lambda)^2}.
+\end{align}
+Furthermore, the condition number of ${\cal P}_y$ is 
+\begin{align} \label{eq:ss_lin_kappa_def}
+\kappa({\cal P}_y) = \frac{\underset{\lambda}{\max} \, | {\cal F}_y(\lambda) |}{\underset{\lambda}{\min} \, | {\cal F}_y(\lambda)|}
+\end{align}
+
+Since ${\cal N}$ is skew-symmetric, i.e., ${\cal N}^\top = - {\cal N}$, it has purely imaginary eigenvalues. We write the eigenvalues of $-{\cal N}$ as $\lambda = \im \mu$, for $\mu \in \mathbb{R}$. To avoid working with the imaginary $\lambda$, we instead work with the real-valued variable $\mu$. Since ${\cal F}_y$ is complex, we consider its magnitude squared,
+\begin{align}
+\label{eq:ss_lin_G}
+{\cal G}_y(\mu) \coloneqq |{\cal F}_y(\mu)|^2 = 
+\frac{\mu^4 + 2(x^2-1)\mu^2 + (x^2 + 1)^2}{(y^2 + \mu^2)} > 0.
+\end{align}\\
+
+Now we present some of the calculations to determine the extrema of ${\cal G}_y$. Note that we assume $y > 0$ (sometimes this is said explicitly, but sometimes it is not). First we consider the value of ${\cal G}_y$ at the end points of its domain,
+\begin{align*}
+\lim_{\mu \to \pm \infty} {\cal G}_y(\mu) 
+=
+\lim_{\mu \to \pm \infty} \frac{1 + 2 \frac{x^2-1}{\mu^2} + \frac{(x^2+1)^2}{\mu^4}}{1 + 2 \frac{y^2}{\mu^2} + \frac{y^4}{\mu^4}}
+=
+\begin{cases}
+1^+, \quad a \leq 0, \\
+1^-, \quad a > 0,
+\end{cases}
+\end{align*}
+where the constant $a$ is
+\begin{align*}
+a \coloneqq 1 - x^2  + y^2.
+\end{align*}
+Now, computing the derivative of \eqref{eq:ss_lin_G} we find
+\begin{align*}
+\frac{\textrm{d} {\cal G}_y}{\textrm{d} \mu} = 
+4 \mu \frac{a \mu^2 - c}{(\mu^2 + y^2)^2},
+\end{align*}
+where we define the constant
+\begin{align*}
+c \coloneqq (1+x^2)^2 + (1 - x^2)y^2.
+\end{align*}
+Thus, there exist at most three critical points of ${\cal G}_y$,
+\begin{align*}
+\mu = 0, \quad \mu = \pm \sqrt{\frac{c}{a}} \eqqcolon \mu_{\pm}.
+\end{align*}
+Note that the latter two critical points do not exist when $a = 0$ and are discarded when $\textrm{sign}(a) \neq \textrm{sign}(c)$ since they are imaginary.
+Working through the algebra, we find
+\begin{align*}
+\textrm{sign}(a) 
+&=
+\begin{cases}
+-1, \quad &y^2 < 1 - x^2, \\
+0, \quad &y^2 = 1-x^2, \\
+1, \quad &y^2 > 1-x^2.
+\end{cases} \\
+\textrm{sign}(c) 
+&=
+\begin{cases}
+-1, \quad &x^2 > 1, \quad y > \frac{x^2+1}{\sqrt{x^2-1}}, \\
+0, \quad &x^2 > 1, \quad y = \frac{x^2+1}{\sqrt{x^2-1}}, \\
+1, \quad &\textrm{else}.
+\end{cases}
+\end{align*}
+%
+Now considering the second derivative of \eqref{eq:ss_lin_G} at the critical point $\mu = 0$, we find
+\begin{align*}
+\left. \frac{\textrm{d}^2 {\cal G}_y}{\textrm{d}^2 \mu} \right|_{\mu = 0} = - \frac{4c}{y^5}.
+\end{align*}
+Thus, when $c < 0$, $\mu  =  0$ is a local minimum and when $c > 0$, $\mu = 0$ is a local maximum. Further calculations reveal that when $c = 0$, $\mu = 0$ is a local minimum.\\
+
+
+All of the above observations are sufficient for determining the extrema of \eqref{eq:ss_lin_G}. The maxima of ${\cal G}_y$ are
+\begin{align}
+\label{eq:ss_lin_maxG}
+\underset{\mu \in \mathbb{R}}{\max} \, {\cal G}_y(\mu) &= 
+\begin{cases}
+{\cal G}_y(0), \quad &0 <  y \leq \sqrt{x^2 + 1},\\[1ex]
+{\cal G}_y(\pm \infty), \quad &\sqrt{x^2 + 1} \leq  y < \infty.
+\end{cases}
+\end{align}
+The minima are more complicated and are split into two cases:
+\begin{itemize}
+\setlength{\itemsep}{2ex}
+\item \underline{$\bm{x^2\leq1}:$}
+\begin{align}
+\label{eq:ss_lin_minG_case1}
+\underset{\mu \in \mathbb{R}}{\min} \, {\cal G}_y(\mu) &= {\cal G}_y(\mu_{\pm}), \quad 0 <  y < \infty.
+\end{align}
+
+\item \underline{$\bm{x^2>1}:$}
+\begin{align}
+\label{eq:ss_lin_minG_case2}
+\underset{\mu \in \mathbb{R}}{\min} \, {\cal G}_y(\mu) &= 
+\begin{cases}
+{\cal G}_y(\pm \infty), \quad &0 <  y \leq \sqrt{x^2 - 1},\\[1ex]
+{\cal G}_y(\mu_{\pm}), \quad & \sqrt{x^2 - 1} \leq  y \leq \frac{x^2+1}{\sqrt{x^2 - 1}}, \\[1ex]
+{\cal G}_y(0), \quad & \frac{x^2+1}{\sqrt{x^2 - 1}} \leq  y < \infty.
+\end{cases}
+\end{align}
+\end{itemize}
+Where the extremal values of ${\cal G}_y(\mu)$ used in \eqref{eq:ss_lin_maxG}, \eqref{eq:ss_lin_minG_case1}, and \eqref{eq:ss_lin_minG_case2} are given by
+\begin{align*}
+{\cal G}_y(0) &= \left(\frac{x^2 + 1}{y^2}\right)^2, \\
+{\cal G}_y(\mu_{\pm}) &= \frac{4x^4}{y^4 + 2(1-x^2)y^2 + (x^2 + 1)^2}, \\
+{\cal G}_y(\pm \infty) &= 1.
+\end{align*}
+In some of the above calculations the following bound was used
+\begin{align*}
+\sqrt{x^2+1} = \frac{x^2+1}{\sqrt{x^2+1}} < \frac{x^2+1}{\sqrt{x^2-1}}, \quad x^2 > 1.
+\end{align*}
+
+\begin{theorem}\label{th:ss_lin_min}
+The condition number of operator \eqref{eq:ss_lin_P_y} is minimized with respect to $y$ with
+\begin{align}
+\label{eq:ss_lin_y_star}
+y_* \coloneqq \underset{0 < y < \infty}{\rm argmin} \, \kappa({\cal P}_y) = \sqrt{x^2 + 1}.
+\end{align}
+Moreover, its minimum value is
+\begin{align}
+\label{eq:ss_lin_k_y_star}
+\kappa({\cal P}_{y_*}) = \sqrt{1 + x^{-2}}.
+\end{align}
+\end{theorem}
+\begin{proof}
+Using the extrema of ${\cal G}_y(\mu)$ from \eqref{eq:ss_lin_maxG}, \eqref{eq:ss_lin_minG_case1} and \eqref{eq:ss_lin_minG_case2}, the square of condition number \eqref{eq:ss_lin_kappa_def} can be expressed as
+\begin{itemize}
+\setlength{\itemsep}{1ex}
+
+\item \underline{$\bm{x^2 \leq 1}:$}
+
+\begin{subnumcases}{\kappa^2({\cal P}_y)=}
+\label{eq:ss_lin_k1_case1}
+\kappa_1^2, \quad 0 < y \leq \sqrt{x^2+1}, 
+\\
+\label{eq:ss_lin_k2_case1}
+\kappa_2^2, \quad \sqrt{x^2+1} \leq y < \infty.
+\end{subnumcases}
+
+\item \underline{$\bm{x^2 > 1}:$}
+\begin{subnumcases}{\kappa^2({\cal P}_y)=}
+\label{eq:ss_lin_k0_case2}
+\kappa_0^2, \quad 0 < y \leq \sqrt{x^2-1}, 
+\\
+\label{eq:ss_lin_k1_case2}
+\kappa_1^2, \quad \sqrt{x^2-1} \leq y \leq \sqrt{x^2+1}, 
+\\
+\label{eq:ss_lin_k2_case2}
+\kappa_2^2, \quad \sqrt{x^2+1} \leq y \leq \frac{x^2+1}{\sqrt{x^2 - 1}}, 
+\\
+\label{eq:ss_lin_k3_case2}
+\kappa_3^2, \quad \frac{x^2+1}{\sqrt{x^2 - 1}} \leq y < \infty.
+\end{subnumcases}
+
+\end{itemize}
+
+Where we have used the following functions
+\begin{align}
+\label{eq:ss_lin_k0}
+\kappa_0^2
+&\coloneqq \frac{{\cal G}_y(0)}{{\cal G}_y(\pm \infty)} 
+= 
+\left( \frac{x^2+1}{y^2} \right)^2, 
+\\
+\label{eq:ss_lin_k1}
+\kappa_1^2
+&\coloneqq 
+\frac{{\cal G}_y(0)}{{\cal G}_y(\mu_{\pm})}
+= 
+\left( \frac{x^2+1}{2x^2} \right)^2 \left[1 + 2 \frac{(1-x^2)}{y^2} + \frac{(x^2 + 1)^2}{y^4} \right], 
+\\
+\label{eq:ss_lin_k2}
+\kappa_2^2
+&\coloneqq 
+\frac{{\cal G}_y(\pm \infty)}{{\cal G}_y(\mu_{\pm})}
+= 
+\frac{y^4 + 2(1-x^2)y^2 + (x^2 + 1)^2}{4x^4},
+\\
+\label{eq:ss_lin_k3}
+\kappa_3^2 
+&\coloneqq 
+\frac{1}{\kappa_0^2({\cal P}_y)}.
+\end{align}
+
+
+To show $\kappa^2({\cal P}_y)$ is minimized when $y = y_*$ we make the following observations. Notice first that $\kappa_0^2$ \eqref{eq:ss_lin_k0} is strictly decreasing for $y > 0$, and therefore that $\kappa_3^2 = 1/\kappa_0^2$ \eqref{eq:ss_lin_k3} is strictly increasing for $y > 0$. Thus, the condition number in \eqref{eq:ss_lin_k0_case2} is strictly decreasing for $y \in (0, \sqrt{x^2-1})$ while in \eqref{eq:ss_lin_k3_case2} it is strictly increasing for $y > (x^2+1)/\sqrt{x^2-1}$.
+
+Considering the derivative of \eqref{eq:ss_lin_k1} we have
+\begin{align*}
+\frac{\textrm{d} \kappa_1^2}{\textrm{d} y} 
+= 
+- \frac{1}{y^5}\left( \frac{x^2+1}{x^2} \right)^2 
+\left[
+(1-x^2) y^2 + (1+x^2)^2
+\right].
+\end{align*}
+If $x^2 < 1$, this is negative for all $y > 0$ such that \eqref{eq:ss_lin_k2_case1} is strictly decreasing for $y \in (0, \sqrt{x^2+1})$. If $x^2 > 1$, this derivative is negative when $y \in (0, (x^2+1)/\sqrt{x^2-1})$, and thus the condition number in \eqref{eq:ss_lin_k1_case2} is strictly decreasing for $y \in (\sqrt{x^2-1},\sqrt{x^2+1})$.
+
+Finally, considering the derivative of \eqref{eq:ss_lin_k2} we have
+\begin{align*}
+\frac{\textrm{d} \kappa_2^2}{\textrm{d} y} = \frac{y}{x^4} (y^2 + 1 - x^2).
+\end{align*}
+When $x^2 > 1$, this derivative is always positive for $y > 0$ such that condition number \eqref{eq:ss_lin_k2_case1} is strictly increasing for $y > \sqrt{x^2+1}$. When $x^2<1$, this derivative is positive for $y > \sqrt{x^2-1}$, and therefore condition number \eqref{eq:ss_lin_k2_case2} is strictly increasing for $y \in (\sqrt{x^2 + 1}, (x^2+1)/\sqrt{x^2-1})$.
+
+By the continuity of the piecewise condition numbers \eqref{eq:ss_lin_k1_case1}--\eqref{eq:ss_lin_k2_case1} and \eqref{eq:ss_lin_k0_case2}--\eqref{eq:ss_lin_k3_case2}, it is therefore the case that they are minimized with respect to $y$ at $y = y_* = \sqrt{x^2 + 1}$, as in \eqref{eq:ss_lin_y_star}. Finally, evaluating \eqref{eq:ss_lin_k1} or \eqref{eq:ss_lin_k2} at $y = y_*$ yields the claimed result of \eqref{eq:ss_lin_k_y_star}.
+\end{proof}
+
+\begin{remark}
+Restated in the original variables used to define those in \eqref{eq:ss_lin_scaled_var}, Theorem \ref{th:ss_lin_min} states that condition number of operator \eqref{eq:ss_lin_P_gamma} is minimized with respect to $\gamma$ with
+\begin{align}
+\gamma_* \coloneqq \underset{0 < \gamma < \infty}{\rm argmin} \, \kappa({\cal P}_{\gamma}) = \sqrt{\eta^2 + \beta^2}.
+\end{align}
+Moreover, its minimum value is
+\begin{align}
+\kappa({\cal P}_{\gamma_*}) = \sqrt{1 + \frac{\beta^2}{\eta^2}}.
+\end{align}
+\end{remark}
 
 % ---------------------------------------------------------------------------------------------- %
 % ---------------------------------------------------------------------------------------------- %
