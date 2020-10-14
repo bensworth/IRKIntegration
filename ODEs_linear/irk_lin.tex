@@ -98,8 +98,9 @@ to the use of three-term recursion Krylov methods when the underlying spatial
 discretization is symmetric. Under quite general assumptions on the spatial
 discretization that yield stable time integration, the preconditioned operator
 is proven to have conditioning $\sim\mathcal{O}(1)$, with only weak dependence
-on number of stages/polynomial order. The new method is demonstrated to be
-effective on various high-order finite-difference and finite-element
+on number of stages/polynomial order; for example, the preconditioned operator for
+10th-order Gauss integration has condition number less than two. The new method is
+demonstrated to be effective on various high-order finite-difference and finite-element
 discretizations of linear parabolic and hyperbolic problems, demonstrating fast,
 scalable solution of up to 10th order accuracy. In several cases, the new method
 can achieve 4th-order accuracy using Gauss integration with roughly half the
@@ -248,7 +249,8 @@ thus not requiring the storage of each stage vector. Theory is developed in
 \Cref{sec:solve:prec} that guarantees $\mathcal{O}(1)$ conditioning of the
 preconditioned operator under basic assumptions on stability from
 \Cref{sec:intro:stab}, with only weak dependence on the number of
-stages or polynomial order.
+stages or polynomial order. For example, the preconditioned operator for
+10th-order Guass integration has condition number less than two.
 
 Numerical results are provided in \Cref{sec:numerics}, demonstrating the new
 method for a variety of problems and corresponding preconditioners, including
@@ -404,7 +406,7 @@ This is analogous to the ``strong stability'' discussed by Leveque
 sufficient) condition $\|e^{t\mathcal{L}}\|\leq C$ for all $t\geq 0$ and
 some constant $C$. In practice, \Cref{ass:fov} often holds when
 simulating numerical PDEs, and in \Cref{sec:solve:prec}, it is proven that
-\Cref{ass:eig} and \ref{ass:fov} guarantee the methods proposed here yield
+\Cref{ass:eig,ass:fov} guarantee the methods proposed here yield
 $\mathcal{O}(1)$ conditioning of the preconditioned operator.
 
 % ------------------------------------------------------------------------------------- %
@@ -602,6 +604,7 @@ Here we propose preconditioning \eqref{eq:imag1} with the inverse of a
 real-valued quadratic polynomial, $(\gamma I - \widehat{\mathcal{L}})^2$, for
 $\gamma \in\mathbb{R}^+$.
 
+\begin{comment}
 % ------------------------------------------------------------------------------------- %
 \subsubsection{A first preconditioning}\label{sec:solve:prec:eta}
 
@@ -741,56 +744,65 @@ $\eta < \beta$, we expect to see nice convergence, but are likely to see degrada
 for $\beta > \eta$. The following section derives a better constant $\gamma$
 that yields good conditioning regardless of $W(\widehat{\mathcal{L}}^2)$,
 and with weaker dependence on $\eta$ and $\beta$.
+\end{comment}
+
 
 % ------------------------------------------------------------------------------------- %
-\subsubsection{A better choice of $\gamma$}\label{sec:solve:prec:gamma}
-\OK{Change section title to ``The optimal choice of $\gamma$''? Or something to this effect.}
+\subsection{Optimal preconditioning}\label{sec:solve:gamma}
 
-Consider a similar preconditioner as in
-\Cref{sec:solve:inv}, but with preconditioning constant $\gamma \mapsto
-(\gamma I - \widehat{\mathcal{L}})^{-2}$. The resulting preconditioned
-operator takes the form
+A natural starting point is preconditioning \eqref{eq:imag1} with the inverse of
+the real-valued part of the operator, $(\eta I - \widehat{\mathcal{L}})^2$,
+dropping the $+ \beta^2 I$ term, which can be applied as two successive inverses
+of $(\eta I - \widehat{\mathcal{L}})$. Expanding, the preconditioned operator
+then takes the form
+%
+\begin{align}\nonumber
+\mathcal{P}_\eta & := (\eta I - \widehat{\mathcal{L}})^{-2}
+	\left[(\eta^2+\beta^2)I - 2\eta \widehat{\mathcal{L}} + \widehat{\mathcal{L}}^2\right]  \\
+&\hspace{5ex} = I + \beta^2(\eta I - \widehat{\mathcal{L}})^{-2}
+= I + \frac{\beta^2}{\eta^2}\left(I - \tfrac{1}{\eta}\widehat{\mathcal{L}}\right)^{-2}.\label{eq:prec1}
+\end{align}
+%
+For $\eta > \beta$ and under the assumptions introduced in \Cref{sec:intro:stab},
+the preconditioned operator in \eqref{eq:prec1} has a well bounded field-of-values,
+which can be directly translated into guaranteed GMRES convergence bounds
+\cite{liesen2012field}. However, for $\beta \gg \eta$, such a preconditioning
+is less effective. 
+
+Thus, consider a similar preconditioner but with preconditioning constant
+$\gamma > 0$, where the preconditioned operator takes the form
 %
 \begin{align}\label{eq:P_gamma}
 \mathcal{P}_\gamma & =
-\Big[(\eta I - \widehat{\mathcal{L}})^2 + \beta^2 I\Big] (\gamma I - \widehat{\mathcal{L}})^{-2} \\ \nonumber
-& =\Big[((\eta-\gamma)I + (\gamma I - \widehat{\mathcal{L}}))^2 + \beta^2 I\Big]  (\gamma I - \widehat{\mathcal{L}})^{-2} \\
+	(\gamma I - \widehat{\mathcal{L}})^{-2}\Big[(\eta I - \widehat{\mathcal{L}})^2 +
+	\beta^2 I\Big].
+% 	\\
+% & = (\gamma I - \widehat{\mathcal{L}})^{-2}\Big[((\eta-\gamma)I +
+% 	(\gamma I - \widehat{\mathcal{L}}))^2 + \beta^2 I\Big] \nonumber \\
 % & = (\gamma I - \widehat{\mathcal{L}})^{-2}\Big[(\gamma-\eta)^2I - 2(\gamma-\eta)(\gamma I - \widehat{\mathcal{L}}) +
 % 	(\gamma I - \widehat{\mathcal{L}})^2 + \beta^2 I\Big] \nonumber\\
 % & = I - 2(\gamma-\eta)(\gamma I - \widehat{\mathcal{L}})^{-1} + (\beta^2 + (\gamma-\eta)^2)(\gamma I -
 % 	\widehat{\mathcal{L}})^{-2} \nonumber\\
-& = I - 2\frac{\gamma-\eta}{\gamma}\left(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}\right)^{-1} +
-	\frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}
-	\left(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}\right)^{-2}.\label{eq:prec_k}
+% & = I - 2\frac{\gamma-\eta}{\gamma}\left(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}\right)^{-1} +
+% 	\frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}
+% 	\left(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}\right)^{-2}. \nonumber
 \end{align}
-\OK{I changed the above and the equation for the operator in the previous section to use right preconditioning rather than left for consistency since this is what I use in the proof. But the operator is identical for left v.s right preconditioning is the same. Why is this?}
 %
-Note that in \eqref{eq:prec_k} we have a quadratic polynomial in
-$(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{-1}$. Although this provides
-nice structure, the field of values analysis applied in \Cref{sec:solve:inv}
-becomes much more complicated because there is no necessary relationship between
-$\langle A\mathbf{x},\mathbf{x}\rangle$ and
-$\langle A^2\mathbf{x},\mathbf{x}\rangle$ for general operators $A$. Thus, here
-we take a different approach, analyzing the condition number of the preconditioned
-operator, $\mathcal{P}_\gamma$, similar to as done for SPD matrices in \cite{exh}.
+Such an approach was proven effective for symmetric definite spatial matrices in
+\cite{exh}, with optimal constant $\gamma_* = \sqrt{\eta^2+\beta^2}$. The following
+theorem derives tight bounds on the condition number of $P_{\gamma}$ as well as 
+optimality of $\gamma\in(0,\infty)$ in a much more general context.
 
-% %
-% Under the additional assumption of $\widehat{\mathcal{L}}^2 \geq 0$, $\gamma = \eta$
-% yields bounds
-% %
-% \begin{align*}
-% \textnormal{cond}(\mathcal{P}_{\gamma_*}) \leq 1 + \frac{\beta^2}{\eta^2}.
-% \end{align*}
-% %
-
+%
 \begin{theorem}[Optimal preconditioning]
-\label{th:cond}
-Suppose \Cref{ass:eig,ass:fov} hold, that is, $\eta > 0$ and $W(\cL) \leq 0$. Let $\mathcal{P}_\gamma$ denote
+\label{th:cond} Let $\cL$ be real-valued and suppose \Cref{ass:eig,ass:fov} hold,
+that is, $\eta > 0$ and $W(\cL) \leq 0$. Let $\mathcal{P}_\gamma$ denote
 the preconditioned operator \eqref{eq:P_gamma}, where $[(\eta + \mathrm{i}\beta)I -
 \cL][(\eta - \mathrm{i}\beta)I - \cL]$ is 
 preconditioned with $(\gamma I - \cL)^{-2}$.
 %
-Let $\kappa({\cal P}_{\gamma})$ denote the two-norm condition number of ${\cal P}_{\gamma}$, and define $\gamma_*$ by 
+Let $\kappa({\cal P}_{\gamma})$ denote the two-norm condition number of ${\cal P}_{\gamma}$,
+and define $\gamma_*$ by 
 \begin{align} \label{eq:gammastar}
 \gamma_* \coloneqq \sqrt{\eta^2+\beta^2}.
 \end{align}
@@ -799,12 +811,16 @@ Then
 \kappa(\mathcal{P}_{\gamma_*}) \leq \sqrt{1+\frac{\beta^2}{\eta^2}}.
 \end{align}
 
-Moreover, bound \eqref{eq:P_gammastar} is tight since there exist matrices $\cL$ that satisfy it exactly. Finally, $\gamma = \gamma_*$ is optimal in the sense that it minimizes a tight upper bound on $\kappa({\cal P}_{\gamma})$ over all $\gamma \in (0, \infty)$ without further assumptions on $\cL$.
+Moreover, (i) bound \eqref{eq:P_gammastar} is tight in the sense that $\exists$ $\cL$
+that satisfy \eqref{eq:P_gammastar} exactly, and (ii) $\gamma = \gamma_*$ is optimal
+in the sense that, without further assumptions on $\cL$, $\gamma_*$ minimizes a tight
+upper bound on $\kappa({\cal P}_{\gamma})$ over all $\gamma \in (0, \infty)$.
 \end{theorem}
 \begin{proof}
 First we will prove bound \eqref{eq:P_gammastar}, then we will demonstrate it is tight, and finally we will demonstrate the optimality of $\gamma=\gamma_*$.
 
-The square of the condition number of ${\cal P}_{\gamma}$ is
+The square of the condition number of ${\cal P}_{\gamma}$ is given by
+%
 \begin{align}
 \label{eq:kappa_def}
 \kappa^2({\cal P}_{\gamma}) 
@@ -813,21 +829,36 @@ The square of the condition number of ${\cal P}_{\gamma}$ is
 \Vert {\cal P}_{\gamma}^{-1} \Vert^2
 =
 \underset{{\bm{v} \neq 0}}{\max} \frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2 }{\Vert \bm{v} \Vert^2} 
-\frac{1}{\displaystyle{\underset{{\bm{v} \neq 0}}{\min} \frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2 }{\Vert \bm{v} \Vert^2}}}.
+\frac{1}{\displaystyle{\underset{{\bm{v} \neq 0}}{\min} \frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2 }{\Vert \bm{v} \Vert^2}}},
 \end{align}
-The key step in establishing \eqref{eq:P_gammastar} is bounding $\Vert {\cal P}_{\gamma} \Vert^2$ and $\Vert {\cal P}_{\gamma}^{-1} \Vert^2$ from above by bounding $\frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2 }{\Vert \bm{v} \Vert^2}$ from above and below, respectively.
 %
-Considering the form of the preconditioned operator ${\cal P}_{\gamma}$ in \eqref{eq:P_gamma}, we make the substitution $\bm{v} = (\gamma I - \cL)^{2} \bm{w}$. Now, assuming $\bm{v}$ (and hence $\bm{w}$ also) is real, the squared norm of ${\cal P}_{\gamma} \bm{v}$ can be expressed as
+where for real-valued $\cL$, the max and min can be obtained by restricting ourselves
+to real-valued $\mathbf{v}$. The key step in establishing \eqref{eq:P_gammastar} is bounding
+$\Vert {\cal P}_{\gamma} \Vert^2$ and $\Vert {\cal P}_{\gamma}^{-1} \Vert^2$ from above
+by bounding $\Vert {\cal P}_{\gamma} \bm{v} \Vert^2 / \Vert \bm{v} \Vert^2$
+from above and below, respectively.
+%
+Consider the form of the preconditioned operator ${\cal P}_{\gamma}$ in
+\eqref{eq:P_gamma} and make the substitution $\bm{v} = (\gamma I - \cL)^{2} \bm{w}$. 
+Now, for real-valued $\bm{v}$ (and, thus, real-valued $\bm{w}$),
+$\|{\cal P}_{\gamma} \bm{v}\|^2$ can be expanded as
+%
 \begin{align}
 \label{eq:norm_Pv}
+\begin{split}
 \Vert {\cal P}_{\gamma} \bm{v} \Vert^2
 &=
 \bVert [( \eta I - \cL)^2 + \beta^2] \bm{w} \bVert^2, \\
 &=
-\nonumber
-\bVert (\eta^2 + \beta^2) \bm{w} + \cLs \bm{w} \bVert^2  - 4 \eta \langle \cL (\cL \bm{w}), \cL \bm{w} \rangle + 4 \eta^2 \bVert \cL \bm{w} \bVert^2 - 4 \eta (\eta^2 +\beta^2) \langle \cL \bm{w}, \bm{w} \rangle.
+\bVert (\eta^2 + \beta^2) \bm{w} + \cLs \bm{w} \bVert^2  -
+	4 \eta \langle \cL (\cL \bm{w}), \cL \bm{w} \rangle + \\&\hspace{15ex}
+	4 \eta^2 \bVert \cL \bm{w} \bVert^2 -
+	4 \eta (\eta^2 +\beta^2) \langle \cL \bm{w}, \bm{w} \rangle.
+\end{split}
 \end{align}
-Similarly, the squared norm of $\bm{v}$ can be written as (e.g., by letting $\eta \mapsto \gamma$ and $\beta \mapsto 0$ in the right side of the equations above)
+%
+Similarly, expanding $\|\bm{v}\|^2$ yields
+%
 \begin{align}
 \label{eq:norm_v}
 \Vert \bm{v} \Vert^2
@@ -837,7 +868,8 @@ Similarly, the squared norm of $\bm{v}$ can be written as (e.g., by letting $\et
 \nonumber
 \bVert \gamma^2 \bm{w} + \cLs \bm{w} \bVert^2  - 4 \gamma \langle \cL ( \cL \bm{w}), \cL \bm{w} \rangle + 4 \gamma^2 \bVert \cL \bm{w} \bVert^2 - 4 \gamma^3 \langle \cL \bm{w}, \bm{w} \rangle.
 \end{align}
-Thus, the key term from \eqref{eq:kappa_def} can be written in the form
+%
+Thus, the key term in \eqref{eq:kappa_def} takes the form
 \begin{align}
 \label{eq:P_gamma_frac}
 \frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2}{\Vert \bm{v} \Vert^2}
@@ -868,9 +900,9 @@ f_3 &\coloneqq -4 \gamma^3 \langle \cL \bm{w}, \bm{w} \rangle \geq 0,
 &&c_3\coloneqq \frac{\eta (\eta^2 + \beta^2)}{\gamma^3} > 0,
 \end{aligned}
 \end{equation}
-assuming $\gamma > 0$. Functions $f_1$ and $f_3$ are non-negative by assumption of $W( \cL ) \leq 0$.
-%
-Note that $f_0$ is positive because it would be zero only if $(\mathrm{i} \gamma, \bm{w})$ was an eigenpair of $\cL$, but this would violate the assumption that $ \cL \bm{w}$ is real (which is a consequence of $\bm{w}$ and $\cL$ being real). It is for analogous reasons that $c_0 > 0$. 
+assuming $\gamma > 0$. Note that functions $f_1$ and $f_3$ are non-negative by
+assumption of $W( \cL ) \leq 0$, while for all $\mathbf{w}$, it must hold that
+either $f_2 > 0$ or $c_0f_0 > 0$ (or both).
 
 Since all of the addends in the numerator and denominator of \eqref{eq:P_gamma_frac} are non-negative, and at least one addend in each is positive, it can be bounded as
 \begin{align*}
@@ -887,19 +919,43 @@ Applying these bounds to the squared norms in \eqref{eq:kappa_def} yields
 \Vert {\cal P}_{\gamma}^{-1} \Vert^2 \leq \frac{1}{c_{\min}}.
 \end{align}
 %
-Bounding $c_0$ for general $\gamma$, and hence $c_{\min}$ and $c_{\max}$, is difficult because the sign of $\langle \cLs \bm{w}, \bm{w} \rangle$ (which appears in expanding $\bVert \gamma^2 \bm{w} + \cLs \bm{w} \bVert^2$) is not known for general $\cL$, noting that the sign of $W(\cL)$ does not determine that of $W(\cLs)$. However, observe from \eqref{eq:f_c_def} that $c_0(\bm{w}) = 1$ for the judicious choice of $\gamma = \gamma_* \coloneqq \sqrt{\eta^2 + \beta^2}$. Moreover, in the final part of this proof we will demonstrate that $\gamma = \gamma_*$ is optimal, and, as such, moving forward we analyze \eqref{eq:P_gamma_frac} only for the special case of $\gamma = \gamma_*$.
+Bounding $c_0$ for general $\gamma$, and hence $c_{\min}$ and $c_{\max}$, is
+difficult because the sign of $\langle \cLs \bm{w}, \bm{w} \rangle$ (which
+appears in expanding $\bVert \gamma^2 \bm{w} + \cLs \bm{w} \bVert^2$) is not
+known for general $\cL$, noting that the sign of $W(\cL)$ does not determine
+that of $W(\cLs)$. However, observe from \eqref{eq:f_c_def} that the judicious
+choice of $\gamma = \gamma_* \coloneqq \sqrt{\eta^2 + \beta^2}$ yields $c_0(\bm{w}) = 1$.
+Moreover, in the final part of this proof we demonstrate that
+$\gamma = \gamma_*$ is optimal, and, as such, moving forward we
+only consider the case $\gamma = \gamma_*$.
 
-Letting $\gamma = \gamma_*$, from \eqref{eq:f_c_def} one has $1 = c_0 > c_1 = c_3 = \sqrt{c_2}$. Thus, for $\gamma = \gamma_*$, bounds \eqref{eq:P_gamma_bounds} are
+Letting $\gamma = \gamma_*$, from \eqref{eq:f_c_def} one has $1 = c_0 > c_1 = c_3
+= \sqrt{c_2}$. Thus, for $\gamma = \gamma_*$, the bounds in \eqref{eq:P_gamma_bounds}
+are given by
 \begin{align}
 \label{eq:P_gamma*_bounds}
 \Vert {\cal P}_{\gamma_*} \Vert^2 \leq 1,
 \quad
 \Vert {\cal P}_{\gamma_*}^{-1} \Vert^2 \leq 1 + \frac{\beta^2}{\eta^2}.
 \end{align}
-Applying these bounds to the condition number \eqref{eq:kappa_def} yields the claimed upper bound of \eqref{eq:P_gammastar}.
+Applying these bounds to the condition number \eqref{eq:kappa_def}
+yields the upper bound in \eqref{eq:P_gammastar}.
 
-We now move toward showing that bound \eqref{eq:P_gammastar} is tight and that $\gamma = \gamma_*$ is optimal, which will do by placing lower bounds on $\kappa({\cal P}_{\gamma})$ for a particular class of matrices $\cL$. 
-Consider again the key fraction of $\frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2 }{\Vert \bm{v} \Vert^2}$ from the condition number \eqref{eq:kappa_def}. Again, let $~\bm{v}=(\gamma I - \cL)^2 \bm{w}$, but now suppose that $(\textrm{i} \xi, \bm{w})$ is an eigenpair of $\cL$, with $\xi$ a real number and $\bm{w}$ a complex vector. We use this eigenpair with \eqref{eq:norm_Pv} and \eqref{eq:norm_v} to define the following function
+We now show that bound \eqref{eq:P_gammastar} is tight and that
+$\gamma = \gamma_*$ is optimal. We do so by construction, showing that the
+bound in \eqref{eq:P_gamma_bounds} is achieved for certain matrices, and 
+that for $\gamma\neq\gamma_*$, $\exists$ matrices $\cL$ for which
+$\kappa({\cal P}_{\gamma}) > \sqrt{1 + \beta^2/\eta^2}$. Note that the min/max 
+of $\Vert {\cal P}_{\gamma} \bm{v} \Vert^2/\Vert \bm{v} \Vert^2$ over $\mathbf{v}$
+for real-valued ${\cal P}_{\gamma}$ is equivalent when minimizing over real
+or complex $\bm{v}$; we now consider complex $\mathbf{v}$ for theoretical
+purposes. To that end, let $~\bm{v}=(\gamma I - \cL)^2 \bm{w}$, but 
+suppose that $(\textrm{i} \xi, \bm{w})$ is an eigenpair of $\cL$, with $\xi$
+a real number and $\bm{w}$ a complex eigenvector. Plugging into
+$\| {\cal P}_{\gamma} \bm{v}\|^2$ \eqref{eq:norm_Pv} and $\|\bm{v}\|^2$
+\eqref{eq:norm_v}, and taking the ratio as in \eqref{eq:P_gamma_frac},
+define the following function of $\xi$:
+%
 \begin{align} \label{eq:H_def}
 {\cal H}_{\gamma}(\xi) 
 \coloneqq 
@@ -918,24 +974,47 @@ By virtue of restricting that $\bm{w}$ be an eigenvector, from \eqref{eq:kappa_d
 \leq {\cal H}_{\gamma}(\xi) \leq 
 \underset{\bm{v} \neq 0}{\max} \frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2}{\Vert \bm{v} \Vert^2} = \Vert {\cal P}_{\gamma} \Vert^2.
 \end{align}
-That is, any value of $\tfrac{1}{{\cal H}_{\gamma}(\xi)}$ serves as a lower bound on $\Vert {\cal P}_{\gamma}^{-1} \Vert^2$, while any value of ${\cal H}_{\gamma}(\xi)$ serves as a lower bound on $\Vert {\cal P}_{\gamma} \Vert^2$. Therefore, the ratio of any two values of ${\cal H}_{\gamma}(\xi)$ provide a lower bound on $\kappa^2({\cal P}_{\gamma})$. We remark that previously assuming $\bm{v}$ was real while now considering it complex is consistent because the min/max of $\frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2}{\Vert \bm{v} \Vert^2}$ for real-valued ${\cal P}_{\gamma}$ is equivalent for $\bm{v}$ real or complex.
+%
+That is, any value of $1/{\cal H}_{\gamma}(\xi)$ serves as a lower bound on
+$\Vert {\cal P}_{\gamma}^{-1} \Vert^2$, while any value of ${\cal
+H}_{\gamma}(\xi)$ serves as a lower bound on $\Vert {\cal P}_{\gamma} \Vert^2$.
+Therefore, the ratio of any two values of ${\cal H}_{\gamma}(\xi)$ provide a
+lower bound on $\kappa^2({\cal P}_{\gamma})$.
 
-We now show that bound \eqref{eq:P_gammastar} on $\kappa^2({\cal P}_{\gamma_*})$ is tight. Considering \eqref{eq:H_def} at the judiciously chosen eigenvalues of $\mathrm{i} \xi = 0, \pm \mathrm{i} \gamma_*$, we have
+We now show that bound \eqref{eq:P_gammastar} on $\kappa^2({\cal P}_{\gamma_*})$
+is tight. Considering \eqref{eq:H_def} at the judiciously chosen eigenvalues of
+$\mathrm{i} \xi = \{ 0, \pm \mathrm{i} \gamma_*\}$, we have
+%
 \begin{align}
 \label{eq:H1}
 {\cal H}_{\gamma}(0) 
-&= 
-\left( \frac{\eta^2 + \beta^2}{\gamma^2} \right)^2, \\
-\label{eq:H2}
-{\cal H}_{\gamma}(\pm \gamma_*) 
-&= 
-\frac{4 \eta^2 ( \eta^2 + \beta^2)}{(\gamma^2 + \eta^2 + \beta^2)^2}, 
+	&= \left( \frac{\eta^2 + \beta^2}{\gamma^2} \right)^2, 
+\hspace{5ex}
+{\cal H}_{\gamma}(\pm \gamma_*) = 
+	\frac{4 \eta^2 ( \eta^2 + \beta^2)}{(\gamma^2 + \eta^2 + \beta^2)^2}.
 \end{align}
-First observe from \eqref{eq:H_bounds} and \eqref{eq:H1} that $\Vert {\cal P}_{\gamma_*} \Vert^2 \geq {\cal H}_{\gamma_*}(0) = 1$, and thus the upper bound on $\Vert {\cal P}_{\gamma} \Vert^2$ from \eqref{eq:P_gamma*_bounds} achieves equality for a matrix $\cL$ having an eigenvalue of $\mathrm{i} \xi = 0$. Secondly, observe from \eqref{eq:H_bounds} and \eqref{eq:H2} that $\Vert {\cal P}_{\gamma_*}^{-1} \Vert^2 \geq \tfrac{1}{{\cal H}_{\gamma_*}(\pm \gamma_*)}= 1 + \tfrac{\beta^2}{\eta^2}$, and thus the upper bound on $\Vert {\cal P}_{\gamma}^{-1} \Vert^2$ from \eqref{eq:P_gamma*_bounds} achieves equality for a matrix $\cL$ having eigenvalues $\mathrm{i} \xi = \pm \mathrm{i} \gamma_*$. Therefore, bound \eqref{eq:P_gammastar} on $\kappa({\cal P}_{\gamma_*})$ achieves equality for any matrix $\cL$ having eigenvalues $\mathrm{i}\xi =0, \pm \mathrm{i}\gamma_*$.
+%
+First observe from \eqref{eq:H_bounds} and \eqref{eq:H1} that $\Vert {\cal
+P}_{\gamma_*} \Vert^2 \geq {\cal H}_{\gamma_*}(0) = 1$, and thus the upper bound
+on $\Vert {\cal P}_{\gamma} \Vert^2$ from \eqref{eq:P_gamma*_bounds} achieves
+equality for a matrix $\cL$ having an eigenvalue of $\xi = 0$.
+Secondly, observe from \eqref{eq:H_bounds} and \eqref{eq:H1} that $\Vert {\cal
+P}_{\gamma_*}^{-1} \Vert^2 \geq \tfrac{1}{{\cal H}_{\gamma_*}(\pm \gamma_*)}= 1
++ \tfrac{\beta^2}{\eta^2}$, and thus the upper bound on $\Vert {\cal
+P}_{\gamma}^{-1} \Vert^2$ from \eqref{eq:P_gamma*_bounds} achieves equality for
+a matrix $\cL$ having eigenvalues $\mathrm{i} \xi = \pm \mathrm{i} \gamma_*$.
+Therefore, bound \eqref{eq:P_gammastar} on $\kappa({\cal P}_{\gamma_*})$
+achieves equality for any matrix $\cL$ having eigenvalues $\{0, \pm
+\mathrm{i}\gamma_*\}$.
 
-Finally, having shown that \eqref{eq:P_gammastar} is tight, we now show that  $\gamma = \gamma_*$ is optimal. Once again, consider the matrix $\cL$ from above with eigenvalues $\mathrm{i}\xi =0, \pm \mathrm{i}\gamma_*$, such that $\kappa^2({\cal P}_{\gamma_*})
+Finally, having shown that \eqref{eq:P_gammastar} is tight, we now show that 
+$\gamma = \gamma_*$ is optimal. Once again, consider the matrix $\cL$ from above
+with eigenvalues $\{0, \pm \mathrm{i}\gamma_* \}$, such that
+$\kappa^2({\cal P}_{\gamma_*})
 =
-1 + \frac{\beta^2}{\eta^2}$. Now, observe from this, \eqref{eq:H_bounds}, \eqref{eq:H1}, and \eqref{eq:H2} that for such a matrix
+1 + \frac{\beta^2}{\eta^2}$. Now, observe from this, \eqref{eq:H_bounds},
+and \eqref{eq:H1} that for $0 < \gamma < \gamma_*$,
+%
 \begin{align}
 \label{eq:kappa_lwr_bnd1}
 \kappa^2({\cal P}_{\gamma_*})
@@ -944,15 +1023,14 @@ Finally, having shown that \eqref{eq:P_gammastar} is tight, we now show that  $\
 =
 \frac{{\cal H}_{\gamma}(0)}{{\cal H}_{\gamma}(\pm \sqrt{\eta^2 + \beta^2})}
 \leq
-\kappa^2({\cal P}_{\gamma}),
-\quad 0 < \gamma < \gamma_*.
+\kappa^2({\cal P}_{\gamma}).
 \end{align}
-Now let us further impose that $\cL$ has eigenvalues of $\mathrm{i} \xi \to \pm \mathrm{i} \infty$, which, when substituted into \eqref{eq:H_def}, yields
-\begin{align}
-\label{eq:H3}
-\lim_{\xi \to \pm \infty} {\cal H}_{\gamma}(\xi) = 1.
-\end{align}
-Now upon combining \eqref{eq:H_bounds}, \eqref{eq:H2}, and \eqref{eq:H3}, observe that
+Now suppose that $\cL$ has eigenvalues $\mathrm{i} \xi \to \pm \mathrm{i} \infty$,
+which, when substituted into \eqref{eq:H_def}, yields
+$\lim_{\xi \to \pm \infty} {\cal H}_{\gamma}(\xi) = 1$.
+Combining with \eqref{eq:H_bounds} and \eqref{eq:H1}, we have 
+for $\gamma_* < \gamma < \infty$,
+%
 \begin{align}
 \label{eq:kappa_lwr_bnd2}
 \kappa^2({\cal P}_{\gamma_*})
@@ -961,56 +1039,35 @@ Now upon combining \eqref{eq:H_bounds}, \eqref{eq:H2}, and \eqref{eq:H3}, observ
 =
 \frac{{\cal H}_{\gamma}(\pm \infty)}{{\cal H}_{\gamma}(\pm \sqrt{\eta^2 + \beta^2})}
 \leq
-\kappa^2({\cal P}_{\gamma}), 
-\quad \gamma_* < \gamma < \infty.
+\kappa^2({\cal P}_{\gamma}).
 \end{align}
-Thus, from \eqref{eq:kappa_lwr_bnd1} and \eqref{eq:kappa_lwr_bnd2}, a matrix $\cL$ having eigenvalues $\mathrm{i}\xi =0, \pm \mathrm{i}\gamma_*, \pm \mathrm{i} \infty$ satisfies $\kappa({\cal P}_{\gamma}) > \kappa({\cal P}_{\gamma_*}) = \sqrt{1 + \beta^2/\eta^2}$ for $\gamma \in (0, \infty) \setminus \gamma_*$. It therefore holds for general $\cL$ that a tight upper bound on $\kappa({\cal P}_{\gamma})$ for $\gamma \in (0, \infty) \setminus \gamma_*$ must be larger than the tight upper bound of $\kappa({\cal P}_{\gamma_*}) \leq \sqrt{1 + \beta^2/\eta^2}$. Hence $\gamma=\gamma_*$ is the minimizer over $\gamma \in (0, \infty)$ of a tight upper bound on $\kappa({\cal P}_{\gamma})$ for general matrices $\cL$.
+%
+
+By construction in \eqref{eq:kappa_lwr_bnd1} and \eqref{eq:kappa_lwr_bnd2},
+we have shown that for all $\gamma \in (0, \infty) \setminus \gamma_*$, there exists
+matrices $\cL$ such that $\kappa({\cal P}_{\gamma}) > \kappa({\cal
+P}_{\gamma_*}) = \sqrt{1 + \beta^2/\eta^2}$. It therefore holds for general $\cL$
+satisfying \Cref{ass:eig,ass:fov} that a tight upper bound on $\kappa({\cal P}_{\gamma})$
+for $\gamma \in (0, \infty) \setminus \gamma_*$ must be larger than the tight upper
+bound of $\kappa({\cal P}_{\gamma_*}) \leq \sqrt{1 + \beta^2/\eta^2}$. Hence $\gamma=\gamma_*$ is the
+minimizer over $\gamma \in (0, \infty)$ of a tight upper bound on $\kappa({\cal
+P}_{\gamma})$.
 \end{proof}
 %
 
-
-In \cite{exh}, similar analysis \OK{It's probably no longer appropriate to call their analysis ``similar''?} is done under the assumption
-that $-\mathcal{L}$ is SPD, in which case the conditioning can be derived based on
-eigenvalues. There, they effectively derive the conditioning of the preconditioned
-operator for $\gamma = \eta$ to be cond$(\mathcal{P}_\eta) = 1 + \tfrac{\beta^2}{\eta^2}$
-(using notation of this paper, as the spectrum of $(I - \tfrac{1}{\eta}\mathcal{L})^{-1}
-\mapsto [0,1]$, as would likely happen with refinement of a parabolic problem,
-the result in \cite{exh} is exact). If we let $\gamma = \eta$, \Cref{th:cond} yields
-%
-\begin{align}\label{eq:cond_eta}
-\textnormal{cond}(\mathcal{P}_{\gamma = \eta}) < 1 + \frac{\beta^2}{\eta^2}.
-\end{align}
-%
-In addition, as $\beta \to 0$, $\gamma \to \eta$ and the condition number
-\eqref{eq:cond_gen} $\to 1$ (as expected), and applying the general results
-in \eqref{eq:cond_gen} to $\gamma_*$ exactly yields \eqref{eq:P_gammastar}.
-Altogether, this suggests the condition number bounds in \Cref{th:cond}
-are moderately tight.
-\OK{Not sure how much of the above paragraph you want to keep since some of it no longer applies.}
-
-One open question is whether the modified constant $\gamma_*$ (as opposed to,
-for example, $\gamma=\eta$) is \textit{necessary} for problems where
-$W(\widehat{\mathcal{L}}^2) \not\geq 0$. One might note that the condition
-number bounds of $\mathcal{P}_\eta$ and $\mathcal{P}_{\gamma_*}$ do not differ
-significantly for reasonable values of $\eta$ and $\beta$ when
-$W(\widehat{\mathcal{L}}^2) \geq 0$. However, a hyperbolic
-example in \Cref{sec:numerics:dg} demonstrates an almost $6\times$ reduction
-in iteration count achieved by using $\gamma_*$ instead of $\eta$. For
-parabolic/diffusive problems we have explored, $\gamma_*$ has offered a much
-more modest improvement over $\eta$, suggesting that the modified constant
-$\gamma_*=\sqrt{\eta^2+\beta^2}$ may be particularly important
-for a robust method for hyperbolic or advection-dominated problems.
-Furthermore, $\mathcal{P}_{\gamma_*}$ has performed better than
-$\mathcal{P}_{\eta}$ for all problems we have
-tested, and is the recommended preconditioner in practice.
-\OK{Not sure how much of the above paragraph you want to keep; e.g., I assume you don't want to discuss $W(\cLs)$ any more since we don't have those bounds any more?}
-
 \Cref{tab:cond} provides condition number bounds from \Cref{th:cond} and
 \eqref{eq:P_gammastar} for Gauss, Radau IIA, and Lobatto IIIC Runge-Kutta methods.
-
+It is worth pointing out that numerical tests indicate using the modified constant
+$\gamma_*$ as opposed to $\eta$ is particularly important for hyperbolic-type
+problems. Indeed, one example in \Cref{sec:numerics:dg} demonstrates an almost
+$6\times$ reduction in iteration count achieved by using $\gamma_*$ instead of
+$\eta$. For parabolic/diffusive problems we have explored, $\gamma_*$ has offered
+a much more modest improvement over $\eta$. Nevertheless, $\mathcal{P}_{\gamma_*}$
+has performed better than $\mathcal{P}_{\eta}$ for all problems we have tested,
+and is the recommended preconditioner in practice.
 %
 {
-\renewcommand{\tabcolsep}{4pt}
+% \renewcommand{\tabcolsep}{4pt}
 \renewcommand{\arraystretch}{1.15}
 \begin{table}[!ht]
   \centering
@@ -1021,11 +1078,11 @@ tested, and is the recommended preconditioner in practice.
 & {$\lambda_{1,2}^\pm$} & {$\lambda_1$} & {$\lambda_{2,3}^\pm$} & {$\lambda_{1,2}^\pm$} &
 	{$\lambda_{3,4}^\pm$} & {$\lambda_1$} & {$\lambda_{2,3}^\pm$} & {$\lambda_{4,5}^\pm$} \\
 \hline
-Gauss  & 1.46 & 1.00 & 2.15 & 2.83 & 1.13 & 1.00 & 3.50 & 1.38 \\
-Radau IIA  & 1.67 & 1.00 & 2.54 & 3.37 & 1.16 & 1.00 & 4.15 & 1.45 \\
-Lobatto IIIC  & 2.24 & 1.00 & 3.37 & 4.37 & 1.19 & 1.00 & 5.27 & 1.52 \\\hline
+Gauss & 1.15 & 1.00 & 1.38 & 1.61 & 1.04 & 1.00 & 1.83 & 1.13 \\
+Radau IIA & 1.22 & 1.00 & 1.51 & 1.79 & 1.05 & 1.00 & 2.05 & 1.15 \\
+Lobatto IIIC & 1.41 & 1.00 & 1.79 & 2.12 & 1.06 & 1.00 & 2.42 & 1.17 \\\hline
   \end{tabular}
-  \caption{\OK{Update the numbers in table using new bound. I assume you already have code for this somewhere, Ben? For consistency, probably best you do it.} Bounds on $\kappa(\mathcal{P}_{\gamma_*})$ from \Cref{th:cond} and
+  \caption{Bounds on $\kappa(\mathcal{P}_{\gamma_*})$ from \Cref{th:cond} and
   \eqref{eq:P_gammastar} for Gauss, Radau IIA, and Lobatto IIIC integration,
   with 2--5 stages. Each column within a given set of stages corresponds
   to either a real eigenvalue, $\lambda_1 = \eta$, or a conjugate pair of eigenvalues,
@@ -1037,7 +1094,7 @@ Lobatto IIIC  & 2.24 & 1.00 & 3.37 & 4.37 & 1.19 & 1.00 & 5.27 & 1.52 \\\hline
 % \beta^2/\eta^2 & 1 & 0 & 2.21 & 3.51 & 0.13 & 0 & 4.88 & 0.38 \\
 % Matlab array:
 % bn = [0.33 , 0 , 0.91 , 1.59 , 0.09 , 0 , 2.36 , 0.27; 0.50 , 0 , 1.29 , 2.21 , 0.11 , 0 , 3.20 , 0.32; 1 , 0 , 2.21 , 3.51 , 0.13 , 0 , 4.88 , 0.38];
-
+\vspace{-3ex}
 }
 
 \begin{remark}[Mass matrices]
@@ -1335,7 +1392,8 @@ are shown in \Cref{fig:ad_advdiff}.
 \subsubsection{A hyperbolic example, and preconditioning with $\eta$ vs. $\gamma_*$}
 \label{sec:numerics:dg:const}
 
-First, we demonstrate the effectiveness of using $\gamma_*$ (\Cref{sec:solve:prec:gamma}) instead of $\eta$ in the preconditioner, as well as the robustness of the proposed
+First, we demonstrate the effectiveness of using $\gamma_*$ (\Cref{sec:solve:gamma})
+instead of $\eta$ in the preconditioner, as well as the robustness of the proposed
 method on a fully hyperbolic problem, where most papers have only discussed parabolic
 PDEs. Thus, we set the diffusion coefficient $\varepsilon = 0$
 and apply AIR as a preconditioner for individual systems
