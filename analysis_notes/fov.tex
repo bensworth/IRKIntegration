@@ -497,7 +497,7 @@ Since ${\cal N}$ is skew-symmetric, i.e., ${\cal N}^\top = - {\cal N}$, it has p
 \begin{align}
 \label{eq:ss_lin_G}
 {\cal G}_y(\mu) \coloneqq |{\cal F}_y(\mu)|^2 = 
-\frac{\mu^4 + 2(x^2-1)\mu^2 + (x^2 + 1)^2}{(y^2 + \mu^2)} > 0.
+\frac{\mu^4 + 2(x^2-1)\mu^2 + (x^2 + 1)^2}{(y^2 + \mu^2)^2} > 0.
 \end{align}\\
 
 Now we present some of the calculations to determine the extrema of ${\cal G}_y$. Note that we assume $y > 0$ (sometimes this is said explicitly, but sometimes it is not). First we consider the value of ${\cal G}_y$ at the end points of its domain,
@@ -586,7 +586,7 @@ The minima are more complicated and are split into two cases:
 Where the extremal values of ${\cal G}_y(\mu)$ used in \eqref{eq:ss_lin_maxG}, \eqref{eq:ss_lin_minG_case1}, and \eqref{eq:ss_lin_minG_case2} are given by
 \begin{align*}
 {\cal G}_y(0) &= \left(\frac{x^2 + 1}{y^2}\right)^2, \\
-{\cal G}_y(\mu_{\pm}) &= \frac{4x^4}{y^4 + 2(1-x^2)y^2 + (x^2 + 1)^2}, \\
+{\cal G}_y(\mu_{\pm}) &= \frac{4x^2}{y^4 + 2(1-x^2)y^2 + (x^2 + 1)^2}, \\
 {\cal G}_y(\pm \infty) &= 1.
 \end{align*}
 In some of the above calculations the following bound was used
@@ -651,14 +651,14 @@ Where we have used the following functions
 &\coloneqq 
 \frac{{\cal G}_y(0)}{{\cal G}_y(\mu_{\pm})}
 = 
-\left( \frac{x^2+1}{2x^2} \right)^2 \left[1 + 2 \frac{(1-x^2)}{y^2} + \frac{(x^2 + 1)^2}{y^4} \right], 
+\left( \frac{x^2+1}{2x} \right)^2 \left[1 + 2 \frac{(1-x^2)}{y^2} + \frac{(x^2 + 1)^2}{y^4} \right], 
 \\
 \label{eq:ss_lin_k2}
 \kappa_2^2
 &\coloneqq 
 \frac{{\cal G}_y(\pm \infty)}{{\cal G}_y(\mu_{\pm})}
 = 
-\frac{y^4 + 2(1-x^2)y^2 + (x^2 + 1)^2}{4x^4},
+\frac{y^4 + 2(1-x^2)y^2 + (x^2 + 1)^2}{4x^2},
 \\
 \label{eq:ss_lin_k3}
 \kappa_3^2 
@@ -672,7 +672,7 @@ Considering the derivative of \eqref{eq:ss_lin_k1} we have
 \begin{align*}
 \frac{\textrm{d} \kappa_1^2}{\textrm{d} y} 
 = 
-- \frac{1}{y^5}\left( \frac{x^2+1}{x^2} \right)^2 
+- \frac{1}{y^5}\left( \frac{x^2+1}{x} \right)^2 
 \left[
 (1-x^2) y^2 + (1+x^2)^2
 \right].
@@ -681,7 +681,7 @@ If $x^2 < 1$, this is negative for all $y > 0$ such that \eqref{eq:ss_lin_k2_cas
 
 Finally, considering the derivative of \eqref{eq:ss_lin_k2} we have
 \begin{align*}
-\frac{\textrm{d} \kappa_2^2}{\textrm{d} y} = \frac{y}{x^4} (y^2 + 1 - x^2).
+\frac{\textrm{d} \kappa_2^2}{\textrm{d} y} = \frac{y}{x^2} (y^2 + 1 - x^2).
 \end{align*}
 When $x^2 > 1$, this derivative is always positive for $y > 0$ such that condition number \eqref{eq:ss_lin_k2_case1} is strictly increasing for $y > \sqrt{x^2+1}$. When $x^2<1$, this derivative is positive for $y > \sqrt{x^2-1}$, and therefore condition number \eqref{eq:ss_lin_k2_case2} is strictly increasing for $y \in (\sqrt{x^2 + 1}, (x^2+1)/\sqrt{x^2-1})$.
 
@@ -699,6 +699,15 @@ Moreover, its minimum value is
 \end{align}
 \end{remark}
 
+It's interesting to consider the choice $\gamma = \eta$, which in the scaled variables of \eqref{eq:ss_lin_scaled_var} means $y = x$. Evaluating \eqref{eq:ss_lin_k1} at $y = x$ we have
+\begin{align*}
+\kappa^2({\cal P}_{x}) = \kappa_1^2(x) = \left[ \frac{1}{2} \left( 1 + \frac{1}{x^2} \right) \right]^2 \sqrt{4 + \frac{1}{x^2}}.
+\end{align*}
+Setting $x = \eta/\beta$ and taking the square root we get
+\begin{align*}
+\kappa({\cal P}_{\eta}) = \frac{1}{2} \sqrt{4 + \frac{\beta^2}{\eta^2}} \left(1 + \frac{\beta^2}{\eta^2} \right) .
+\end{align*}
+Notice that this is coincides exactly with the condition number in \eqref{eq:kappa_eta_skew} for the skew-symmetric case in the $2 \times 2$ setting, which it should since the two operators ${\cal P}_{\gamma}$ coincide when $\gamma = \eta$.
 
 % ---------------------------------------------------------------------------------------------- %
 % ---------------------------------------------------------------------------------------------- %
