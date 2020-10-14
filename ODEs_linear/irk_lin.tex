@@ -24,7 +24,7 @@
 
 \newsiamremark{remark}{Remark}
 \newsiamremark{assumption}{Assumption}
-
+\crefname{assumption}{Assumption}{Assumptions}
 
 % \newtheorem{lemma}{Lemma}
 % \newtheorem{definition}{Definition}
@@ -39,6 +39,10 @@
 \newcommand{\OK}[1]{\textcolor{blue}{[OK: #1]}}
 
 \DeclareMathOperator{\adj}{adj}
+\DeclareMathOperator{\cL}{\widehat{\mathcal{L}}}
+\DeclareMathOperator{\cLs}{\widehat{\mathcal{L}}^2}
+\DeclareMathOperator{\bVert}{\big\Vert}
+
 
 % ------------------------------------------------------------------------------------ %
 % ------------------------------------------------------------------------------------ %
@@ -347,7 +351,7 @@ tractable.
 The algorithms developed here depend on the eigenvalues of $A_0$ and
 $A_0^{-1}$, leading to our first assumption.
 %
-\begin{assumption}\label{ass:eig}
+\begin{assumption} \label{ass:eig}
 Assume that all eigenvalues of $A_0$ (and equivalently $A_0^{-1})$ have positive real part.
 \end{assumption}
 %
@@ -388,7 +392,7 @@ W(\mathcal{L}) := \left\{ \langle \mathcal{L}\mathbf{x},\mathbf{x}\rangle \text{
 %
 This motivates the following assumption for the analysis done in this paper:
 %
-\begin{assumption}\label{ass:fov}
+\begin{assumption} \label{ass:fov}
 Let $\mathcal{L}$ be the linear spatial operator, and assume that $W(\mathcal{L}) \leq 0$.
 \end{assumption}
 %
@@ -608,7 +612,7 @@ of $(\eta I - \widehat{\mathcal{L}})$. Expanding, the preconditioned operator
 then takes the form
 %
 \begin{align}\nonumber
-\mathcal{P}_\eta & := (\eta I - \widehat{\mathcal{L}})^{-2}\left[(\eta^2+\beta^2)I - 2\eta \widehat{\mathcal{L}} + \widehat{\mathcal{L}}^2\right] \\
+\mathcal{P}_\eta & := \left[(\eta^2+\beta^2)I - 2\eta \widehat{\mathcal{L}} + \widehat{\mathcal{L}}^2\right] (\eta I - \widehat{\mathcal{L}})^{-2} \\
 &\hspace{5ex} = I + \beta^2(\eta I - \widehat{\mathcal{L}})^{-2}
 = I + \frac{\beta^2}{\eta^2}\left(I - \tfrac{1}{\eta}\widehat{\mathcal{L}}\right)^{-2}.\label{eq:prec1}
 \end{align}
@@ -740,16 +744,17 @@ and with weaker dependence on $\eta$ and $\beta$.
 
 % ------------------------------------------------------------------------------------- %
 \subsubsection{A better choice of $\gamma$}\label{sec:solve:prec:gamma}
+\OK{Change section title to ``The optimal choice of $\gamma$''? Or something to this effect.}
 
 Consider a similar preconditioner as in
 \Cref{sec:solve:inv}, but with preconditioning constant $\gamma \mapsto
 (\gamma I - \widehat{\mathcal{L}})^{-2}$. The resulting preconditioned
 operator takes the form
 %
-\begin{align}\nonumber
+\begin{align}\label{eq:P_gamma}
 \mathcal{P}_\gamma & =
-(\gamma I - \widehat{\mathcal{L}})^{-2}\Big[(nI - \widehat{\mathcal{L}})^2 + \beta^2 I\Big] \\ \nonumber
-& = (\gamma I - \widehat{\mathcal{L}})^{-2}\Big[((\eta-\gamma)I + (\gamma I - \widehat{\mathcal{L}}))^2 + \beta^2 I\Big] \\
+\Big[(\eta I - \widehat{\mathcal{L}})^2 + \beta^2 I\Big] (\gamma I - \widehat{\mathcal{L}})^{-2} \\ \nonumber
+& =\Big[((\eta-\gamma)I + (\gamma I - \widehat{\mathcal{L}}))^2 + \beta^2 I\Big]  (\gamma I - \widehat{\mathcal{L}})^{-2} \\
 % & = (\gamma I - \widehat{\mathcal{L}})^{-2}\Big[(\gamma-\eta)^2I - 2(\gamma-\eta)(\gamma I - \widehat{\mathcal{L}}) +
 % 	(\gamma I - \widehat{\mathcal{L}})^2 + \beta^2 I\Big] \nonumber\\
 % & = I - 2(\gamma-\eta)(\gamma I - \widehat{\mathcal{L}})^{-1} + (\beta^2 + (\gamma-\eta)^2)(\gamma I -
@@ -758,6 +763,7 @@ operator takes the form
 	\frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}
 	\left(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}\right)^{-2}.\label{eq:prec_k}
 \end{align}
+\OK{I changed the above and the equation for the operator in the previous section to use right preconditioning rather than left for consistency since this is what I use in the proof. But the operator is identical for left v.s right preconditioning is the same. Why is this?}
 %
 Note that in \eqref{eq:prec_k} we have a quadratic polynomial in
 $(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{-1}$. Although this provides
@@ -777,278 +783,193 @@ operator, $\mathcal{P}_\gamma$, similar to as done for SPD matrices in \cite{exh
 % \end{align*}
 % %
 
-\begin{theorem}[Conditioning of preconditioned operator]\label{th:cond}
-Suppose Assumptions \ref{ass:eig} and \ref{ass:fov} hold, that is, $\eta > 0$
-and $W(\widehat{\mathcal{L}}) \leq 0$ \eqref{eq:fov}. Let $\mathcal{P}_\gamma$ denote
-the preconditioned operator, where $((\eta + \mathrm{i}\beta)I - \widehat{\mathcal{L}})((\eta - \mathrm{i}\beta)I - \widehat{\mathcal{L}})$ is
-preconditioned with $(\gamma I - \widehat{\mathcal{L}})^{-2}$.
-Define $\gamma_*$ by
-\begin{equation}
-	\label{eq:gam_opt}
-	\gamma_* = \sqrt{\eta^2+\beta^2}
-\end{equation}
-and let $\gamma = \gamma_*$. Then
+\begin{theorem}[Optimal preconditioning]
+\label{th:cond}
+Suppose \Cref{ass:eig,ass:fov} hold, that is, $\eta > 0$ and $W(\cL) \leq 0$. Let $\mathcal{P}_\gamma$ denote
+the preconditioned operator \eqref{eq:P_gamma}, where $[(\eta + \mathrm{i}\beta)I -
+\cL][(\eta - \mathrm{i}\beta)I - \cL]$ is 
+preconditioned with $(\gamma I - \cL)^{-2}$.
 %
-\begin{align}\label{eq:gammastar}
-\textnormal{cond}(\mathcal{P}_{\gamma_*}) <
-	3\sqrt{1+\frac{\beta^2}{\eta^2}} - 2.
+Let $\kappa({\cal P}_{\gamma})$ denote the two-norm condition number of ${\cal P}_{\gamma}$, and define $\gamma_*$ by 
+\begin{align} \label{eq:gammastar}
+\gamma_* \coloneqq \sqrt{\eta^2+\beta^2}.
+\end{align}
+Then
+\begin{align} \label{eq:P_gammastar}
+\kappa(\mathcal{P}_{\gamma_*}) \leq \sqrt{1+\frac{\beta^2}{\eta^2}}.
 \end{align}
 
-Assume additionally that $W(\widehat{\mathcal{L}}^2) \geq 0$. Then for
-$\eta \leq \gamma \leq \gamma_*$
-\begin{align}\label{eq:cond_gen}
-\textnormal{cond}(\mathcal{P}_\gamma) < \frac{\gamma}{\eta}
-	\left(1 + \frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}\right).
-\end{align}
+Moreover, bound \eqref{eq:P_gammastar} is tight since there exist matrices $\cL$ that satisfy it exactly. Finally, $\gamma = \gamma_*$ is optimal in the sense that it minimizes a tight upper bound on $\kappa({\cal P}_{\gamma})$ over all $\gamma \in (0, \infty)$ without further assumptions on $\cL$.
 \end{theorem}
 \begin{proof}
-Recall for matrix $A$, cond$(A) = \|A\|\|A^{-1}\|$.
-First, consider bounding $\|\mathcal{P}_\gamma\|$ for $\gamma \geq \eta$.
-From the proof of \Cref{th:fov}, we have
-$\|(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{-1}\|\leq 1$, and observe
-%
-\begin{align}\nonumber
-\|\mathcal{P}_\gamma\| & = \left\| I - 2\frac{\gamma-\eta}
-	{\gamma}\left(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}\right)^{-1} +
-		\frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}
-		\left(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}\right)^{-2} \right\| \\
-% & \leq \left\| I - 2\frac{\gamma-\eta}
-% 	{\gamma}\left(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}\right)^{-1}\right\| +
-% 		\frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}\left\|
-% 		\left(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}\right)^{-2} \right\| \\
-& \leq \left\| I - 2\frac{\gamma-\eta}
-	{\gamma}\left(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}\right)^{-1}\right\| +
-		\frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}\left\|
-		\left(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}\right)^{-1} \right\|^2 \nonumber \\
-& \leq \left\| I - 2\frac{\gamma-\eta}
-	{\gamma}\left(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}\right)^{-1}\right\| +
-		\frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}. \label{eq:P0}
+First we will prove bound \eqref{eq:P_gammastar}, then we will demonstrate it is tight, and finally we will demonstrate the optimality of $\gamma=\gamma_*$.
+
+The square of the condition number of ${\cal P}_{\gamma}$ is
+\begin{align}
+\label{eq:kappa_def}
+\kappa^2({\cal P}_{\gamma}) 
+= 
+\Vert {\cal P}_{\gamma} \Vert^2 
+\Vert {\cal P}_{\gamma}^{-1} \Vert^2
+=
+\underset{{\bm{v} \neq 0}}{\max} \frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2 }{\Vert \bm{v} \Vert^2} 
+\frac{1}{\displaystyle{\underset{{\bm{v} \neq 0}}{\min} \frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2 }{\Vert \bm{v} \Vert^2}}}.
 \end{align}
+The key step in establishing \eqref{eq:P_gammastar} is bounding $\Vert {\cal P}_{\gamma} \Vert^2$ and $\Vert {\cal P}_{\gamma}^{-1} \Vert^2$ from above by bounding $\frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2 }{\Vert \bm{v} \Vert^2}$ from above and below, respectively.
 %
-For the first term, note that maximizing over $\mathbf{v}\in\mathbb{R}^n$ and
-letting $\mathbf{v} := (I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})\mathbf{w}$,
-%
-{\small
-\begin{align*}
-\left\| I - 2\tfrac{\gamma-\eta}
-	{\gamma}(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{-1}\right\|^2
-		& = \sup_{\mathbf{v}\neq\mathbf{0}} \frac{\left\| [I - 2\frac{\gamma-\eta}
-	{\gamma}(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{-1}]\mathbf{v}\right\|^2}{\|\mathbf{v}\|^2}
-= \sup_{\mathbf{w}\neq\mathbf{0}} \frac{\left\| (I - \tfrac{1}{\gamma}\widehat{\mathcal{L}} -
-		2\frac{\gamma-\eta}{\gamma}I )\mathbf{w}\right\|^2}{\|(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})
-		\mathbf{w}\|^2} \\
-% & = \sup_{\mathbf{w}\neq\mathbf{0}} \frac{\left\|[(1 - 2\frac{\gamma-\eta}{\gamma})
-% 	I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}]\mathbf{w}\right\|^2}{\|(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})
-% 		\mathbf{w}\|^2} \\
-&\hspace{-5ex} = \sup_{\mathbf{w}\neq\mathbf{0}} \frac{|1 - 2\tfrac{\gamma-\eta}{\gamma}|^2\|\mathbf{w}\|^2
-	- \tfrac{1}{\gamma}(1 - 2\tfrac{\gamma-\eta}{\gamma})\langle (\widehat{\mathcal{L}} + \widehat{\mathcal{L}}^T)
-		\mathbf{w},\mathbf{w}\rangle + \tfrac{1}{\gamma}^2\|\widehat{\mathcal{L}}\mathbf{w}\|^2}
-	{\|\mathbf{w}\|^2 - \tfrac{1}{\gamma}\langle (\widehat{\mathcal{L}} + \widehat{\mathcal{L}}^T)
-		\mathbf{w},\mathbf{w}\rangle + \tfrac{1}{\gamma}^2\|\widehat{\mathcal{L}}\mathbf{w}\|^2}.
-\end{align*}
+Considering the form of the preconditioned operator ${\cal P}_{\gamma}$ in \eqref{eq:P_gamma}, we make the substitution $\bm{v} = (\gamma I - \cL)^{2} \bm{w}$. Now, assuming $\bm{v}$ (and hence $\bm{w}$ also) is real, the squared norm of ${\cal P}_{\gamma} \bm{v}$ can be expressed as
+\begin{align}
+\label{eq:norm_Pv}
+\Vert {\cal P}_{\gamma} \bm{v} \Vert^2
+&=
+\bVert [( \eta I - \cL)^2 + \beta^2] \bm{w} \bVert^2, \\
+&=
+\nonumber
+\bVert (\eta^2 + \beta^2) \bm{w} + \cLs \bm{w} \bVert^2  - 4 \eta \langle \cL (\cL \bm{w}), \cL \bm{w} \rangle + 4 \eta^2 \bVert \cL \bm{w} \bVert^2 - 4 \eta (\eta^2 +\beta^2) \langle \cL \bm{w}, \bm{w} \rangle.
+\end{align}
+Similarly, the squared norm of $\bm{v}$ can be written as (e.g., by letting $\eta \mapsto \gamma$ and $\beta \mapsto 0$ in the right side of the equations above)
+\begin{align}
+\label{eq:norm_v}
+\Vert \bm{v} \Vert^2
+&=
+\bVert ( \gamma I - \cL)^2 \bm{w} \bVert^2, \\
+&=
+\nonumber
+\bVert \gamma^2 \bm{w} + \cLs \bm{w} \bVert^2  - 4 \gamma \langle \cL ( \cL \bm{w}), \cL \bm{w} \rangle + 4 \gamma^2 \bVert \cL \bm{w} \bVert^2 - 4 \gamma^3 \langle \cL \bm{w}, \bm{w} \rangle.
+\end{align}
+Thus, the key term from \eqref{eq:kappa_def} can be written in the form
+\begin{align}
+\label{eq:P_gamma_frac}
+\frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2}{\Vert \bm{v} \Vert^2}
+=
+\frac{
+c_0(\bm{w}) f_0(\bm{w}) + c_1 f_1(\bm{w}) + c_2 f_2(\bm{w}) + c_3 f_3(\bm{w})
 }
-%
-Note that by assumption, $\gamma \geq \eta > 0$, which implies
-$0 \leq 2\tfrac{\gamma-\eta}{\gamma}  < 2$, and
-$|1 - 2\tfrac{\gamma-\eta}{\gamma}| < 1$. In addition, we assume $W(\widehat{\mathcal{L}})\leq 0$,
-which implies $\langle (\widehat{\mathcal{L}}+\widehat{\mathcal{L}}^T)\mathbf{w},\mathbf{w}\rangle \leq 0$
-(see \Cref{th:fov}), and
-$2\tfrac{\gamma-\eta}{\gamma^2} \geq 0$, which implies the term
-$2\tfrac{\gamma-\eta}{\gamma^2}\langle (\widehat{\mathcal{L}}+\widehat{\mathcal{L}}^T)
-	\mathbf{w},\mathbf{w}\rangle\leq 0$. Appealing to these two inequalities,
-%
-\begin{align} \label{eq:P1}
-\left\| I - 2\tfrac{\gamma-\eta}
-	{\gamma}(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{-1}\right\|^2
-& < \sup_{\mathbf{w}\neq\mathbf{0}} \frac{\|\mathbf{w}\|^2
-	- \tfrac{1}{\gamma}\langle (\widehat{\mathcal{L}} + \widehat{\mathcal{L}}^T)
-		\mathbf{w},\mathbf{w}\rangle + \tfrac{1}{\gamma}^2\|\widehat{\mathcal{L}}\mathbf{w}\|^2}
-	{\|\mathbf{w}\|^2 - \tfrac{1}{\gamma}\langle (\widehat{\mathcal{L}} + \widehat{\mathcal{L}}^T)
-		\mathbf{w},\mathbf{w}\rangle + \tfrac{1}{\gamma}^2\|\widehat{\mathcal{L}}\mathbf{w}\|^2}
-= 1.
+{
+f_0(\bm{w}) + f_1(\bm{w}) + f_2(\bm{w}) + f_3(\bm{w})
+},
 \end{align}
-%
-Combining \eqref{eq:P0} and \eqref{eq:P1} yields
-%
-\begin{align}\label{eq:Pgamma}
-\|\mathcal{P}_\gamma\| < 1 + \frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}.
-\end{align}
-
-Now consider bounding $\|\mathcal{P}_\gamma^{-1}\|$ from above. Let $s_{\max}(A)$
-and $s_{\min}(A)$ denote the maximum and minimum singular value of matrix $A$,
-respectively, and recall
-%
-\begin{align*}
-\|\mathcal{P}_\gamma^{-1}\| = s_{\max}(\mathcal{P}_\gamma^{-1})
-	& = \frac{1}{s_{\min}(\mathcal{P}_\gamma)}, \hspace{5ex}\textnormal{where}\hspace{2ex}
-s_{\min}(\mathcal{P}_\gamma) =
-	\min_{\mathbf{v}\neq\mathbf{0}} \frac{\|\mathcal{P}_\gamma\mathbf{v}\|}{\|\mathbf{v}\|}.
-\end{align*}
-%
-Thus, consider the minimum singular value of $P_\gamma$. Letting $\mathbf{v} :=
-(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{2}\mathbf{w}$,
-%
-\begin{align}\nonumber
-s_{\min}(\mathcal{P}_\gamma)^2 & = \min_{\mathbf{v}\neq\mathbf{0}}
-	\frac{\left\| \left[I - 2\frac{\gamma-\eta}{\gamma}(I - \tfrac{1}{\gamma}
-		\widehat{\mathcal{L}})^{-1} + \frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}
-		(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{-2}\right]\mathbf{v} \right\|^2}
-	{\|\mathbf{v}\|^2} \\
-& = \min_{\mathbf{w}\neq\mathbf{0}}
-	\frac{\left\| \left[(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{2} - 2\frac{\gamma-\eta}{\gamma}
-		(I - \tfrac{1}{\gamma} \widehat{\mathcal{L}}) + \frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2} I
-		\right]\mathbf{w} \right\|^2}
-	{\|(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{2}\mathbf{w}\|^2} \nonumber\\
-& = \min_{\mathbf{w}\neq\mathbf{0}}
-	\frac{\left\| \left[(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{2} +
-		\tfrac{\eta^2+\beta^2-\gamma^2}{\gamma^2} I + 2\frac{\gamma-\eta}{\gamma^2}
-		\widehat{\mathcal{L}}) \right]\mathbf{w} \right\|^2}
-	{\|(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{2}\mathbf{w}\|^2}.\label{eq:smin0}
-\end{align}
-%
-
-For ease of notation, define
-%
-\begin{align*}
-c_I & := \tfrac{\eta^2+\beta^2-\gamma^2}{\gamma^2} , \hspace{5ex}
-c_{\widehat{\mathcal{L}}} := 2\frac{\gamma-\eta}{\gamma^2},
-\end{align*}
-%
-noting that for $\eta\leq\gamma\leq\sqrt{\eta^2+\beta^2}$, $c_I,c_{\widehat{\mathcal{L}}} \geq 0$.
-Now, collect like terms in \eqref{eq:smin0} and expand the norm to yield
-%
-\begin{align}\nonumber
-s_{\min}(\mathcal{P}_\gamma)^2
-& = \min_{\mathbf{w}\neq\mathbf{0}}
-	\frac{\left\| \left[(1+c_I)I - (\tfrac{2}{\gamma}-c_{\widehat{\mathcal{L}}})\widehat{\mathcal{L}} +
-		\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\right]\mathbf{w} \right\|^2}
-	{\left\|\left(I - \tfrac{2}{\gamma}\widehat{\mathcal{L}} +
-		\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\right)\mathbf{w} \right\|^2} \\
-& =  \min_{\mathbf{w}\neq\mathbf{0}}
-	\frac{\|(1+c_I)\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2 +
-		(\tfrac{2}{\gamma}-c_{\widehat{\mathcal{L}}})^2\|\widehat{\mathcal{L}}\mathbf{w}\|^2}
-	{\|\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2 +
-		\tfrac{4}{\gamma^2}\|\widehat{\mathcal{L}}\mathbf{w}\|^2 -
-		\tfrac{4}{\gamma}\langle\widehat{\mathcal{L}}\mathbf{w},\mathbf{w}\rangle -
-		\tfrac{4}{\gamma^3}\langle\widehat{\mathcal{L}}(\widehat{\mathcal{L}}\mathbf{w}),\widehat{\mathcal{L}}\mathbf{w}\rangle} + ... \nonumber\\
-& \hspace{10ex} \frac{-2(1+c_I)(\tfrac{2}{\gamma}-c_{\widehat{\mathcal{L}}})
-	\langle\widehat{\mathcal{L}}\mathbf{w},\mathbf{w}\rangle -
-		2\tfrac{2-\gamma c_{\widehat{\mathcal{L}}}}{\gamma^3}
-		\langle\widehat{\mathcal{L}}(\widehat{\mathcal{L}}\mathbf{w}),
-			\widehat{\mathcal{L}}\mathbf{w}\rangle}
-	{\|\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2 +
-		\tfrac{4}{\gamma^2}\|\widehat{\mathcal{L}}\mathbf{w}\|^2 -
-		\tfrac{4}{\gamma}\langle\widehat{\mathcal{L}}\mathbf{w},\mathbf{w}\rangle -
-		\tfrac{4}{\gamma^3}\langle\widehat{\mathcal{L}}(\widehat{\mathcal{L}}\mathbf{w}),\widehat{\mathcal{L}}\mathbf{w}\rangle}.\label{eq:smin_ex}
-\end{align}
-%
-By assumption on $W(\widehat{\mathcal{L}})\leq 0$ and $\eta\leq\gamma\leq\sqrt{\eta^2+\beta^2}$,
-all terms in the numerator and denominator are non-negative (note, $\mathbf{w}$ and
-$\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}$ were kept together in norm 
-to avoid the difficulties that arise in analyzing
-$\langle\widehat{\mathcal{L}}^2\mathbf{w},\mathbf{w}\rangle$). In addition, at least 
-one term in the numerator and denominator is positive, because if
-$\mathcal{L}\mathbf{w}=\mathbf{0}$ for $\mathbf{w}\neq\mathbf{0}$, then
-$(1+c_I)\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w} = 
-(1+c_I)\mathbf{w}\neq \mathbf{0}$. 
-
-Here we have a fraction of the form $(C_1x_1 + C_2x_2 + C_3x_3 + C_4x_4)/
-(K_1\hat{x}_1 + K_2x_2 + K_3x_3 + K_4x_4)$ for $C_i,x_i\geq 0 $, $K_i > 0$, and at
-least one triplet, e.g., $\{x_1, C_1, K_1\}$, strictly  positive. Then,
-%
-\begin{align}\label{eq:khat}
-\frac{x_1 + C_2x_2 + C_3x_3 + C_4x_4}{\hat{x}_1 + K_2x_2 + K_3x_3 + K_4x_4} \geq \min_{C_ix_i\neq 0}
-	\left\{\frac{x_1}{\hat{x}_1},\frac{C_2}{K_2},\frac{C_3}{K_3},\frac{C_4}{K_4}\right\}
-:= \widehat{K}
-\end{align}
-%
-For $\|\widehat{\mathcal{L}}\mathbf{w}\|^2$, $-\langle\widehat{\mathcal{L}}\mathbf{w},\mathbf{w}\rangle$,
-and $-\langle\widehat{\mathcal{L}}(\widehat{\mathcal{L}}\mathbf{w}),\widehat{\mathcal{L}}\mathbf{w}\rangle$,
-corresponding to $x_2, x_3$, and $x_4$, respectively, we can directly bound the ratio of constants
-in the numerator and denominator:
-%
-\begin{align*}
-\frac{C_2}{K_2} & = \frac{(\tfrac{2}{\gamma}-c_{\widehat{\mathcal{L}}})^2}{\frac{4}{\gamma^2}}
-	 = \frac{\eta^2}{\gamma^2},
-\hspace{5ex}
-\frac{C_4}{K_4} = \frac{2\tfrac{2-\gamma c_{\widehat{\mathcal{L}}}}{\gamma^3}}{\frac{4}{\gamma^3}}
-	= \frac{\eta}{\gamma}, 
+where we have defined the functions and constants
+\begin{equation}
+\begin{aligned}
+\label{eq:f_c_def}
+f_0 &\coloneqq \bVert \gamma^2 \bm{w} + \cLs \bm{w} \bVert^2 > 0,
+\quad
+&&c_0\coloneqq \frac{\bVert (\eta^2 + \beta^2) \bm{w} + \cLs \bm{w} \bVert^2}{\bVert \gamma^2 \bm{w} + \cLs \bm{w} \bVert^2} > 0,
 \\
-& \frac{C_3}{K_3}  = \frac{2(1+c_I)(\tfrac{2}{\gamma}-c_{\widehat{\mathcal{L}}})}{\frac{4}{\gamma}}
-	= \frac{\eta(\eta^2+\beta^2)}{\gamma^3}, 
-\end{align*}
+f_1 &\coloneqq -4 \gamma \langle \cL( \cL \bm{w}), \cL \bm{w} \rangle \geq 0,
+\quad 
+&&c_1\coloneqq \frac{\eta}{\gamma} > 0,\\
+f_2 &\coloneqq 4 \gamma^2 \bVert \cL \bm{w} \bVert^2 \geq 0, 
+\quad
+&&c_2\coloneqq \frac{\eta^2}{\gamma^2} > 0, \\
+f_3 &\coloneqq -4 \gamma^3 \langle \cL \bm{w}, \bm{w} \rangle \geq 0, 
+\quad
+&&c_3\coloneqq \frac{\eta (\eta^2 + \beta^2)}{\gamma^3} > 0,
+\end{aligned}
+\end{equation}
+assuming $\gamma > 0$. Functions $f_1$ and $f_3$ are non-negative by assumption of $W( \cL ) \leq 0$.
 %
-For $\gamma \in[\eta,\sqrt{\eta^2+\beta^2}]$, the minimum of the
-above ratios is $\tfrac{\eta^2}{\gamma^2}$.
+Note that $f_0$ is positive because it would be zero only if $(\mathrm{i} \gamma, \bm{w})$ was an eigenpair of $\cL$, but this would violate the assumption that $ \cL \bm{w}$ is real (which is a consequence of $\bm{w}$ and $\cL$ being real). It is for analogous reasons that $c_0 > 0$. 
 
-The difficult ratio to bound in \eqref{eq:smin_ex} ends up being
-$x_1 := \|(1+c_I)\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2$ and the
-similar denominator term, $\hat{x}_1 :=
-\|\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2$.
-Here we consider two cases:\\
-\\
-%%%%%
-\underline{$\boldsymbol{\gamma = \gamma_* = \sqrt{\eta^2+\beta^2}}$}: Under this specific choice, we
-get the nice cancellation that $c_I = 0$, and have matching terms
-$\|\mathbf{w}+\tfrac{1}{\gamma_*^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2$ in the numerator
-and denominator of \eqref{eq:smin_ex}. Then, $x_1/\hat{x}_1 = 1$ and the minimum ratio of
-numerator to denominator terms in \eqref{eq:khat} is $\widehat{K} := \tfrac{\eta^2}{\gamma_*^2}$.
-From \eqref{eq:khat} and \eqref{eq:smin_ex} we can bound $\|P_{\gamma_*}^{-1}\|$ via
-%
-\begin{align}\label{eq:gammas_bound}
-\|P_{\gamma_*}^{-1}\| & = \frac{1}{s_{\min}(P_{\gamma_*})}
-	\leq \frac{1}{\sqrt{\widehat{K}}}
-	= \frac{\sqrt{\eta^2+\beta^2}}{\eta} =
-	\sqrt{1+\frac{\beta^2}{\eta^2}}.
-\end{align}
-%
-Combining with \eqref{eq:Pgamma} for $\gamma = \gamma_*$ and simplifying
-completes the proof of \eqref{eq:gammastar}.\\
-\\
-%%%%%
-\noindent
-\underline{\textbf{Nonnegative $\widehat{\mathcal{L}}^2$}}: Expanding $x_1/\hat{x}_1$
-yields
-%
-{\small
-\begin{align}\label{eq:bad}
-\frac{x_1}{\hat{x}_1} = \frac{\|(1+c_I)\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2}
-	{\|\mathbf{w}+\tfrac{1}{\gamma^2}\widehat{\mathcal{L}}^2\mathbf{w}\|^2}
-& = \frac{(1+c_I)^2\|\mathbf{w}\|^2+\tfrac{1}{\gamma^4}\|\widehat{\mathcal{L}}^2\mathbf{w}\|^2
-	+ \tfrac{2(1+c_I)}{\gamma^2}\langle\widehat{\mathcal{L}}^2\mathbf{w},\mathbf{w}\rangle}
-	{\|\mathbf{w}\|^2+\tfrac{1}{\gamma^4}\|\widehat{\mathcal{L}}^2\mathbf{w}\|^2
-	+ \tfrac{2}{\gamma^2}\langle\widehat{\mathcal{L}}^2\mathbf{w},\mathbf{w}\rangle}.
-\end{align}
-}
-%
-By assumption $W(\widehat{\mathcal{L}}^2) \geq 0$ and, analogous to \eqref{eq:khat},
-we have a fraction $(A_1y_1+A_2y_2+A_3y_3)/(B_1y_1+B_2y_2+B_3y_3)$ for $A_i,B_i>0$
-and $y_i\geq 0$, with at least one $y_i > 0$. Recall for $\gamma \in[\eta,\gamma_*]$,
-$c_I \geq 0$. Thus $\tfrac{A_1}{B_1},\tfrac{A_2}{B_2},\tfrac{A_3}{B_3} \geq 1$,
-and it follows that $x_1/\hat{x}_1 \geq 1$ \eqref{eq:bad}.
-%
-%---------------- Comment on \gamma > \sqrt(\eta^2+\beta^2) ----------------
-% It is
-% also clear in \eqref{eq:x_simp} why choosing $\gamma > \sqrt{\eta^2+\beta^2}
-% \implies c_I < 0$ does not appear to be advantageous, at least for this term,
-% as the ratio in \eqref{eq:x_simp} is then $<1$ for all $x\geq 0$, which
-% requires a larger $\widehat{K}$ and, thus, smaller bound on
-% $s_{\min}(\mathcal{P}_\gamma)$.
-Similar to the proof for $\gamma = \gamma_*$, the minimum ratio of
-numerator to denominator terms in \eqref{eq:khat} is
-again $\widehat{K} := \tfrac{\eta^2}{\gamma^2}$. Altogether, this yields
-%
+Since all of the addends in the numerator and denominator of \eqref{eq:P_gamma_frac} are non-negative, and at least one addend in each is positive, it can be bounded as
 \begin{align*}
-\|P_{\gamma}^{-1}\| & = \frac{1}{s_{\min}(P_{\gamma})}
-	\leq \frac{1}{\sqrt{\widehat{K}}}
-	= \frac{\gamma}{\eta}.
+\min \{ c_0, c_1, c_2, c_3 \} \eqqcolon c_{\min}
+\leq
+\frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2}{\Vert \bm{v} \Vert^2} 
+\leq c_{\max} 
+\coloneqq \max \{ c_0, c_1, c_2, c_3 \}.
 \end{align*}
+Applying these bounds to the squared norms in \eqref{eq:kappa_def} yields
+\begin{align} \label{eq:P_gamma_bounds}
+\Vert {\cal P}_{\gamma} \Vert^2 \leq c_{\max}, 
+\quad
+\Vert {\cal P}_{\gamma}^{-1} \Vert^2 \leq \frac{1}{c_{\min}}.
+\end{align}
 %
-Combining with \eqref{eq:Pgamma} completes the proof of \eqref{eq:cond_gen}.
+Bounding $c_0$ for general $\gamma$, and hence $c_{\min}$ and $c_{\max}$, is difficult because the sign of $\langle \cLs \bm{w}, \bm{w} \rangle$ (which appears in expanding $\bVert \gamma^2 \bm{w} + \cLs \bm{w} \bVert^2$) is not known for general $\cL$, noting that the sign of $W(\cL)$ does not determine that of $W(\cLs)$. However, observe from \eqref{eq:f_c_def} that $c_0(\bm{w}) = 1$ for the judicious choice of $\gamma = \gamma_* \coloneqq \sqrt{\eta^2 + \beta^2}$. Moreover, in the final part of this proof we will demonstrate that $\gamma = \gamma_*$ is optimal, and, as such, moving forward we analyze \eqref{eq:P_gamma_frac} only for the special case of $\gamma = \gamma_*$.
+
+Letting $\gamma = \gamma_*$, from \eqref{eq:f_c_def} one has $1 = c_0 > c_1 = c_3 = \sqrt{c_2}$. Thus, for $\gamma = \gamma_*$, bounds \eqref{eq:P_gamma_bounds} are
+\begin{align}
+\label{eq:P_gamma*_bounds}
+\Vert {\cal P}_{\gamma_*} \Vert^2 \leq 1,
+\quad
+\Vert {\cal P}_{\gamma_*}^{-1} \Vert^2 \leq 1 + \frac{\beta^2}{\eta^2}.
+\end{align}
+Applying these bounds to the condition number \eqref{eq:kappa_def} yields the claimed upper bound of \eqref{eq:P_gammastar}.
+
+We now move toward showing that bound \eqref{eq:P_gammastar} is tight and that $\gamma = \gamma_*$ is optimal, which will do by placing lower bounds on $\kappa({\cal P}_{\gamma})$ for a particular class of matrices $\cL$. 
+Consider again the key fraction of $\frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2 }{\Vert \bm{v} \Vert^2}$ from the condition number \eqref{eq:kappa_def}. Again, let $~\bm{v}=(\gamma I - \cL)^2 \bm{w}$, but now suppose that $(\textrm{i} \xi, \bm{w})$ is an eigenpair of $\cL$, with $\xi$ a real number and $\bm{w}$ a complex vector. We use this eigenpair with \eqref{eq:norm_Pv} and \eqref{eq:norm_v} to define the following function
+\begin{align} \label{eq:H_def}
+{\cal H}_{\gamma}(\xi) 
+\coloneqq 
+\left. \frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2 }{\Vert \bm{v} \Vert^2} \right|_{\cL \bm{w} = \mathrm{i} \xi \bm{w}}
+=
+\frac{|(\eta- \mathrm{i} \xi)^2 + \beta^2|^2}{|(\gamma - \mathrm{i} \xi)^2|^2}
+=
+\frac{(\eta^2 + \beta^2 - \xi^2)^2 + 4 \eta^2 \xi^2}{(\gamma^2-\xi^2)^2 + 4 \gamma^2 \xi^2}.
+\end{align}
+By virtue of restricting that $\bm{w}$ be an eigenvector, from \eqref{eq:kappa_def} we have
+\begin{align}
+\label{eq:H_bounds}
+\frac{1}{\Vert {\cal P}_{\gamma}^{-1} \Vert^2}
+=
+\underset{\bm{v} \neq 0}{\min} \frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2}{\Vert \bm{v} \Vert^2}
+\leq {\cal H}_{\gamma}(\xi) \leq 
+\underset{\bm{v} \neq 0}{\max} \frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2}{\Vert \bm{v} \Vert^2} = \Vert {\cal P}_{\gamma} \Vert^2.
+\end{align}
+That is, any value of $\tfrac{1}{{\cal H}_{\gamma}(\xi)}$ serves as a lower bound on $\Vert {\cal P}_{\gamma}^{-1} \Vert^2$, while any value of ${\cal H}_{\gamma}(\xi)$ serves as a lower bound on $\Vert {\cal P}_{\gamma} \Vert^2$. Therefore, the ratio of any two values of ${\cal H}_{\gamma}(\xi)$ provide a lower bound on $\kappa^2({\cal P}_{\gamma})$. We remark that previously assuming $\bm{v}$ was real while now considering it complex is consistent because the min/max of $\frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2}{\Vert \bm{v} \Vert^2}$ for real-valued ${\cal P}_{\gamma}$ is equivalent for $\bm{v}$ real or complex.
+
+We now show that bound \eqref{eq:P_gammastar} on $\kappa^2({\cal P}_{\gamma_*})$ is tight. Considering \eqref{eq:H_def} at the judiciously chosen eigenvalues of $\mathrm{i} \xi = 0, \pm \mathrm{i} \gamma_*$, we have
+\begin{align}
+\label{eq:H1}
+{\cal H}_{\gamma}(0) 
+&= 
+\left( \frac{\eta^2 + \beta^2}{\gamma^2} \right)^2, \\
+\label{eq:H2}
+{\cal H}_{\gamma}(\pm \gamma_*) 
+&= 
+\frac{4 \eta^2 ( \eta^2 + \beta^2)}{(\gamma^2 + \eta^2 + \beta^2)^2}, 
+\end{align}
+First observe from \eqref{eq:H_bounds} and \eqref{eq:H1} that $\Vert {\cal P}_{\gamma_*} \Vert^2 \geq {\cal H}_{\gamma_*}(0) = 1$, and thus the upper bound on $\Vert {\cal P}_{\gamma} \Vert^2$ from \eqref{eq:P_gamma*_bounds} achieves equality for a matrix $\cL$ having an eigenvalue of $\mathrm{i} \xi = 0$. Secondly, observe from \eqref{eq:H_bounds} and \eqref{eq:H2} that $\Vert {\cal P}_{\gamma_*}^{-1} \Vert^2 \geq \tfrac{1}{{\cal H}_{\gamma_*}(\pm \gamma_*)}= 1 + \tfrac{\beta^2}{\eta^2}$, and thus the upper bound on $\Vert {\cal P}_{\gamma}^{-1} \Vert^2$ from \eqref{eq:P_gamma*_bounds} achieves equality for a matrix $\cL$ having eigenvalues $\mathrm{i} \xi = \pm \mathrm{i} \gamma_*$. Therefore, bound \eqref{eq:P_gammastar} on $\kappa({\cal P}_{\gamma_*})$ achieves equality for any matrix $\cL$ having eigenvalues $\mathrm{i}\xi =0, \pm \mathrm{i}\gamma_*$.
+
+Finally, having shown that \eqref{eq:P_gammastar} is tight, we now show that  $\gamma = \gamma_*$ is optimal. Once again, consider the matrix $\cL$ from above with eigenvalues $\mathrm{i}\xi =0, \pm \mathrm{i}\gamma_*$, such that $\kappa^2({\cal P}_{\gamma_*})
+=
+1 + \frac{\beta^2}{\eta^2}$. Now, observe from this, \eqref{eq:H_bounds}, \eqref{eq:H1}, and \eqref{eq:H2} that for such a matrix
+\begin{align}
+\label{eq:kappa_lwr_bnd1}
+\kappa^2({\cal P}_{\gamma_*})
+<
+\frac{(\eta^2 + \beta^2) (\gamma^2 + \eta^2 + \beta^2)^2}{4 \eta^2 \gamma^4}
+=
+\frac{{\cal H}_{\gamma}(0)}{{\cal H}_{\gamma}(\pm \sqrt{\eta^2 + \beta^2})}
+\leq
+\kappa^2({\cal P}_{\gamma}),
+\quad 0 < \gamma < \gamma_*.
+\end{align}
+Now let us further impose that $\cL$ has eigenvalues of $\mathrm{i} \xi \to \pm \mathrm{i} \infty$, which, when substituted into \eqref{eq:H_def}, yields
+\begin{align}
+\label{eq:H3}
+\lim_{\xi \to \pm \infty} {\cal H}_{\gamma}(\xi) = 1.
+\end{align}
+Now upon combining \eqref{eq:H_bounds}, \eqref{eq:H2}, and \eqref{eq:H3}, observe that
+\begin{align}
+\label{eq:kappa_lwr_bnd2}
+\kappa^2({\cal P}_{\gamma_*})
+< 
+\frac{(\gamma^2 + \eta^2 + \beta^2)^2}{4 \eta^2 (\eta^2 + \beta^2)}
+=
+\frac{{\cal H}_{\gamma}(\pm \infty)}{{\cal H}_{\gamma}(\pm \sqrt{\eta^2 + \beta^2})}
+\leq
+\kappa^2({\cal P}_{\gamma}), 
+\quad \gamma_* < \gamma < \infty.
+\end{align}
+Thus, from \eqref{eq:kappa_lwr_bnd1} and \eqref{eq:kappa_lwr_bnd2}, a matrix $\cL$ having eigenvalues $\mathrm{i}\xi =0, \pm \mathrm{i}\gamma_*, \pm \mathrm{i} \infty$ satisfies $\kappa({\cal P}_{\gamma}) > \kappa({\cal P}_{\gamma_*}) = \sqrt{1 + \beta^2/\eta^2}$ for $\gamma \in (0, \infty) \setminus \gamma_*$. It therefore holds for general $\cL$ that a tight upper bound on $\kappa({\cal P}_{\gamma})$ for $\gamma \in (0, \infty) \setminus \gamma_*$ must be larger than the tight upper bound of $\kappa({\cal P}_{\gamma_*}) \leq \sqrt{1 + \beta^2/\eta^2}$. Hence $\gamma=\gamma_*$ is the minimizer over $\gamma \in (0, \infty)$ of a tight upper bound on $\kappa({\cal P}_{\gamma})$ for general matrices $\cL$.
 \end{proof}
 %
 
-In \cite{exh}, similar analysis is done under the assumption
+
+In \cite{exh}, similar analysis \OK{It's probably no longer appropriate to call their analysis ``similar''?} is done under the assumption
 that $-\mathcal{L}$ is SPD, in which case the conditioning can be derived based on
 eigenvalues. There, they effectively derive the conditioning of the preconditioned
 operator for $\gamma = \eta$ to be cond$(\mathcal{P}_\eta) = 1 + \tfrac{\beta^2}{\eta^2}$
@@ -1062,9 +983,10 @@ the result in \cite{exh} is exact). If we let $\gamma = \eta$, \Cref{th:cond} yi
 %
 In addition, as $\beta \to 0$, $\gamma \to \eta$ and the condition number
 \eqref{eq:cond_gen} $\to 1$ (as expected), and applying the general results
-in \eqref{eq:cond_gen} to $\gamma_*$ exactly yields \eqref{eq:gammastar}.
+in \eqref{eq:cond_gen} to $\gamma_*$ exactly yields \eqref{eq:P_gammastar}.
 Altogether, this suggests the condition number bounds in \Cref{th:cond}
 are moderately tight.
+\OK{Not sure how much of the above paragraph you want to keep since some of it no longer applies.}
 
 One open question is whether the modified constant $\gamma_*$ (as opposed to,
 for example, $\gamma=\eta$) is \textit{necessary} for problems where
@@ -1081,9 +1003,10 @@ for a robust method for hyperbolic or advection-dominated problems.
 Furthermore, $\mathcal{P}_{\gamma_*}$ has performed better than
 $\mathcal{P}_{\eta}$ for all problems we have
 tested, and is the recommended preconditioner in practice.
+\OK{Not sure how much of the above paragraph you want to keep; e.g., I assume you don't want to discuss $W(\cLs)$ any more since we don't have those bounds any more?}
 
 \Cref{tab:cond} provides condition number bounds from \Cref{th:cond} and
-\eqref{eq:gammastar} for Gauss, Radau IIA, and Lobatto IIIC Runge-Kutta methods.
+\eqref{eq:P_gammastar} for Gauss, Radau IIA, and Lobatto IIIC Runge-Kutta methods.
 
 %
 {
@@ -1102,8 +1025,8 @@ Gauss  & 1.46 & 1.00 & 2.15 & 2.83 & 1.13 & 1.00 & 3.50 & 1.38 \\
 Radau IIA  & 1.67 & 1.00 & 2.54 & 3.37 & 1.16 & 1.00 & 4.15 & 1.45 \\
 Lobatto IIIC  & 2.24 & 1.00 & 3.37 & 4.37 & 1.19 & 1.00 & 5.27 & 1.52 \\\hline
   \end{tabular}
-  \caption{Bounds on cond$(\mathcal{P}_{\gamma_*})$ from \Cref{th:cond} and
-  \eqref{eq:gammastar} for Gauss, Radau IIA, and Lobatto IIIC integration,
+  \caption{\OK{Update the numbers in table using new bound. I assume you already have code for this somewhere, Ben? For consistency, probably best you do it.} Bounds on $\kappa(\mathcal{P}_{\gamma_*})$ from \Cref{th:cond} and
+  \eqref{eq:P_gammastar} for Gauss, Radau IIA, and Lobatto IIIC integration,
   with 2--5 stages. Each column within a given set of stages corresponds
   to either a real eigenvalue, $\lambda_1 = \eta$, or a conjugate pair of eigenvalues,
   e.g., $\lambda_{2,3}^\pm = \eta \pm \mathrm{i}\beta$, of
@@ -1467,7 +1390,7 @@ Speedup & 1.0 & 1.0 & 3.0 & 1.2 & 4.3 & 1.0 & 1.4 & 5.8 \\\hline\hline
   \end{tabular}
   \caption{Average AIR iterations to solve for each stage in an implicit
   Runge-Kutta method using preconditioners $(\eta M - \delta t \mathcal{L})^{-2}$ and
-  $(\gamma_* M - \delta t \mathcal{L})^{-2}$, with $\gamma_*$ defined in \eqref{eq:gam_opt}. 
+  $(\gamma_* M - \delta t \mathcal{L})^{-2}$, with $\gamma_*$ defined in \eqref{eq:gammastar}. 
   The ratio of iterations$(\eta)$/iterations$(\gamma_*)$ is shown in the ``Speedup'' rows.}
   \label{tab:gamma}
 \end{table}
