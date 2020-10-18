@@ -790,89 +790,97 @@ $\gamma > 0$, where the preconditioned operator takes the form
 %
 Such an approach was proven effective for symmetric definite spatial matrices in
 \cite{exh}, with optimal constant $\gamma_* = \sqrt{\eta^2+\beta^2}$. The following
-theorem derives tight bounds on the condition number of $P_{\gamma}$ as well as 
-optimality of $\gamma\in(0,\infty)$ in a much more general context.
+theorem derives tight bounds on the condition number of a slightly more general operator than ${\cal P}_{\gamma}$ (an operator of which ${\cal P}_{\gamma}$ is a special case) as well as 
+optimality of $\gamma\in(0,\infty)$ in a much more general context. The corollary that follows it shows that the form of preconditioner considered in ${\cal P}_{\gamma}$  \eqref{eq:P_gamma} is optimal with $\gamma = \gamma_*$.
 
 %
 \begin{theorem}[Optimal preconditioning]
 \label{th:cond} Let $\cL$ be real-valued and suppose \Cref{ass:eig,ass:fov} hold,
-that is, $\eta > 0$ and $W(\cL) \leq 0$. Let $\mathcal{P}_\gamma$ denote
-the preconditioned operator \eqref{eq:P_gamma}, where $[(\eta + \mathrm{i}\beta)I -
-\cL][(\eta - \mathrm{i}\beta)I - \cL]$ is 
-preconditioned with $(\gamma I - \cL)^{-2}$.
+that is, $\eta > 0$ and $W(\cL) \leq 0$. Let $\mathcal{P}_{\delta,\gamma}$ denote
+the preconditioned operator, 
+\begin{align} \label{eq:P_gen}
+{\cal P}_{\delta, \gamma} \coloneqq (\delta I - \cL)^{-1} (\gamma I - \cL)^{-1} [(\eta I  - \cL)^2 + \beta^2 I] , \quad \delta, \gamma \in (0, \infty),
+\end{align}
+in which $[(\eta I  - \cL)^2 + \beta^2 I]$ is preconditioned with $(\delta I - \cL)^{-1} (\gamma I - \cL)^{-1}$.
 %
-Let $\kappa({\cal P}_{\gamma})$ denote the two-norm condition number of ${\cal P}_{\gamma}$,
-and define $\gamma_*$ by 
-\begin{align} \label{eq:gammastar}
-\gamma_* \coloneqq \sqrt{\eta^2+\beta^2}.
+Let $\kappa({\cal P}_{\delta, \gamma})$ denote the two-norm condition number of ${\cal P}_{\delta,\gamma}$,
+and define $\gamma_*$ by
+\begin{align} \label{eq:gamma*_gen}
+\gamma_* \coloneqq \frac{\eta^2+\beta^2}{\delta}.
 \end{align}
 Then
-\begin{align} \label{eq:P_gammastar}
-\kappa(\mathcal{P}_{\gamma_*}) \leq \sqrt{1+\frac{\beta^2}{\eta^2}}.
+\begin{align} \label{eq:kappa_gen_gamma*_bound}
+\kappa(\mathcal{P}_{\delta, \gamma_*}) \leq \frac{1}{2 \eta} \left( \delta + \frac{\eta^2 + \beta^2}{\delta} \right).
 \end{align}
 
-Moreover, (i) bound \eqref{eq:P_gammastar} is tight in the sense that $\exists$ $\cL$
-that satisfy \eqref{eq:P_gammastar} exactly, and (ii) $\gamma = \gamma_*$ is optimal
+Moreover, (i) bound \eqref{eq:kappa_gen_gamma*_bound} is tight in the sense that $\exists$ $\cL$
+that satisfy \eqref{eq:kappa_gen_gamma*_bound} exactly, and (ii) $\gamma = \gamma_*$ is optimal
 in the sense that, without further assumptions on $\cL$, $\gamma_*$ minimizes a tight
-upper bound on $\kappa({\cal P}_{\gamma})$ over all $\gamma \in (0, \infty)$.
+upper bound on $\kappa({\cal P}_{\delta, \gamma})$ over all $\gamma \in (0, \infty)$.
 \end{theorem}
+%
 \begin{proof}
-First we will prove bound \eqref{eq:P_gammastar}, then we will demonstrate it is tight, and finally we will demonstrate the optimality of $\gamma=\gamma_*$.
+First we will prove bound \eqref{eq:kappa_gen_gamma*_bound}, then we will demonstrate it is tight, and finally we will demonstrate the optimality of $\gamma=\gamma_*$.
 
-The square of the condition number of ${\cal P}_{\gamma}$ is given by
+The square of the condition number of ${\cal P}_{\delta, \gamma}$ is given by
 %
 \begin{align}
-\label{eq:kappa_def}
-\kappa^2({\cal P}_{\gamma}) 
+\label{eq:kappa_gen_def}
+\kappa^2({\cal P}_{\delta,\gamma}) 
 = 
-\Vert {\cal P}_{\gamma} \Vert^2 
-\Vert {\cal P}_{\gamma}^{-1} \Vert^2
+\Vert {\cal P}_{\delta,\gamma} \Vert^2 
+\Vert {\cal P}_{\delta,\gamma}^{-1} \Vert^2
 =
-\underset{{\bm{v} \neq 0}}{\max} \frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2 }{\Vert \bm{v} \Vert^2} 
-\frac{1}{\displaystyle{\underset{{\bm{v} \neq 0}}{\min} \frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2 }{\Vert \bm{v} \Vert^2}}},
+\underset{{\bm{v} \neq 0}}{\max} \frac{\Vert {\cal P}_{\delta,\gamma} \bm{v} \Vert^2 }{\Vert \bm{v} \Vert^2} 
+\frac{1}{\displaystyle{\underset{{\bm{v} \neq 0}}{\min} \frac{\Vert {\cal P}_{\delta,\gamma} \bm{v} \Vert^2 }{\Vert \bm{v} \Vert^2}}},
 \end{align}
 %
 where for real-valued $\cL$, the max and min can be obtained by restricting ourselves
-to real-valued $\mathbf{v}$. The key step in establishing \eqref{eq:P_gammastar} is bounding
-$\Vert {\cal P}_{\gamma} \Vert^2$ and $\Vert {\cal P}_{\gamma}^{-1} \Vert^2$ from above
-by bounding $\Vert {\cal P}_{\gamma} \bm{v} \Vert^2 / \Vert \bm{v} \Vert^2$
+to real-valued $\bm{v}$. The key step in establishing \eqref{eq:kappa_gen_gamma*_bound} is bounding
+$\Vert {\cal P}_{\delta,\gamma} \Vert^2$ and $\Vert {\cal P}_{\delta,\gamma}^{-1} \Vert^2$ from above
+by bounding $\Vert {\cal P}_{\delta,\gamma} \bm{v} \Vert^2 / \Vert \bm{v} \Vert^2$
 from above and below, respectively.
 %
-Consider the form of the preconditioned operator ${\cal P}_{\gamma}$ in
-\eqref{eq:P_gamma} and make the substitution $\bm{v} = (\gamma I - \cL)^{2} \bm{w}$. 
+Consider the form of the preconditioned operator ${\cal P}_{\delta,\gamma}$ in
+\eqref{eq:P_gen} and make the substitution $\bm{v} = (\gamma I - \cL) (\delta I - \cL) \bm{w}$. 
 Now, for real-valued $\bm{v}$ (and, thus, real-valued $\bm{w}$),
-$\|{\cal P}_{\gamma} \bm{v}\|^2$ can be expanded as
+$\|{\cal P}_{\delta,\gamma} \bm{v}\|^2$ can be expanded as
 %
 \begin{align}
-\label{eq:norm_Pv}
+\label{eq:norm_Pv_gen}
 \begin{split}
-\Vert {\cal P}_{\gamma} \bm{v} \Vert^2
+\Vert {\cal P}_{\delta, \gamma} \bm{v} \Vert^2
 &=
 \bVert [( \eta I - \cL)^2 + \beta^2] \bm{w} \bVert^2, \\
 &=
-\bVert (\eta^2 + \beta^2) \bm{w} + \cLs \bm{w} \bVert^2  -
-	4 \eta \langle \cL (\cL \bm{w}), \cL \bm{w} \rangle + \\&\hspace{15ex}
-	4 \eta^2 \bVert \cL \bm{w} \bVert^2 -
-	4 \eta (\eta^2 +\beta^2) \langle \cL \bm{w}, \bm{w} \rangle.
+\bVert (\eta^2 + \beta^2) \bm{w} + \cLs \bm{w} \bVert^2  
+	-4 \eta (\eta^2 +\beta^2) \langle \cL \bm{w}, \bm{w} \rangle 
+	\\&\quad\quad	
+	-4 \eta \langle \cL (\cL \bm{w}), \cL \bm{w} \rangle
+	+4 \eta^2 \bVert \cL \bm{w} \bVert^2
 \end{split}
 \end{align}
 %
 Similarly, expanding $\|\bm{v}\|^2$ yields
 %
 \begin{align}
-\label{eq:norm_v}
+\label{eq:norm_v_gen}
 \Vert \bm{v} \Vert^2
 &=
-\bVert ( \gamma I - \cL)^2 \bm{w} \bVert^2, \\
+\bVert ( \gamma I - \cL) ( \delta I - \cL) \bm{w} \bVert^2, \\
 &=
 \nonumber
-\bVert \gamma^2 \bm{w} + \cLs \bm{w} \bVert^2  - 4 \gamma \langle \cL ( \cL \bm{w}), \cL \bm{w} \rangle + 4 \gamma^2 \bVert \cL \bm{w} \bVert^2 - 4 \gamma^3 \langle \cL \bm{w}, \bm{w} \rangle.
+\bVert \delta \gamma \bm{w} + \cLs \bm{w} \bVert^2  
+	- 2 \delta \gamma (\delta + \gamma ) \langle \cL \bm{w}, \bm{w} \rangle
+	\\&\quad\quad	
+	-2  (\delta + \gamma ) \langle \cL ( \cL \bm{w}), \cL \bm{w} \rangle 
+	+  (\delta + \gamma)^2 \bVert \cL \bm{w} \bVert^2 
 \end{align}
 %
-Thus, the key term in \eqref{eq:kappa_def} takes the form
+Thus, the key term in \eqref{eq:kappa_gen_def} takes the form
 \begin{align}
-\label{eq:P_gamma_frac}
-\frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2}{\Vert \bm{v} \Vert^2}
+\label{eq:P_gen_frac}
+\frac{\Vert {\cal P}_{\delta,\gamma} \bm{v} \Vert^2}{\Vert \bm{v} \Vert^2}
 =
 \frac{
 c_0(\bm{w}) f_0(\bm{w}) + c_1 f_1(\bm{w}) + c_2 f_2(\bm{w}) + c_3 f_3(\bm{w})
@@ -884,179 +892,200 @@ f_0(\bm{w}) + f_1(\bm{w}) + f_2(\bm{w}) + f_3(\bm{w})
 where we have defined the functions and constants
 \begin{equation}
 \begin{aligned}
-\label{eq:f_c_def}
-f_0 &\coloneqq \bVert \gamma^2 \bm{w} + \cLs \bm{w} \bVert^2 > 0,
+\label{eq:f_c_gen_def}
+f_0 &\coloneqq \bVert \delta \gamma \bm{w} + \cLs \bm{w} \bVert^2 > 0,
 \quad
-&&c_0\coloneqq \frac{\bVert (\eta^2 + \beta^2) \bm{w} + \cLs \bm{w} \bVert^2}{\bVert \gamma^2 \bm{w} + \cLs \bm{w} \bVert^2} > 0,
+&&c_0\coloneqq \frac{\bVert (\eta^2 + \beta^2) \bm{w} + \cLs \bm{w} \bVert^2}{\bVert \delta \gamma \bm{w} + \cLs \bm{w} \bVert^2} > 0,
 \\
-f_1 &\coloneqq -4 \gamma \langle \cL( \cL \bm{w}), \cL \bm{w} \rangle \geq 0,
+f_1 &\coloneqq -2 \delta \gamma (\delta + \gamma)  \langle \cL \bm{w}, \bm{w} \rangle \geq 0,
 \quad 
-&&c_1\coloneqq \frac{\eta}{\gamma} > 0,\\
-f_2 &\coloneqq 4 \gamma^2 \bVert \cL \bm{w} \bVert^2 \geq 0, 
+&&c_1\coloneqq \frac{\eta^2 + \beta^2}{\delta \gamma} \frac{2 \eta}{\delta + \gamma} > 0,\\
+f_2 &\coloneqq -2( \delta + \gamma) \langle \cL( \cL \bm{w}), \cL \bm{w} \rangle \geq 0, 
 \quad
-&&c_2\coloneqq \frac{\eta^2}{\gamma^2} > 0, \\
-f_3 &\coloneqq -4 \gamma^3 \langle \cL \bm{w}, \bm{w} \rangle \geq 0, 
+&&c_2\coloneqq \frac{2 \eta}{\delta + \gamma} > 0,\\
+f_3 &\coloneqq (\delta+\gamma)^2 \bVert \cL \bm{w} \bVert^2 \geq 0, 
 \quad
-&&c_3\coloneqq \frac{\eta (\eta^2 + \beta^2)}{\gamma^3} > 0,
+&&c_3\coloneqq \left(\frac{2 \eta}{\delta + \gamma}\right)^2 > 0, \\
 \end{aligned}
 \end{equation}
-assuming $\gamma > 0$. Note that functions $f_1$ and $f_3$ are non-negative by
-assumption of $W( \cL ) \leq 0$, while for all $\mathbf{w}$, it must hold that
-either $f_2 > 0$ or $c_0f_0 > 0$ (or both).
+assuming $\delta, \gamma > 0$. Note that functions $f_1$ and $f_2$ are non-negative by
+assumption of $W( \cL ) \leq 0$, while for all $\bm{w}$, it must hold that
+either $f_3 > 0$ or $c_0f_0 > 0$ (or both).
 
-Since all of the addends in the numerator and denominator of \eqref{eq:P_gamma_frac} are non-negative, and at least one addend in each is positive, it can be bounded as
+Since all of the addends in the numerator and denominator of \eqref{eq:P_gen_frac} are non-negative, and at least one addend in each is positive, it can be bounded as
 \begin{align*}
 \min \{ c_0, c_1, c_2, c_3 \} \eqqcolon c_{\min}
 \leq
-\frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2}{\Vert \bm{v} \Vert^2} 
+\frac{\Vert {\cal P}_{\delta,\gamma} \bm{v} \Vert^2}{\Vert \bm{v} \Vert^2} 
 \leq c_{\max} 
 \coloneqq \max \{ c_0, c_1, c_2, c_3 \}.
 \end{align*}
-Applying these bounds to the squared norms in \eqref{eq:kappa_def} yields
-\begin{align} \label{eq:P_gamma_bounds}
-\Vert {\cal P}_{\gamma} \Vert^2 \leq c_{\max}, 
+Applying these bounds to the norms in \eqref{eq:kappa_gen_def} yields
+\begin{align} \label{eq:P_gen_bounds}
+\Vert {\cal P}_{\delta, \gamma} \Vert \leq \sqrt{c_{\max}}, 
 \quad
-\Vert {\cal P}_{\gamma}^{-1} \Vert^2 \leq \frac{1}{c_{\min}}.
+\Vert {\cal P}_{\delta, \gamma}^{-1} \Vert \leq \frac{1}{\sqrt{c_{\min}}}.
 \end{align}
 %
 Bounding $c_0$ for general $\gamma$, and hence $c_{\min}$ and $c_{\max}$, is
 difficult because the sign of $\langle \cLs \bm{w}, \bm{w} \rangle$ (which
 appears in expanding $\bVert \gamma^2 \bm{w} + \cLs \bm{w} \bVert^2$) is not
 known for general $\cL$, noting that the sign of $W(\cL)$ does not determine
-that of $W(\cLs)$. However, observe from \eqref{eq:f_c_def} that the judicious
-choice of $\gamma = \gamma_* \coloneqq \sqrt{\eta^2 + \beta^2}$ yields $c_0(\bm{w}) = 1$.
+that of $W(\cLs)$. However, observe from \eqref{eq:f_c_gen_def} that the judicious
+choice of $\gamma = \gamma_* \coloneqq (\eta^2 + \beta^2)/\delta$ yields $c_0(\bm{w}) = 1$.
 Moreover, in the final part of this proof we demonstrate that
 $\gamma = \gamma_*$ is optimal, and, as such, moving forward we
 only consider the case $\gamma = \gamma_*$.
 
-Letting $\gamma = \gamma_*$, from \eqref{eq:f_c_def} one has $1 = c_0 > c_1 = c_3
-= \sqrt{c_2}$. Thus, for $\gamma = \gamma_*$, the bounds in \eqref{eq:P_gamma_bounds}
+Letting $\gamma = \gamma_* \coloneqq (\eta^2 + \beta^2)/\delta$, from \eqref{eq:f_c_gen_def} one has $c_0 = 1 > c_1 = c_2
+= \sqrt{c_3} = 2 \eta/(\delta + \gamma_*)$, where the inequality $1 > 2 \eta/(\delta + \gamma_*)$ follows from the AM--GM inequality applied to $\delta$ and $\gamma_*$ then assuming $\beta \neq 0$. Thus, for $\gamma = \gamma_*$, the bounds in \eqref{eq:P_gen_bounds}
 are given by
 \begin{align}
-\label{eq:P_gamma*_bounds}
-\Vert {\cal P}_{\gamma_*} \Vert^2 \leq 1,
+\label{eq:P_gen_gamma*_bounds}
+\Vert {\cal P}_{\delta,\gamma_*} \Vert \leq 1,
 \quad
-\Vert {\cal P}_{\gamma_*}^{-1} \Vert^2 \leq 1 + \frac{\beta^2}{\eta^2}.
+\Vert {\cal P}_{\delta,\gamma_*}^{-1} \Vert 
+\leq \frac{\delta + \gamma_*}{2 \eta}
+= \frac{1}{2 \eta} \left( \delta + \frac{\eta^2 + \beta^2}{\delta} \right)
 \end{align}
-Applying these bounds to the condition number \eqref{eq:kappa_def}
-yields the upper bound in \eqref{eq:P_gammastar}.
+Applying these bounds to the condition number \eqref{eq:kappa_gen_def}
+yields the upper bound in \eqref{eq:kappa_gen_gamma*_bound}.
 
-We now show that bound \eqref{eq:P_gammastar} is tight and that
+We now show that bound \eqref{eq:kappa_gen_gamma*_bound} is tight and that
 $\gamma = \gamma_*$ is optimal. We do so by construction, showing that the
-bound in \eqref{eq:P_gamma_bounds} is achieved for certain matrices, and 
+bound in \eqref{eq:kappa_gen_gamma*_bound} is achieved for certain matrices, and 
 that for $\gamma\neq\gamma_*$, $\exists$ matrices $\cL$ for which
-$\kappa({\cal P}_{\gamma}) > \sqrt{1 + \beta^2/\eta^2}$. Note that the min/max 
-of $\Vert {\cal P}_{\gamma} \bm{v} \Vert^2/\Vert \bm{v} \Vert^2$ over $\mathbf{v}$
-for real-valued ${\cal P}_{\gamma}$ is equivalent when minimizing over real
-or complex $\bm{v}$; we now consider complex $\mathbf{v}$ for theoretical
-purposes. To that end, let $~\bm{v}=(\gamma I - \cL)^2 \bm{w}$, but 
+$\kappa({\cal P}_{\delta, \gamma}) > (\delta + \gamma_*)/(2\eta)$. Note that the min/max 
+of $\Vert {\cal P}_{\delta,\gamma} \bm{v} \Vert^2/\Vert \bm{v} \Vert^2$ over $\bm{v}$
+for real-valued ${\cal P}_{\delta,\gamma}$ is equivalent when minimizing over real
+or complex $\bm{v}$; we now consider complex $\bm{v}$ for theoretical
+purposes. To that end, let $~\bm{v}=(\gamma I - \cL)(\delta I - \cL) \bm{w}$, but 
 suppose that $(\textrm{i} \xi, \bm{w})$ is an eigenpair of $\cL$, with $\xi$
 a real number and $\bm{w}$ a complex eigenvector. Plugging into
-$\| {\cal P}_{\gamma} \bm{v}\|^2$ \eqref{eq:norm_Pv} and $\|\bm{v}\|^2$
-\eqref{eq:norm_v}, and taking the ratio as in \eqref{eq:P_gamma_frac},
+$\| {\cal P}_{\delta,\gamma} \bm{v}\|^2$ \eqref{eq:norm_Pv_gen} and $\|\bm{v}\|^2$
+\eqref{eq:norm_v_gen}, and taking the ratio as in \eqref{eq:P_gen_frac},
 define the following function of $\xi$:
 %
-\begin{align} \label{eq:H_def}
-{\cal H}_{\gamma}(\xi) 
+\begin{align} \label{eq:H_gen_def}
+{\cal H}_{\delta,\gamma}(\xi) 
 \coloneqq 
-\left. \frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2 }{\Vert \bm{v} \Vert^2} \right|_{\cL \bm{w} = \mathrm{i} \xi \bm{w}}
+\left. \frac{\Vert {\cal P}_{\delta, \gamma} \bm{v} \Vert^2 }{\Vert \bm{v} \Vert^2} \right|_{\cL \bm{w} = \mathrm{i} \xi \bm{w}}
 =
-\frac{|(\eta- \mathrm{i} \xi)^2 + \beta^2|^2}{|(\gamma - \mathrm{i} \xi)^2|^2}
+\frac{|(\eta- \mathrm{i} \xi)^2 + \beta^2|^2}{|(\delta \gamma - \xi^2 - \mathrm{i} (\delta \gamma) \xi|^2}
 =
-\frac{(\eta^2 + \beta^2 - \xi^2)^2 + 4 \eta^2 \xi^2}{(\gamma^2-\xi^2)^2 + 4 \gamma^2 \xi^2}.
+\frac{(\delta \gamma_* - \xi^2)^2 + (2 \eta \xi)^2}{(\delta \gamma-\xi^2)^2 + [\xi ( \delta + \gamma) ]^2},
 \end{align}
-By virtue of restricting that $\bm{w}$ be an eigenvector, from \eqref{eq:kappa_def} we have
+where we have made use of $\delta \gamma_* = \eta^2 + \beta^2$.
+By virtue of restricting that $\bm{w}$ be an eigenvector, from \eqref{eq:kappa_gen_def} we have
 \begin{align}
-\label{eq:H_bounds}
-\frac{1}{\Vert {\cal P}_{\gamma}^{-1} \Vert^2}
+\label{eq:H_gen_bounds}
+\frac{1}{\Vert {\cal P}_{\delta,\gamma}^{-1} \Vert^2}
 =
-\underset{\bm{v} \neq 0}{\min} \frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2}{\Vert \bm{v} \Vert^2}
-\leq {\cal H}_{\gamma}(\xi) \leq 
-\underset{\bm{v} \neq 0}{\max} \frac{\Vert {\cal P}_{\gamma} \bm{v} \Vert^2}{\Vert \bm{v} \Vert^2} = \Vert {\cal P}_{\gamma} \Vert^2.
+\underset{\bm{v} \neq 0}{\min} \frac{\Vert {\cal P}_{\delta,\gamma} \bm{v} \Vert^2}{\Vert \bm{v} \Vert^2}
+\leq {\cal H}_{\delta,\gamma}(\xi) \leq 
+\underset{\bm{v} \neq 0}{\max} \frac{\Vert {\cal P}_{\delta,\gamma} \bm{v} \Vert^2}{\Vert \bm{v} \Vert^2} = \Vert {\cal P}_{\delta,\gamma} \Vert^2.
 \end{align}
 %
-That is, any value of $1/{\cal H}_{\gamma}(\xi)$ serves as a lower bound on
-$\Vert {\cal P}_{\gamma}^{-1} \Vert^2$, while any value of ${\cal
-H}_{\gamma}(\xi)$ serves as a lower bound on $\Vert {\cal P}_{\gamma} \Vert^2$.
-Therefore, the ratio of any two values of ${\cal H}_{\gamma}(\xi)$ provide a
-lower bound on $\kappa^2({\cal P}_{\gamma})$.
+That is, any value of $1/{\cal H}_{\delta,\gamma}(\xi)$ serves as a lower bound on
+$\Vert {\cal P}_{\delta,\gamma}^{-1} \Vert^2$, while any value of ${\cal
+H}_{\delta,\gamma}(\xi)$ serves as a lower bound on $\Vert {\cal P}_{\delta,\gamma} \Vert^2$.
+Therefore, the ratio of any two values of ${\cal H}_{\delta,\gamma}(\xi)$ provide a
+lower bound on $\kappa^2({\cal P}_{\delta,\gamma})$.
 
-We now show that bound \eqref{eq:P_gammastar} on $\kappa^2({\cal P}_{\gamma_*})$
-is tight. Considering \eqref{eq:H_def} at the judiciously chosen eigenvalues of
-$\mathrm{i} \xi = \{ 0, \pm \mathrm{i} \gamma_*\}$, we have
+We now show that bound \eqref{eq:kappa_gen_gamma*_bound} on $\kappa({\cal P}_{\delta,\gamma_*})$
+is tight. Considering \eqref{eq:H_gen_def} at the judiciously chosen eigenvalues of
+$\mathrm{i} \xi = \{ 0, \pm \mathrm{i} \sqrt{\delta \gamma_*}\}$, we have
 %
 \begin{align}
-\label{eq:H1}
-{\cal H}_{\gamma}(0) 
-	&= \left( \frac{\eta^2 + \beta^2}{\gamma^2} \right)^2, 
+\label{eq:H1_gen}
+{\cal H}_{\delta,\gamma}(0) 
+	&= \frac{\gamma_*^2}{\gamma^2}, 
 \hspace{5ex}
-{\cal H}_{\gamma}(\pm \gamma_*) = 
-	\frac{4 \eta^2 ( \eta^2 + \beta^2)}{(\gamma^2 + \eta^2 + \beta^2)^2}.
+{\cal H}_{\delta,\gamma}(\pm \sqrt{\delta \gamma_*}) = 
+	\frac{(2 \eta)^2 \gamma_*}{\delta( \gamma- \gamma_*)^2 + \gamma_* (\delta + \gamma)^2 }.
 \end{align}
 %
-First observe from \eqref{eq:H_bounds} and \eqref{eq:H1} that $\Vert {\cal
-P}_{\gamma_*} \Vert^2 \geq {\cal H}_{\gamma_*}(0) = 1$, and thus the upper bound
-on $\Vert {\cal P}_{\gamma} \Vert^2$ from \eqref{eq:P_gamma*_bounds} achieves
+First observe from \eqref{eq:H_gen_bounds} and \eqref{eq:H1_gen} that $\Vert {\cal
+P}_{\delta,\gamma_*} \Vert^2 \geq {\cal H}_{\delta,\gamma_*}(0) = 1$, and thus the upper bound
+on $\Vert {\cal P}_{\delta,\gamma_*} \Vert$ from \eqref{eq:P_gen_gamma*_bounds} achieves
 equality for a matrix $\cL$ having an eigenvalue of $\xi = 0$.
-Secondly, observe from \eqref{eq:H_bounds} and \eqref{eq:H1} that $\Vert {\cal
-P}_{\gamma_*}^{-1} \Vert^2 \geq \tfrac{1}{{\cal H}_{\gamma_*}(\pm \gamma_*)}= 1
-+ \tfrac{\beta^2}{\eta^2}$, and thus the upper bound on $\Vert {\cal
-P}_{\gamma}^{-1} \Vert^2$ from \eqref{eq:P_gamma*_bounds} achieves equality for
-a matrix $\cL$ having eigenvalues $\mathrm{i} \xi = \pm \mathrm{i} \gamma_*$.
-Therefore, bound \eqref{eq:P_gammastar} on $\kappa({\cal P}_{\gamma_*})$
+Secondly, observe from \eqref{eq:H_gen_bounds} and \eqref{eq:H1_gen} that $\Vert {\cal
+P}_{\delta,\gamma_*}^{-1} \Vert^2 \geq 1/{\cal H}_{\delta,\gamma_*}(\pm \sqrt{\delta  \gamma_*})= [(\delta + \gamma_*)/(2\eta)]^2$, and thus the upper bound on $\Vert {\cal
+P}_{\delta,\gamma_*}^{-1} \Vert$ from \eqref{eq:P_gen_gamma*_bounds} achieves equality for
+a matrix $\cL$ having eigenvalues $\mathrm{i} \xi = \pm \mathrm{i} \sqrt{\delta \gamma_*}$.
+Therefore, bound \eqref{eq:kappa_gen_gamma*_bound} on $\kappa({\cal P}_{\delta,\gamma_*})$
 achieves equality for any matrix $\cL$ having eigenvalues $\{0, \pm
-\mathrm{i}\gamma_*\}$.
+\mathrm{i}\sqrt{\delta \gamma_*}\}$.
 
-Finally, having shown that \eqref{eq:P_gammastar} is tight, we now show that 
+Finally, having shown that \eqref{eq:kappa_gen_gamma*_bound} is tight, we now show that 
 $\gamma = \gamma_*$ is optimal. Once again, consider the matrix $\cL$ from above
-with eigenvalues $\{0, \pm \mathrm{i}\gamma_* \}$, such that
-$\kappa^2({\cal P}_{\gamma_*})
+with eigenvalues $\{0, \pm \mathrm{i}\sqrt{\delta \gamma_*} \}$, such that
+$\kappa({\cal P}_{\delta,\gamma_*})
 =
-1 + \frac{\beta^2}{\eta^2}$. Now, observe from this, \eqref{eq:H_bounds},
-and \eqref{eq:H1} that for $0 < \gamma < \gamma_*$,
+(\delta + \gamma_*)/(2\eta)$. Now, observe from this, \eqref{eq:H_gen_bounds},
+and \eqref{eq:H1_gen} that for $0 < \gamma < \gamma_*$,
 %
 \begin{align}
-\label{eq:kappa_lwr_bnd1}
-\kappa^2({\cal P}_{\gamma_*})
+\label{eq:kappa_gen_lwr_bnd1}
+\kappa^2({\cal P}_{\delta,\gamma_*})
 <
-\frac{(\eta^2 + \beta^2) (\gamma^2 + \eta^2 + \beta^2)^2}{4 \eta^2 \gamma^4}
+\frac{\gamma_*[\delta(\gamma - \gamma_*)^2 + \gamma_*(\delta + \gamma)^2]}{(2 \eta \gamma)^2}
 =
-\frac{{\cal H}_{\gamma}(0)}{{\cal H}_{\gamma}(\pm \sqrt{\eta^2 + \beta^2})}
+\frac{{\cal H}_{\delta,\gamma}(0)}{{\cal H}_{\delta,\gamma}(\pm \sqrt{\delta \gamma_*})}
 \leq
-\kappa^2({\cal P}_{\gamma}).
+\kappa^2({\cal P}_{\delta,\gamma}),
 \end{align}
+by noting that the above inequality is equivalent to 
+$\gamma_*(\gamma_* - \gamma)^2 + (\gamma_* - \gamma) [2 \gamma_*  \gamma + \delta(\gamma_* + \gamma)] > 0$, which is clearly true when $0 < \gamma < \gamma_*$.
 Now suppose that $\cL$ has eigenvalues $\mathrm{i} \xi \to \pm \mathrm{i} \infty$,
-which, when substituted into \eqref{eq:H_def}, yields
-$\lim_{\xi \to \pm \infty} {\cal H}_{\gamma}(\xi) = 1$.
-Combining with \eqref{eq:H_bounds} and \eqref{eq:H1}, we have 
+which, when substituted into \eqref{eq:H_gen_def}, yields
+$\lim_{\xi \to \pm \infty} {\cal H}_{\delta,\gamma}(\xi) = 1$.
+Combining with \eqref{eq:H_gen_bounds} and \eqref{eq:H1_gen}, we have 
 for $\gamma_* < \gamma < \infty$,
 %
 \begin{align}
-\label{eq:kappa_lwr_bnd2}
-\kappa^2({\cal P}_{\gamma_*})
+\label{eq:kappa_gen_lwr_bnd2}
+\kappa^2({\cal P}_{\delta,\gamma_*})
 < 
-\frac{(\gamma^2 + \eta^2 + \beta^2)^2}{4 \eta^2 (\eta^2 + \beta^2)}
+\frac{\delta(\gamma - \gamma_*)^2 + \gamma_*(\delta + \gamma)^2}{(2 \eta )^2 \gamma_*}
 =
-\frac{{\cal H}_{\gamma}(\pm \infty)}{{\cal H}_{\gamma}(\pm \sqrt{\eta^2 + \beta^2})}
+\frac{{\cal H}_{\delta,\gamma}(\pm \infty)}{{\cal H}_{\delta,\gamma}(\pm \sqrt{\delta \gamma_*})}
 \leq
-\kappa^2({\cal P}_{\gamma}).
+\kappa^2({\cal P}_{\delta,\gamma}),
 \end{align}
+by noting that the above inequality is equivalent to 
+$\delta (\gamma - \gamma_*)^2 + \gamma_*(\gamma - \gamma_*) (2 \delta + \gamma_* + \gamma) > 0$, which is clearly satisfied for $\gamma > \gamma_*$.
 %
 
-By construction in \eqref{eq:kappa_lwr_bnd1} and \eqref{eq:kappa_lwr_bnd2},
+By construction in \eqref{eq:kappa_gen_lwr_bnd1} and \eqref{eq:kappa_gen_lwr_bnd2},
 we have shown that for all $\gamma \in (0, \infty) \setminus \gamma_*$, there exists
-matrices $\cL$ such that $\kappa({\cal P}_{\gamma}) > \kappa({\cal
-P}_{\gamma_*}) = \sqrt{1 + \beta^2/\eta^2}$. It therefore holds for general $\cL$
-satisfying \Cref{ass:eig,ass:fov} that a tight upper bound on $\kappa({\cal P}_{\gamma})$
+matrices $\cL$ such that $\kappa({\cal P}_{\delta,\gamma}) > \kappa({\cal
+P}_{\delta,\gamma_*}) = (\delta + \gamma_*)/(2\eta)$. It therefore holds for general $\cL$
+satisfying \Cref{ass:fov} that a tight upper bound on $\kappa({\cal P}_{\delta,\gamma})$
 for $\gamma \in (0, \infty) \setminus \gamma_*$ must be larger than the tight upper
-bound of $\kappa({\cal P}_{\gamma_*}) \leq \sqrt{1 + \beta^2/\eta^2}$. Hence $\gamma=\gamma_*$ is the
+bound of $\kappa({\cal P}_{\delta,\gamma_*}) \leq (\delta + \gamma_*)/(2\eta)$. Hence $\gamma=\gamma_*$ is the
 minimizer over $\gamma \in (0, \infty)$ of a tight upper bound on $\kappa({\cal
-P}_{\gamma})$.
+P}_{\delta,\gamma})$.
 \end{proof}
 %
 
-\Cref{tab:cond} provides condition number bounds from \Cref{th:cond} and
-\eqref{eq:P_gammastar} for Gauss, Radau IIA, and Lobatto IIIC Runge-Kutta methods.
+\begin{corollary}[Optimal preconditioning with respect to \eqref{eq:P_gamma}]
+\label{cor:cond}
+A tight upper bound on the condition number of the general operator ${\cal P}_{\delta,\gamma}$ \eqref{eq:P_gen} is minimized over $\delta, \gamma \in (0, \infty)$ when $\delta = \gamma = \gamma_*$, with
+\begin{align} \label{eq:gamma*}
+\gamma_* = \sqrt{\eta^2 + \beta^2}.
+\end{align}
+That is to say, the preconditioner $(\gamma I - \cL)^{-2}$ employed in \eqref{eq:P_gamma} with $\gamma = \gamma_*$ is optimal over the space of general preconditioners $(\delta I - \cL)^{-1}(\gamma I - \cL)^{-1}, \, \delta, \gamma \in (0,\infty)$ employed in \eqref{eq:P_gen}. Furthermore, the condition number of the preconditioned operator ${\cal P}_{\gamma}$ \eqref{eq:P_gamma} when $\gamma = \gamma_*$ is tightly bounded as
+\begin{align} \label{eq:kappa_gamma*}
+\kappa({\cal P}_{\gamma_*}) \leq \sqrt{1 + \frac{\beta^2}{\eta^2}}.
+\end{align}
+\end{corollary}
+\begin{proof}
+From \Cref{th:cond}, a tight upper bound on the condition number of ${\cal P}_{\delta,\gamma}$ \eqref{eq:P_gen} is minimized with respect to $\gamma$ when $\gamma = \gamma_*$ \eqref{eq:gamma*_gen}, with its minimum value given by  \eqref{eq:kappa_gen_gamma*_bound}. To minimize bound \eqref{eq:kappa_gen_gamma*_bound} with respect to $\delta$, we differentiate it and observe for $\delta > 0$ that there is only one critical point at $\delta = \sqrt{\eta^2+ \beta^2}$. Since this function is increasing as $\delta \to 0^+$ and $\delta \to \infty$, this critical point must be a local minimum. Therefore, the tight upper bound \eqref{eq:kappa_gen_gamma*_bound} is minimized when $\delta = \sqrt{\eta^2+ \beta^2}$. Substituting $\delta =  \sqrt{\eta^2+ \beta^2}$ into \eqref{eq:gamma*_gen} yields $\gamma_* = \sqrt{\eta^2 + \beta^2}$. Finally, substituting $\delta = \gamma_* = \sqrt{\eta^2 + \beta^2}$ into \eqref{eq:kappa_gen_gamma*_bound} and noting that  ${\cal P}_{\gamma,\gamma}$ \eqref{eq:P_gen} is equivalent to ${\cal P}_{\gamma}$ \eqref{eq:P_gamma} yields bound \eqref{eq:kappa_gamma*}.
+\end{proof}
+
+\Cref{tab:cond} provides condition number bounds from \Cref{cor:cond} and
+\eqref{eq:kappa_gamma*} for Gauss, Radau IIA, and Lobatto IIIC Runge-Kutta methods.
 It is worth pointing out that numerical tests indicate using the modified constant
 $\gamma_*$ as opposed to $\eta$ is particularly important for hyperbolic-type
 problems. Indeed, one example in \Cref{sec:numerics:dg} demonstrates an almost
@@ -1082,8 +1111,8 @@ Gauss & 1.15 & 1.00 & 1.38 & 1.61 & 1.04 & 1.00 & 1.83 & 1.13 \\
 Radau IIA & 1.22 & 1.00 & 1.51 & 1.79 & 1.05 & 1.00 & 2.05 & 1.15 \\
 Lobatto IIIC & 1.41 & 1.00 & 1.79 & 2.12 & 1.06 & 1.00 & 2.42 & 1.17 \\\hline
   \end{tabular}
-  \caption{Bounds on $\kappa(\mathcal{P}_{\gamma_*})$ from \Cref{th:cond} and
-  \eqref{eq:P_gammastar} for Gauss, Radau IIA, and Lobatto IIIC integration,
+  \caption{Bounds on $\kappa(\mathcal{P}_{\gamma_*})$ from \Cref{cor:cond} and
+  \eqref{eq:kappa_gamma*} for Gauss, Radau IIA, and Lobatto IIIC integration,
   with 2--5 stages. Each column within a given set of stages corresponds
   to either a real eigenvalue, $\lambda_1 = \eta$, or a conjugate pair of eigenvalues,
   e.g., $\lambda_{2,3}^\pm = \eta \pm \mathrm{i}\beta$, of
@@ -1448,7 +1477,7 @@ Speedup & 1.0 & 1.0 & 3.0 & 1.2 & 4.3 & 1.0 & 1.4 & 5.8 \\\hline\hline
   \end{tabular}
   \caption{Average AIR iterations to solve for each stage in an implicit
   Runge-Kutta method using preconditioners $(\eta M - \delta t \mathcal{L})^{-2}$ and
-  $(\gamma_* M - \delta t \mathcal{L})^{-2}$, with $\gamma_*$ defined in \eqref{eq:gammastar}. 
+  $(\gamma_* M - \delta t \mathcal{L})^{-2}$, with $\gamma_*$ defined in \eqref{eq:gamma*}. 
   The ratio of iterations$(\eta)$/iterations$(\gamma_*)$ is shown in the ``Speedup'' rows.}
   \label{tab:gamma}
 \end{table}
