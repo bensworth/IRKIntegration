@@ -54,16 +54,16 @@ In the $1\times1$ setting (i.e., in the linear algorithm), we have to invert the
 \begin{align*}
 {\cal Q}^{1\times1} = (\eta I  - {\cal L})^2 + \beta^2 I = (\eta^2 + \beta^2) I - 2\eta {\cal L} + {\cal L}^2,
 \end{align*}
-which we have been \textit{choosing} to precondition with the operator $(\gamma I - {\cal L})^{-2}$, $\gamma \in \mathbb{R}_+$. But, we could also consider a more general preconditioner of the form $(\delta I - {\cal L})^{-1} (\gamma I - {\cal L})^{-1}$, for $\delta, \gamma \in \mathbb{R}_+$. In which case, the preconditioned operator takes the form
+which we have been \textit{choosing} to precondition with the operator $(\gamma I - {\cal L})^{-2}$, $\gamma \in (0, \infty)$. But, we could also consider a more general preconditioner of the form $(\delta I - {\cal L})^{-1} (\gamma I - {\cal L})^{-1}$, for $\delta, \gamma \in (0, \infty)$. In which case, the preconditioned operator takes the form
 \begin{align} \label{eq:P_gen_lin}
-{\cal P}_{\delta, \gamma}^{1\times1} \coloneqq \big[ (\eta I  - {\cal L})^2 + \beta^2 I \big] (\delta I - {\cal L})^{-1} (\gamma I - {\cal L})^{-1}, \quad \delta, \gamma \in \mathbb{R}_+.
+{\cal P}_{\delta, \gamma}^{1\times1} \coloneqq \big[ (\eta I  - {\cal L})^2 + \beta^2 I \big] (\delta I - {\cal L})^{-1} (\gamma I - {\cal L})^{-1}, \quad \delta, \gamma \in (0, \infty).
 \end{align}
 
 Similarly, in the $2\times2$ setting (i.e., in the nonlinear algorithm), when $\cL_1 = \cL_2 \equiv \cL$, we have to invert the Schur complement operator
 \begin{align*}
 {\cal Q}^{2\times2} = (\eta I  - {\cal L}) + \beta^2 (\eta I  - {\cal L})^{-1},
 \end{align*}
-which we've been choosing to precondition with the operator $(\gamma I - {\cal L})^{-1}$, $\gamma \in \mathbb{R}_+$. So, in this case, the preconditioned operator is given by
+which we've been choosing to precondition with the operator $(\gamma I - {\cal L})^{-1}$, $\gamma \in (0, \infty)$. So, in this case, the preconditioned operator is given by
 \begin{align}
 \nonumber
 {\cal P}_{\gamma}^{2\times2}
@@ -74,7 +74,7 @@ which we've been choosing to precondition with the operator $(\gamma I - {\cal L
 \big[ (\eta I  - {\cal L})^2 + \beta^2I \big] (\eta I - {\cal L})^{-1} (\gamma I - {\cal L})^{-1} 
 \equiv {\cal P}_{\eta, \gamma}^{1\times1}.
 \end{align}
-That is to say, the preconditioned operator for the nonlinear algorithm can be considered as a special case of the generalized preconditoner \eqref{eq:P_gen_lin} for the linear algorithm. It therefore stands to reason that we should try to analyze the more general preconditioned operator \eqref{eq:P_gen_lin} in an attempt to better understand the similarities that occur in the analyses of the two different problems. It turns out that in fact we can analyze this general operator and recover from it the special cases we had been considering, as is shown in the following Theorem and Corollaries.
+That is to say, the preconditioned operator for the nonlinear algorithm can be considered as a special case of the generalized preconditioner \eqref{eq:P_gen_lin} for the linear algorithm. It therefore stands to reason that we should try to analyze the more general preconditioned operator \eqref{eq:P_gen_lin} in an attempt to better understand the similarities that occur in the analyses of the two different problems. It turns out that in fact we can analyze this general operator and recover from it the special cases we had been considering, as is shown in the following Theorem and Corollaries.
 
 %
 \begin{theorem}[Optimal preconditioning]
@@ -82,9 +82,9 @@ That is to say, the preconditioned operator for the nonlinear algorithm can be c
 that $\eta > 0$ and $W(\cL) \leq 0$. Let $\mathcal{P}_{\delta,\gamma}$ denote
 the preconditioned operator, 
 \begin{align} \label{eq:P_gen}
-{\cal P}_{\delta, \gamma} \coloneqq [(\eta I  - {\cal L})^2 + \beta^2 I] (\delta I - {\cal L})^{-1} (\gamma I - {\cal L})^{-1}, \quad \delta, \gamma \in \mathbb{R}_+,
+{\cal P}_{\delta, \gamma} \coloneqq [(\eta I  - {\cal L})^2 + \beta^2 I] (\delta I - {\cal L})^{-1} (\gamma I - {\cal L})^{-1}, \quad \delta, \gamma \in (0, \infty),
 \end{align}
-in which $[(\eta I  - {\cal L})^2 + \beta^2 I]$ is preconditoned with $(\delta I - {\cal L})^{-1} (\gamma I - {\cal L})^{-1}$.
+in which $[(\eta I  - {\cal L})^2 + \beta^2 I]$ is preconditioned with $(\delta I - {\cal L})^{-1} (\gamma I - {\cal L})^{-1}$.
 %
 Let $\kappa({\cal P}_{\delta, \gamma})$ denote the two-norm condition number of ${\cal P}_{\delta,\gamma}$,
 and define $\gamma_*$ by
@@ -93,7 +93,7 @@ and define $\gamma_*$ by
 \end{align}
 Then
 \begin{align} \label{eq:kappa_gen_gamma*_bound}
-\kappa(\mathcal{P}_{\delta, \gamma_*}) \leq \frac{\delta + \gamma_*}{2 \eta}.
+\kappa(\mathcal{P}_{\delta, \gamma_*}) \leq \frac{1}{2 \eta} \left( \delta + \frac{\eta^2 + \beta^2}{\delta} \right).
 \end{align}
 
 Moreover, (i) bound \eqref{eq:kappa_gen_gamma*_bound} is tight in the sense that $\exists$ $\cL$
@@ -111,15 +111,11 @@ With respect to a tight upper bound on its condition number, the optimal values 
 \end{corollary}
 \begin{proof}
 Operator \eqref{eq:P_gen_lin} is equivalent to that of \eqref{eq:P_gen} analyzed in Theorem \ref{th:cond_gen}.
-Substituting $\gamma_*$ \eqref{eq:gamma*_gen} into condition number bound \eqref{eq:kappa_gen_gamma*_bound} yields
-\begin{align*}
-\kappa({\cal P}_{\delta, \gamma_*}) \leq \frac{1}{2 \eta} \left(\delta + \frac{\eta^2 + \beta^2}{\delta}\right).
-\end{align*}
-Differentiating this expression, for $\delta > 0$ we see that it has only one critical point at $\delta = \sqrt{\eta^2+ \beta^2}$. Since this function is increasing as $\delta \to 0^+$ and $\delta \to \infty$, this critical point must be a local minimum. Therefore, the tight upper bound \eqref{eq:kappa_gen_gamma*_bound} is minimized when $\delta = \sqrt{\eta^2+ \beta^2}$. Substituting $\delta =  \sqrt{\eta^2+ \beta^2}$ into \eqref{eq:gamma*_gen} yields $\gamma_* = \sqrt{\eta^2 + \beta^2}$, and substituting $\delta = \gamma_* = \sqrt{\eta^2 + \beta^2}$ into \eqref{eq:kappa_gen_gamma*_bound} yields bound \eqref{eq:kappa_gammastar,gammastar}.
+Differentiating bound \eqref{eq:kappa_gen_gamma*_bound}, for $\delta > 0$ we see that it has only one critical point at $\delta = \sqrt{\eta^2+ \beta^2}$. Since this function is increasing as $\delta \to 0^+$ and $\delta \to \infty$, this critical point must be a local minimum. Therefore, the tight upper bound \eqref{eq:kappa_gen_gamma*_bound} is minimized when $\delta = \sqrt{\eta^2+ \beta^2}$. Substituting $\delta =  \sqrt{\eta^2+ \beta^2}$ into \eqref{eq:gamma*_gen} yields $\gamma_* = \sqrt{\eta^2 + \beta^2}$, and substituting $\delta = \gamma_* = \sqrt{\eta^2 + \beta^2}$ into \eqref{eq:kappa_gen_gamma*_bound} yields bound \eqref{eq:kappa_gammastar,gammastar}.
 \end{proof}
 
 \begin{corollary}[Optimal preconditioning in the $2 \times 2$ setting]
-With respect to a tight upper bound on its condition number, the optimal value of $\gamma$ in the preconditoned operator \eqref{eq:P_gen_nonlin} is $\gamma = \gamma_* =  \eta + \beta^2 / \eta$, and the condition number of the corresponding preconditioned operator is tightly bounded by
+With respect to a tight upper bound on its condition number, the optimal value of $\gamma$ in the preconditioned operator \eqref{eq:P_gen_nonlin} is $\gamma = \gamma_* =  \eta + \beta^2 / \eta$, and the condition number of the corresponding preconditioned operator is tightly bounded by
 \begin{align}
 \kappa({\cal P}_{\eta, \gamma_*}) \leq  1 +  \frac{1}{2} \frac{\beta^2}{\eta^2}.
 \end{align}
@@ -254,7 +250,9 @@ are given by
 \label{eq:P_gen_gamma*_bounds}
 \Vert {\cal P}_{\delta,\gamma_*} \Vert \leq 1,
 \quad
-\Vert {\cal P}_{\delta,\gamma_*}^{-1} \Vert \leq \frac{\delta + \gamma_*}{2 \eta}
+\Vert {\cal P}_{\delta,\gamma_*}^{-1} \Vert 
+\leq \frac{\delta + \gamma_*}{2 \eta}
+= \frac{1}{2 \eta} \left( \delta + \frac{\eta^2 + \beta^2}{\delta} \right)
 \end{align}
 Applying these bounds to the condition number \eqref{eq:kappa_gen_def}
 yields the upper bound in \eqref{eq:kappa_gen_gamma*_bound}.
@@ -300,7 +298,7 @@ H}_{\delta,\gamma}(\xi)$ serves as a lower bound on $\Vert {\cal P}_{\delta,\gam
 Therefore, the ratio of any two values of ${\cal H}_{\delta,\gamma}(\xi)$ provide a
 lower bound on $\kappa^2({\cal P}_{\delta,\gamma})$.
 
-We now show that bound \eqref{eq:kappa_gen_gamma*_bound} on $\kappa^2({\cal P}_{\delta,\gamma_*})$
+We now show that bound \eqref{eq:kappa_gen_gamma*_bound} on $\kappa({\cal P}_{\delta,\gamma_*})$
 is tight. Considering \eqref{eq:H_gen_def} at the judiciously chosen eigenvalues of
 $\mathrm{i} \xi = \{ 0, \pm \mathrm{i} \sqrt{\delta \gamma_*}\}$, we have
 %
@@ -2121,7 +2119,7 @@ Method & &  \\ \hline
   \hline
   \end{tabular}
   \caption{
-Number of GMRES iterations for each stage when solving $u_t = \Delta u + s$, with a single time step of $\delta t = h = 1/256$. Different values of $\gamma$ are used in the preconditoner, as indicated.
+Number of GMRES iterations for each stage when solving $u_t = \Delta u + s$, with a single time step of $\delta t = h = 1/256$. Different values of $\gamma$ are used in the preconditioner, as indicated.
 }
 \label{tab:cond_iters}
 \end{table}
