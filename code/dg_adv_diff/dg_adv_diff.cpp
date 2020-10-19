@@ -435,8 +435,8 @@ int run_adv_diff(int argc, char *argv[])
    bool visualization = false;
    int vis_steps = 200;
    int use_gmres = false;
-   int maxiter = 150;
-   int mag_prec = 0;
+   int maxiter = 500;
+   int mag_prec = 1;
 
    OptionsParser args(argc, argv);
    args.AddOption(&mesh_file, "-m", "--mesh",

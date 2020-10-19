@@ -1,0 +1,138 @@
+Options used:
+   --mesh /g/g19/bs/mfem/data/inline-quad.mesh
+   --refine 4
+   --refine 2
+   --order 4
+   --kappa 25
+   --epsilon 1e-06
+   --time-step 0.00425
+   --final-time 0.0425
+   --irk 4
+   --use-air 1
+   --no-visualization
+   --use-gmres 0
+   --mag-prec 1
+dt = 0.00425, hmin = 0.00390625, hmax = 0.00390625
+time order = 4, space order = 4
+time acc. = 3.26254e-10, space acc. = 2.32831e-10
+Number of unknowns/proc: 5600
+Total number of unknowns: 1638400
+  System 1 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 2 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 3 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 4 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 5 of 5 (degree=1):  GMRES: Number of iterations: 4
+t = 0.004
+t = 0.004
+  System 1 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 2 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 3 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 4 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 5 of 5 (degree=1):  GMRES: Number of iterations: 5
+t = 0.009
+t = 0.009
+  System 1 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 2 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 3 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 4 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 5 of 5 (degree=1):  GMRES: Number of iterations: 5
+t = 0.013
+t = 0.013
+  System 1 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 2 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 3 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 4 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 5 of 5 (degree=1):  GMRES: Number of iterations: 5
+t = 0.017
+t = 0.017
+  System 1 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 2 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 3 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 4 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 5 of 5 (degree=1):  GMRES: Number of iterations: 5
+t = 0.021
+t = 0.021
+  System 1 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 2 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 3 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 4 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 5 of 5 (degree=1):  GMRES: Number of iterations: 5
+t = 0.026
+t = 0.026
+  System 1 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 2 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 3 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 4 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 5 of 5 (degree=1):  GMRES: Number of iterations: 5
+t = 0.030
+t = 0.030
+  System 1 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 2 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 3 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 4 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 5 of 5 (degree=1):  GMRES: Number of iterations: 5
+t = 0.034
+t = 0.034
+  System 1 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 2 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 3 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 4 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 5 of 5 (degree=1):  GMRES: Number of iterations: 5
+t = 0.038
+t = 0.038
+  System 1 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 2 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 3 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 4 of 5 (degree=1):  GMRES: Number of iterations: 5
+  System 5 of 5 (degree=1):  GMRES: Number of iterations: 5
+t = 0.043
+t = 0.043
+Options used:
+   --mesh /g/g19/bs/mfem/data/inline-quad.mesh
+   --refine 4
+   --refine 2
+   --order 4
+   --kappa 25
+   --epsilon 1e-06
+   --time-step 0.00425
+   --final-time 0.0425
+   --irk 14
+   --use-air 1
+   --no-visualization
+   --use-gmres 0
+   --mag-prec 1
+dt = 0.00425, hmin = 0.00390625, hmax = 0.00390625
+time order = 4, space order = 4
+time acc. = 3.26254e-10, space acc. = 2.32831e-10
+Number of unknowns/proc: 5600
+Total number of unknowns: 1638400
+  System 1 of 1 (degree=2):  GMRES: Number of iterations: 11
+t = 0.004
+t = 0.004
+  System 1 of 1 (degree=2):  GMRES: Number of iterations: 11
+t = 0.009
+t = 0.009
+  System 1 of 1 (degree=2):  GMRES: Number of iterations: 11
+t = 0.013
+t = 0.013
+  System 1 of 1 (degree=2):  GMRES: Number of iterations: 11
+t = 0.017
+t = 0.017
+  System 1 of 1 (degree=2):  GMRES: Number of iterations: 11
+t = 0.021
+t = 0.021
+  System 1 of 1 (degree=2):  GMRES: Number of iterations: 11
+t = 0.026
+t = 0.026
+  System 1 of 1 (degree=2):  GMRES: Number of iterations: 11
+t = 0.030
+t = 0.030
+  System 1 of 1 (degree=2):  GMRES: Number of iterations: 11
+t = 0.034
+t = 0.034
+  System 1 of 1 (degree=2):  GMRES: Number of iterations: 11
+t = 0.038
+t = 0.038
+  System 1 of 1 (degree=2):  GMRES: Number of iterations: 11
+t = 0.043
+t = 0.043

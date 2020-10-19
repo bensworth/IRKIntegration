@@ -268,9 +268,14 @@ public:
         m_c(1) = -2.0*eta_;
         m_c(2) = 1.0;
         // Boolean to use constant \gamma = \eta or \gamma = \sqrt(eta^2+\beta^2)
-        if (mag_prec==2) m_gamma = m_c(0);
-        if (mag_prec==1) m_gamma = std::sqrt(m_c(0));
+        if (mag_prec==3) m_gamma = m_c(0);
+        else if (mag_prec==2) m_gamma = m_c(0)/(eta_);
+        else if (mag_prec==1) m_gamma = std::sqrt(m_c(0));
         else m_gamma = eta_;
+
+        int myid;
+        MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+        if (myid ==0) std::cout << "eta = " << eta_ << ", beta = " << beta_ << ", gamma = " << m_gamma << "\n";
     };
 
     /// Getters
