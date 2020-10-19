@@ -1,0 +1,114 @@
+\documentclass[tikz]{standalone}
+\usepackage{pgfplots}
+\usepackage{stmaryrd}
+\usepackage{amsmath}
+
+\usetikzlibrary{calc}
+
+\definecolor{RYB2}{RGB}{31,120,180}   % Dark blue
+\definecolor{RYB4}{RGB}{51,160,44}    % Dark green
+
+\def\subplotwidth{2.2in}
+
+\begin{document}
+\pgfplotscreateplotcyclelist{will}{%
+  RYB2!50!black,every mark/.append style={fill=RYB2},mark=*\\%
+  RYB4!50!black,every mark/.append style={fill=RYB4},mark=square*\\%
+}
+
+\begin{tikzpicture}
+\begin{axis}[
+    name=plot1,
+    width=\subplotwidth,
+    ylabel={Preconditioner Applications},
+    xlabel={Temporal Order},
+    cycle list name=will,
+    legend cell align=left,
+    legend style={cells={align=left}},
+    legend style={row sep=6pt},
+    legend pos=outer north east,
+    xtick={2,3,4,5,6,7,8,9,10},
+    title={Gauss Methods},
+    xmin=1,
+    xmax=11,
+    ymin=0,
+    ymax=300,
+]
+\addplot table[x index=0,y index=1,skip first n=1] {gauss_inner_iter.txt};
+\addplot table[x index=0,y index=2,skip first n=1] {gauss_inner_iter.txt};
+\end{axis}
+\begin{axis}[
+    name=plot2,
+    at={($(plot1.east)+(2cm,0)$)},
+    anchor=west,
+    width=\subplotwidth,
+    ylabel={Preconditioner Applications},
+    xlabel={Temporal Order},
+    cycle list name=will,
+    legend cell align=left,
+    legend style={cells={align=left}},
+    legend style={row sep=6pt},
+    legend pos=outer north east,
+    xtick={2,3,4,5,6,7,8,9,10},
+    title={Lobatto IIIC Methods},
+    xmin=1,
+    xmax=11,
+    ymin=0,
+    ymax=300,
+]
+\addplot table[x index=0,y index=1,skip first n=1] {lobatto_inner_iter.txt};
+\addplot table[x index=0,y index=2,skip first n=1] {lobatto_inner_iter.txt};
+\end{axis}
+\begin{axis}[
+    name=plot3,
+    at={($(plot1.south)-(0,2cm)$)},
+    anchor=north,
+    width=\subplotwidth,
+    ylabel={Preconditioner Applications},
+    xlabel={Temporal Order},
+    cycle list name=will,
+    legend cell align=left,
+    legend style={cells={align=left}},
+    legend style={row sep=6pt},
+    legend pos=outer north east,
+    xtick={2,3,4,5,6,7,8,9,10},
+    title={Radau IIA Methods},
+    xmin=1,
+    xmax=11,
+    ymin=0,
+    ymax=300,
+]
+\addplot table[x index=0,y index=1,skip first n=1] {radau_inner_iter.txt};
+\addplot table[x index=0,y index=2,skip first n=1] {radau_inner_iter.txt};
+\end{axis}
+\begin{axis}[
+    name=plot4,
+    at={($(plot2.south)-(0,2cm)$)},
+    anchor=north,
+    width=\subplotwidth,
+    ylabel={Preconditioner Applications},
+    xlabel={Temporal Order},
+    cycle list name=will,
+    legend cell align=left,
+    legend style={cells={align=left}},
+    legend style={row sep=6pt},
+    legend pos=outer north east,
+    xtick={2,3,4,5,6,7,8,9,10},
+    title={DIRK Methods},
+    xmin=1,
+    xmax=11,
+    ymin=0,
+    ymax=300,
+    legend to name=grouplegend,
+    legend entries={No Inner Iteration, Inner CG Iteration},
+    legend columns=2,
+    legend style={/tikz/every even column/.append style={column sep=0.5cm}}
+]
+\addplot table[x index=0,y index=1,skip first n=1] {dirk_inner_iter.txt};
+\addplot table[x index=0,y index=2,skip first n=1] {dirk_inner_iter.txt};
+\end{axis}
+
+\node at (plot3.south east) [xshift=0.5cm, yshift=-2cm] {\ref{grouplegend}};
+
+\end{tikzpicture}
+\end{document}

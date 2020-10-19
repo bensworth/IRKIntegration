@@ -39,6 +39,118 @@
 % ---------------------------------------------------------------------------------------------- %
 % ---------------------------------------------------------------------------------------------- %
 % ---------------------------------------------------------------------------------------------- %
+\section{Differential algebraic equations}
+
+Consider a system of differential algebraic equations (DAEs) that result from
+the spatial discretization of a time-dependent PDE with a spatial constraint,
+and take the form
+%
+\begin{align}\label{eq:dae}
+\begin{split}
+M\mathbf{u}_t & = \mathcal{N}(\mathbf{u},\mathbf{w},t), \\
+\mathbf{0} & = \mathcal{G}(\mathbf{u},\mathbf{w},t).
+\end{split}
+\end{align}
+%
+Time propagation using Runge-Kutta integration then takes a similar form to
+\todo{ref}, where
+%
+\begin{align*}
+\mathbf{u}_{n+1} = \mathbf{u}_n + \delta t\sum_{i=1}^s b_i\mathbf{k}_i, \hspace{5ex}
+\mathbf{w}_{n+1} = \mathbf{w}_n + \delta t\sum_{i=1}^s b_i\boldsymbol{\ell}_i,
+\end{align*}
+%
+and stage vectors $\{\mathbf{k}_i\}$ and $\{\boldsymbol{\ell}_i\}$ are
+given as the solution of the nonlinear set of equations
+%
+\begin{align}\label{eq:dae_stage}
+\begin{split}
+\mathcal{N}_i :&= M\mathbf{k}_i -
+	\mathcal{N} \left (\mathbf{u}_{n} + \delta t\sum_{j=1}^s a_{ij}\mathbf{k}_j,
+	\mathbf{w}_{n} + \delta t\sum_{j=1}^s a_{ij}\boldsymbol{\ell}_j, t_{n} + c_i\delta t\right)
+	= \mathbf{0}, \\
+\mathcal{G}_i :&= - \left (\mathbf{u}_{n} + \delta t\sum_{j=1}^s a_{ij}\mathbf{k}_j,
+	\mathbf{w}_{n} + \delta t\sum_{j=1}^s a_{ij}\boldsymbol{\ell}_j, t_{n} + c_i\delta t\right)
+	= \mathbf{0}.
+\end{split}
+\end{align}
+%
+
+\textbf{The linear case:} As a simple example, consider a
+linear set of DAEs, where \eqref{eq:dae} can be expressed as the linear set of
+equations
+%
+\begin{align}\label{eq:dae_lin}
+\begin{bmatrix} M\mathbf{u}_t \\ \mathbf{0} \end{bmatrix}
+& = \begin{bmatrix} \mathcal{L}_u & \mathcal{L}_w \\
+	\mathcal{G}_u & \mathcal{G}_w\end{bmatrix}
+	\begin{bmatrix} \mathbf{u} \\ \mathbf{w} \end{bmatrix} + 
+		\begin{bmatrix}\mathbf{f}(t) \\ \mathbf{g}(t)\end{bmatrix}.
+\end{align}
+%
+Then, the set of equations defining stage vectors \eqref{eq:dae_stage} can
+be expressed as a large block linear system,
+%
+\begin{align}\label{eq:daestage_lin}
+\left( \begin{bmatrix} \begin{bmatrix} M \\ & \mathbf{0}\end{bmatrix} & &
+	\mathbf{0} \\ & \ddots \\ \mathbf{0} & & \begin{bmatrix} M \\ & \mathbf{0}\end{bmatrix}
+		\end{bmatrix}
+	- \delta t \begin{bmatrix}
+		a_{11}\begin{bmatrix} \mathcal{L}_{u} & \mathcal{L}_{w} \\
+			\mathcal{G}_{u} & \mathcal{G}_w \end{bmatrix} & ... & a_{1s}
+		\begin{bmatrix} \mathcal{L}_{u} & \mathcal{L}_{w} \\ \mathcal{G}_{u} & \mathcal{G}_w
+		\end{bmatrix} \\
+		\vdots & \ddots & \vdots \\
+		a_{s1}\begin{bmatrix} \mathcal{L}_{u} & \mathcal{L}_{w} \\
+			\mathcal{G}_{u} & \mathcal{G}_w \end{bmatrix}
+		& ... & a_{ss} \begin{bmatrix} \mathcal{L}_{u} & \mathcal{L}_{w} \\
+			\mathcal{G}_{u} & \mathcal{G}_w \end{bmatrix}
+	\end{bmatrix} \right)
+	\begin{bmatrix} \mathbf{k}_1 \\ \boldsymbol{\ell}_1 \\ \vdots \\
+		\mathbf{k}_s \\ \boldsymbol{\ell}_s\end{bmatrix} 
+& = \begin{bmatrix} \mathbf{f}_1 \\ \mathbf{g}_1 \\ \vdots \\
+	\mathbf{f}_s \\ \mathbf{g}_s \end{bmatrix},
+\end{align}
+%
+where $\mathbf{f}_i = ( \mathbf{f}(t_i + c_i\delta t) + \mathcal{L}_u\mathbf{u}_n
++ \mathcal{L}_w\mathbf{w}_n) $ and $\mathbf{g}_i = (\mathbf{g}(t_i + c_i\delta t) +
+\mathcal{G}_u\mathbf{u}_n + \mathcal{G}_w\mathbf{w}_n)$.\\
+\\
+\textbf{The nonlinear case:} For general nonlinear DAEs \eqref{eq:dae} that arise
+in the context of numerical PDEs, it is often the case (although we do not
+claim always) that linearizing \eqref{eq:dae_stage} results in a linear set of
+equations similar to \eqref{eq:daestage_lin}, but with linearized operator that
+depends on stages. Similar to the nonlinear ODE case (see \todo{ref}), it is
+generally the case that the $2\times 2$ linearized operator is fixed for a
+given stage (i.e., block row of the matrix), a natural result of the chain
+rule applied to \eqref{eq:dae_stage}. Pulling out an $A_0\times I$ as
+in the ODE case yields a block linear system of the form
+%
+\begin{align*}
+\left( A_0^{-1}\otimes \begin{bmatrix}M & \mathbf{0} \\ \mathbf{0} & \mathbf{0}\end{bmatrix}
+	- \delta t\begin{bmatrix}
+		\begin{bmatrix} \mathcal{L}_{u}^{(1)} & \mathcal{L}_{w}^{(1)} \\
+			\mathcal{G}_{u}^{(1)} & \mathcal{G}_w^{(1)} \end{bmatrix} & & \mathbf{0} \\
+		& \ddots & \\
+		\mathbf{0} &&\begin{bmatrix} \mathcal{L}_{u}^{(s)} & \mathcal{L}_{w}^{(s)} \\
+			\mathcal{G}_{u}^{(s)} & \mathcal{G}_w^{(s)} \end{bmatrix}
+	\end{bmatrix} \right)
+	(A_0 \otimes I)
+	\begin{bmatrix} \mathbf{k}_1 \\ \boldsymbol{\ell}_1 \\ \vdots \\
+		\mathbf{k}_s \\ \boldsymbol{\ell}_s\end{bmatrix} 
+& = \begin{bmatrix} \mathbf{f}_1 \\ \mathbf{g}_1 \\ \vdots \\
+	\mathbf{f}_s \\ \mathbf{g}_s \end{bmatrix}.
+\end{align*}
+%
+
+Assume that the Jacobian $\partial\mathcal{G}/\partial \mathbf{w}$ exists and
+is invertible in a neighborhood of the exact solution. These are so-called
+semi-explicit index-1 DAEs. 
+
+
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
 \section{Introduction}
 
 Consider the method-of-lines approach to solving partial differential equations (PDEs),
@@ -150,6 +262,28 @@ $A_0^{-1}$ to the matrix yields the equivalent system
 & = \begin{bmatrix} \mathbf{f}_1 \\ \mathbf{0} \\ \vdots \\ \mathbf{f}_s \\ \mathbf{0} \end{bmatrix},
 \end{align}
 %
+
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+% ---------------------------------------------------------------------------------------------- %
+\section{Index-1 DAEs}
+
+\begin{itemize}
+	\item For index-1 DAEs, can eliminate constraint and yield system of ODEs. 
+	\item Under reasonable assumptions on stability of resulting system of ODEs,
+	same theory from linear paper can be applied to the reduced system.
+	\item Try to show that directly applying IRK block preconditioning to reduced
+	ODE system equivalent to applying similar preconditioning to DAE form (think
+	this should hold). Then, algorithm seamlessly extends to index-1 DAEs.
+	\item Use KHI model as example problem in paper.
+
+	\item For nonlinear constraint, what is relation between elimination of
+	linearized constraint in block preconditioning form and elimination of
+	nonlinear constraint to form reduced ODE system? 
+
+\end{itemize}
+
+
 
 
 % ---------------------------------------------------------------------------------------------- %

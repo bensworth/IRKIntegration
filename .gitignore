@@ -1,8 +1,10 @@
 *DS_Store
 notes_irk.pdf
 other_ideas.pdf
-implementation.pdf
+implementation_notes/nonlinear/nonlin_implementation.pdf
+implementation_notes/linear/lin_implementation.pdf
 irk_DAE.pdf
+analysis_notes/fov.pdf
 
 *.m~
 *.synctex*
@@ -18,10 +20,11 @@ irk_DAE.pdf
 *.dSYM
 *.o
 driver
-implementation.pdf
-irk.pdf
+irk_lin.pdf
 code/FDadv_dif/convergence/tex/results.pdf
 code/FD_utils/**/*.pdf
 code/FD_utils/**/__pycache__/
-ODEs_paper/figures/ParaviewFiles
-
+ODEs_linear/figures/ParaviewFiles
+analysis/fov.pdf
+irk_nl.pdf
+ODEs_linear/irk_lin.pdf
