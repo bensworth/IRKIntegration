@@ -759,7 +759,7 @@ void AdvDif::GetGradient(const Vector &x, HypreParMatrix * &J) const {
     if (J) delete J;
     
     if (A && D) {
-        J = HypreParMatrixAdd(-1., A->GetGradient(x), 1., D->Get()); 
+        J = Add(-1., A->GetGradient(x), 1., D->Get()); 
     } else if (A) {
         J = &(A->GetGradient(x));
         *J *= -1.;
@@ -847,7 +847,7 @@ void AdvDif::SetExplicitGradients(const Vector &u, double dt,
 //     HypreParMatrix * J;
 // 
 //     if (A && D) {
-//         J = HypreParMatrixAdd(-1., A->GetGradient(x), 1., D->Get()); 
+//         J = Add(-1., A->GetGradient(x), 1., D->Get()); 
 //     } else if (A) {
 //         J = &(A->GetGradient(x));
 //         *J *= -1.;
@@ -902,7 +902,7 @@ void AdvDif::SetPreconditioner(int index, double dt, double gamma, int type) {
         if (!identity) identity = (A) ? A->GetHypreParIdentityMatrix() : D->GetHypreParIdentityMatrix();
         
         // B = gamma*I - dt*Gradient
-        HypreParMatrix * B = HypreParMatrixAdd(-dt, *Gradient, gamma, *identity); 
+        HypreParMatrix * B = Add(-dt, *Gradient, gamma, *identity); 
         
         /* Build AMG preconditioner for B */
         HypreBoomerAMG * amg_solver = new HypreBoomerAMG(*B);
@@ -913,12 +913,15 @@ void AdvDif::SetPreconditioner(int index, double dt, double gamma, int type) {
         amg_solver->SetPrintLevel(AMG.printlevel); 
         amg_solver->iterative_mode = false;
         if (AMG.use_AIR) {                        
-            amg_solver->SetLAIROptions(AMG.distance, 
-                                        AMG.prerelax, AMG.postrelax,
-                                        AMG.strength_tolC, AMG.strength_tolR, 
-                                        AMG.filter_tolR, AMG.interp_type, 
-                                        AMG.relax_type, AMG.filterA_tol,
-                                        AMG.coarsening);                                       
+            amg_solver->SetAdvectiveOptions(AMG.distance, AMG.prerelax, AMG.postrelax);
+            amg_solver->SetStrongThresholdR(AMG.strength_tolR);
+            amg_solver->SetFilterThresholdR(AMG.filter_tolR);
+            amg_solver->SetStrengthThresh(AMG.strength_tolC);
+            amg_solver->SetInterpolation(AMG.interp_type);
+            amg_solver->SetRelaxType(AMG.relax_type);
+            amg_solver->SetCoarsening(AMG.coarsening);
+            // TODO - this option not there
+            // amg_solver->            AMG.filterA_tol,                                      
         } else {
             amg_solver->SetInterpolation(0);
             amg_solver->SetCoarsening(AMG.coarsening);
@@ -1006,12 +1009,15 @@ void AdvDif::SetPreconditioner(int index, double dt, double gamma, Vector weight
         amg_solver->SetPrintLevel(AMG.printlevel); 
         amg_solver->iterative_mode = false;
         if (AMG.use_AIR) {                        
-            amg_solver->SetLAIROptions(AMG.distance, 
-                                        AMG.prerelax, AMG.postrelax,
-                                        AMG.strength_tolC, AMG.strength_tolR, 
-                                        AMG.filter_tolR, AMG.interp_type, 
-                                        AMG.relax_type, AMG.filterA_tol,
-                                        AMG.coarsening);                                       
+            amg_solver->SetAdvectiveOptions(AMG.distance, AMG.prerelax, AMG.postrelax);
+            amg_solver->SetStrongThresholdR(AMG.strength_tolR);
+            amg_solver->SetFilterThresholdR(AMG.filter_tolR);
+            amg_solver->SetStrengthThresh(AMG.strength_tolC);
+            amg_solver->SetInterpolation(AMG.interp_type);
+            amg_solver->SetRelaxType(AMG.relax_type);
+            amg_solver->SetCoarsening(AMG.coarsening);
+            // TODO - this option not there
+            // amg_solver->            AMG.filterA_tol,                                    
         } else {
             amg_solver->SetInterpolation(0);
             amg_solver->SetCoarsening(AMG.coarsening);

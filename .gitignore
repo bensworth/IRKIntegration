@@ -20,6 +20,7 @@ analysis_notes/fov.pdf
 *.dSYM
 *.o
 driver
+driver_adv_dif_FD
 irk_lin.pdf
 code/FDadv_dif/convergence/tex/results.pdf
 code/FD_utils/**/*.pdf
