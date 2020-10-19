@@ -81,7 +81,7 @@ double PDESolution(const Vector &x, double t);
 struct AMGParams {    
     // AIR parameters
     bool use_AIR = false; 
-    double distance = 1.5;
+    int distance = 15;
     string prerelax = "";
     string postrelax = "FFC";
     double strength_tolC = 0.1;
@@ -624,7 +624,7 @@ HypreParMatrix &AdvDif::SetJacobian() const {
     if (Jacobian) delete Jacobian;
 
     if (A && D) {
-        Jacobian = HypreParMatrixAdd(-1., A->Get(), 1., D->Get()); 
+        Jacobian = Add(-1., A->Get(), 1., D->Get()); 
     } else if (A) {
         Jacobian = &(A->Get());
         *Jacobian *= -1.;
@@ -670,7 +670,7 @@ void AdvDif::SetSystem(int index, double dt, double gamma, int type) {
         if (!identity) identity = (A) ? A->GetHypreParIdentityMatrix() : D->GetHypreParIdentityMatrix();
         
         // Form matrix B = gamma*I - dt*Jacobian
-        HypreParMatrix * B = HypreParMatrixAdd(-dt, *Jacobian, gamma, *identity); 
+        HypreParMatrix * B = Add(-dt, *Jacobian, gamma, *identity); 
         
         // Build AMG preconditioner for B
         HypreBoomerAMG * amg_solver = new HypreBoomerAMG(*B);
@@ -683,12 +683,16 @@ void AdvDif::SetSystem(int index, double dt, double gamma, int type) {
         
         
         if (AMG.use_AIR) {                      
-            amg_solver->SetLAIROptions(AMG.distance, 
-                                        AMG.prerelax, AMG.postrelax,
-                                        AMG.strength_tolC, AMG.strength_tolR, 
-                                        AMG.filter_tolR, AMG.interp_type, 
-                                        AMG.relax_type, AMG.filterA_tol,
-                                        AMG.coarsen_type);                                       
+            amg_solver->SetAdvectiveOptions(AMG.distance, AMG.prerelax, AMG.postrelax);
+            amg_solver->SetStrongThresholdR(AMG.strength_tolR);
+            amg_solver->SetFilterThresholdR(AMG.filter_tolR);
+            amg_solver->SetStrengthThresh(AMG.strength_tolC);
+            amg_solver->SetInterpolation(AMG.interp_type);
+            amg_solver->SetRelaxType(AMG.relax_type);
+            amg_solver->SetCoarsening(AMG.coarsen_type);
+            // TODO - this option not there
+            // amg_solver->            AMG.filterA_tol,
+                                                                          
         } else {
             amg_solver->SetCoarsening(AMG.coarsen_type);
             amg_solver->SetAggressiveCoarsening(AMG.agg_levels); 
