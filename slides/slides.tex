@@ -1,0 +1,324 @@
+\pdfminorversion=7
+\documentclass[blue]{beamer}
+\usetheme{Hannover}
+\usecolortheme{whale}
+\useoutertheme{infolines}
+\setbeamertemplate{headline}{} % removes the headline that infolines inserts
+
+
+% \usefonttheme[onlylarge]{structurebold}
+% \setbeamerfont*{frametitle}{size=\normalsize,series=\bfseries}
+% \setbeamertemplate{navigation symbols}{}
+
+\usepackage{xcolor}
+% This doesn't work yet, trying to figure out how to get beamer color theme and set in title
+% \setbeamercolor{frametitle}{bg=\usebeamercolor[bg]{palette primary}}
+
+
+
+
+%\mode<presentation>{
+% \usetheme{Darmstadt}
+
+% font themes: default, professionalfonts, serif, structurebold, structureitalicserif, structuresmallcapsserif
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb,amsthm,amsfonts, stmaryrd}
+\usepackage{graphicx}
+\usepackage[font={small,it}]{caption}
+\usepackage{scrextend}
+\usepackage{amsfonts}
+\usepackage{array}
+\usepackage{enumerate}
+\usepackage{arydshln}	% Dotted lines in arrays
+\usepackage{blkarray}	% Label outside matrix columns
+\usepackage{multirow}
+\usepackage{adjustbox}
+
+\usepackage[absolute,overlay]{textpos}
+
+\setbeamertemplate{theorems}[numbered]
+\newcommand{\todo}[1]{\textcolor{red}{[TODO\@: #1]}}
+\newcommand{\tcr}[1]{\textcolor{red}{#1}}
+\newcommand{\tcb}[1]{\textcolor{blue}{#1}}
+
+
+\usepackage{relsize}
+\newcommand{\bigqm}[1][1]{\text{\larger[#1]{\textbf{?}}}}
+
+\newcommand*\circled[1]{\tikz[baseline=(char.base)]{
+            \node[shape=circle,draw,inner sep=1pt] (char) {#1};}}
+
+
+\begin{document}
+
+\title[]{Fully implicit Runge-Kutta}
+\author[]{Ben Southworth, Oliver Krzysik, Will Pazner, Hans de Sterk
+}
+\date[]{\vspace{.15in}June 9, 2020}
+\frame{\titlepage}
+
+
+%%===========================================================================
+
+
+% Show full table of contents after title page
+% \begin{frame}<beamer>
+% 	\frametitle{Outline}
+% 	\tableofcontents
+% \end{frame}
+
+%--------------------------------------------------------------------------------%
+%--------------------------------------------------------------------------------%
+%--------------------------------------------------------------------------------%
+
+
+
+% \section{Convergence theory} 
+
+%--------------------------------------------------------------------------------%
+
+\begin{frame}
+\frametitle{Why Runge-Kutta}
+
+General Runge-Kutta:
+\begin{itemize}
+    \item Multi-stage $\mapsto$ easy implementation.
+    \item Good stability properties.
+\end{itemize}
+\vspace{2ex}
+\uncover<2->{
+Fully implicit Runge-Kutta:
+\begin{itemize}
+    \item High-order (up to $2s$ for $s$ stages).
+    \item High stage-order (for nonlinear PDEs/DAEs).
+    \item Can compute pairs of stages in parallel.
+    \item Equivalent to DG in time.
+\end{itemize}
+}
+\vspace{2ex}
+\uncover<2->{
+Assumptions:
+\begin{itemize}
+    \item For Butcher tableaux $A_0$, $A_0+A_0^T$ is SPD.
+    \item Linearized operator $\mathcal{L}$ satisfies
+    $\langle\mathcal{L}\mathbf{x},\mathbf{x}\rangle \leq 0$.
+\end{itemize}
+
+}
+
+\end{frame}
+
+
+%--------------------------------------------------------------------------------%
+
+\begin{frame}
+\frametitle{Runge-Kutta}
+
+Method of lines for PDEs:
+\begin{align*}
+    M\mathbf{u}'(t) & =  \mathcal{N}(\mathbf{u},t) \hspace{7.25ex}\text{in }(0,T], \quad \mathbf{u}(0) = \mathbf{u}_0.
+\end{align*}
+%
+Runge-Kutta:
+%
+\begin{align*}
+\mathbf{u}_{n+1} & = \mathbf{u}_n + \delta t \sum_{i=1}^s b_i\mathbf{k}_i, 
+    \hspace{5ex}\textnormal{where}\\
+M\mathbf{k}_i & = \mathcal{N}\bigg(\mathbf{u}_n + \delta t\sum_{j=1}^s a_{ij}\mathbf{k}_j,
+    t_n+\delta tc_i\bigg).\label{eq:stages}
+\end{align*}
+%
+
+\uncover<2->{
+Linear(ized) system:
+%
+\only<1-2>{
+\begin{align*}
+\left( \begin{bmatrix} M  & & \mathbf{0} \\ & \ddots \\ \mathbf{0} & & M\end{bmatrix}
+    - \delta t \begin{bmatrix} a_{11}\mathcal{L}_1 & ... & a_{1s}\mathcal{L}_1 \\
+    \vdots & \ddots & \vdots \\ a_{s1}\mathcal{L}_s & ... & a_{ss} \mathcal{L}_s \end{bmatrix} \right)
+    \begin{bmatrix} \mathbf{k}_1 \\ \vdots \\ \mathbf{k}_s \end{bmatrix} 
+& = \begin{bmatrix} \mathbf{f}_1 \\ \vdots \\ \mathbf{f}_s \end{bmatrix}.
+\end{align*}
+}
+\only<3->{
+\begin{align*}
+\left( \begin{bmatrix} I  & & \mathbf{0} \\ & \ddots \\ \mathbf{0} & & I\end{bmatrix}
+    - \begin{bmatrix} a_{11}\widehat{\mathcal{L}}_1 & ... & a_{1s}\widehat{\mathcal{L}}_1 \\
+    \vdots & \ddots & \vdots \\ a_{s1}\widehat{\mathcal{L}}_s & ... & a_{ss} \widehat{\mathcal{L}}_s \end{bmatrix} \right)
+    \begin{bmatrix} \mathbf{k}_1 \\ \vdots \\ \mathbf{k}_s \end{bmatrix} 
+& = \begin{bmatrix} \hat{\mathbf{f}}_1 \\ \vdots \\ \hat{\mathbf{f}}_s \end{bmatrix}.
+\end{align*}
+}
+}
+
+\end{frame}
+
+%--------------------------------------------------------------------------------%
+
+\begin{frame}
+\frametitle{Linearization}
+
+Step 1:
+%
+\begin{align*}
+\left( A_0^{-1}\otimes I - \begin{bmatrix} \widehat{\mathcal{L}}_1  & \\ & \ddots \\ && \widehat{\mathcal{L}}_s\end{bmatrix}\right)
+    (A_0\otimes I)  \begin{bmatrix} \mathbf{k}_1 \\ \vdots \\ \mathbf{k}_s \end{bmatrix}
+& = \begin{bmatrix} \mathbf{f}_1 \\ \vdots \\ \mathbf{f}_s \end{bmatrix}.
+\end{align*}
+%
+\uncover<2->{
+\noindent
+Step 2 (for real Schur decomposition $A_0^{-1} = Q_0R_0Q_0^T$):
+
+{\footnotesize
+\begin{align*}
+\left( R_0\otimes I - (Q_0^T\otimes I) \begin{bmatrix}
+    \widehat{\mathcal{L}}_1  & \\ & \ddots \\ && \widehat{\mathcal{L}}_s\end{bmatrix}
+    (Q_0\otimes I)\right) (R_0^{-1}Q_0^T\otimes I) \mathbf{k}\
+= (Q_0^T\otimes I)\mathbf{f}.
+\end{align*}
+}
+}
+\end{frame}
+
+%--------------------------------------------------------------------------------%
+
+\begin{frame}
+\frametitle{Linear solvers}
+
+Must solve $(\eta > 0)$
+%
+\begin{align*}
+\begin{bmatrix} \eta I - \widehat{\mathcal{L}}_1 & \phi I\\
+-\frac{\beta^2}{\phi} I & \eta I - \widehat{\mathcal{L}}_2\end{bmatrix},
+\end{align*}
+%
+Convergence of Krylov defined by preconditioned Schur complement,
+%
+\begin{align*}
+S :& = \eta I - \widehat{\mathcal{L}}_2 + \beta^2 (\eta I - \widehat{\mathcal{L}}_1)^{-1} \\
+& = \left( (\eta I - \widehat{\mathcal{L}}_2) (\eta I - \widehat{\mathcal{L}}_1)
+    + \beta^2 I \right)(\eta I - \widehat{\mathcal{L}}_1)^{-1}.
+\end{align*}
+%
+\uncover<2-2>{
+Consider general preconditioned operator
+%
+\begin{align*}
+\mathcal{P}_{\delta,\gamma} & :=
+    \Big[(\eta I - \widehat{\mathcal{L}}_2)(\eta I - \widehat{\mathcal{L}}_1) + \beta^2 I\Big]
+        (\delta I - \widehat{\mathcal{L}}_1)^{-1}(\gamma I - \widehat{\mathcal{L}}_2)^{-1}.
+\end{align*}
+}
+\end{frame}
+
+%
+\begin{frame}
+\frametitle{Theory}
+
+%
+\begin{theorem}[Optimal preconditioning]
+Suppose $\eta > 0$ and $W(\widehat{\mathcal{L}}) \leq 0$,
+and suppose $\widehat{\mathcal{L}}$ is real-valued.
+Let $\kappa({\cal P}_{\delta, \gamma})$ denote the two-norm condition number of
+${\cal P}_{\delta,\gamma}$, for $\delta, \gamma \in (0, \infty)$,
+and define $\gamma_*$ by
+\begin{align*}
+\gamma_* := \frac{\eta^2+\beta^2}{\delta}.
+\end{align*}
+Then
+\begin{align*}
+\kappa(\mathcal{P}_{\delta, \gamma_*}) \leq \frac{1}{2 \eta} \left( \delta + \frac{\eta^2 + \beta^2}{\delta} \right).
+\end{align*}
+
+Moreover, (i) the bound is tight in the sense that $\exists$ $\widehat{\mathcal{L}}$
+that satisfies the bound exactly, and (ii) $\gamma = \gamma_*$ is optimal
+in the sense that, without further assumptions on $\widehat{\mathcal{L}}$, $\gamma_*$ minimizes a tight
+upper bound on $\kappa({\cal P}_{\delta, \gamma})$ over all $\gamma \in (0, \infty)$.
+\end{theorem}
+%
+
+\end{frame}
+
+%
+\begin{frame}
+\frametitle{Linear case, $\mathcal{L}_1=\mathcal{L}_2$, $\gamma ,\delta = $ ?}
+
+\begin{corollary}[Optimal preconditioning with $\gamma = \delta$]
+A tight upper bound on the condition number of ${\cal P}_{\delta,\gamma}$
+is minimized over $\delta, \gamma \in (0, \infty)$ with $\delta = \gamma = 
+\gamma_* = \sqrt{\eta^2 + \beta^2}.$
+Furthermore, the condition number of ${\cal P}_{\gamma_*}$
+is tightly bounded via
+\begin{align*}
+\kappa({\cal P}_{\gamma_*}) \leq \sqrt{1 + \frac{\beta^2}{\eta^2}}.
+\end{align*}
+\end{corollary}
+
+{
+\renewcommand{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.15}
+\begin{table}[!ht]
+  \centering
+  \begin{tabular}{| c | c | cc | cc | ccc |}  % chktex 44
+  \hline
+\multirow{2}{*}{Stages} & 2 & \multicolumn{2}{c}{3} & \multicolumn{2}{|c}{4} & \multicolumn{3}{|c|}{5} \\
+
+& {$\lambda_{1,2}^\pm$} & {$\lambda_1$} & {$\lambda_{2,3}^\pm$} & {$\lambda_{1,2}^\pm$} &
+    {$\lambda_{3,4}^\pm$} & {$\lambda_1$} & {$\lambda_{2,3}^\pm$} & {$\lambda_{4,5}^\pm$} \\
+\hline
+Gauss & 1.15 & 1.00 & 1.38 & 1.61 & 1.04 & 1.00 & 1.83 & 1.13 \\
+Radau & 1.22 & 1.00 & 1.51 & 1.79 & 1.05 & 1.00 & 2.05 & 1.15 \\
+Lobatto & 1.41 & 1.00 & 1.79 & 2.12 & 1.06 & 1.00 & 2.42 & 1.17 \\\hline
+  \end{tabular}
+  \caption{Bounds on $\kappa(\mathcal{P}_{\gamma_*})$ for Gauss, Radau IIA,
+  and Lobatto IIIC.}
+\end{table}
+}
+
+\end{frame}
+
+%
+\begin{frame}
+\frametitle{Nonlinear case, $\mathcal{L}_1=\mathcal{L}_2$, $\delta = \eta$}
+
+\begin{corollary}[Optimal preconditioning with $\gamma = \delta$]
+A tight upper bound on the condition number of ${\cal P}_{\eta,\gamma}$
+is minimized over $\gamma \in (0, \infty)$ with $\delta = \gamma = 
+\gamma_* =  \eta + \frac{\beta^2}{\eta}$.
+Furthermore, the condition number of ${\cal P}_{\gamma_*}$
+is tightly bounded via
+\begin{align*}
+\kappa({\cal P}_{\gamma_*}) \leq 1 +  \frac{1}{2} \frac{\beta^2}{\eta^2}.
+\end{align*}
+\end{corollary}
+
+{
+\renewcommand{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.15}
+\begin{table}[!ht]
+  \centering
+  \begin{tabular}{| c | c | cc | cc | ccc |}  % chktex 44
+  \hline
+\multirow{2}{*}{Stages} & 2 & \multicolumn{2}{c}{3} & \multicolumn{2}{|c}{4} & \multicolumn{3}{|c|}{5} \\
+
+& {$\lambda_{1,2}^\pm$} & {$\lambda_1$} & {$\lambda_{2,3}^\pm$} & {$\lambda_{1,2}^\pm$} &
+    {$\lambda_{3,4}^\pm$} & {$\lambda_1$} & {$\lambda_{2,3}^\pm$} & {$\lambda_{4,5}^\pm$} \\
+\hline
+Gauss  & 1.17 & 1.00 & 1.46 & 1.80 & 1.05 & 1.00 & 2.18 & 1.14 \\
+Radau IIA  & 1.25 & 1.00 & 1.65 & 2.11 & 1.06 & 1.00 & 2.60 & 1.16 \\
+Lobatto IIIC & 1.50 & 1.00 & 2.11 & 2.76 & 1.07 & 1.00 & 3.44 & 1.19 \\\hline
+  \end{tabular}
+  \caption{Bounds on $\kappa(\mathcal{P}_{\gamma_*})$ for Gauss, Radau IIA,
+  and Lobatto IIIC.}
+\end{table}
+}
+
+\end{frame}
+
+
+
+
+\end{document}
