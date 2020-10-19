@@ -220,7 +220,7 @@ via
 \begin{align}\label{eq:problem2}
 \begin{split}
 \begin{bmatrix} M \mathbf{u}_t \\ 0 \end{bmatrix}
-	= \begin{bmatrix} L_{uu} & L_{up} \\ L_{pu} & S \end{bmatrix}
+	= \begin{bmatrix} L_{uu} & L_{up} \\ L_{pu} & -S \end{bmatrix}
 	\begin{bmatrix} \mathbf{u} \\ p \end{bmatrix} + 
 	\begin{bmatrix} g \\ 0 \end{bmatrix}.
 \end{split},
@@ -237,8 +237,8 @@ $\{\mathbf{k}_j, \ell_j\}$ as the solution of a large block linear system,
 \left( \begin{bmatrix} \begin{bmatrix} M \\ & \mathbf{0}\end{bmatrix} & &
 	\mathbf{0} \\ & \ddots \\ \mathbf{0} & & \begin{bmatrix} M \\ & \mathbf{0}\end{bmatrix}
 		\end{bmatrix}
-	- \delta t \begin{bmatrix} a_{11}\begin{bmatrix} L^{(1)}_{uu} & L^{(1)}_{up} \\ L^{(1)}_{pu} & S \end{bmatrix} & ... & a_{1s}\begin{bmatrix} L^{(1)}_{uu} & L^{(1)}_{up} \\ L^{(1)}_{pu} & S \end{bmatrix} \\
-	\vdots & \ddots & \vdots \\ a_{s1}\begin{bmatrix} L^{(s)}_{uu} & L^{(s)}_{up} \\ L^{(s)}_{pu} & S \end{bmatrix} & ... & a_{ss} \begin{bmatrix} L^{(s)}_{uu} & L^{(s)}_{up} \\ L^{(s)}_{pu} & S \end{bmatrix} \end{bmatrix} \right)
+	- \delta t \begin{bmatrix} a_{11}\begin{bmatrix} L^{(1)}_{uu} & L^{(1)}_{up} \\ L^{(1)}_{pu} & -S \end{bmatrix} & ... & a_{1s}\begin{bmatrix} L^{(1)}_{uu} & L^{(1)}_{up} \\ L^{(1)}_{pu} & -S \end{bmatrix} \\
+	\vdots & \ddots & \vdots \\ a_{s1}\begin{bmatrix} L^{(s)}_{uu} & L^{(s)}_{up} \\ L^{(s)}_{pu} & -S \end{bmatrix} & ... & a_{ss} \begin{bmatrix} L^{(s)}_{uu} & L^{(s)}_{up} \\ L^{(s)}_{pu} & -S \end{bmatrix} \end{bmatrix} \right)
 	\begin{bmatrix} \mathbf{k}_1 \\ \ell_1 \\ \vdots \\ \mathbf{k}_s \\ \ell_s\end{bmatrix} 
 & = \begin{bmatrix} \mathbf{f}_1 \\ \mathbf{0} \\ \vdots \\ \mathbf{f}_s \\ \mathbf{0} \end{bmatrix},
 \end{align}
@@ -256,8 +256,8 @@ $A_0^{-1}$ to the matrix yields the equivalent system
 %
 \begin{align}\label{eq:k1}
 \left(A_0^{-1} \otimes \begin{bmatrix} M \\ & \mathbf{0}\end{bmatrix}
-	- \delta t \begin{bmatrix} \begin{bmatrix} L^{(1)}_{uu} & L^{(1)}_{up} \\ L^{(1)}_{pu} & S \end{bmatrix} & \\
-	\ & \ddots & \ \\ & & \begin{bmatrix} L^{(s)}_{uu} & L^{(s)}_{up} \\ L^{(s)}_{pu} & S \end{bmatrix} \end{bmatrix} \right)
+	- \delta t \begin{bmatrix} \begin{bmatrix} L^{(1)}_{uu} & L^{(1)}_{up} \\ L^{(1)}_{pu} & -S \end{bmatrix} & \\
+	\ & \ddots & \ \\ & & \begin{bmatrix} L^{(s)}_{uu} & L^{(s)}_{up} \\ L^{(s)}_{pu} & -S \end{bmatrix} \end{bmatrix} \right)
 	(A_0\otimes I)\begin{bmatrix} \mathbf{k}_1 \\ \ell_1 \\ \vdots \\ \mathbf{k}_s \\ \ell_s\end{bmatrix} 
 & = \begin{bmatrix} \mathbf{f}_1 \\ \mathbf{0} \\ \vdots \\ \mathbf{f}_s \\ \mathbf{0} \end{bmatrix},
 \end{align}
@@ -299,7 +299,7 @@ product form as
 %
 \begin{align}\label{eq:k2}
 \left(A_0^{-1} \otimes \begin{bmatrix} M \\ & \mathbf{0}\end{bmatrix}
-	- \delta t I_s \otimes \begin{bmatrix} L_{uu} & L_{up} \\ L_{pu} & S \end{bmatrix} \right)
+	- \delta t I_s \otimes \begin{bmatrix} L_{uu} & L_{up} \\ L_{pu} & -S \end{bmatrix} \right)
 	(A_0\otimes I)\mathbf{K} & = \mathbf{F}.
 \end{align}
 %
@@ -311,7 +311,7 @@ matrix yields
 %
 \begin{align}\label{eq:k3}
 \left(R_0^{-1} \otimes \begin{bmatrix} M \\ & \mathbf{0}\end{bmatrix}
-	- \delta t I_s \otimes \begin{bmatrix} L_{uu} & L_{up} \\ L_{pu} & S \end{bmatrix} \right)
+	- \delta t I_s \otimes \begin{bmatrix} L_{uu} & L_{up} \\ L_{pu} & -S \end{bmatrix} \right)
 	(R_0^{-1}Q_0^T\otimes I)\mathbf{K} & = (Q_0^T\otimes I)\mathbf{F}.
 \end{align}
 %
@@ -324,7 +324,7 @@ $\eta$ of $A_0^{-1}$, for which we must solve an equivalent system as one
 obtained for, e.g., backward Euler with \eqref{eq:problem2}:
 %
 \begin{align}\label{eq:R1}
-\begin{bmatrix} \eta M - \delta tL_{uu} & -\delta tL_{up} \\ -\delta tL_{pu} & -\delta tS
+\begin{bmatrix} \eta M - \delta tL_{uu} & -\delta tL_{up} \\ -\delta tL_{pu} & \delta tS
 	\end{bmatrix}
 	\begin{bmatrix} \hat{\mathbf{k}}_j \\ \hat{\ell}_j\end{bmatrix} =
 	\begin{bmatrix} \hat{\mathbf{f}}_j \\ \hat{\mathbf{g}}_j \end{bmatrix}.
@@ -341,9 +341,9 @@ time-dependent variable and algebraic constraint,
 \begin{align}\label{eq:R2x2}
 \begin{bmatrix}
 	\eta M - \delta tL_{uu} & -\delta tL_{up} & \phi M & 0 \\
-		-\delta tL_{pu} & -\delta tS & 0 & 0 \\
+		-\delta tL_{pu} & \delta tS & 0 & 0 \\
 	-\frac{\beta^2}{\phi}M & 0 & \eta M - \delta tL_{uu} & -\delta tL_{up} \\
-	0 & 0 & -\delta tL_{pu} & -\delta tS
+	0 & 0 & -\delta tL_{pu} & \delta tS
 	\end{bmatrix}
 	\begin{bmatrix} \hat{\mathbf{k}}_j \\ \hat{\ell}_j \\
 		\hat{\mathbf{k}}_{j+1} \\ \hat{\ell}_{j+1} \end{bmatrix} =
@@ -359,10 +359,10 @@ block triangular preconditioner, or try some better approximation to
 the Schur complement,
 %
 \begin{align*}
-\begin{bmatrix} \eta M - \delta tL_{uu} & -\delta tL_{up} \\ -\delta tL_{pu} & -\delta tS
+\begin{bmatrix} \eta M - \delta tL_{uu} & -\delta tL_{up} \\ -\delta tL_{pu} & \delta tS
 		\end{bmatrix} +
 	\beta^2 \begin{bmatrix} M & 0 \\ 0 & 0 \end{bmatrix}
-	\begin{bmatrix} \eta M - \delta tL_{uu} & -\delta tL_{up} \\ -\delta tL_{pu} & -\delta tS
+	\begin{bmatrix} \eta M - \delta tL_{uu} & -\delta tL_{up} \\ -\delta tL_{pu} & \delta tS
 	\end{bmatrix}^{-1}
 	\begin{bmatrix} M & 0 \\ 0 & 0 \end{bmatrix}
 \end{align*}
@@ -372,7 +372,7 @@ Schur complement looks like
 %
 \begin{align*}
 I + \frac{\beta^2}{\eta^2} \left(\begin{bmatrix} \eta M - \delta tL_{uu} & -\delta tL_{up} \\
-		-\delta tL_{pu} & -\delta tS \end{bmatrix}^{-1}
+		-\delta tL_{pu} & \delta tS \end{bmatrix}^{-1}
 	\begin{bmatrix} \eta M & 0 \\ 0 & 0 \end{bmatrix} \right)^2.
 \end{align*}
 %
@@ -384,9 +384,46 @@ assumption that the spatial operator is negative in a field-of-values
 sense. With the algebraic constraint, the spatial operator is likely
 indefinite, which raises the important question as to the field-of-values
 of $\begin{bmatrix} \eta M - \delta tL_{uu} & -\delta tL_{up} \\
--\delta tL_{pu} & -\delta tS \end{bmatrix}^{-1}$. If this operator
+-\delta tL_{pu} & \delta tS \end{bmatrix}^{-1}$. If this operator
 has modes $\approx 0$, then the preconditioning is not so good. If we
 can show this is bounded nicely away from 0, we are okay.
+
+We can also try a better approximation to the Schur complement. Let
+%
+\begin{align*}
+D_L & = M(\eta M - \delta tL_{uu})^{-1} \\
+& = (\eta I - \delta tL_{uu}M^{-1})^{-1}, \\
+D_R & = (\eta M - \delta tL_{uu})^{-1}M \\
+& = (\eta I - \delta tM^{-1}L_{uu})^{-1}, \\
+\mathcal{D} & =(\eta M - \delta tL_{uu}).  
+\end{align*}
+%
+Then note that
+%
+\begin{align*}
+\begin{bmatrix} M & 0 \\ 0 & 0 \end{bmatrix}& 
+	\begin{bmatrix} \eta M - \delta tL_{uu} & -\delta tL_{up} \\ -\delta tL_{pu} & \delta tS
+	\end{bmatrix}^{-1}
+	\begin{bmatrix} M & 0 \\ 0 & 0 \end{bmatrix} \\
+& = \begin{bmatrix} MD_R + \delta t^2D_LL_{up}
+	(\delta tS - \delta t^2L_{pu}(\eta M - \delta tL_{uu})^{-1}L_{up})^{-1}
+		L_{pu}D_R & 0 \\ 0 & 0 \end{bmatrix}
+\end{align*}
+% 
+Suppose we use a standard RT formulation and $S = \mathbf{0}$. This simplifies to
+%
+\begin{align*}
+\begin{bmatrix} M & 0 \\ 0 & 0 \end{bmatrix}& 
+	\begin{bmatrix} \eta M - \delta tL_{uu} & -\delta tL_{up} \\ -\delta tL_{pu} & \mathbf{0}
+	\end{bmatrix}^{-1}
+	\begin{bmatrix} M & 0 \\ 0 & 0 \end{bmatrix} \\
+& = \begin{bmatrix} M\mathcal{D}^{-1}M + M\mathcal{D}^{-1}L_{up}
+	(L_{pu}\mathcal{D}^{-1}L_{up})^{-1}
+		L_{pu}\mathcal{D}^{-1}M & 0 \\ 0 & 0 \end{bmatrix}
+\end{align*}
+% 
+
+
 
 Alternatively, we can reorder \eqref{eq:R2x2} to take the form
 %
@@ -394,8 +431,8 @@ Alternatively, we can reorder \eqref{eq:R2x2} to take the form
 \begin{bmatrix}
 	\eta M - \delta tL_{uu} & \phi M & -\delta tL_{up} & 0 \\
 	-\frac{\beta^2}{\phi}M & \eta M - \delta tL_{uu} & 0 & -\delta tL_{up} \\
-	-\delta tL_{pu} & 0 & -\delta tS & 0 \\
-	0 & -\delta tL_{pu} & 0 & -\delta tS \\
+	-\delta tL_{pu} & 0 & \delta tS & 0 \\
+	0 & -\delta tL_{pu} & 0 & \delta tS \\
 	\end{bmatrix}
 	\begin{bmatrix} \hat{\mathbf{k}}_j \\ \hat{\mathbf{k}}_{j+1} \\ 
 		\hat{\ell}_j \\\hat{\ell}_{j+1} \end{bmatrix} =
@@ -410,7 +447,7 @@ with Krylov. Thus we have a preconditioner that we know will be effective
 for the (1,1)-block. Then we need to precondition the (2,2) Schur complement,
 %
 \begin{align}\label{eq:blockS}
-\begin{bmatrix} -\delta tS & 0 \\ 0 & -\delta tS\end{bmatrix} 
+\begin{bmatrix} \delta tS & 0 \\ 0 & \delta tS\end{bmatrix} 
 	- \begin{bmatrix} \delta tL_{pu} & 0 \\ 0 & \delta tL_{pu}\end{bmatrix}
 	\begin{bmatrix} \eta M - \delta tL_{uu} & \phi M \\
 		-\frac{\beta^2}{\phi}M & \eta M - \delta tL_{uu} \end{bmatrix}^{-1}
@@ -421,7 +458,7 @@ for the (1,1)-block. Then we need to precondition the (2,2) Schur complement,
 the approximation
 %
 \begin{align}\label{eq:blockS_approx}
-\begin{bmatrix} -\delta tS & 0 \\ 0 & -\delta tS\end{bmatrix} 
+\begin{bmatrix} \delta tS & 0 \\ 0 & \delta tS\end{bmatrix} 
 	- \begin{bmatrix} \delta tL_{pu} & 0 \\ 0 & \delta tL_{pu}\end{bmatrix}
 	\begin{bmatrix} \eta M - \delta tL_{uu} & 0 \\
 		0 & \eta M - \delta tL_{uu} \end{bmatrix}^{-1}
@@ -449,9 +486,53 @@ is good because
 \end{align}
 %
 Suppose that $M^{-1/2}L_{uu}M^{-1/2}$ is symmetric negative definite as in, e.g., Stokes.
-Note that the eigenvalues of the $2\times 2$ scalar matrix above are $\pm\beta^2/\eta^2$.
-Then, by nature of the Kronecker product, the eigenvalues of \eqref{eq:diag_prec} have
-a real part of one and lie on a line in the complex plane between $1\pm\frac{\beta^2}{\eta^2}$.
+Then $( I - \tfrac{\delta t}{\eta} M^{-1/2}L_{uu}M^{-1/2})^{-1}$ has real-valued
+eigenvalues between $(0,1)$. Note that the eigenvalues of the $2\times 2$ scalar
+matrix above are $\pm\mathrm{i}\beta^2/\eta^2$. Then, by nature of the Kronecker product,
+the eigenvalues of \eqref{eq:diag_prec} have a real part of one and lie on a line in
+the complex plane between $1\pm\mathrm{i}\frac{\beta^2}{\eta^2}$.
+\tcb{Above is heuristic.}
+
+Let us instead try to expand the inverse directly,
+%
+\begin{align*}
+&\hspace{-8ex}\begin{bmatrix} \eta M - \delta tL_{uu} & \phi M \\
+	-\frac{\beta^2}{\phi}M & \eta M - \delta tL_{uu} \end{bmatrix}^{-1}
+= \left( 	\begin{bmatrix} \eta M - \delta tL_{uu} & \mathbf{0} \\
+		\mathbf{0} & \eta M - \delta tL_{uu} \end{bmatrix} -
+	\begin{bmatrix} \mathbf{0} & -\phi M \\
+		\frac{\beta^2}{\phi}M & \mathbf{0} \end{bmatrix}\right)^{-1} \\
+& = \begin{bmatrix} \eta M - \delta tL_{uu} & \mathbf{0} \\
+		\mathbf{0} & \eta M - \delta tL_{uu} \end{bmatrix}^{-1}
+	\begin{bmatrix} I & -\phi (\eta I - \delta tL_{uu}M^{-1})^{-1} \\
+		\frac{\beta^2}{\phi}(\eta I - \delta tL_{uu}M^{-1})^{-1} & I \end{bmatrix}^{-1}
+\end{align*}
+%
+Let $A := (I - \tfrac{\delta t}{\eta}L_{uu}M^{-1})^{-1}$. Then,
+%
+\begin{align*}
+\begin{bmatrix} \eta M - \delta tL_{uu} & \phi M \\
+	-\frac{\beta^2}{\phi}M & \eta M - \delta tL_{uu} \end{bmatrix}^{-1}
+& = \begin{bmatrix} \frac{1}{\eta}M^{-1} & \mathbf{0} \\ \mathbf{0} & \frac{1}{\eta}M^{-1} \end{bmatrix}
+	\begin{bmatrix} A & \mathbf{0} \\ \mathbf{0} & A \end{bmatrix} 
+	\begin{bmatrix} I + \frac{\beta^2}{\eta^2}A^2 & \mathbf{0} \\ \mathbf{0} &
+		I + \frac{\beta^2}{\eta^2}A^2 \end{bmatrix}
+	\begin{bmatrix} I & \frac{\phi}{\eta}A \\ \frac{\beta^2}{\phi\eta}A & I \end{bmatrix}
+\end{align*}
+%
+\tcb{This is a pretty friendly form, but eventually we have to approximate
+the Schur complement inverse anyways. Where do we introduce the approximation?
+Do we start with the exact inverse above, then precondition w/ a Schur complement,
+or introduce a block-diagonal or block-triangular Schur complement approximation
+to the inverse above then the approximate Schur complement inverse is more natural?
+If we want a diagonal or block-triangular inverse, do we want once from a
+preconditioning perspective, or directyl from the inverse? I.e., would we want
+both diagonal blocks to be the (1,1) and (2,2) Schur complement (as taken
+directly from the analytical inverse), or one the diagonal block and the other
+the Schur complement (as in preconditioning)?}
+
+
+
 
 For problems with nontrivial advection (Navier Stokes/Euler), the eigenvalues
 of $I - \tfrac{\delta t}{\eta} M^{-1/2}L_{uu}M^{-1/2}$ likely have a complex component.
@@ -472,6 +553,11 @@ Eigenvalues are then given as
 		(\frac{C}{\eta}y)^2}
 \end{align*}
 %
+\todo{Analyze this more } -- tests in Matlab suggest if real part $\geq$ imaginary
+part of eigenvalue, then the preconditioned eigenvalues stay nicely bounded positive
+and away from zero. If there are complex eigenvalues with dominant imaginary part $y$
+roughly in $[0.3,3]$, the diagonal approximation may not be as effective. Unclear if
+this would be a p[roblem..
 
 % Matlab plot of real part -- want B^2/n^2 times this to be << 1 to stay
 % nicely positive and bounded away from zero in a field-of-values sense
@@ -488,7 +574,81 @@ Eigenvalues are then given as
 % xlabel('Re');
 % ylabel('Im');
 
+\tcb{Better ideas:} Note that
+%
+\begin{align*}
+\left\langle \begin{bmatrix} 0 & \frac{\phi}{\eta} \\ -\frac{\beta^2}{\phi\eta} & 0 \end{bmatrix}
+	\otimes A \begin{bmatrix} \mathbf{x}\\\mathbf{y} \end{bmatrix},
+	\begin{bmatrix} \mathbf{x}\\\mathbf{y} \end{bmatrix}\right\rangle 
+& = \left\langle \begin{bmatrix} 0 & \frac{\phi}{\eta} A \\ -\frac{\beta^2}{\phi\eta}A & 0 \end{bmatrix}
+	\begin{bmatrix} \mathbf{x}\\\mathbf{y} \end{bmatrix},
+	\begin{bmatrix} \mathbf{x}\\\mathbf{y} \end{bmatrix}\right\rangle \\
+& = \frac{\phi}{\eta} \langle A\mathbf{y},\mathbf{x}\rangle -
+	\frac{\beta^2}{\phi\eta}\langle A\mathbf{x},\mathbf{y}\rangle \\
+& = \frac{\phi}{\eta}\mathbf{x}^*A\mathbf{y} - \frac{\beta^2}{\phi\eta}\mathbf{y}^*A\mathbf{x} \\
+& = \mathbf{x}^*\left(\frac{\phi}{\eta}A - \frac{\beta^2}{\phi\eta}A^T \right)\mathbf{y}.
+\end{align*}
+%
+Maybe this is not so helpful..
 
+In any case, note that making the assumption here where we precondition the inverse
+in the Schur complement with the diagonal -- if we reorder the block matrix, we
+exactly arrive at the previous idea of doing a lower triangular preconditioning
+with two saddle-point solves.
+
+Consider the necessary and sufficient condition for a matrix $N$ to have positive
+field of values, $N+N^*\geq 0$:
+%
+\begin{align*}
+\begin{bmatrix} 0 & \frac{\phi}{\eta} \\ -\frac{\beta^2}{\phi\eta} & 0 \end{bmatrix}
+	\otimes A + \left(\begin{bmatrix} 0 & \frac{\phi}{\eta} \\ -\frac{\beta^2}{\phi\eta} & 0 \end{bmatrix}
+	\otimes A\right)^*
+& = \begin{bmatrix} 0 & \frac{\phi}{\eta} \\ -\frac{\beta^2}{\phi\eta} & 0 \end{bmatrix}
+	\otimes A + \begin{bmatrix} 0 & -\frac{\beta^2}{\phi\eta} \\ \frac{\phi}{\eta} & 0 \end{bmatrix}
+	\otimes A^*
+\end{align*}
+%
+For sake of argument, suppose the scalar off-diagonals are both equal to $\beta$.
+This does not happen with a standard Gauss decomposition, but I believe we can
+construct one (with non-orthogonal Q) such that it holds. Then we would have
+%
+\begin{align*}
+\begin{bmatrix} 0 & \beta(A - A^*) \\ -\beta(A - A^*) \end{bmatrix}
+	& = \beta \begin{bmatrix} 0 & 1 \\ -1 & 0 \end{bmatrix}\otimes (A - A^*).
+\end{align*}
+%
+This suggests we have a bunch of positive and negative eigenvalues if $A$ is not
+symmetric, which implies the field of values is not generally positive (only for
+symmetric, unfortunately). May need a triangular preconditioner. In principle,
+this is not necessarily a problem -- just requires new analysis.
+
+Consider 
+%
+\begin{align}\label{eq:blockS_approx}
+\begin{bmatrix} \delta tS & 0 \\ 0 & \delta tS\end{bmatrix} 
+	- \begin{bmatrix} \delta tL_{pu} & 0 \\ 0 & \delta tL_{pu}\end{bmatrix}
+	\begin{bmatrix} \eta M - \delta tL_{uu} & 0 \\
+		-\frac{\beta^2}{\phi\eta}M & \eta M - \delta tL_{uu} \end{bmatrix}^{-1}
+	\begin{bmatrix} \delta tL_{up} & 0 \\ 0 & \delta tL_{up} \end{bmatrix}.
+\end{align}
+%
+Expanding, we have
+%
+\begin{align*}
+\begin{bmatrix}
+\delta tS - \delta tL_{pu}(\eta M - \delta tL_{uu})^{-1} \delta tL_{up} & 0 \\
+	\frac{\beta^2}{\phi\eta}\delta tL_{pu}(\eta M - \delta tL_{uu})^{-1}M
+ 		(\eta M - \delta tL_{uu})^{-1}\delta tL_{up} & 
+	\delta tS - \delta tL_{pu}(\eta M - \delta tL_{uu})^{-1} \delta tL_{up}\end{bmatrix}
+\end{align*}
+%
+The diagonal blocks we approximate using the standard Stokes/DAE preconditioner
+for a given problem. The off-diagonal block we probably treat as is with some
+auxilliary applications of $L_{up}$, $L_{pu}$, and $(\eta M - \delta tL_{uu})^{-1}$.
+
+We can also express the full $2\times 2$ inner inverse in a pretty clean form.
+The diagonal blocks suggest being approximated by just the diagonal (as above),
+but the off-diagonal coupling may be more precise.
 
 
 
@@ -496,7 +656,6 @@ Eigenvalues are then given as
 % ---------------------------------------------------------------------------------------------- %
 % ---------------------------------------------------------------------------------------------- %
 % ---------------------------------------------------------------------------------------------- %
-\newpage
 \section{Preconditioning fully implicit IRK system}
 
 Also, I think we may have stumbled upon a way to precondition the fully time

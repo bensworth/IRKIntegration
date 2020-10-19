@@ -65,7 +65,7 @@ OK questions for BS (and general thoughts):
 
 
 /// Constructor
-IRK::IRK(IRKOperator *IRKOper_, RKData::Type RK_ID_)
+IRK::IRK(IRKOperator *IRKOper_, RKData::Type RK_ID_, int mag_prec)
         : m_IRKOper(IRKOper_), m_Butcher(RK_ID_),
         m_CharPolyPrec(*IRKOper_), m_CharPolyOper(), 
         m_krylov(NULL), m_comm{IRKOper_->GetComm()}
@@ -98,7 +98,8 @@ IRK::IRK(IRKOperator *IRKOper_, RKData::Type RK_ID_)
     }
     // Quadratic factors (degree 2)
     for (int i = 0; i < m_Butcher.eta.Size(); i++) {
-        m_CharPolyOper[count] = new CharPolyFactor(dt_dummy, m_Butcher.eta(i), m_Butcher.beta(i), *m_IRKOper);
+        m_CharPolyOper[count] = new CharPolyFactor(dt_dummy, m_Butcher.eta(i), 
+                                    m_Butcher.beta(i), *m_IRKOper, mag_prec);
         m_degree[count] = 2;
         m_eig_ratio[count] = m_Butcher.beta(i)/m_Butcher.eta(i);
         count++;
@@ -187,8 +188,18 @@ void IRK::Step(Vector &x, double &t, double &dt)
 
         // Set operator and preconditioner for current factor
         m_CharPolyPrec.SetDegree(m_CharPolyOper[factor]->Degree());
-        m_IRKOper->SetSystem(factor, dt, m_CharPolyOper[factor]->Gamma(), 
-                                m_CharPolyOper[factor]->Degree());
+        
+        // Ensure SetSystem is always called with the same index if SDIRK scheme
+        if (m_Butcher.isSDIRK()) {
+            // Additionally, only call it once per time step
+            if (factor == 0) { 
+                m_IRKOper->SetSystem(0, dt, m_CharPolyOper[factor]->Gamma(), 
+                                        m_CharPolyOper[factor]->Degree());
+            }                            
+        } else {
+            m_IRKOper->SetSystem(factor, dt, m_CharPolyOper[factor]->Gamma(), 
+                                    m_CharPolyOper[factor]->Degree());                                                    
+        }                        
         m_krylov->SetPreconditioner(m_CharPolyPrec);
         m_krylov->SetOperator(*(m_CharPolyOper[factor]));    
                 

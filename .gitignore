@@ -22,6 +22,8 @@ analysis_notes/fov.pdf
 driver
 irk_lin.pdf
 code/FDadv_dif/convergence/tex/results.pdf
+code/FD_utils/**/*.pdf
+code/FD_utils/**/__pycache__/
 ODEs_linear/figures/ParaviewFiles
 analysis/fov.pdf
 irk_nl.pdf

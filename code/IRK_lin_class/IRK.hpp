@@ -157,6 +157,9 @@ public:
     
     ~RKData() {};
     
+    /// Is the scheme SDIRK? Assumes SDIRK schemes have Type's < 10...
+    inline bool isSDIRK() const { return (static_cast<int>(ID) < 10); };
+    
     // Standard data required by all solvers
     int s;              // Number of stages
     int s_eff;          // Number of eigenvalues of A0 once complex conjugates have been combined
@@ -259,7 +262,7 @@ public:
     };
 
     /// Constructor for degree 2 factor
-    CharPolyFactor(double dt_, double eta_, double beta_, IRKOperator &IRKOper_) 
+    CharPolyFactor(double dt_, double eta_, double beta_, IRKOperator &IRKOper_, int mag_prec=0) 
         : Operator(IRKOper_.Height()), 
             m_degree(2), m_c(3), m_gamma(eta_),
             m_dt{dt_}, m_IRKOper{IRKOper_}, m_temp(IRKOper_.Height())
@@ -267,6 +270,10 @@ public:
         m_c(0) = eta_*eta_ + beta_*beta_;
         m_c(1) = -2.0*eta_;
         m_c(2) = 1.0;
+        // Boolean to use constant \gamma = \eta or \gamma = \sqrt(eta^2+\beta^2)
+        if (mag_prec==2) m_gamma = m_c(0);
+        if (mag_prec==1) m_gamma = std::sqrt(m_c(0));
+        else m_gamma = eta_;
     };
 
     /// Getters
@@ -375,7 +382,7 @@ private:
     void ConstructRHS(const Vector &x, double t, double dt, Vector &rhs);
 
 public:
-    IRK(IRKOperator *IRKOper_, RKData::Type RK_ID_);
+    IRK(IRKOperator *IRKOper_, RKData::Type RK_ID_, int mag_prec=0);
     ~IRK();
  
     void Init(TimeDependentOperator &F);
