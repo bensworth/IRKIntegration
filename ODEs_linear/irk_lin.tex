@@ -51,8 +51,11 @@
 	Galerkin in time for numerical PDEs, Part I: the linear setting}
 \newcommand{\TheAuthors}{B.S. Southworth, O.A. Krzysik, W. Pazner, and H. De Sterck}
 \headers{Parallel solution of fully implict Runge-Kutta and DG in time I}{\TheAuthors}
-\title{{\TheTitle}\thanks{This work was  performed under the auspices of the U.S.
-Department of Energy under contract DE-AC52-07NA27344 and Lawrence Livermore National Laboratory under  contract B639443. OAK acknowledges the support of an Australian Government Research Training Program (RTP) Scholarship.}}
+\title{{\TheTitle}\thanks{BSS was supported by Lawrence Livermore National 
+      Laboratory under contract B639443, and as a Nicholas C. Metropolis Fellow
+      under the Laboratory Directed Research and Development program of Los
+      Alamos National Laboratory. OAK acknowledges the support of an Australian
+      Government Research Training Program (RTP) Scholarship.}}
 
 \author{
 	Ben S. Southworth\thanks{Department of Applied Mathematics,
@@ -132,7 +135,8 @@ linear operator, and $\mathbf{f}(t)$ a time-dependent forcing
 function.\footnote{Note,
 PDEs with an algebraic constraint, such as the divergence-free
 constraint in the Stokes equations, instead yield a differential algebraic equation (DAE), which
-requires separate careful treatment and will be the subject of a forthcoming paper.}
+requires separate careful treatment, and is addressed in a companion paper along with
+nonlinearities \todo{cite}.}
 Then, consider time propagation using an $s$-stage Runge-Kutta scheme,
 characterized by the Butcher tableau
 %
@@ -601,8 +605,8 @@ operator like \eqref{eq:imag1}, due to (i) the overhead cost of large parallel m
 multiplication, and (ii) the fact that many fast parallel methods such as multigrid are not well-suited for solving a polynomial in $\widehat{\mathcal{L}}$. The point of \eqref{eq:imag1}
 is that by considering conjugate pairs of eigenvalues, the resulting operator is real-valued.
 Here we propose preconditioning \eqref{eq:imag1} with the inverse of a
-real-valued quadratic polynomial, $(\gamma I - \widehat{\mathcal{L}})^2$, for
-$\gamma \in\mathbb{R}^+$.
+real-valued quadratic polynomial, $(\delta I - \widehat{\mathcal{L}})
+(\gamma I - \widehat{\mathcal{L}})$, for $\delta,\gamma \in\mathbb{R}^+$.
 
 \begin{comment}
 % ------------------------------------------------------------------------------------- %
@@ -769,39 +773,39 @@ which can be directly translated into guaranteed GMRES convergence bounds
 \cite{liesen2012field}. However, for $\beta \gg \eta$, such a preconditioning
 is less effective. 
 
-Thus, consider a similar preconditioner but with preconditioning constant
-$\gamma > 0$, where the preconditioned operator takes the form
+Thus, consider a more general preconditioner of similar form, but with two separate
+constants $\gamma,\delta > 0$, where the preconditioned operator takes the form
 %
-\begin{align}\label{eq:P_gamma}
-\mathcal{P}_\gamma & =
-	(\gamma I - \widehat{\mathcal{L}})^{-2}\Big[(\eta I - \widehat{\mathcal{L}})^2 +
-	\beta^2 I\Big].
-% 	\\
-% & = (\gamma I - \widehat{\mathcal{L}})^{-2}\Big[((\eta-\gamma)I +
-% 	(\gamma I - \widehat{\mathcal{L}}))^2 + \beta^2 I\Big] \nonumber \\
-% & = (\gamma I - \widehat{\mathcal{L}})^{-2}\Big[(\gamma-\eta)^2I - 2(\gamma-\eta)(\gamma I - \widehat{\mathcal{L}}) +
-% 	(\gamma I - \widehat{\mathcal{L}})^2 + \beta^2 I\Big] \nonumber\\
-% & = I - 2(\gamma-\eta)(\gamma I - \widehat{\mathcal{L}})^{-1} + (\beta^2 + (\gamma-\eta)^2)(\gamma I -
-% 	\widehat{\mathcal{L}})^{-2} \nonumber\\
-% & = I - 2\frac{\gamma-\eta}{\gamma}\left(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}\right)^{-1} +
-% 	\frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}
-% 	\left(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}\right)^{-2}. \nonumber
+\begin{align}\label{eq:P_gen}
+\mathcal{P}_{\delta,\gamma} & \coloneqq
+	(\delta I - \widehat{\mathcal{L}})^{-1}(\gamma I - \widehat{\mathcal{L}})^{-1}
+		\Big[(\eta I - \widehat{\mathcal{L}})^2 + \beta^2 I\Big].
 \end{align}
 %
 Such an approach was proven effective for symmetric definite spatial matrices in
-\cite{exh}, with optimal constant $\gamma_* = \sqrt{\eta^2+\beta^2}$. The following
-theorem derives tight bounds on the condition number of a slightly more general operator than ${\cal P}_{\gamma}$ (an operator of which ${\cal P}_{\gamma}$ is a special case) as well as 
-optimality of $\gamma\in(0,\infty)$ in a much more general context. The corollary that follows it shows that the form of preconditioner considered in ${\cal P}_{\gamma}$  \eqref{eq:P_gamma} is optimal with $\gamma = \gamma_*$.
+\cite{exh}, where it is assumed $\gamma = \delta$, and the optimal constant is
+derived to be $\gamma = \gamma_* = \sqrt{\eta^2+\beta^2}$. The following
+theorem derives tight bounds on the condition number of ${\cal P}_{\delta,\gamma}$ 
+\eqref{eq:P_gen}, as well as optimality of $\gamma\in(0,\infty)$, in a much
+more general context.  \Cref{cor:cond} then shows that the optimal preconditioner 
+over all $\delta,\gamma\in(0,\infty)$, in terms of minimizing a tight upper bound
+on $\ell^2$-condition number, is given by 
+%
+\begin{align}\label{eq:P_gamma}
+\mathcal{P}_{\gamma_*} & \coloneqq
+	(\gamma_* I - \widehat{\mathcal{L}})^{-2}
+		\Big[(\eta I - \widehat{\mathcal{L}})^2 + \beta^2 I\Big].
+\end{align}
+%
+where $\gamma = \gamma_* = \sqrt{\eta^2+\beta^2}$.
 
 %
-\begin{theorem}[Optimal preconditioning]
-\label{th:cond} Let $\cL$ be real-valued and suppose \Cref{ass:eig,ass:fov} hold,
-that is, $\eta > 0$ and $W(\cL) \leq 0$. Let $\mathcal{P}_{\delta,\gamma}$ denote
-the preconditioned operator, 
-\begin{align} \label{eq:P_gen}
-{\cal P}_{\delta, \gamma} \coloneqq (\delta I - \cL)^{-1} (\gamma I - \cL)^{-1} [(\eta I  - \cL)^2 + \beta^2 I] , \quad \delta, \gamma \in (0, \infty),
-\end{align}
-in which $[(\eta I  - \cL)^2 + \beta^2 I]$ is preconditioned with $(\delta I - \cL)^{-1} (\gamma I - \cL)^{-1}$.
+\begin{theorem}[Optimal preconditioning]\label{th:cond}
+Suppose \Cref{ass:eig,ass:fov} hold, that is, $\eta > 0$ and $W(\cL) \leq 0$,
+and suppose $\cL$ is real-valued. Let $\mathcal{P}_{\delta,\gamma}$ denote
+the preconditioned operator as in \eqref{eq:P_gen},
+where $[(\eta I  - \cL)^2 + \beta^2 I]$ is preconditioned with
+$(\delta I - \cL)^{-1} (\gamma I - \cL)^{-1}$, for $\delta, \gamma \in (0, \infty)$.
 %
 Let $\kappa({\cal P}_{\delta, \gamma})$ denote the two-norm condition number of ${\cal P}_{\delta,\gamma}$,
 and define $\gamma_*$ by
@@ -938,7 +942,7 @@ $\gamma = \gamma_*$ is optimal, and, as such, moving forward we
 only consider the case $\gamma = \gamma_*$.
 
 Letting $\gamma = \gamma_* \coloneqq (\eta^2 + \beta^2)/\delta$, from \eqref{eq:f_c_gen_def} one has $c_0 = 1 > c_1 = c_2
-= \sqrt{c_3} = 2 \eta/(\delta + \gamma_*)$, where the inequality $1 > 2 \eta/(\delta + \gamma_*)$ follows from the AM--GM inequality applied to $\delta$ and $\gamma_*$ then assuming $\beta \neq 0$. Thus, for $\gamma = \gamma_*$, the bounds in \eqref{eq:P_gen_bounds}
+= \sqrt{c_3} = 2 \eta/(\delta + \gamma_*)$, where the inequality $1 > 2 \eta/(\delta + \gamma_*)$ follows from the arithmetic-mean-geometric-mean inequality applied to $\delta$ and $\gamma_*$, for $\beta \neq 0$. Thus, for $\gamma = \gamma_*$, the bounds in \eqref{eq:P_gen_bounds}
 are given by
 \begin{align}
 \label{eq:P_gen_gamma*_bounds}
@@ -1015,7 +1019,10 @@ P}_{\delta,\gamma_*}^{-1} \Vert$ from \eqref{eq:P_gen_gamma*_bounds} achieves eq
 a matrix $\cL$ having eigenvalues $\mathrm{i} \xi = \pm \mathrm{i} \sqrt{\delta \gamma_*}$.
 Therefore, bound \eqref{eq:kappa_gen_gamma*_bound} on $\kappa({\cal P}_{\delta,\gamma_*})$
 achieves equality for any matrix $\cL$ having eigenvalues $\{0, \pm
-\mathrm{i}\sqrt{\delta \gamma_*}\}$.
+\mathrm{i}\sqrt{\delta \gamma_*}\}$.\footnote{By nature of the continuity of
+eigenvalues and continuity of $\mathcal{H}_{\delta,\gamma}(\xi)$ at $\xi 0$, there
+also exist nonsingular matrices with condition number within
+$\epsilon$ of \eqref{eq:kappa_gen_gamma*_bound} for any $\epsilon > 0$.}
 
 Finally, having shown that \eqref{eq:kappa_gen_gamma*_bound} is tight, we now show that 
 $\gamma = \gamma_*$ is optimal. Once again, consider the matrix $\cL$ from above
@@ -1023,7 +1030,7 @@ with eigenvalues $\{0, \pm \mathrm{i}\sqrt{\delta \gamma_*} \}$, such that
 $\kappa({\cal P}_{\delta,\gamma_*})
 =
 (\delta + \gamma_*)/(2\eta)$. Now, observe from this, \eqref{eq:H_gen_bounds},
-and \eqref{eq:H1_gen} that for $0 < \gamma < \gamma_*$,
+and \eqref{eq:H1_gen}, that for $0 < \gamma < \gamma_*$,
 %
 \begin{align}
 \label{eq:kappa_gen_lwr_bnd1}
@@ -1069,13 +1076,13 @@ P}_{\delta,\gamma})$.
 \end{proof}
 %
 
-\begin{corollary}[Optimal preconditioning with respect to \eqref{eq:P_gamma}]
+\begin{corollary}[Optimal preconditioning with $\gamma = \delta$]
 \label{cor:cond}
 A tight upper bound on the condition number of the general operator ${\cal P}_{\delta,\gamma}$ \eqref{eq:P_gen} is minimized over $\delta, \gamma \in (0, \infty)$ when $\delta = \gamma = \gamma_*$, with
 \begin{align} \label{eq:gamma*}
 \gamma_* = \sqrt{\eta^2 + \beta^2}.
 \end{align}
-That is to say, the preconditioner $(\gamma I - \cL)^{-2}$ employed in \eqref{eq:P_gamma} with $\gamma = \gamma_*$ is optimal over the space of general preconditioners $(\delta I - \cL)^{-1}(\gamma I - \cL)^{-1}, \, \delta, \gamma \in (0,\infty)$ employed in \eqref{eq:P_gen}. Furthermore, the condition number of the preconditioned operator ${\cal P}_{\gamma}$ \eqref{eq:P_gamma} when $\gamma = \gamma_*$ is tightly bounded as
+That is to say, the preconditioner $(\gamma I - \cL)^{-2}$ employed in \eqref{eq:P_gamma} with $\gamma = \gamma_*$ is optimal over the space of general preconditioners $(\delta I - \cL)^{-1}(\gamma I - \cL)^{-1}$, for $\delta, \gamma \in (0,\infty)$. Furthermore, the condition number of the preconditioned operator ${\cal P}_{\gamma_*}$ \eqref{eq:P_gamma} is tightly bounded via
 \begin{align} \label{eq:kappa_gamma*}
 \kappa({\cal P}_{\gamma_*}) \leq \sqrt{1 + \frac{\beta^2}{\eta^2}}.
 \end{align}
