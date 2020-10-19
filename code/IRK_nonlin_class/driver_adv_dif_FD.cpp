@@ -157,7 +157,6 @@ public:
         MUST be called before InitSolvers() */
     inline void SetAMGParams(AMG_params params) { AMG = params; };
                     
-
     /* ---------------------------------------------------------------------- */
     /* -------------------------- Virtual functions ------------------------- */
     /* ---------------------------------------------------------------------- */                
@@ -168,7 +167,7 @@ public:
     /// Compute the right-hand side of the ODE system. (Some applications require this operator too)
     void ExplicitMult(const Vector &u, Vector &du_dt) const { Mult(u, du_dt); };
 
-    /// Precondition B*x=y 
+    /// Precondition B*x=y <==> (\gamma*I - dt*L')*x=y 
     inline void ImplicitPrec(const Vector &x, Vector &y) const {
         MFEM_ASSERT(B_prec[B_hash.at(B_index)], 
             "AdvDif::ImplicitPrec() Must first set system! See SetPreconditioner()");
@@ -184,7 +183,6 @@ public:
     
     /// Apply action of identity mass matrix, y = M*x. 
     inline void ImplicitMult(const Vector &x, Vector &y) const { y = x; };             
-
 
     /* ---------------------------------------------------------------------- */
     /* ---------- Virtual functions for approximate Jacobians of N  --------- */

@@ -10,13 +10,6 @@
 \usepackage{enumitem}
 	\setlist{nosep} % or \setlist{noitemsep} to leave space around whole list
 \usepackage{color}
-
-\usepackage{multirow} % For multiple-row cells in tables
-\usepackage{makecell} % For thicker lines in tables
-\usepackage{pifont}      % For crosses/xmarks
-\usepackage{boldline}  % For thick vertical lines in table
-
-
 %\usepackage{showlabels}
 \usepackage{adjustbox}
 \usepackage{hyperref}
@@ -209,7 +202,7 @@ N' \approx
 \end{bmatrix}.
 \end{align}
 
-\section{A simplified Newton algorithm}
+\subsection{A simplified Newton}
 We take
 \begin{align}
 N' = 
@@ -266,7 +259,7 @@ We have some flexibility in terms of updating ${\cal N}'_s$. Some options:
 \end{figure}
 
 \newpage
-\subsection{Numerical results}
+\section{Numerical results}
 
 Numerically approximate the solution of the 2D nonlinear advection-diffusion problem,
 \begin{align}
@@ -278,7 +271,7 @@ Some remarks:
 \setlength\itemsep{0.5em}
 \item Periodic spatial boundaries. All tests use 4 processors.
 
-\item A $p$th-order IRK scheme is coupled with $p$th-order central finite differences in space (or $p$+1st-order if $p$ is odd, as for Radau IIA and some SDIRK schemes).
+\item A $p$th-order IRK scheme is coupled with $p$th-order central finite differences in space (or $p$+1st-order if $p$ is odd, as for Lobatto IIIC and some SDIRK schemes).
 
 \item Set $\delta t = 2 \delta x$
 
