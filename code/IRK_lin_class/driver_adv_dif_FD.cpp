@@ -368,11 +368,11 @@ int main(int argc, char *argv[])
     // Build IRK object using spatial discretization 
     IRK MyIRK(&SpaceDisc, static_cast<RKData::Type>(RK_ID), mag_prec);        
 
-    // Initialize IRK time-stepping solver
-    MyIRK.Init(SpaceDisc);
-    
     // Set Krylov solver settings
     MyIRK.SetKrylovParams(KRYLOV);
+
+    // Initialize IRK time-stepping solver
+    MyIRK.Init(SpaceDisc);
 
     
     // Time step 

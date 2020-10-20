@@ -390,7 +390,7 @@ public:
 
     /// Set parameters for Krylov solver
     inline void SetKrylovParams(KrylovParams params) {
-        MFEM_ASSERT(!m_krylov, "IRK::SetKrylovParams:: Can only be called before IRK::Run()");
+        MFEM_ASSERT(!m_krylov, "IRK::SetKrylovParams:: Can only be called before IRK::Init()");
         m_krylov_params = params;
     }
 
