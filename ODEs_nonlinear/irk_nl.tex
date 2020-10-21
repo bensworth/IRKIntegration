@@ -1262,9 +1262,13 @@ Lobatto IIIC & 1.50 & 1.00 & 2.11 & 2.76 & 1.07 & 1.00 & 3.44 & 1.19 \\\hline
 
 
 %
-\begin{remark}[SPD and skew-symmetric operators]
-\tcb{Fill in with bounds from SPD and SS analysis.}
-
+\begin{remark}[Symmetric definite and skew symmetric operators]
+Using eigenvalue analyses, it is possible to derive tight upper bounds on the condition number of \eqref{eq:P_gamma2} for all $\gamma \in (0, \infty)$ for both symmetric positive semi-definite (SPSD) $-\cL$ and skew symmetric (SS) $\cL$. These tight upper bounds achieve equality for all $\gamma \in (0, \infty)$ as the spectrum of $\cL$ becomes dense in $[0, \infty)$ in the SPSD case, and in $(- \mathrm{i} \infty, \mathrm{i} \infty)$ in the SS case.
+In each case, the tight upper bounds are minimized over all $\gamma \in (0, \infty)$ when $\gamma = \gamma_*$, for $\gamma_*$ given by \eqref{eq:gamma*}, which is perhaps unsurprising given \Cref{col:cond_L1=L2}. At the minimum $\gamma = \gamma_*$, the tight bound for the SPSD case is
+\begin{align*}
+\kappa({\cal P}_{\gamma*}) \leq \frac{1}{2} \left( 1 + \sqrt{1 + \frac{\beta^2}{\eta^2}} \right).
+\end{align*}
+And for the SS case it is equal to that in \eqref{eq:kappa_gamma*_L1=L2}, as the observant reader might already have realised, due to the general bound  of \eqref{eq:kappa_gamma*_L1=L2} achieving equality for a matrix $\cL$ having eigenvalues $\{0, \pm \mathrm{i} \sqrt{\eta^2 + \beta^2} \}$.
 \end{remark}
 %
 % \begin{align} \label{eq:cond_min}
