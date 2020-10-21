@@ -1,0 +1,400 @@
+\documentclass[a4paper,10pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amsthm,amssymb,amsfonts,stmaryrd}
+\usepackage{mathtools}
+\usepackage{soul}
+\usepackage{array}
+\usepackage{empheq}
+\usepackage{xfrac}
+\usepackage{minibox}
+\usepackage{enumitem}
+	\setlist{nosep} % or \setlist{noitemsep} to leave space around whole list
+\usepackage{color}
+\usepackage{blkarray}
+\setcounter{MaxMatrixCols}{20}
+\usepackage{showlabels}
+\usepackage{arydshln}	% Dotted lines in arrays
+\usepackage{adjustbox}
+\usepackage{hyperref}
+\hypersetup{
+  colorlinks   = true, %Colours links instead of ugly boxes
+  urlcolor     = blue, %Colour for external hyperlinks
+  linkcolor    = blue, %Colour of internal links
+  citecolor   = red %Colour of citations
+}
+\usepackage{cleveref}
+
+
+\newtheorem{lemma}{Lemma}
+\newtheorem{definition}{Definition}
+\newtheorem{theorem}{Theorem}
+\newtheorem{assumption}{Assumption}
+\newtheorem{corollary}{Corollary}
+\crefname{assumption}{Assumption}{Assumptions}
+
+\newcommand{\tcb}{\textcolor{blue}}
+\newcommand{\todo}[1]{\textcolor{red}{[TODO\@: #1]}}
+
+
+\begin{document}
+\allowdisplaybreaks
+
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+\section{Multigrid for fully implicit Runge-Kutta}\label{sec:mg}
+
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+\subsection{The problem}\label{sec:mg:prob}
+
+Here we explore a semi-algebraic (block) multigrid solver for the block
+linear systems that arise in fully implicit Runge-Kutta and discontinuous
+Galerkin in time.
+Consider the method-of-lines approach to the numerical solution of partial differential
+equations (PDEs), where we discretize in space and arrive at a system of ordinary
+differential equations (ODEs) in time,
+%
+\begin{align}\label{eq:problem}
+	M\mathbf{u}'(t) =  \mathcal{N}(\mathbf{u},t) \quad\text{in }(0,T], \quad \mathbf{u}(0) = \mathbf{u}_0,
+\end{align}
+%
+where $M$ is a mass matrix and $\mathcal{N}\in\mathbb{R}^{N\times N}$ is a discrete,
+time-dependent, nonlinear operator depending on $t$ and $\mathbf{u}$ (including potential
+forcing terms). Note, PDEs with an algebraic constraint, for example, the divergence-free
+constraint in Navier Stokes, instead yield a system of differential algebraic equations
+(DAEs), which are not yet addressed. 
+Now, consider time propagation of \eqref{eq:problem} using an $s$-stage
+Runge-Kutta scheme, characterized by the Butcher tableaux 
+%
+\begin{align*}
+	\renewcommand\arraystretch{1.2}
+	\begin{array}
+	{c|c}
+	\mathbf{c}_0 & A_0\\
+	\hline
+	& \mathbf{b}_0^T
+	\end{array},
+\end{align*}
+%
+with Runge-Kutta matrix $A_0 = (a_{ij})$, weight vector $\mathbf{b}_0^T = (b_1, \ldots, b_s)^T$,
+and quadrature nodes $\mathbf{c}_0 = (c_0, \ldots, c_s)$.
+
+Runge-Kutta methods update the solution using a sum over stage vectors,
+%
+\begin{align}\label{eq:update}
+\mathbf{u}_{n+1} & = \mathbf{u}_n + \delta t \sum_{i=1}^s b_i\mathbf{k}_i, 
+	\hspace{5ex}\textnormal{where}\\
+M\mathbf{k}_i & = \mathcal{N}\left(\mathbf{u}_n + \delta t\sum_{j=1}^s a_{ij}\mathbf{k}_j, t_n+\delta tc_i\right).\label{eq:stages}
+\end{align}
+%
+For nonlinear PDEs, $\mathcal{N}$ is linearized using, for example, a Newton or a
+Picard linearization, and each nonlinear iteration then consists of solving the
+linearized system of equations. In most cases, such a linearization
+is designed to approximate (or equal) the Jacobian of \eqref{eq:stages}. Applying
+a chain rule to \eqref{eq:stages} for the partial
+$\partial(M\mathbf{k}_i-\mathcal{N}_i)/\partial\mathbf{k}_j$, we see that
+the linearized system should take the form
+%
+\begin{align}\label{eq:k0}
+\left( \begin{bmatrix} M  & & \mathbf{0} \\ & \ddots \\ \mathbf{0} & & M\end{bmatrix}
+	- \delta t \begin{bmatrix} a_{11}\mathcal{L}_1 & ... & a_{1s}\mathcal{L}_1 \\
+	\vdots & \ddots & \vdots \\ a_{s1}\mathcal{L}_s & ... & a_{ss} \mathcal{L}_s \end{bmatrix} \right)
+	\begin{bmatrix} \mathbf{k}_1 \\ \vdots \\ \mathbf{k}_s \end{bmatrix} 
+& = \begin{bmatrix} \mathbf{f}_1 \\ \vdots \\ \mathbf{f}_s \end{bmatrix},
+\end{align}
+%
+where $\mathcal{L}_i\in\mathbb{R}^{N\times N}$ denotes a linearization of
+the nonlinear function corresponding to the $i$th stage vector,
+$\mathcal{N}_i\coloneqq \mathcal{N}\left(\mathbf{u}_n + \delta t\sum_{j=1}^s
+a_{ij}\mathbf{k}_j, t_n+\delta tc_i\right)$ (the main point being that the
+spatially linearized operators, $\mathcal{L}_i$, should be fixed for a
+given block row of the full linearized system, as in \eqref{eq:k0}).
+
+Define the field of values of operator $\mathcal{L}$ as the set
+%
+\begin{align}\label{eq:fov}
+W(\mathcal{L}) \coloneqq \left\{ \langle \mathcal{L}\mathbf{x},\mathbf{x}\rangle \text{ : }
+	\|\mathbf{x}\| = 1 \right\}.
+\end{align}
+Here, we make two reasonable assumptions on $A_0$ and $\mathcal{L}_i$:
+%
+\begin{assumption}\label{ass:eig}
+Assume that all eigenvalues of $A_0$ (and equivalently $A_0^{-1})$ have positive real part.
+\end{assumption}
+\begin{assumption}\label{ass:fov}
+Let $\mathcal{L}$ be a linearized spatial operator, and assume that $W(\mathcal{L}) \leq 0$.
+\end{assumption}
+%
+\noindent
+In addition, it is worth pointing out that $A_0$ typically has a dominant
+lower triangular structure.
+
+For ease of notation, let us scale on the left by a block-diagonal matrix
+with diagonal blocks $M^{-1}$ and redefine $\mathcal{L}_i \mapsto
+\delta tM^{-1}\mathcal{L}_i$. The scaled system then takes the form
+%
+\begin{align}\label{eq:k1}
+\left( \begin{bmatrix} I & & \mathbf{0} \\ & \ddots \\ \mathbf{0} & & I\end{bmatrix}
+	- \begin{bmatrix} a_{11}\mathcal{L}_1 & ... & a_{1s}\mathcal{L}_1 \\
+	\vdots & \ddots & \vdots \\ a_{s1}\mathcal{L}_s & ... & a_{ss} \mathcal{L}_s \end{bmatrix} \right)
+	\begin{bmatrix} \mathbf{k}_1 \\ \vdots \\ \mathbf{k}_s \end{bmatrix} 
+& = \begin{bmatrix} \mathbf{f}_1 \\ \vdots \\ \mathbf{f}_s \end{bmatrix}.
+\end{align}
+%
+Unfortunately, we cannot say anything about the field-of-values of the latter operator.
+This is easily verified by noting that the eigenvalues of $A_0\otimes \mathcal{L}$
+are given by the product of eigenvalues of $A_0$ and $\mathcal{L}$, and one can easily
+construct $A_0$ and $\mathcal{L}$ that satisfy \Cref{ass:eig,ass:fov} with eigenvalues
+in both half planes. This also confuses what the ``small''/``smooth'' modes of
+\eqref{eq:k1} are. 
+
+For this reason, we also consider a modified set of equations obtained by pulling
+out an $A_0\otimes I$ from \eqref{eq:k1}. Let $\{\alpha_{ij}\}$ denote the entries
+of $A_0^{-1}$, and consider an equivalent formulation of \eqref{eq:k1},
+
+%
+\begin{align}\label{eq:k2}
+\left( \begin{bmatrix} \alpha_{11} I & ... & \alpha_{1s}I  \\ \vdots & \ddots & \vdots
+		\\ \alpha_{s1}I &  ... & \alpha_{ss}I\end{bmatrix}
+	- \begin{bmatrix} \mathcal{L}_1 &  \\
+	 & \ddots & \\ & & \mathcal{L}_s \end{bmatrix} \right) 
+	(A_0\otimes I)
+	\begin{bmatrix} \mathbf{k}_1 \\ \vdots \\ \mathbf{k}_s \end{bmatrix} 
+& = \begin{bmatrix} \mathbf{f}_1 \\ \vdots \\ \mathbf{f}_s \end{bmatrix}.
+\end{align}
+%
+We consider the system matrix we have to solve in \eqref{eq:k2} as the leading
+block matrix. Inverting this solves for the scaled stage vectors $(A_0\times I)\mathbf{K}$,
+and we can then easily invert $A_0\otimes I$ to get the real stage vectors.
+Here we have nicer field-of-value measures. In particular, note that the first
+operator $A_0^{-1}\otimes I$ satisfies $W(A_0^{-1}\otimes I) \geq 0$ and the second operator
+satisfies $W(\textnormal{diag}(\mathcal{L}_i)) \leq 0$. To that end, if we consider
+``smooth'' modes to be the smallest modes with respect to eigenvalues or FOVs,
+the ``smooth'' modes of \eqref{eq:k2} are largely defined by the ``smooth'' modes
+of diag$(\mathcal{L}_i)$. If $\mathcal{L}_i = \mathcal{L}_j$ for all $i,j$, it
+stands to reason that the block constant vector is a good representation of the
+null space. For $\mathcal{L}_i \neq \mathcal{L}_j$, we still expect that the
+operators are similar in some sense, so the block constant vector is still
+likely to be a reasonable approximation to the near null space.
+
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+\subsection{Current solvers}\label{sec:mg:solver}
+
+
+
+
+
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+\subsection{Multigrid}\label{sec:mg:mg}
+
+The main question here is how do we develop a block multigrid method to precondition
+the block operator
+%
+\begin{align}\label{eq:k3}
+\begin{bmatrix} \alpha_{11} I & ... & \alpha_{1s}I  \\ \vdots & \ddots & \vdots
+		\\ \alpha_{s1}I &  ... & \alpha_{ss}I\end{bmatrix}
+	- \begin{bmatrix} \mathcal{L}_1 &  \\
+	 & \ddots & \\ & & \mathcal{L}_s \end{bmatrix} = 
+\begin{bmatrix} \alpha_{11} I - \mathcal{L}_1 & ... & \alpha_{1s}I  \\ \vdots & \ddots & \vdots
+		\\ \alpha_{s1}I &  ... & \alpha_{ss}I - \mathcal{L}_s\end{bmatrix}.
+\end{align}
+%
+In particular, we want to project down such that we only solve one system involving
+$\mathcal{L}$ as a coarse-grid operator, and couple this with some kind of relaxation
+scheme on the ``fine'' grid to address the coupling between stages.
+
+Even in the block setting, the matrix in \eqref{eq:k3} isn't symmetric and also isn't
+triangular like AIR likes. Thus, a first thought is to use a smoothed-aggregation
+type approach, where we define a single coarse-grid operator. Continuing with the
+idea from \Cref{sec:mg:prob}, the block constant vector is likely a good
+approximation of the near null space of \eqref{eq:k3}, which suggests a
+plausible $P = \begin{bmatrix} I & \hdots & I\end{bmatrix}^T.$ For restriction,
+let us define a scaled version, $R = \begin{bmatrix} r_1I & \hdots & r_sI\end{bmatrix}^T.$ 
+Then, the coarse-grid operator is defined by 
+%
+\begin{align}\nonumber
+RAP & \coloneqq \begin{bmatrix} r_1I & \hdots & r_sI\end{bmatrix}
+	\begin{bmatrix} \alpha_{11} I - \mathcal{L}_1 & ... & \alpha_{1s}I  \\
+		\vdots & \ddots & \vdots \\ \alpha_{s1}I &  ... & \alpha_{ss}I - \mathcal{L}_s\end{bmatrix}
+	\begin{bmatrix} I \\ \vdots \\ I\end{bmatrix} \\
+& = \sum_{i=1}^s \left( r_i \left(\sum_{j=1}^s \alpha_{ij}\right)I - r_i\mathcal{L}_i \right)\label{eq:cg}
+\end{align}
+%
+Here, we propose to choose $R$ under three constraints:
+\begin{enumerate}
+	\item $\sum_{i=1}^s r_i = 1$ -- this means that we are defining our
+	coarse grid with some form of weighted average over $\{\mathcal{L}_i\}$.
+	\item $\sum_{i=1}^s r_i \left(\sum_{j=1}^s \alpha_{ij}\right) = 1$ --
+	This ensures that the leading constant in \eqref{eq:cg} is positive (not
+	always true if $R = P^T$) and unity. Moreover, if $\mathcal{L}_i = \mathcal{L}_j$
+	for all $i,j$, constraints (1) and (2) yield backward Euler as a coarse-grid
+	operator.
+	\item Obviously for more than two stages, the above constraints are underdetermined.
+	To constrain the full system, we propose to constrain the constants $\{r_i\}$
+	to all be as close as possible. This makes $R$ as close to a scaled $P^T$ as
+	possible, while satisfying (1) and (2). One way to formalize this is to 
+	find the minimum variance solution to the underdetermined set of equations.
+	This is nicely formalized in \url{https://arxiv.org/pdf/1906.09121.pdf}. In
+	particular, the minimum variance solution to $M\mathbf{x} = \mathbf{b}$ is
+	given by
+	%
+	\begin{align*}
+	\mathbf{x}_V &\coloneqq M^T(MM^T)^{-1}(\mathbf{b} - \alpha M\boldsymbol{1})) + \alpha\boldsymbol{1},
+		\hspace{5ex}\textnormal{where}\\
+	\alpha & = \frac{\boldsymbol{1}^TM^T(MM^T)^{-1}\mathbf{b}}
+		{\boldsymbol{1}^TM^T(MM^T)^{-1}M\boldsymbol{1}}.
+	\end{align*}
+	%
+	Here, the first row of $M$ is all ones, corresponding to constraint (1),
+	the second row of $M$ corresponds to the row sums of the Butcher tableaux,
+	and $\mathbf{b} = [1,1]^T$.
+
+\end{enumerate}
+
+Note that by satisfying constraints (1) and (2), the coarse-grid operator
+takes the simplified form
+%
+\begin{align}\label{eq:cg2}
+RAP & = I - \sum_{i=1}^s \mathcal{L}_i,
+\end{align}
+%
+and
+%
+\begin{align*}
+RA & = \begin{bmatrix} \left(\sum_{i=1}^s r_i\alpha_{i1}\right)I - r_1\mathcal{L}_1
+	& \hdots & \left(\sum_{i=1}^s r_i\alpha_{is}\right)I - r_s\mathcal{L}_s\end{bmatrix} .
+\end{align*}
+%
+For ease of notation, define constants
+%
+\begin{align*}
+c_j \coloneqq \sum_{i=1}^s r_i\alpha_{ij} - r_j.
+\end{align*}
+%
+Then, $RA$ can be expressed in the simplified representation
+%
+\begin{align}\label{eq:simp}
+RA & = \begin{bmatrix} r_1(I - \mathcal{L}_1) + c_1I
+	& \hdots & r_s(I - \mathcal{L}_s) + c_sI\end{bmatrix}.
+\end{align}
+%
+
+% ------------------------------------------------------------------------------------- %
+% ------------------------------------------------------------------------------------- %
+\subsubsection{$\mathcal{L}_i = \mathcal{L}_j$}\label{sec:mg:mg:simp}
+
+Suppose $\mathcal{L}_i = \mathcal{L}_j$. Then, \eqref{eq:cg2} reduces to
+$RAP = I - \mathcal{L}$, and we have
+%
+\begin{align}\nonumber
+I - P(RAP)^{-1}RA & = I - \begin{bmatrix} I \\ \vdots \\ I\end{bmatrix}
+	(I - \mathcal{L})^{-1}\begin{bmatrix} r_1(I - \mathcal{L}_1) + c_1I
+	& \hdots & r_s(I - \mathcal{L}_s) + c_sI\end{bmatrix} \\
+& = I - \begin{bmatrix} I \\ \vdots \\ I\end{bmatrix}
+	\bigg( \begin{bmatrix} r_1 I  & \hdots & r_s I\end{bmatrix} 
+	+ 	\begin{bmatrix} c_1(I - \mathcal{L})^{-1}
+	& \hdots & c_s(I - \mathcal{L})^{-1}\end{bmatrix} \bigg) \nonumber \\
+& = I - \begin{bmatrix} r_1 I & \hdots & r_s I \\ 
+		\vdots & \ddots & \vdots \\
+		r_1 I & \hdots & r_s I \end{bmatrix}
+	- \begin{bmatrix} (I - \mathcal{L})^{-1} \\ & \ddots \\ && (I - \mathcal{L})^{-1} \end{bmatrix}
+	\begin{bmatrix} c_1 I & \hdots & c_s I \\ 
+	\vdots & \ddots & \vdots \\
+	c_1 I & \hdots & c_s I \end{bmatrix}.
+	\label{eq:cgc}
+\end{align}
+%
+Recall $\sum_{i=1}^s r_i = 1$ and, thus, the leading $I - \mathcal{R}$ term has
+row-sum zero. The matrix with $\{c_i\}$ constants also has row sum zero. Thus,
+as expected, if the error modes are fixed across stages, coarse-grid correction
+\eqref{eq:cgc} is exact. Moreover, for all schemes I have tested $r_i > 0$ (this
+should always be the case, but I do not have a proof) and the leading
+$I - \mathcal{R}$ has eigenvalues $\{0,1,...,1\}$, so if error modes are
+moderately similar across stages, this term should remain small. Similarly,
+by assumption $W(\mathcal{L}) \leq 0$ and it follows that
+$\|(I - \mathcal{L})^{-1}\| \leq 1$. Even better, the error we expect
+to vary more noticeably across stages is high-frequency error, which
+corresponds to large eigenvalues of $\mathcal{L}$. However, applying 
+$(I - \mathcal{L})^{-1}$ to such error is $\ll 1$, this such error in
+the second term should be made small by the diagonal scaling by
+$(I - \mathcal{L})^{-1}$. The key is to thus eliminate high-frequency
+error in stages and leave low frequency error moderately similar across
+stages.\\
+\\
+\textbf{Complementary relaxation:}
+The next question is how to develop a complementary relaxation scheme. In
+particular, we want to make the error over all stages roughly similar. One
+heuristic to do so is by noting that $\{\mathcal{L}_i\}$ should be similar operators
+for all $i$ and, thus, we particularly expect the ``smooth'' modes of these
+operators to be similar for all $\mathcal{L}_i$. Thus consider a relaxation
+scheme that eliminates high frequency error on each stage, which would
+hypothetically leave similar low-frequency error on all stages. Due to 
+the coupling in the larger system, I think we want something better than
+just a straight Gauss-Seidel type relaxation on the full system. In
+particular, we don't want to smooth error on the full system, we want
+to smooth error on each stage. To that end, let $A_0 = Q_0R_0Q_0^T$
+be the real Schur composition of $A_0$, where $Q_0Q_0^T = I$ and $R_0$
+is block triangular, with $1\times 1$ blocks corresponding to real
+eigenvalues of $A_0$ and $2\times 2$ blocks corresponding to complex
+eigenvalues of $A_0$. Returning to \eqref{eq:k2} with $\mathcal{L}_i =
+\mathcal{L}_j$, we have
+%
+\begin{align}\nonumber
+A_0^{-1}\otimes I - I\otimes \mathcal{L}
+	& = (Q_0\otimes I) \left( R_0\otimes I -I\otimes \mathcal{L}\right)(Q_0^T\otimes I), \\
+\left( A_0^{-1}\otimes I -I\otimes \mathcal{L}\right)^{-1}
+	& = (Q_0\otimes I) \left( R_0\otimes I - I\otimes \mathcal{L}\right)^{-1}(Q_0^T\otimes I).
+	\label{eq:inv_kron}
+\end{align}
+%
+Applying $Q_0\otimes I$ and $Q_0^T\otimes I$ are fairly trivial computations
+and only require linear combinations of different stage vectors. Thus a
+simple approximation to \eqref{eq:inv_kron} is to replace $\mathcal{L} \mapsto
+M$, where $M$ is some easy to invert approximation of $\mathcal{L}$, such as
+the lower-triangular part. This yields a relaxation scheme
+%
+\begin{align}\label{eq:relax1}
+\mathcal{M}^{-1} & = (Q_0\otimes I) \left( R_0\otimes I - 
+	I\otimes {M}\right)^{-1}(Q_0^T\otimes I).
+\end{align}
+%
+A similar relaxation scheme can be developed for the more general setting, and
+we simple replace $\mathcal{L}_i\mapsto M_i$
+%
+\begin{align}\label{eq:relax2}
+\mathcal{M}^{-1} & = (Q_0\otimes I) \left( R_0\otimes I - 
+	\begin{bmatrix} M_1 \\ & \ddots \\ && M_s\end{bmatrix} \right)^{-1}(Q_0^T\otimes I).
+\end{align}
+%
+Note this version is less exact because $Q_0\otimes I$ does not commute with
+diag$\{\mathcal{L}_i\}$, but it should accomplish a similar objective.
+
+The one outstanding question of relaxation schemes in \eqref{eq:relax1} and
+\eqref{eq:relax2} is inverting the block $2\times 2$ systems that arise
+corresponding to complex eigenvalues of $A_0$, $\lambda = \eta \pm \mathrm{i}\beta$,
+e.g.,
+%
+\begin{align}\label{eq:rel_sys}
+\begin{bmatrix} \eta I - M_1 & -\phi I \\ -\frac{\beta^2}{\phi}I & \eta I - M_2 \end{bmatrix}
+\end{align}
+%
+If we choose $M_i$ to be the lower triangular portion of $\mathcal{L}_i$, we
+can reorder \eqref{eq:rel_sys} to be block lower triangular with $2\times 2$
+blocks. This is not currently implemented, but probably would not be too hard.
+Alternatively, we could just apply the theory in the nonlinear paper and use
+a modified $\gamma_*$ relaxation constant in the $(2,2)$-block.
+
+
+
+
+
+
+
+
+
+
+\end{document}
+
