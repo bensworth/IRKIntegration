@@ -38,9 +38,16 @@
 \newcommand{\todo}[1]{\textcolor{red}{[TODO\@: #1]}}
 
 \newcommand{\im}{\mathrm{i}}
+
 \DeclareMathOperator{\cL}{\mathcal{L}}
 \DeclareMathOperator{\cLs}{\mathcal{L}^2}
+\DeclareMathOperator{\cN}{\mathcal{N}}
+
+\DeclareMathOperator{\cP}{\mathcal{P}}
+\DeclareMathOperator{\cPg}{\mathcal{P}_{\gamma}}
+
 \DeclareMathOperator{\bVert}{\big\Vert}
+
 
 \begin{document}
 \allowdisplaybreaks
@@ -1798,344 +1805,550 @@ combining with \eqref{eq:Pgamma_gen} yields
 %
 
 
+
+%%% OLD & WRONG: DOESN'T RECOGNISE THAT \LAMBDA_+ ISN'T ALWAYS A VALID CRITICAL POINT AND MESSED UP SOME OTHER THINGS AS NOTED IN THE TEXT 
+%
+%% ---------------------------------------------------------------------------------------------- %
+%% ---------------------------------------------------------------------------------------------- %
+%\subsection{A modified $\gamma$: the SPD case}
+%
+%Suppose $-\mathcal{L}$ is SPSD with a spectrum $\subset [0,\infty)$, and
+%consider preconditioning $S$ with $(\gamma I- \widehat{\mathcal{L}})^{-1}$ for
+%some $\gamma \neq \eta$. The preconditioned operator then takes the form
+%%
+%\begin{align}\nonumber
+%(\gamma I- \widehat{\mathcal{L}})^{-1}S & = (\gamma I - \widehat{\mathcal{L}})^{-1}
+%	\left[ (\gamma I - \widehat{\mathcal{L}}) + (\eta-\gamma)I + \beta^2 (\eta I - \widehat{\mathcal{L}})^{-1}\right] \\
+%& = I - (\gamma - \eta)( \gamma I- \widehat{\mathcal{L}})^{-1} + 
+%	\beta^2( \gamma I- \widehat{\mathcal{L}})^{-1}
+%		( \eta I-\widehat{\mathcal{L}})^{-1} \nonumber\\
+%& = I - \frac{\gamma - \eta}{\gamma} ( I- \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{-1} + 
+%	\frac{\beta^2}{\gamma\eta}( I- \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{-1}
+%		( I- \tfrac{1}{\eta}\widehat{\mathcal{L}})^{-1},\label{eq:gamma0}
+%\end{align}
+%%
+%with spectrum given by
+%%
+%\begin{align}\label{eq:eig_gamma}
+%\mathcal{F}(\gamma,\lambda) :&= 
+%	1 - \frac{\gamma-\eta}{\gamma + \lambda} + \frac{\beta^2}{(\gamma + \lambda)(\eta+\lambda)},
+%\end{align}
+%%
+%where $\lambda\in\sigma(-\mathcal{L})$. If we choose $\gamma>\eta$,
+%\eqref{eq:gamma0} is SPD, \tcb{(BS: above is not necessarily SPD for $0<\gamma<\eta$.
+%Often it would be, but you can pick $\eta>0,\lambda,\beta\geq 0$ such that
+%it is not)} and the condition number of \eqref{eq:gamma0} is given by
+%%
+%\begin{align}\label{eq:cond0}
+%\textnormal{cond}\left((\gamma I- \widehat{\mathcal{L}})^{-1}S\right) & =
+%	\frac{\lambda_{\max}\left((\gamma I- \widehat{\mathcal{L}})^{-1}S\right)}
+%		{\lambda_{\min}\left((\gamma I- \widehat{\mathcal{L}})^{-1}S\right)}.
+%\end{align}
+%\tcr{[OK: 
+%I'm a bit confused by the SPD thing; am I making a mistake in the following derivation? We want to show for which range of $\gamma$ ${\cal F} > 0$ (which implies the operator is positive definite). Have 
+%\begin{align*}
+%\mathcal{F}(\gamma,\lambda) := 
+%	1 - \frac{\gamma-\eta}{\gamma + \lambda} + \frac{\beta^2}{(\gamma + \lambda)(\eta+\lambda)} 
+%	=
+%1 + \frac{(\eta - \gamma) (\eta + \lambda) + \beta^2}{(\gamma + \lambda) (\eta + \lambda)}. 
+%\end{align*}
+%So, if $(\gamma + \lambda) (\eta + \lambda) > 0$, which is always true if we assume $\gamma > 0$, since $\eta > 0$ and $\lambda \geq 0$, then:
+%\begin{align*}
+%{\cal F} > 0 
+%&\Longrightarrow 
+%(\eta - \gamma) (\eta + \lambda) + (\gamma + \lambda) (\eta + \lambda) + \beta^2  > 0 \\
+%&\Longrightarrow 
+%[\eta - \gamma + \gamma + \lambda] (\eta + \lambda) + \beta^2  > 0 \\
+%& \Longleftrightarrow (\eta + \lambda)^2 + \beta^2 > 0.
+%\end{align*}
+%This last statement is always true, and the only assumption we made in arriving here is $\gamma > 0$. Therefore ${\cal F} > 0$ and the operator is positive definite?
+%]}
+%
+%\tcr{TODO: come back through and fix proofs to use $\gamma > 0$  rather than $\gamma > \eta$.}
+%
+%%
+%As $h,\delta t\to 0$, it is typical for parabolic problems that
+%the spectrum $\lambda\in\sigma\left(-\widehat{\mathcal{L}}\right)$
+%becomes increasingly dense in the interval $[0,\infty)$. For such limiting
+%behavior, the condition number \eqref{eq:cond0} can be expressed
+%precisely as
+%%
+%\begin{align}\label{eq:cond1}
+%\textnormal{cond}\left((\gamma I- \widehat{\mathcal{L}})^{-1}S\right) & \mapsto
+%	\frac{\max_{\lambda\in[0,\infty)} \mathcal{F}(\gamma,\lambda)}
+%		{\min_{\lambda\in[0,\infty)} \mathcal{F}(\gamma,\lambda)}.
+%\end{align}
+%%
+%
+%With this closed form, it is natural to pose a minimization problem to find the
+%optimal $\gamma$ in terms of minimizing the condition number \eqref{eq:cond0}.
+%Let $\gamma > \eta$ and consider the problem
+%%
+%\begin{align}\label{eq:gam_opt}
+%\gamma_* & = \textnormal{argmin}_{\gamma>\eta}
+%	\frac{\max_{\lambda\in[0,\infty)} \mathcal{F}(\gamma,\lambda)}
+%		{\min_{\lambda\in[0,\infty)} \mathcal{F}(\gamma,\lambda)}.
+%\end{align}
+%%
+%Minima and maxima in $\lambda$ may be obtained at one of the endpoints,
+%$\lambda = 0$ or $\lambda\to\infty$, or at a critical point of \eqref{eq:eig_gamma}
+%in $\lambda$. Taking the partial with respect to $\lambda$, we have
+%%
+%\begin{align}\label{eq:partial_l}
+%\frac{\partial\mathcal{F}}{\partial\lambda} & =
+%	\frac{(\gamma-\eta)(\eta+\lambda)^2 - \beta^2(\gamma+\eta+2\lambda)}
+%		{(\gamma+\lambda)^2(\eta+\lambda)^2}.
+%\end{align}
+%%
+%Noting that the denominator is nonnegative for $\eta,\gamma>0$ and $\lambda \geq 0$,
+%the critical points are obtained at zeros of the numerator in \eqref{eq:partial_l},
+%which can be written as a quadratic polynomial in $\lambda$:
+%%
+%\begin{align*}
+%(\gamma-\eta)\lambda^2 - 2(\eta^2+\beta^2 - \eta\gamma)\lambda + 
+%	\gamma(\eta^2-\beta^2) - \eta(\eta^2+\beta^2) = 0.
+%\end{align*}
+%%
+%Working through the algebra, for $\gamma \neq \eta$ the two real roots are given by
+%%
+%\begin{align}\label{eq:roots}
+%\lambda_{\pm} & := \frac{\beta^2 + \eta^2 - \gamma\eta \pm
+%	\beta\sqrt{\beta^2 + (\gamma-\eta)^2}}{\gamma-\eta}.
+%\end{align}
+%%
+%Thus, we have four potential points at which a maximum or minimum in $\lambda$
+%can be achieved, $\{0,\infty, \lambda_\pm\}$. Working through the algebra yields
+%%
+%\begin{align}\label{eq:F_gamma}
+%\begin{split}
+%\mathcal{F}(\gamma,\infty) & = 1, \hspace{20ex}
+%\mathcal{F}(\gamma,\lambda_+) = \frac{2\beta}{\beta + \sqrt{\beta^2 + (\gamma-\eta)^2}}, \\
+%\mathcal{F}(\gamma,0) & = 1 + \frac{\eta^2+\beta^2-\eta\gamma}{\eta\gamma},
+%\hspace{4ex}
+%\mathcal{F}(\gamma,\lambda_-) = \frac{2\beta}{\beta - \sqrt{\beta^2 + (\gamma-\eta)^2}}.
+%\end{split}
+%\end{align}
+%%
+%
+%Note that $\mathcal{F}(\gamma,\lambda_-) < 0$, which contradicts the previously
+%stated result that $\mathcal{F}(\gamma,\lambda)$ is SPD for $\gamma > \eta$
+%and $\lambda\geq 0$, implying $\lambda_- < 0$.
+%Thus we are left with three critical points to consider, 
+%$\{0,\lambda_+,\infty\}$. Further, observe that
+%%
+%\begin{align*}
+%\mathcal{F}(\gamma,\lambda_+) = \frac{2\beta}{\beta + \sqrt{\beta^2 + (\gamma-\eta)^2}}
+%	= \frac{2}{1 + \sqrt{1 + (\gamma-\eta)^2/\beta^2}} < 1 = \mathcal{F}(\gamma,\infty),
+%\end{align*}
+%%
+%for all $\gamma > \eta$, with equality for $\gamma = \eta$.
+%It follows that the maximum of ${\cal F}(\gamma,\lambda)$ w.r.t.
+%$\lambda$ must thus occur for $\lambda \in \{ 0, \infty \}$. Evaluating
+%\eqref{eq:F_gamma}, we have
+%%
+%\begin{align*}
+%\max_{\lambda\in[0,\infty)} \mathcal{F}(\gamma,\lambda) & = 
+%\begin{cases}
+%\displaystyle
+%\mathcal{F}(\gamma,0) 
+%= 
+%\frac{1}{\gamma} \left(\eta + \frac{\beta^2}{\eta} \right), 
+%\quad 
+%& \eta < \gamma \leq \eta +  \tfrac{\beta^2}{\eta}, \\
+%\displaystyle
+%\mathcal{F}(\gamma,\infty) 
+%= 
+%1, \quad & \eta + \tfrac{\beta^2}{\eta} \leq \gamma < \infty
+%\end{cases}.
+%\end{align*}
+%%
+%
+%For the minimum, because $\mathcal{F}(\gamma,\lambda_+) < \mathcal{F}(\gamma,\infty),
+%\forall \gamma > \eta$, the minimum cannot occur for $\lambda \to \infty$, which
+%implies the minimum of ${\cal F}(\gamma,\lambda)$ w.r.t. $\lambda$ must occur
+%at $\lambda \in \{0, \lambda_+\}$. For $\gamma \geq \eta + \beta^2 / \eta$,
+%${\cal F}(\gamma, \lambda_+) < 1 \leq {\cal F}(\gamma, 0)$. \tcr{Oops... Why did I write this... This is not true. It should be for $0 < \gamma \leq \eta + \beta^2 / \eta$,
+%${\cal F}(\gamma, \lambda_+) < 1 \leq {\cal F}(\gamma, 0)$. So that we need to examine ${\cal G}$ on the interval $\eta + \beta^2/\eta < \gamma < \infty$.  However, the end result still holds because the zero we find is actually a local minimum, so ${\cal G}$ doesn't go negative there. TODO: Fix the remainder of this...}. To consider
+%$\eta < \gamma < \eta + \beta^2 / \eta$, define
+%%
+%\begin{align*}
+%{\cal G}(\gamma) = \mathcal{F}(\gamma,0) -  \mathcal{F}(\gamma,\lambda_+),
+%	\quad \eta < \gamma \leq \eta + \beta^2 / \eta.
+%\end{align*}
+%%
+%To determine which value of ${\lambda} \in \{0, \lambda_+ \}$ minimizes
+%${\cal F}(\gamma, \lambda)$ we can consider the sign of ${\cal G}$. From
+%above, we know that ${\cal G} > 0$ for $\gamma = \eta + \beta^2/\eta$, so
+%we seek roots $\hat{\gamma}\in(\eta,\eta+\beta^2/\eta]$, such that
+%${\cal G}(\hat{\gamma}) = 0$, indicating a sign change in ${\cal G}$.
+%
+%\tcb{(BS: next two equations not obvious, is first one relevant?)} \tcr{[OK: First equation was kind of relevant. I rewrote what was below to make clearer where these things come from. Let me know if still unclear.]}
+%
+%Setting ${\cal G}(\hat{\gamma}) = 0$ and assuming $\beta > 0$, we have
+%\begin{align*}
+%\frac{2\beta}{\beta + \sqrt{\beta^2 + (\hat{\gamma}-\eta)^2}} 
+%=
+%\frac{1}{\hat{\gamma}} \left(\eta + \frac{\beta^2}{\eta} \right) 
+%\quad \Longrightarrow \quad
+%2\beta \eta \hat{\gamma} -\beta(\eta^2 + \beta^2) 
+%= 
+%(\eta^2 + \beta^2) \sqrt{\beta^2 + (\hat{\gamma}-\eta)^2}. 
+%\end{align*}
+%Squaring both sides of the latter equation leads to a quadratic equation in $\hat{\gamma}$, which we will denote $z(\hat{\gamma}) = 0$. However, note that the RHS of the latter equation is positive, and so for any root of $z$ to also be a root of ${\cal G}$, it must satisfy $\hat{\gamma} > \tfrac{1}{2} \big( \eta + \beta^2 / \eta)$. Carrying out the calculation, we have
+%\begin{align*}
+%z(\hat{\gamma}) = \big[ 4 \beta^2 \eta^2 - (\eta^2 + \beta^2)^2 \big] \hat{\gamma}^2 + 2 \eta (\eta^2 + \beta^2)(\eta^2 - \beta^2) \hat{\gamma} - \eta^2(\eta^2 + \beta^2)^2.
+%\end{align*}
+%%
+%Note that the discriminant of $z(\hat{\gamma})$ is zero, implying
+%$z(\hat{\gamma})$ has one real root. This root is
+%%
+%\begin{align} \label{eq:gamma_hat}
+%\hat{\gamma} = \eta \frac{\eta^2 + \beta^2}{\eta^2 - \beta^2}. 
+%\end{align}
+%%
+%If $\eta < \beta$, then $\hat{\gamma} < 0$ which violates the necessary condition that $\hat{\gamma} > \tfrac{1}{2} \big( \eta + \beta^2 / \eta)$ for $\hat{\gamma}$ to also be a root of ${\cal G}$. For $\eta > \beta$, it is straightforward to show that
+%$\hat{\gamma} > \eta+\beta^2/\eta$, and, so, this root of ${\cal G}$ does not lie in the interval $(\eta,\eta+\beta^2/\eta]$. Thus, ${\cal G}$ has no sign changes
+%in the interval $(\eta,\eta+\beta^2/\eta]$, implying
+%${\cal F} (\gamma, \lambda_+) < {\cal F}(\gamma, 0)$ for $\eta < \gamma
+%\leq \eta + \beta^2/\eta.$ Combining with the earlier discussion, we have
+%%
+%\begin{align*}
+%\min_{\lambda\in[0,\infty)} \mathcal{F}(\gamma,\lambda) &=
+%	\mathcal{F}(\gamma,\lambda_+) =
+%\frac{2\beta}{\beta + \sqrt{\beta^2 + (\gamma-\eta)^2}}
+%	\quad \eta < \gamma < \infty.
+%\end{align*}
+%%
+%
+%Altogether, the condition number \eqref{eq:cond1} is given by the continuous function of $\gamma>\eta$
+%\begin{align}
+%\label{eq:condc}
+%c(\gamma) 
+%\coloneqq
+%\textnormal{cond}\left((\gamma I- \widehat{\mathcal{L}})^{-1}S\right)  
+%=
+%\begin{cases}
+%\displaystyle
+%\frac{1}{\gamma} \left(\eta + \tfrac{\beta^2}{\eta} \right) \frac{\beta + \sqrt{\beta^2 + (\gamma-\eta)^2}}{2\beta}
+%\eqqcolon c_1(\gamma), 
+%\quad & \eta < \gamma \leq \eta + \tfrac{\beta^2}{\eta},
+%\\[3ex]
+%\displaystyle
+%\frac{\beta + \sqrt{\beta^2 + (\gamma-\eta)^2}}{2\beta}
+%\eqqcolon c_2(\gamma), 
+%\quad &\eta + \tfrac{\beta^2}{\eta} \leq \gamma < \infty 
+%\end{cases}.
+%\end{align}
+%Now, we want to find the minimizer $\gamma_*$ of the condition number $c$
+%as defined in \eqref{eq:gam_opt}.
+%First, note that $c_2$ is an increasing function over the interval for
+%which it is defined. Thus, its minimum is achieved at the left boundary
+%of its domain, $\textnormal{argmin}_{(\eta + \beta^2/\eta) \leq \gamma
+%< \infty} c_2(\gamma) = \eta + \beta^2/\eta$, with minimum value
+%%
+%\begin{align} 
+%\label{eq:c2_min}
+%c_2\left(\eta + \frac{\beta^2}{\eta} \right) = \frac{1}{2} \left( 1 + \sqrt{1 + \left( \frac{\beta}{\eta} \right)^2} \right).
+%\end{align}
+%%
+%For $c_1$, differentiating and solving for the roots of its derivative
+%yields the two critical points, $\gamma = \eta$ and $\gamma = \hat{\gamma}$
+%as in \eqref{eq:gamma_hat}. Neither $\eta,\hat{\gamma}\not\in(\eta, \eta + \beta^2/\eta]$,
+%and thus the minimum of $c_2$ will be obtained at one of the endpoints. 
+%By continuity of $c(\gamma)$, $c_1(\eta + \beta^2/\eta) = c_2(\eta + \beta^2/\eta)$,
+%given in \eqref{eq:c2_min}. Taking the limit $\lim_{\gamma\to\eta} c_1(\gamma)
+%= 1+\tfrac{\beta^2}{\eta^2} > c_1(\eta + \beta^2/\eta)$.
+%
+%Thus, the condition number as a function of $\gamma$ \eqref{eq:condc} is
+%minimized at $\gamma = \eta + \beta^2 / \eta$ independent of $\beta$ and $\eta$,
+%where
+%%
+%\begin{align}
+%\gamma_* 
+%:= 
+%\underset{0 < \gamma < \infty}{\textnormal{argmin}} \; \textnormal{cond} \left((\gamma I- \widehat{\mathcal{L}})^{-1}S\right) 
+%= 
+%\eta + \frac{\beta^2}{\eta},
+%\end{align}
+%and
+%\begin{align} \label{eq:cond_min}
+%\textnormal{cond}\left((\gamma_* I- \widehat{\mathcal{L}})^{-1}S\right)
+%=
+%\frac{1}{2} \left( 1 + \sqrt{1 + \left( \frac{\beta}{\eta} \right)^2} \right).
+%\end{align}
+%
+%While condition number \eqref{eq:cond_min} is not bounded w.r.t. $\beta/\eta$, it is very small in practice as shown in Table \ref{tab:cond}, where for the schemes we consider it's always less than 2. For example, the condition number is less than 2 for $(\beta/\eta)^2 < 8$. See also Figure \ref{fig:conds} for a comparison of the condition number using $\gamma_*$ vs. $\eta$. Also, a numerical example is shown in Table \ref{tab:cond_iters} showing a reduction in the number of iterations using $\gamma_*$ vs. $\eta$.
+%{
+%\renewcommand{\tabcolsep}{4pt}
+%\renewcommand{\arraystretch}{1.15}
+%\begin{table}[!ht]
+%  \centering
+%  \begin{tabular}{| c | c | c | cc | cc | ccc |}  % chktex 44
+%  \hline
+%Method & Stages & 2 & \multicolumn{2}{c}{3} & \multicolumn{2}{|c}{4} & \multicolumn{3}{|c|}{5} \\\hline\hline
+%\multirow{ 3}{*}{Gauss}
+%&$\beta^2/\eta^2$ & 0.33 & 0 & 0.91 & 1.59 & 0.09 & 0 & 2.36 & 0.27 \\
+%&$\textnormal{cond}\big((\gamma_* I- \widehat{\mathcal{L}})^{-1}S\big)$ & 1.077 & -- & 1.191 & 1.305 & 1.022 & -- & 1.43 & 1.064\\
+%&$\textnormal{cond}\big((\eta I- \widehat{\mathcal{L}})^{-1}S\big)$ & 1.330 & -- & 1.910 & 2.590 & 1.090 & -- & 3.460 & 1.270\\\hline
+%\multirow{ 3}{*}{Radau IIA}
+%&$\beta^2/\eta^2$ & 0.50 & 0 & 1.29 & 2.21 & 0.11 & 0 & 3.20 & 0.32	\\
+%&$\textnormal{cond}\big((\gamma_* I- \widehat{\mathcal{L}})^{-1}S\big)$ & 1.112 & -- & 1.257 & 1.396 & 1.027 & -- & 1.525 & 1.075\\
+%&$\textnormal{cond}\big((\eta I- \widehat{\mathcal{L}})^{-1}S\big)$ & 1.500 & -- & 2.290 & 3.210 & 1.110 & -- & 4.200 & 1.320\\\hline
+%\multirow{ 3}{*}{Lobatto IIIC}
+%&$\beta^2/\eta^2$ & 1 & 0 & 2.21 & 3.51 & 0.13 & 0 & 4.88 & 0.38 \\
+%&$\textnormal{cond}\big((\gamma_* I- \widehat{\mathcal{L}})^{-1}S\big)$ & 1.207 & -- & 1.396 & 1.562 & 1.032 & -- & 1.712 & 1.087\\
+%&$\textnormal{cond}\big((\eta* I- \widehat{\mathcal{L}})^{-1}S\big)$ & 2.000 & -- & 3.210 & 4.510 & 1.130 & -- & 5.880 & 1.380\\
+%  \hline
+%  \end{tabular}
+%  \caption{$\beta^2/\eta^2$, values of the optimal condition number $\textnormal{cond}\big((\gamma_* I- \widehat{\mathcal{L}})^{-1}S\big)$ as defined in \eqref{eq:cond_min}, and values of the non-optimal condition number $\textnormal{cond}\big((\eta I- \widehat{\mathcal{L}})^{-1}S\big)$. Entries for which $\beta =  0$ are marked with a ``--''.}\label{tab:cond}
+%\end{table}
+%
+%\renewcommand{\tabcolsep}{4pt}
+%\renewcommand{\arraystretch}{1.15}
+%\begin{table}[!ht]
+%  \centering
+%  \begin{tabular}{| c | c | c |}  % chktex 44
+%  \hline
+%Method & &  \\ \hline
+%\multirow{ 3}{*}{Gauss(8)}
+%&$\beta^2/\eta^2$ & 1.59 / 0.09 \\
+%&$\gamma = \eta$  -- & 20 / 11\\
+%&$\gamma = \gamma_*$ & 13 / 11\\ \hline
+%\multirow{ 3}{*}{Radau IIA(9)}
+%&$\beta^2/\eta^2$ & 0 / 3.20 / 0.32	\\
+%&$\gamma = \eta$ &  8 / 24 / 13\\
+%&$\gamma = \gamma_*$ & 8 / 14/ 11 \\ \hline
+%\multirow{ 3}{*}{Lobatto IIIC(8)}
+%&$\beta^2/\eta^2$ & 0 / 4.88 / 0.38 \\
+%&$\gamma = \eta$ & 8 / 29 / 14\\
+%&$\gamma = \gamma_*$ & 8 / 15 / 12\\
+%  \hline
+%  \end{tabular}
+%  \caption{
+%Number of GMRES iterations for each stage when solving $u_t = \Delta u + s$, with a single time step of $\delta t = h = 1/256$. Different values of $\gamma$ are used in the preconditioner, as indicated.
+%}
+%\label{tab:cond_iters}
+%\end{table}
+
+%It's interesting to note that $\gamma_*$ does not depend on $\eta$ nor $\beta$. However, note that for $\beta < \eta$, we're unlikely to see any large difference in choosing $\gamma = \eta$ over $\gamma = \gamma_*$:
+%\begin{align}
+%\textnormal{cond}\left((\eta I- \widehat{\mathcal{L}})^{-1}S\right)
+%-
+%\textnormal{cond}\left((\gamma_* I- \widehat{\mathcal{L}})^{-1}S\right)
+%=
+%\frac{3}{4} \left( \frac{\beta}{\eta} \right)^2 + {\cal O}\left( \frac{\beta}{\eta} \right)^4 = {\cal O} \left( \frac{\beta}{\eta} \right)^2.
+%\end{align}
+
+
+
 % ---------------------------------------------------------------------------------------------- %
 % ---------------------------------------------------------------------------------------------- %
-\subsection{A modified $\gamma$: the SPD case}
-
-Suppose $-\mathcal{L}$ is SPSD with a spectrum $\subset [0,\infty)$, and
-consider preconditioning $S$ with $(\gamma I- \widehat{\mathcal{L}})^{-1}$ for
-some $\gamma \neq \eta$. The preconditioned operator then takes the form
-%
-\begin{align}\nonumber
-(\gamma I- \widehat{\mathcal{L}})^{-1}S & = (\gamma I - \widehat{\mathcal{L}})^{-1}
-	\left[ (\gamma I - \widehat{\mathcal{L}}) + (\eta-\gamma)I + \beta^2 (\eta I - \widehat{\mathcal{L}})^{-1}\right] \\
-& = I - (\gamma - \eta)( \gamma I- \widehat{\mathcal{L}})^{-1} + 
-	\beta^2( \gamma I- \widehat{\mathcal{L}})^{-1}
-		( \eta I-\widehat{\mathcal{L}})^{-1} \nonumber\\
-& = I - \frac{\gamma - \eta}{\gamma} ( I- \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{-1} + 
-	\frac{\beta^2}{\gamma\eta}( I- \tfrac{1}{\gamma}\widehat{\mathcal{L}})^{-1}
-		( I- \tfrac{1}{\eta}\widehat{\mathcal{L}})^{-1},\label{eq:gamma0}
-\end{align}
-%
-with spectrum given by
-%
-\begin{align}\label{eq:eig_gamma}
-\mathcal{F}(\gamma,\lambda) :&= 
-	1 - \frac{\gamma-\eta}{\gamma + \lambda} + \frac{\beta^2}{(\gamma + \lambda)(\eta+\lambda)},
-\end{align}
-%
-where $\lambda\in\sigma(-\mathcal{L})$. If we choose $\gamma>\eta$,
-\eqref{eq:gamma0} is SPD, \tcb{(BS: above is not necessarily SPD for $0<\gamma<\eta$.
-Often it would be, but you can pick $\eta>0,\lambda,\beta\geq 0$ such that
-it is not)} and the condition number of \eqref{eq:gamma0} is given by
-%
-\begin{align}\label{eq:cond0}
-\textnormal{cond}\left((\gamma I- \widehat{\mathcal{L}})^{-1}S\right) & =
-	\frac{\lambda_{\max}\left((\gamma I- \widehat{\mathcal{L}})^{-1}S\right)}
-		{\lambda_{\min}\left((\gamma I- \widehat{\mathcal{L}})^{-1}S\right)}.
-\end{align}
-\tcr{[OK: 
-I'm a bit confused by the SPD thing; am I making a mistake in the following derivation? We want to show for which range of $\gamma$ ${\cal F} > 0$ (which implies the operator is positive definite). Have 
-\begin{align*}
-\mathcal{F}(\gamma,\lambda) := 
-	1 - \frac{\gamma-\eta}{\gamma + \lambda} + \frac{\beta^2}{(\gamma + \lambda)(\eta+\lambda)} 
-	=
-1 + \frac{(\eta - \gamma) (\eta + \lambda) + \beta^2}{(\gamma + \lambda) (\eta + \lambda)}. 
-\end{align*}
-So, if $(\gamma + \lambda) (\eta + \lambda) > 0$, which is always true if we assume $\gamma > 0$, since $\eta > 0$ and $\lambda \geq 0$, then:
-\begin{align*}
-{\cal F} > 0 
-&\Longrightarrow 
-(\eta - \gamma) (\eta + \lambda) + (\gamma + \lambda) (\eta + \lambda) + \beta^2  > 0 \\
-&\Longrightarrow 
-[\eta - \gamma + \gamma + \lambda] (\eta + \lambda) + \beta^2  > 0 \\
-& \Longleftrightarrow (\eta + \lambda)^2 + \beta^2 > 0.
-\end{align*}
-This last statement is always true, and the only assumption we made in arriving here is $\gamma > 0$. Therefore ${\cal F} > 0$ and the operator is positive definite?
-]}
-
-\tcr{TODO: come back through and fix proofs to use $\gamma > 0$  rather than $\gamma > \eta$.}
-
-%
-As $h,\delta t\to 0$, it is typical for parabolic problems that
-the spectrum $\lambda\in\sigma\left(-\widehat{\mathcal{L}}\right)$
-becomes increasingly dense in the interval $[0,\infty)$. For such limiting
-behavior, the condition number \eqref{eq:cond0} can be expressed
-precisely as
-%
-\begin{align}\label{eq:cond1}
-\textnormal{cond}\left((\gamma I- \widehat{\mathcal{L}})^{-1}S\right) & \mapsto
-	\frac{\max_{\lambda\in[0,\infty)} \mathcal{F}(\gamma,\lambda)}
-		{\min_{\lambda\in[0,\infty)} \mathcal{F}(\gamma,\lambda)}.
-\end{align}
-%
-
-With this closed form, it is natural to pose a minimization problem to find the
-optimal $\gamma$ in terms of minimizing the condition number \eqref{eq:cond0}.
-Let $\gamma > \eta$ and consider the problem
-%
-\begin{align}\label{eq:gam_opt}
-\gamma_* & = \textnormal{argmin}_{\gamma>\eta}
-	\frac{\max_{\lambda\in[0,\infty)} \mathcal{F}(\gamma,\lambda)}
-		{\min_{\lambda\in[0,\infty)} \mathcal{F}(\gamma,\lambda)}.
-\end{align}
-%
-Minima and maxima in $\lambda$ may be obtained at one of the endpoints,
-$\lambda = 0$ or $\lambda\to\infty$, or at a critical point of \eqref{eq:eig_gamma}
-in $\lambda$. Taking the partial with respect to $\lambda$, we have
-%
-\begin{align}\label{eq:partial_l}
-\frac{\partial\mathcal{F}}{\partial\lambda} & =
-	\frac{(\gamma-\eta)(\eta+\lambda)^2 - \beta^2(\gamma+\eta+2\lambda)}
-		{(\gamma+\lambda)^2(\eta+\lambda)^2}.
-\end{align}
-%
-Noting that the denominator is nonnegative for $\eta,\gamma>0$ and $\lambda \geq 0$,
-the critical points are obtained at zeros of the numerator in \eqref{eq:partial_l},
-which can be written as a quadratic polynomial in $\lambda$:
-%
-\begin{align*}
-(\gamma-\eta)\lambda^2 - 2(\eta^2+\beta^2 - \eta\gamma)\lambda + 
-	\gamma(\eta^2-\beta^2) - \eta(\eta^2+\beta^2) = 0.
-\end{align*}
-%
-Working through the algebra, for $\gamma \neq \eta$ the two real roots are given by
-%
-\begin{align}\label{eq:roots}
-\lambda_{\pm} & := \frac{\beta^2 + \eta^2 - \gamma\eta \pm
-	\beta\sqrt{\beta^2 + (\gamma-\eta)^2}}{\gamma-\eta}.
-\end{align}
-%
-Thus, we have four potential points at which a maximum or minimum in $\lambda$
-can be achieved, $\{0,\infty, \lambda_\pm\}$. Working through the algebra yields
-%
-\begin{align}\label{eq:F_gamma}
-\begin{split}
-\mathcal{F}(\gamma,\infty) & = 1, \hspace{20ex}
-\mathcal{F}(\gamma,\lambda_+) = \frac{2\beta}{\beta + \sqrt{\beta^2 + (\gamma-\eta)^2}}, \\
-\mathcal{F}(\gamma,0) & = 1 + \frac{\eta^2+\beta^2-\eta\gamma}{\eta\gamma},
-\hspace{4ex}
-\mathcal{F}(\gamma,\lambda_-) = \frac{2\beta}{\beta - \sqrt{\beta^2 + (\gamma-\eta)^2}}.
-\end{split}
-\end{align}
-%
-
-Note that $\mathcal{F}(\gamma,\lambda_-) < 0$, which contradicts the previously
-stated result that $\mathcal{F}(\gamma,\lambda)$ is SPD for $\gamma > \eta$
-and $\lambda\geq 0$, implying $\lambda_- < 0$.
-Thus we are left with three critical points to consider, 
-$\{0,\lambda_+,\infty\}$. Further, observe that
-%
-\begin{align*}
-\mathcal{F}(\gamma,\lambda_+) = \frac{2\beta}{\beta + \sqrt{\beta^2 + (\gamma-\eta)^2}}
-	= \frac{2}{1 + \sqrt{1 + (\gamma-\eta)^2/\beta^2}} < 1 = \mathcal{F}(\gamma,\infty),
-\end{align*}
-%
-for all $\gamma > \eta$, with equality for $\gamma = \eta$.
-It follows that the maximum of ${\cal F}(\gamma,\lambda)$ w.r.t.
-$\lambda$ must thus occur for $\lambda \in \{ 0, \infty \}$. Evaluating
-\eqref{eq:F_gamma}, we have
-%
-\begin{align*}
-\max_{\lambda\in[0,\infty)} \mathcal{F}(\gamma,\lambda) & = 
-\begin{cases}
-\displaystyle
-\mathcal{F}(\gamma,0) 
-= 
-\frac{1}{\gamma} \left(\eta + \frac{\beta^2}{\eta} \right), 
-\quad 
-& \eta < \gamma \leq \eta +  \tfrac{\beta^2}{\eta}, \\
-\displaystyle
-\mathcal{F}(\gamma,\infty) 
-= 
-1, \quad & \eta + \tfrac{\beta^2}{\eta} \leq \gamma < \infty
-\end{cases}.
-\end{align*}
-%
-
-For the minimum, because $\mathcal{F}(\gamma,\lambda_+) < \mathcal{F}(\gamma,\infty),
-\forall \gamma > \eta$, the minimum cannot occur for $\lambda \to \infty$, which
-implies the minimum of ${\cal F}(\gamma,\lambda)$ w.r.t. $\lambda$ must occur
-at $\lambda \in \{0, \lambda_+\}$. For $\gamma \geq \eta + \beta^2 / \eta$,
-${\cal F}(\gamma, \lambda_+) < 1 \leq {\cal F}(\gamma, 0)$. \tcr{Oops... Why did I write this... This is not true. It should be for $0 < \gamma \leq \eta + \beta^2 / \eta$,
-${\cal F}(\gamma, \lambda_+) < 1 \leq {\cal F}(\gamma, 0)$. So that we need to examine ${\cal G}$ on the interval $\eta + \beta^2/\eta < \gamma < \infty$.  However, the end result still holds because the zero we find is actually a local minimum, so ${\cal G}$ doesn't go negative there. TODO: Fix the remainder of this...}. To consider
-$\eta < \gamma < \eta + \beta^2 / \eta$, define
-%
-\begin{align*}
-{\cal G}(\gamma) = \mathcal{F}(\gamma,0) -  \mathcal{F}(\gamma,\lambda_+),
-	\quad \eta < \gamma \leq \eta + \beta^2 / \eta.
-\end{align*}
-%
-To determine which value of ${\lambda} \in \{0, \lambda_+ \}$ minimizes
-${\cal F}(\gamma, \lambda)$ we can consider the sign of ${\cal G}$. From
-above, we know that ${\cal G} > 0$ for $\gamma = \eta + \beta^2/\eta$, so
-we seek roots $\hat{\gamma}\in(\eta,\eta+\beta^2/\eta]$, such that
-${\cal G}(\hat{\gamma}) = 0$, indicating a sign change in ${\cal G}$.
-
-\tcb{(BS: next two equations not obvious, is first one relevant?)} \tcr{[OK: First equation was kind of relevant. I rewrote what was below to make clearer where these things come from. Let me know if still unclear.]}
-
-Setting ${\cal G}(\hat{\gamma}) = 0$ and assuming $\beta > 0$, we have
-\begin{align*}
-\frac{2\beta}{\beta + \sqrt{\beta^2 + (\hat{\gamma}-\eta)^2}} 
-=
-\frac{1}{\hat{\gamma}} \left(\eta + \frac{\beta^2}{\eta} \right) 
-\quad \Longrightarrow \quad
-2\beta \eta \hat{\gamma} -\beta(\eta^2 + \beta^2) 
-= 
-(\eta^2 + \beta^2) \sqrt{\beta^2 + (\hat{\gamma}-\eta)^2}. 
-\end{align*}
-Squaring both sides of the latter equation leads to a quadratic equation in $\hat{\gamma}$, which we will denote $z(\hat{\gamma}) = 0$. However, note that the RHS of the latter equation is positive, and so for any root of $z$ to also be a root of ${\cal G}$, it must satisfy $\hat{\gamma} > \tfrac{1}{2} \big( \eta + \beta^2 / \eta)$. Carrying out the calculation, we have
-\begin{align*}
-z(\hat{\gamma}) = \big[ 4 \beta^2 \eta^2 - (\eta^2 + \beta^2)^2 \big] \hat{\gamma}^2 + 2 \eta (\eta^2 + \beta^2)(\eta^2 - \beta^2) \hat{\gamma} - \eta^2(\eta^2 + \beta^2)^2.
-\end{align*}
-%
-Note that the discriminant of $z(\hat{\gamma})$ is zero, implying
-$z(\hat{\gamma})$ has one real root. This root is
-%
-\begin{align} \label{eq:gamma_hat}
-\hat{\gamma} = \eta \frac{\eta^2 + \beta^2}{\eta^2 - \beta^2}. 
-\end{align}
-%
-If $\eta < \beta$, then $\hat{\gamma} < 0$ which violates the necessary condition that $\hat{\gamma} > \tfrac{1}{2} \big( \eta + \beta^2 / \eta)$ for $\hat{\gamma}$ to also be a root of ${\cal G}$. For $\eta > \beta$, it is straightforward to show that
-$\hat{\gamma} > \eta+\beta^2/\eta$, and, so, this root of ${\cal G}$ does not lie in the interval $(\eta,\eta+\beta^2/\eta]$. Thus, ${\cal G}$ has no sign changes
-in the interval $(\eta,\eta+\beta^2/\eta]$, implying
-${\cal F} (\gamma, \lambda_+) < {\cal F}(\gamma, 0)$ for $\eta < \gamma
-\leq \eta + \beta^2/\eta.$ Combining with the earlier discussion, we have
-%
-\begin{align*}
-\min_{\lambda\in[0,\infty)} \mathcal{F}(\gamma,\lambda) &=
-	\mathcal{F}(\gamma,\lambda_+) =
-\frac{2\beta}{\beta + \sqrt{\beta^2 + (\gamma-\eta)^2}}
-	\quad \eta < \gamma < \infty.
-\end{align*}
-%
-
-Altogether, the condition number \eqref{eq:cond1} is given by the continuous function of $\gamma>\eta$
+\subsection{The symmetric definite case}
+The preconditioned Schur complement is
 \begin{align}
-\label{eq:condc}
-c(\gamma) 
-\coloneqq
-\textnormal{cond}\left((\gamma I- \widehat{\mathcal{L}})^{-1}S\right)  
+\label{eq:sd_P_gamma}
+\cPg
+&\coloneqq \big[ 
+(\eta I - \cL ) + \beta^2 (\eta I - \cL )^{-1}
+\big](\gamma I - \cL)^{-1}
+\\
+\label{eq:sd_Py}
+&= \big[ 
+(x I - \cN ) +  (x I - \cN )^{-1}
+\big](y I - \cN)^{-1} 
+\eqqcolon 
+\cP_y,
+\end{align}
+where, WLOG, assuming $\beta > 0$, we have the scaled quantities
+\begin{align} \label{eq:sd_scaled_vars}
+x \coloneqq \frac{\eta}{\beta} > 0, 
+\quad
+y \coloneqq \frac{\gamma}{\beta} > 0, 
+\quad
+\cN \coloneqq \frac{1}{\beta} \cL > 0. 
+\end{align}
+Let $\lambda \in \sigma(- \cN) \subset [0, \infty) \eqqcolon \mathbb{R}_+$, assuming $-\cL$ is symmetric positive semi-definite. Now, assuming $\cL$ is diagonalizable, the spectrum of \eqref{eq:sd_Py} is
+\begin{align} \label{eq:sd_Fy}
+{\cal F}_y(\lambda) = \frac{(x+1)^2 + 1}{(x+ \lambda)(y + \lambda)}.
+\end{align}
+Observe that ${\cal F}_y > 0$ for any $x, y > 0$, $\lambda \in \mathbb{R}_+$.
+
+The condition number of \eqref{eq:sd_Py} is 
+\begin{align} \label{eq:sd_kappa_Py_def}
+\kappa(\cP_y) = \frac{\underset{\lambda \in  \mathbb{R}_+}{\max} \, {\cal F}_y(\lambda)}{\underset{\lambda \in  \mathbb{R}_+}{\min} \, {\cal F}_y(\lambda)}.
+\end{align}
+
+\begin{theorem}[Conditioning of preconditioned operator] \label{th:sd_cond}
+Let $\kappa(\cP_y)$ \eqref{eq:sd_kappa_Py_def} be the two-norm condition number of preconditioned operator $\cP_y$ \eqref{eq:sd_kappa_Py_def} where $-\cN$ is symmetric positive semi-definite, then
+\begin{align} \label{eq:sd_kappa_Py}
+\kappa(\cP_y) 
 =
 \begin{cases}
 \displaystyle
-\frac{1}{\gamma} \left(\eta + \tfrac{\beta^2}{\eta} \right) \frac{\beta + \sqrt{\beta^2 + (\gamma-\eta)^2}}{2\beta}
-\eqqcolon c_1(\gamma), 
-\quad & \eta < \gamma \leq \eta + \tfrac{\beta^2}{\eta},
-\\[3ex]
+\frac{x^2 + 1}{xy} , \quad &0 < y \leq x, \\[2ex]
 \displaystyle
-\frac{\beta + \sqrt{\beta^2 + (\gamma-\eta)^2}}{2\beta}
-\eqqcolon c_2(\gamma), 
-\quad &\eta + \tfrac{\beta^2}{\eta} \leq \gamma < \infty 
-\end{cases}.
+\frac{x^2 + 1}{2xy}  \left(  1 + \sqrt{1 + (y-x)^2} \right), \quad & x \leq y \leq x + \frac{1}{x}, \\[2ex]
+\displaystyle
+\frac{1}{2} \left( 1 + \sqrt{1 + (y-x)^2} \right), \quad &x + \frac{1}{x} \leq y \leq \mathbb{Y},\\[2ex]
+\displaystyle
+\frac{x y}{x^2 + 1}, \quad &\mathbb{Y} \leq y < \infty,
+\end{cases} 
 \end{align}
-Now, we want to find the minimizer $\gamma_*$ of the condition number $c$
-as defined in \eqref{eq:gam_opt}.
-First, note that $c_2$ is an increasing function over the interval for
-which it is defined. Thus, its minimum is achieved at the left boundary
-of its domain, $\textnormal{argmin}_{(\eta + \beta^2/\eta) \leq \gamma
-< \infty} c_2(\gamma) = \eta + \beta^2/\eta$, with minimum value
-%
-\begin{align} 
-\label{eq:c2_min}
-c_2\left(\eta + \frac{\beta^2}{\eta} \right) = \frac{1}{2} \left( 1 + \sqrt{1 + \left( \frac{\beta}{\eta} \right)^2} \right).
-\end{align}
-%
-For $c_1$, differentiating and solving for the roots of its derivative
-yields the two critical points, $\gamma = \eta$ and $\gamma = \hat{\gamma}$
-as in \eqref{eq:gamma_hat}. Neither $\eta,\hat{\gamma}\not\in(\eta, \eta + \beta^2/\eta]$,
-and thus the minimum of $c_2$ will be obtained at one of the endpoints. 
-By continuity of $c(\gamma)$, $c_1(\eta + \beta^2/\eta) = c_2(\eta + \beta^2/\eta)$,
-given in \eqref{eq:c2_min}. Taking the limit $\lim_{\gamma\to\eta} c_1(\gamma)
-= 1+\tfrac{\beta^2}{\eta^2} > c_1(\eta + \beta^2/\eta)$.
+where ${\cal Y} \in \mathbb{R}$ is defined such that ${\cal Y} \to \infty$ if $x \leq 1$, and ${\cal Y} = x (x^2+1)/(x^2-1)$ if $x > 1$.
+\end{theorem}
 
-Thus, the condition number as a function of $\gamma$ \eqref{eq:condc} is
-minimized at $\gamma = \eta + \beta^2 / \eta$ independent of $\beta$ and $\eta$,
-where
-%
-\begin{align}
-\gamma_* 
-:= 
-\underset{0 < \gamma < \infty}{\textnormal{argmin}} \; \textnormal{cond} \left((\gamma I- \widehat{\mathcal{L}})^{-1}S\right) 
-= 
-\eta + \frac{\beta^2}{\eta},
+\begin{proof}
+To begin, we consider the extrema of ${\cal F}_y$ which may occur either at critical points of ${\cal F}_y$, or at the boundaries of its domain. Beginning with the boundaries of the domain, observe that 
+\begin{align} \label{eq:sd_Fy_endpoints}
+{\cal F}_y(0) = \frac{1}{y} \left( x + \frac{1}{x} \right),
+\quad
+\lim_{\lambda \to \infty} {\cal F}_y(\lambda) = 1.
 \end{align}
+Now, to consider critical points, consider derivative of ${\cal F}_y$:
+\begin{align}
+\frac{\textrm{d} {\cal F}_y}{\textrm{d} \lambda}
+=
+\frac{(y-x)\lambda^2 + 2(xy - x^2 - 1) \lambda + \big[ y(x^2-1) - x(x^2 + 1)\big]}{(x + \lambda)^2 (y  +  \lambda)^2}.
+\end{align}
+Noting that the denominator of this fraction is always positive, critical points occur when the numerator vanishes, which we find to be
+\begin{align} \label{eq:sd_lambda_pm_def}
+\lambda_{\pm} = 
+\begin{cases}
+\displaystyle
+\frac{x^2 + 1 - xy \pm \sqrt{1 + (y-x)^2}}{y-x},  \quad &y \in (0, \infty) \setminus x, \\
+- x, \quad &y =  x. 
+\end{cases}
+\end{align}
+Recalling that $\lambda \in \mathbb{R}_+$, we exclude any critical points for which $\lambda < 0$. So we can immediately exclude $\lambda_{\pm} = -x$ when $y = x$. The cases of $y \neq x$ require more careful consideration. To this end, let us consider the functions
+\begin{align} \label{eq:sd_p_def}
+p_{\pm} (y) \coloneqq x^2 + 1 - xy  \pm \sqrt{1 +  (y-x)^2}, \quad y \in (0, \infty),
+\end{align}
+and examine when (if) they have roots $y_{\pm}$ such that $p_{\pm} (y_{\pm}) = 0$. By noting the domain of $y$, and that $\sqrt{1 +  (y-x)^2} \geq 1$, if such roots exist, they must satisfy
+\begin{align} \label{eq:sd_ypm_bounds}
+0 < y_- \leq x, \quad x + \frac{2}{x} \leq y_+ < \infty.
+\end{align}
+Setting functions \eqref{eq:sd_p_def} equal to zero, rearranging, squaring both sides and rearranging again, we have
+\begin{align*}
+(y_{\pm} - x) 
+\big[ 
+(x^2 + 1) y_{\pm} - x(x^2 + 1)
+\big] = 0.
+\end{align*}
+Applying inequalities \eqref{eq:sd_ypm_bounds} (i.e., ensuring the squaring both sides of the equations were reversible transforms), we find functions \eqref{eq:sd_p_def} have roots
+\begin{align} \nonumber
+p_-(x) &= 0, \\
+\label{eq:sd_yhat}
+p_{+}(\hat{y}) &= 0, 
+\quad \hat{y} \coloneqq x \frac{x^2 + 1}{x^2 - 1}, \quad
+x > 1.
+\end{align}
+Combining these results with some further algebra, for roots \eqref{eq:sd_lambda_pm_def} we find
+\begin{align*}
+\textrm{sign}(\lambda_-) = -1, \quad y \in (0, \infty),
+\end{align*}
 and
-\begin{align} \label{eq:cond_min}
-\textnormal{cond}\left((\gamma_* I- \widehat{\mathcal{L}})^{-1}S\right)
+\begin{align*}
+x \leq 1:
+\quad
+\textrm{sign}(\lambda_+) = 
+\begin{cases}
+-1,\quad &0 < y \leq x,\\
+1,\quad &x < y < \infty,
+\end{cases}
+\quad \textrm{and,} \quad
+x > 1:\quad
+\textrm{sign}(\lambda_+) = 
+\begin{cases}
+-1,\quad &0 < y \leq x,\\
+1,\quad &x < y < \hat{y}, \\
+0,\quad &y = \hat{y}, \\
+-1,\quad &\hat{y} < y < \infty
+\end{cases}
+\end{align*}
+Therefore, $\lambda_-$ is excluded as a critical point altogether. And, $\lambda_+$ is a valid critical point for $y \in (x, \infty)$ when $x \leq 1$, and for $y \in (x, \hat{y}]$ when $x > 1$, $\lambda_+$. That is, defining the number ${\cal Y}$ such that ${\cal Y} \to \infty$ if $x \leq 1$, while ${\cal Y}= x (x^2+1)/(x^2-1)$ if $x > 1$, $\lambda_+$ is a valid critical point for $y \in (x, {\cal Y}]$.
+
+Evaluating ${\cal F}_y$ at $\lambda_+$ we have
+\begin{align} \label{eq:sd_Fy_lambda+}
+{\cal F}_y(\lambda_+) = \frac{2}{1 + \sqrt{1 + (y-x)^2}} < 1.
+\end{align}
+Observe that ${\cal F}_y(\lambda_+) > 0 \, \forall y$, but from the above analysis this is clearly not a sufficient for implying that $\lambda_+ \geq 0 \, \forall y$. In fact, notice from \eqref{eq:sd_Fy} that ${\cal F}_y > 0$ for any $x, y, \lambda$ for which $(x + \lambda)(y + \lambda) > 0$.
+
+By virtue of ${\cal F}_y(\lambda_+) < 1$ for all $y$ \eqref{eq:sd_Fy_lambda+}, from \eqref{eq:sd_Fy_endpoints}, we find
+\begin{align} \label{eq:sd_Fy_max}
+\underset{\lambda \in  \mathbb{R}_+}{\max} \, {\cal F}_y(\lambda)
 =
-\frac{1}{2} \left( 1 + \sqrt{1 + \left( \frac{\beta}{\eta} \right)^2} \right).
+\begin{cases}
+\displaystyle
+\frac{1}{y} \left( x+ \frac{1}{x} \right), \quad &0 < y \leq x + \frac{1}{x}, \\
+1, \quad & x + \frac{1}{x} \leq y < \infty.
+\end{cases}
 \end{align}
 
-While condition number \eqref{eq:cond_min} is not bounded w.r.t. $\beta/\eta$, it is very small in practice as shown in Table \ref{tab:cond}, where for the schemes we consider it's always less than 2. For example, the condition number is less than 2 for $(\beta/\eta)^2 < 8$. See also Figure \ref{fig:conds} for a comparison of the condition number using $\gamma_*$ vs. $\eta$. Also, a numerical example is shown in Table \ref{tab:cond_iters} showing a reduction in the number of iterations using $\gamma_*$ vs. $\eta$.
-{
-\renewcommand{\tabcolsep}{4pt}
-\renewcommand{\arraystretch}{1.15}
-\begin{table}[!ht]
-  \centering
-  \begin{tabular}{| c | c | c | cc | cc | ccc |}  % chktex 44
-  \hline
-Method & Stages & 2 & \multicolumn{2}{c}{3} & \multicolumn{2}{|c}{4} & \multicolumn{3}{|c|}{5} \\\hline\hline
-\multirow{ 3}{*}{Gauss}
-&$\beta^2/\eta^2$ & 0.33 & 0 & 0.91 & 1.59 & 0.09 & 0 & 2.36 & 0.27 \\
-&$\textnormal{cond}\big((\gamma_* I- \widehat{\mathcal{L}})^{-1}S\big)$ & 1.077 & -- & 1.191 & 1.305 & 1.022 & -- & 1.43 & 1.064\\
-&$\textnormal{cond}\big((\eta I- \widehat{\mathcal{L}})^{-1}S\big)$ & 1.330 & -- & 1.910 & 2.590 & 1.090 & -- & 3.460 & 1.270\\\hline
-\multirow{ 3}{*}{Radau IIA}
-&$\beta^2/\eta^2$ & 0.50 & 0 & 1.29 & 2.21 & 0.11 & 0 & 3.20 & 0.32	\\
-&$\textnormal{cond}\big((\gamma_* I- \widehat{\mathcal{L}})^{-1}S\big)$ & 1.112 & -- & 1.257 & 1.396 & 1.027 & -- & 1.525 & 1.075\\
-&$\textnormal{cond}\big((\eta I- \widehat{\mathcal{L}})^{-1}S\big)$ & 1.500 & -- & 2.290 & 3.210 & 1.110 & -- & 4.200 & 1.320\\\hline
-\multirow{ 3}{*}{Lobatto IIIC}
-&$\beta^2/\eta^2$ & 1 & 0 & 2.21 & 3.51 & 0.13 & 0 & 4.88 & 0.38 \\
-&$\textnormal{cond}\big((\gamma_* I- \widehat{\mathcal{L}})^{-1}S\big)$ & 1.207 & -- & 1.396 & 1.562 & 1.032 & -- & 1.712 & 1.087\\
-&$\textnormal{cond}\big((\eta* I- \widehat{\mathcal{L}})^{-1}S\big)$ & 2.000 & -- & 3.210 & 4.510 & 1.130 & -- & 5.880 & 1.380\\
-  \hline
-  \end{tabular}
-  \caption{$\beta^2/\eta^2$, values of the optimal condition number $\textnormal{cond}\big((\gamma_* I- \widehat{\mathcal{L}})^{-1}S\big)$ as defined in \eqref{eq:cond_min}, and values of the non-optimal condition number $\textnormal{cond}\big((\eta I- \widehat{\mathcal{L}})^{-1}S\big)$. Entries for which $\beta =  0$ are marked with a ``--''.}\label{tab:cond}
-\end{table}
+The minimum of ${\cal F}_y$ is clearly more complicated than the maximum; in particular, it is not immediately obvious when (if) ${\cal F}_y(\lambda_+) < {\cal F}_y(0)$. To this end, let us consider the function
+\begin{align*}
+{\cal K}(y) \coloneqq {\cal F}_y(0) - {\cal F}_y(\lambda_+), \quad x < y \leq {\cal Y}.
+\end{align*}
+Since ${\cal F}_y(0) > 1$ for $y < x + \tfrac{1}{x}$ and ${\cal F}_y(\lambda_+) < 1$, it is clear that $\lim_{y \to x} {\cal K}(y) > 0$. And, so we want to determine if there are any sign changes for $y > x$. Setting ${\cal K}(y)$ equal to zero, and carrying out some algebra, we find that it has the single root $y = \hat{y}$ when $x > 1$, where $\hat{y}$ is defined in \eqref{eq:sd_yhat}. However, recall that $\lambda_+$ is not a valid critical point for $y \notin (x, \hat{y}]$ when $x > 1$. Therefore, ${\cal F}_y(\lambda_+)$ is always smaller than ${\cal F}_y(0)$ for $y \in (x, {\cal Y})$.
+
+The minimum of ${\cal F}_y$ is thus given by
+\begin{align} \label{eq:sd_Fy_min}
+\underset{\lambda \in  \mathbb{R}_+}{\min} \, {\cal F}_y(\lambda)
+=
+\begin{cases}
+1, \quad &0 < y \leq x, \\
+\displaystyle
+\frac{2}{1 + \sqrt{1 + (y-x)^2}}, \quad & x \leq y \leq {\cal Y}, \\[2ex]
+\displaystyle
+\frac{1}{y} \left( x + \frac{1}{x} \right), \quad & {\cal Y} \leq y < \infty.
+\end{cases}
+\end{align}
+Finally, condition number \eqref{eq:sd_kappa_Py} follows from substituting \eqref{eq:sd_Fy_max} and \eqref{eq:sd_Fy_min} into the definition of the condition number \eqref{eq:sd_kappa_Py_def}.
+\end{proof}
+
+\begin{theorem}[Optimal preconditioning] \label{th:sd_cond_opt}
+Let $y_*$ be the minimizer of condition number $\kappa(\cP_y)$ \eqref{eq:sd_kappa_Py} over all $y \in (0, \infty)$, then
+\begin{align} \label{eq:sd_y*}
+y_* \coloneqq \underset{y \in (0, \infty)}{\rm argmin} \, \kappa({\cal P}_y) = \sqrt{x^2 + 1}.
+\end{align} 
+Furthermore, the minimum value of condition number \eqref{eq:sd_kappa_Py} is
+\begin{align} \label{eq:sd_kappa_Py*}
+\kappa({\cal P}_{y_*}) = \frac{1}{2} \left( 1 + \sqrt{1 + \frac{1}{x^2}} \right).
+\end{align}
+\end{theorem}
+
+\begin{proof}
+First observe from \eqref{eq:sd_kappa_Py} that $\kappa({\cal P}_y)$ is strictly increasing for $y > x + 1/x$. Also, note that $\kappa({\cal P}_y)$ is strictly decreasing for $0 < y  < x$. The behaviour over $x < y < x + 1/x$ is less obvious, so we differentiate the condition number to get
+\begin{align*}
+\frac{\textrm{d} \kappa(\cP_y)}{\textrm{d} y} = 
+-\frac{(1 + x^2)p_+(y)}{2 x y^2 \sqrt{1+(y-x)^2}} , \quad x < y < x + 1/x,
+\end{align*}
+where the function $p_+(y)$ is given in \eqref{eq:sd_p_def}. For $x,y > 0$, this function clearly only has roots at roots of $p_+(y)$. In the proof of Theorem \ref{th:sd_cond}, we saw that $p_+(y)$ only has a single root at $y = x(x^2+1)/(x^2-1) > x + 1/x$ when $x > 1$. Therefore $p_+(y) > 0$ for $x < y < x + 1/x$, and therefore $\kappa(\cP_y)$ is strictly decreasing on the interval (to see that $p_+(y)$ is positive rather than negative, note that, for example, $p_+(x) = 2$). By the continuity of \eqref{eq:sd_kappa_Py}, the minimum must be achieved at the interface $y = x + 1/x$. Evaluating \eqref{eq:sd_kappa_Py} at $y = x + 1/x$ yields \eqref{eq:sd_kappa_Py*}.
+\end{proof}
+
+\begin{remark}[Optimal preconditioning with original variables]
+Using \eqref{eq:sd_scaled_vars} to reintroduce the original variables used to define $\cPg$ \eqref{eq:sd_P_gamma}, Theorem \ref{th:sd_cond_opt} states
+\begin{align} \label{eq:sd_gamma*_and_kappa_gamma*}
+\gamma_* \coloneqq \underset{\gamma \in (0, \infty)}{\rm argmin} \, \kappa({\cal P}_{\gamma}) = \sqrt{\eta^2 + \beta^2},
+\quad
+\kappa({\cal P}_{\gamma*}) = \frac{1}{2} \left( 1 + \sqrt{1 + \frac{\beta^2}{\eta^2}} \right).
+\end{align}
+\end{remark}
+
+\begin{remark}[Non-optimal preconditioning with $\gamma = \eta$]
+Evaluating \eqref{eq:sd_kappa_Py} at $y = x$, or $\gamma = \eta$, we have
+\begin{align} \label{eq:sd_kappa_P_eta}
+\kappa({\cal P}_{\eta}) = 1 + \frac{\beta^2}{\eta^2}.
+\end{align}
+\end{remark}
 
 \begin{figure}[h!]
 \centering
 \includegraphics[width = 0.7\textwidth]{figures/conds_spsd}
-\caption{Condition number of SPD ${\cal P}_{\gamma}$ for the optimal case of $\gamma = \gamma_*$ (see \eqref{eq:cond_min}), and non-optimal case of $\gamma = \eta$ (see \eqref{eq:c1_non-opt}) as a function of $(\beta/\eta)^2$. }
+\caption{Condition number of SPD ${\cal P}_{\gamma}$ for the optimal case of $\gamma = \gamma_*$ \eqref{eq:sd_kappa_Py*}, and non-optimal case of $\gamma = \eta$ \eqref{eq:sd_kappa_P_eta} as a function of $(\beta/\eta)^2$. }
 \label{fig:conds}
 \end{figure}
 
-\renewcommand{\tabcolsep}{4pt}
-\renewcommand{\arraystretch}{1.15}
-\begin{table}[!ht]
-  \centering
-  \begin{tabular}{| c | c | c |}  % chktex 44
-  \hline
-Method & &  \\ \hline
-\multirow{ 3}{*}{Gauss(8)}
-&$\beta^2/\eta^2$ & 1.59 / 0.09 \\
-&$\gamma = \eta$  -- & 20 / 11\\
-&$\gamma = \gamma_*$ & 13 / 11\\ \hline
-\multirow{ 3}{*}{Radau IIA(9)}
-&$\beta^2/\eta^2$ & 0 / 3.20 / 0.32	\\
-&$\gamma = \eta$ &  8 / 24 / 13\\
-&$\gamma = \gamma_*$ & 8 / 14/ 11 \\ \hline
-\multirow{ 3}{*}{Lobatto IIIC(8)}
-&$\beta^2/\eta^2$ & 0 / 4.88 / 0.38 \\
-&$\gamma = \eta$ & 8 / 29 / 14\\
-&$\gamma = \gamma_*$ & 8 / 15 / 12\\
-  \hline
-  \end{tabular}
-  \caption{
-Number of GMRES iterations for each stage when solving $u_t = \Delta u + s$, with a single time step of $\delta t = h = 1/256$. Different values of $\gamma$ are used in the preconditioner, as indicated.
-}
-\label{tab:cond_iters}
-\end{table}
-
-It's interesting to note that $\gamma_*$ does not depend on $\eta$ nor $\beta$. However, note that for $\beta < \eta$, we're unlikely to see any large difference in choosing $\gamma = \eta$ over $\gamma = \gamma_*$:
-\begin{align}
-\textnormal{cond}\left((\eta I- \widehat{\mathcal{L}})^{-1}S\right)
--
-\textnormal{cond}\left((\gamma_* I- \widehat{\mathcal{L}})^{-1}S\right)
-=
-\frac{3}{4} \left( \frac{\beta}{\eta} \right)^2 + {\cal O}\left( \frac{\beta}{\eta} \right)^4 = {\cal O} \left( \frac{\beta}{\eta} \right)^2.
-\end{align}
-If using a simplified Newton algorithm, or solving a linear problem using this $2 \times 2$ formulation, one could possibly save some work by setting $\gamma = \eta$ so that the preconditioner for the (1,1) block could also be used on this Schur complement.
+If using a simplified Newton algorithm, or solving a linear problem using this $2 \times 2$ formulation, one could likely save some work by setting $\gamma = \eta$ so that the preconditioner for the (1,1) block could also be used to precondition the Schur complement since \eqref{eq:sd_gamma*_and_kappa_gamma*} and \eqref{eq:sd_kappa_P_eta} are not too different for $\eta \gg \beta$.
 
 \newpage
 \tcb{An interesting exercise: Rather than $\gamma I - {\cal L}$, should the preconditioner instead look like $\widehat{S} = \gamma I - \zeta {\cal L}?$ To motivate this, look at the Schur complement, and assume that $\Vert 1/\eta {\cal L} \Vert < 1$,
@@ -2150,7 +2363,6 @@ Quite interestingly, this gets $\gamma_* = \eta + \beta^2 / \eta$ correct. But w
 %
 Actually, note that $\gamma I - \zeta {\cal L} = \zeta ( \gamma /\zeta I - {\cal L})$  has the same condition number as $\gamma/ \zeta  I - {\cal L}$ since they have the same spectrum upto scaling by $\zeta$. And, for this second matrix, we already showed the optimal constant in front of $I$ is $\gamma / \zeta = \eta + \beta^2 / \eta$, so if we choose $\gamma = \eta + \beta^2 / \eta$, then we should choose $\zeta = 1$.
 }
-
 
 \newpage
 % ---------------------------------------------------------------------------------------------- %
