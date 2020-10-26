@@ -164,6 +164,9 @@ void IRK::Init(TimeDependentOperator &F)
 {    
     ODESolver::Init(F);
     m_w.Update(m_stageOffsets, mem_type); // Stage vectors
+
+    m_w = 0.;       // Initialize stage vectors to 0
+    SetSolvers();   // Initialize solvers for computing stage vectors
 }
 
 
