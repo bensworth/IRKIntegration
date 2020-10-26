@@ -1,0 +1,7 @@
+MFEM_DIR  = /home/pazner1/sw/mfem
+HYPRE_DIR  = /home/pazner1/sw/hypre/src/hypre
+HDF_DIR = /home/pazner1/sw/hdf5-1.12.0/hdf5
+3DG_DIR = /home/pazner1/sw/3dg
+METIS_DIR = /home/pazner1/sw/metis-5.0
+SUITESPARSE_DIR = /home/pazner1/sw/SuiteSparse
+3DG_ARCH = tux
