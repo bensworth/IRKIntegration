@@ -59,14 +59,16 @@ user defined IRKOperator, we must define:
 		possible.
 		+ This method only needs to be implemented for 
 			ExplicitGradients::APPROXIMATE
-		-----> What is "int type"?
+		+ "type" indicates this is for a 1x1 or 2x2 block system. Note, for
+		this preconditioner, type should not affect implementation.
 	
 	- IRKOperator->BuildPreconditionerSchur(int index, double dt, double gamma, int type) 
 		+ Analagous to above, but option to provide different preconditioner
 		in (2,2) block to approximate Schur complement. If not implemented,
 		Schur complement is approximated analagous to (1,1) block in 
 		IRKOperator->BuildPreconditioner(), but with modified gamma.
-		-----> What is "int type"?
+		+ "type" indicates this is for a 1x1 or 2x2 block system. Note, for
+		this preconditioner, type should not affect implementation.
 
 	- IRKOperator->BuildPreconditioner(int index, double dt, double gamma, Vector weights) 
 		+ Build preconditioner for one backward-Euler-like time step
@@ -92,3 +94,29 @@ user defined IRKOperator, we must define:
 	- IRKOperator->ImplicitPrec(int index, const Vector &x, Vector &y) const
 		+ Apply preconditioner set with call to BuildPreconditioner()
 		using "index."
+
+
+
+KHI Model
+----------
+In the KHI model, we have a somewhat unique system where we can re order the
+4x4 system so that instead of solving for [k1,l1,k2,l2], if we solve for
+[k1,k2,l1,l2], we can solve a 2x2 system for [k1,k2] exactly as in the
+ODE case, then do a diffusion solve to get [l1,l2].
+
+Here, we need to replace the JacDiagBlockTriPrec object with a more general
+preconditioner, say JacDiagGenPrec. This is a effectively a placeholder, and we 
+construct the preconditioner by overriding the function BuildGenPreconditioner
+in IRKOperator. This function must build a preconditioner that solves the whole
+2x2 block system of the linearized DAE, rather than just one block at a time.
+
+
+---> In JacDiagBlockTriPrec.Mult(), why does ImplicitMult not have an index?
+
+
+
+
+
+
+
+

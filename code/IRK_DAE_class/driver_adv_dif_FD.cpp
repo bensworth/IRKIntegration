@@ -986,7 +986,8 @@ void AdvDif::BuildPreconditioner(int index, double dt, double gamma, Vector weig
             if (fabs(dt*weights(i)) > 0.) {
                 if (B) {
                     B->Add(-dt*weights(i), *Gradients[i]);
-                } else {
+                }
+                else {
                     B = new HypreParMatrix(*Gradients[i]);
                     *B *= -dt*weights(i);
                 }
@@ -994,7 +995,8 @@ void AdvDif::BuildPreconditioner(int index, double dt, double gamma, Vector weig
         }
         if (B) {
             B->Add(gamma, *identity);
-        } else {
+        }
+        else {
             B = new HypreParMatrix(*identity);
             *B *= gamma;
         }

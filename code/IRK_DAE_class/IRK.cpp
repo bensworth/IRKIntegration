@@ -115,7 +115,7 @@ IRK::~IRK() {
 
 
 /// Build solvers
-void IRK::SetSolvers()
+void IRK::SetSolvers(bool schur_precondition)
 {    
     if (m_solversInit) return;
     m_solversInit = true;
@@ -144,13 +144,15 @@ void IRK::SetSolvers()
         m_tri_jac_solver = new TriJacSolver(*m_stageOper, 
                                 m_newton_params.jac_update_rate, m_newton_params.gamma_idx,
                                 m_krylov_params, m_krylov_params2, 
-                                m_jac_solverSparsity, m_jac_precSparsity);
+                                m_jac_solverSparsity, m_jac_precSparsity,
+                                schur_precondition);
     // Use same Krylov solvers for 1x1 and 2x2 blocks
     } else {
         m_tri_jac_solver = new TriJacSolver(*m_stageOper, 
                                     m_newton_params.jac_update_rate, m_newton_params.gamma_idx,
                                     m_krylov_params, 
-                                    m_jac_solverSparsity, m_jac_precSparsity);
+                                    m_jac_solverSparsity, m_jac_precSparsity,
+                                    schur_precondition);
     }
     m_newton_solver->SetSolver(*m_tri_jac_solver);
 }
