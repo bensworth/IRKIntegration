@@ -284,11 +284,15 @@ accuracy \cite{butcher00}. In contrast, IRK methods may have arbitrarily high
 stage order and, thus, formally high-order accuracy on stiff, nonlinear
 problems, and even index-2 DAEs. Although the focus of this paper is linear PDEs
 without algebraic constraints, we want to highlight that the theory and
-framework developed here is fundamental to a forthcoming paper on nonlinear PDEs
-and DAEs. Furthermore, for less stiff problems, IRK methods can yield accuracy
+framework developed here is fundamental to a companion paper on nonlinear PDEs
+and DAEs \todo{cite}. Furthermore, for less stiff problems, IRK methods can yield accuracy
 as high as order $2s$ for an $s$-stage method, compared with a maximum of $s$ or
 $s+1$ for SDIRK methods with reasonable stability properties \cite[Section
-IV.6]{hairer96}.
+IV.6]{hairer96}. Multistep methods can overcome some of the accuracy
+constraints of SDIRK methods, but implicit multistep methods cannot be
+A-stable and greater than order two, which is limiting when considering
+advection-dominated or hyperbolic problems, where the field-of-values often
+push up against the imaginary axis.
 
 One simplification for using IRK methods is to assume $\mathcal{L}_i =
 \mathcal{L}_j$ for all $i,j$, in which case \eqref{eq:k0} can be expressed in
