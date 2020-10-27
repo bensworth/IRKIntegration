@@ -5,6 +5,7 @@ implementation_notes/nonlinear/nonlin_implementation.pdf
 implementation_notes/linear/lin_implementation.pdf
 irk_DAE.pdf
 analysis_notes/fov.pdf
+mg_irk.pdf
 
 *.m~
 *.synctex*

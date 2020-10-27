@@ -190,6 +190,170 @@ likely to be a reasonable approximation to the near null space.
 % ------------------------------------------------------------------------------------- %
 \subsection{Multigrid}\label{sec:mg:mg}
 
+
+% ------------------------------------------------------------------------------------- %
+\subsubsection{Using singular vectors}\label{sec:mg:mg:sv}
+
+Although the eigenvalues of $A_0^{-1}$ are relatively $\mathcal{O}(1)$ in magnitude,
+the singular values have more significant variation, e.g., varying from $1-40$ for
+Gauss10. In addition to choosing a coarse grid operator that represents the ``smooth''
+modes of $\{\mathcal{L}_i\}$, we also may want to account for the small modes of
+$A_0^{-1}$. Thus let $A_0^{-1} := U\Sigma V^*$ and let $\mathbf{v}^s$ and
+$\mathbf{u}^s$ denote the $s$th right and left singular vector (corresponding
+to the smallest singular value). Then, define 
+%
+\begin{align*} 
+R = \begin{bmatrix} \mathbf{u}^s_1 I & \hdots & \mathbf{u}^s_s I \end{bmatrix},
+\hspace{5ex}
+P^T = \begin{bmatrix} \mathbf{v}^s_1 I & \hdots & \mathbf{v}^s_s I \end{bmatrix}.
+\end{align*}
+%
+This yields a coarse-grid operator
+%
+\begin{align}\nonumber
+RAP & \coloneqq \begin{bmatrix} \mathbf{u}^s_1 I & \hdots & \mathbf{u}^s_s I \end{bmatrix}
+	\begin{bmatrix} \alpha_{11} I - \mathcal{L}_1 & ... & \alpha_{1s}I  \\
+		\vdots & \ddots & \vdots \\ \alpha_{s1}I &  ... & \alpha_{ss}I - \mathcal{L}_s\end{bmatrix}
+	\begin{bmatrix} \mathbf{v}^s_1 I \\ \vdots \\ \mathbf{v}^s_s I\end{bmatrix} \\
+& = \sigma_sI - \sum_{i=1}^s \mathbf{u}^s_i\mathbf{v}^s_i\mathcal{L}_i \label{eq:cg_sv},
+\end{align}
+%
+\tcb{(there maybe should be a scaling by $n$ or somethign here because we are
+taking a dot product of identity matrices, not scalars)} and restricted operator
+%
+\begin{align}\nonumber
+RA & = \begin{bmatrix} \mathbf{u}^s_1 I & \hdots & \mathbf{u}^s_s I \end{bmatrix}
+	\begin{bmatrix} \alpha_{11} I - \mathcal{L}_1 & ... & \alpha_{1s}I  \\
+		\vdots & \ddots & \vdots \\ \alpha_{s1}I &  ... & \alpha_{ss}I - \mathcal{L}_s\end{bmatrix} \\
+& = \begin{bmatrix} \sigma_s\mathbf{v}^s_1I - \mathbf{u}^s_1 \mathcal{L}_1 & \hdots &
+	\sigma_s\mathbf{v}^s_sI - \mathbf{u}^s_s \mathcal{L}_s \end{bmatrix}\label{eq:ra_sv}
+\end{align}
+%
+
+Now consider the simplification $\mathcal{L}_i = \mathcal{L}_j$ and let $c :=
+(\mathbf{u}^s\cdot\mathbf{v}^s)$. \tcb{(This dot product should have the
+identity terms, otherwise norm is not right).} Then, coarse-grid correction takes the form
+%
+\begin{align*}
+I - P(RAP)^{-1}RA & = I - 
+	\begin{bmatrix} \mathbf{v}^s_1 I \\ \vdots \\ \mathbf{v}^s_s I\end{bmatrix}
+	(\sigma_sI - c\mathcal{L})^{-1}
+	\begin{bmatrix} \tfrac{\mathbf{u}^s_1}{c}(\sigma_sI - c\mathcal{L} +
+		\sigma_s(\tfrac{\mathbf{v}^s_1c}{\mathbf{u}^s_1} - 1)I) & \hdots &
+	\tfrac{\mathbf{u}^s_s}{c}(\sigma_sI - c\mathcal{L} +
+		\sigma_s(\tfrac{\mathbf{v}^s_sc}{\mathbf{u}^s_s} - 1)I) \end{bmatrix} \\
+& = I - \frac{1}{\mathbf{u}^s\cdot\mathbf{v}^s}
+	\begin{bmatrix} \mathbf{v}^s_1 I \\ \vdots \\ \mathbf{v}^s_s I\end{bmatrix}
+	\begin{bmatrix} \mathbf{u}^s_1 I & \hdots & \mathbf{u}^s_s I\end{bmatrix}
+	- \sigma_s\begin{bmatrix} \mathbf{v}^s_1 I \\ \vdots \\ \mathbf{v}^s_s I\end{bmatrix}
+	(\sigma_sI - c\mathcal{L})^{-1}...
+\end{align*}
+%
+\tcb{Finish algebra here, got it mixed up...}
+
+I cannot find information in the literature regarding Butcher tableaux and
+their corresponding singular value decompositions. Here we note a few interesting
+properties we have observed for Gauss and Radau integration schemes:
+%
+\begin{enumerate}
+	\item $\sigma_s > 1$ and $\sigma_s\sim\mathcal{O}(1)$.
+	
+	\item $\mathbf{u}^s$ and $\mathbf{v}^s$ resemble standard geometrically
+	``smooth'' modes, both roughly looking like a sine-hump. Moreover, they are
+	strictly positive for Gauss and Radau (up to 6 stages), while all other left
+	and right singular vectors are oscillatory.
+
+	\item 
+
+	% \sigma_{min}, u_s \cdot v_s, order
+	% Gauss
+	% 1.452225437697755, 0.5982591455680424, 12
+	% 1.464865154102248, 0.5998594999185906, 10
+	% 1.483366262535218, 0.6017267399644856, 8
+	% 2.14746, 0.607471, 6
+	% 1.58258, 0.654654, 4
+	% Radau 
+	% 1.14001, 0.624695, 3
+	% 1.24637, 0.57189, 5
+	% 1.283833915511943, 0.5700226765828628, 7
+	% 1.305918094874295, 0.5723806804683383, 9
+	% 1.320139561701621, 0.5745073671991398, 11
+
+
+
+	\item
+\end{enumerate}
+
+\textbf{Complementary relaxation:}\tcb{(This was written for aggregation,
+not SVD approach; update.)}
+The next question is how to develop a complementary relaxation scheme. In
+particular, we want to make the error over all stages roughly similar. One
+heuristic to do so is by noting that $\{\mathcal{L}_i\}$ should be similar operators
+for all $i$ and, thus, we particularly expect the ``smooth'' modes of these
+operators to be similar for all $\mathcal{L}_i$. Thus consider a relaxation
+scheme that eliminates high frequency error on each stage, which would
+hypothetically leave similar low-frequency error on all stages. Due to 
+the coupling in the larger system, I think we want something better than
+just a straight Gauss-Seidel type relaxation on the full system. In
+particular, we don't want to smooth error on the full system, we want
+to smooth error on each stage. To that end, let $A_0 = Q_0R_0Q_0^T$
+be the real Schur composition of $A_0$, where $Q_0Q_0^T = I$ and $R_0$
+is block triangular, with $1\times 1$ blocks corresponding to real
+eigenvalues of $A_0$ and $2\times 2$ blocks corresponding to complex
+eigenvalues of $A_0$. Returning to \eqref{eq:k2} with $\mathcal{L}_i =
+\mathcal{L}_j$, we have
+%
+\begin{align}\nonumber
+A_0^{-1}\otimes I - I\otimes \mathcal{L}
+	& = (Q_0\otimes I) \left( R_0\otimes I -I\otimes \mathcal{L}\right)(Q_0^T\otimes I), \\
+\left( A_0^{-1}\otimes I -I\otimes \mathcal{L}\right)^{-1}
+	& = (Q_0\otimes I) \left( R_0\otimes I - I\otimes \mathcal{L}\right)^{-1}(Q_0^T\otimes I).
+	\label{eq:inv_kron}
+\end{align}
+%
+Applying $Q_0\otimes I$ and $Q_0^T\otimes I$ are fairly trivial computations
+and only require linear combinations of different stage vectors. Thus a
+simple approximation to \eqref{eq:inv_kron} is to replace $\mathcal{L} \mapsto
+M$, where $M$ is some easy to invert approximation of $\mathcal{L}$, such as
+the lower-triangular part. This yields a relaxation scheme
+%
+\begin{align}\label{eq:relax1}
+\mathcal{M}^{-1} & = (Q_0\otimes I) \left( R_0\otimes I - 
+	I\otimes {M}\right)^{-1}(Q_0^T\otimes I).
+\end{align}
+%
+A similar relaxation scheme can be developed for the more general setting, and
+we simple replace $\mathcal{L}_i\mapsto M_i$
+%
+\begin{align}\label{eq:relax2}
+\mathcal{M}^{-1} & = (Q_0\otimes I) \left( R_0\otimes I - 
+	\begin{bmatrix} M_1 \\ & \ddots \\ && M_s\end{bmatrix} \right)^{-1}(Q_0^T\otimes I).
+\end{align}
+%
+Note this version is less exact because $Q_0\otimes I$ does not commute with
+diag$\{\mathcal{L}_i\}$, but it should accomplish a similar objective.
+
+The one outstanding question of relaxation schemes in \eqref{eq:relax1} and
+\eqref{eq:relax2} is inverting the block $2\times 2$ systems that arise
+corresponding to complex eigenvalues of $A_0$, $\lambda = \eta \pm \mathrm{i}\beta$,
+e.g.,
+%
+\begin{align}\label{eq:rel_sys}
+\begin{bmatrix} \eta I - M_1 & -\phi I \\ -\frac{\beta^2}{\phi}I & \eta I - M_2 \end{bmatrix}
+\end{align}
+%
+If we choose $M_i$ to be the lower triangular portion of $\mathcal{L}_i$, we
+can reorder \eqref{eq:rel_sys} to be block lower triangular with $2\times 2$
+blocks. This is not currently implemented, but probably would not be too hard.
+Alternatively, we could just apply the theory in the nonlinear paper and use
+a modified $\gamma_*$ relaxation constant in the $(2,2)$-block.
+
+
+
+
+% ------------------------------------------------------------------------------------- %
+\subsubsection{Old: An aggregation approach}\label{sec:mg:mg:agg}
+
 The main question here is how do we develop a block multigrid method to precondition
 the block operator
 %
@@ -322,73 +486,7 @@ $(I - \mathcal{L})^{-1}$ to such error is $\ll 1$, this such error in
 the second term should be made small by the diagonal scaling by
 $(I - \mathcal{L})^{-1}$. The key is to thus eliminate high-frequency
 error in stages and leave low frequency error moderately similar across
-stages.\\
-\\
-\textbf{Complementary relaxation:}
-The next question is how to develop a complementary relaxation scheme. In
-particular, we want to make the error over all stages roughly similar. One
-heuristic to do so is by noting that $\{\mathcal{L}_i\}$ should be similar operators
-for all $i$ and, thus, we particularly expect the ``smooth'' modes of these
-operators to be similar for all $\mathcal{L}_i$. Thus consider a relaxation
-scheme that eliminates high frequency error on each stage, which would
-hypothetically leave similar low-frequency error on all stages. Due to 
-the coupling in the larger system, I think we want something better than
-just a straight Gauss-Seidel type relaxation on the full system. In
-particular, we don't want to smooth error on the full system, we want
-to smooth error on each stage. To that end, let $A_0 = Q_0R_0Q_0^T$
-be the real Schur composition of $A_0$, where $Q_0Q_0^T = I$ and $R_0$
-is block triangular, with $1\times 1$ blocks corresponding to real
-eigenvalues of $A_0$ and $2\times 2$ blocks corresponding to complex
-eigenvalues of $A_0$. Returning to \eqref{eq:k2} with $\mathcal{L}_i =
-\mathcal{L}_j$, we have
-%
-\begin{align}\nonumber
-A_0^{-1}\otimes I - I\otimes \mathcal{L}
-	& = (Q_0\otimes I) \left( R_0\otimes I -I\otimes \mathcal{L}\right)(Q_0^T\otimes I), \\
-\left( A_0^{-1}\otimes I -I\otimes \mathcal{L}\right)^{-1}
-	& = (Q_0\otimes I) \left( R_0\otimes I - I\otimes \mathcal{L}\right)^{-1}(Q_0^T\otimes I).
-	\label{eq:inv_kron}
-\end{align}
-%
-Applying $Q_0\otimes I$ and $Q_0^T\otimes I$ are fairly trivial computations
-and only require linear combinations of different stage vectors. Thus a
-simple approximation to \eqref{eq:inv_kron} is to replace $\mathcal{L} \mapsto
-M$, where $M$ is some easy to invert approximation of $\mathcal{L}$, such as
-the lower-triangular part. This yields a relaxation scheme
-%
-\begin{align}\label{eq:relax1}
-\mathcal{M}^{-1} & = (Q_0\otimes I) \left( R_0\otimes I - 
-	I\otimes {M}\right)^{-1}(Q_0^T\otimes I).
-\end{align}
-%
-A similar relaxation scheme can be developed for the more general setting, and
-we simple replace $\mathcal{L}_i\mapsto M_i$
-%
-\begin{align}\label{eq:relax2}
-\mathcal{M}^{-1} & = (Q_0\otimes I) \left( R_0\otimes I - 
-	\begin{bmatrix} M_1 \\ & \ddots \\ && M_s\end{bmatrix} \right)^{-1}(Q_0^T\otimes I).
-\end{align}
-%
-Note this version is less exact because $Q_0\otimes I$ does not commute with
-diag$\{\mathcal{L}_i\}$, but it should accomplish a similar objective.
-
-The one outstanding question of relaxation schemes in \eqref{eq:relax1} and
-\eqref{eq:relax2} is inverting the block $2\times 2$ systems that arise
-corresponding to complex eigenvalues of $A_0$, $\lambda = \eta \pm \mathrm{i}\beta$,
-e.g.,
-%
-\begin{align}\label{eq:rel_sys}
-\begin{bmatrix} \eta I - M_1 & -\phi I \\ -\frac{\beta^2}{\phi}I & \eta I - M_2 \end{bmatrix}
-\end{align}
-%
-If we choose $M_i$ to be the lower triangular portion of $\mathcal{L}_i$, we
-can reorder \eqref{eq:rel_sys} to be block lower triangular with $2\times 2$
-blocks. This is not currently implemented, but probably would not be too hard.
-Alternatively, we could just apply the theory in the nonlinear paper and use
-a modified $\gamma_*$ relaxation constant in the $(2,2)$-block.
-
-
-
+stages.
 
 
 
