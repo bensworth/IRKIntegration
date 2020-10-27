@@ -335,7 +335,7 @@ int main(int argc, char *argv[])
     args.AddOption(&AMG.agg_coarsening, "-agg", "--AMG-aggressive-coarseing", "AMG: Levels of aggressive coarsening");
     
     /* Krylov parameters */
-    args.AddOption(&krylov_solver, "-ksol", "--krylov-method", "KRYLOV: Method (see IRK::KrylovMethod)");
+    args.AddOption(&krylov_solver, "-ksol", "--krylov-method", "KRYLOV: Method (see IRK::AccelMethod)");
     args.AddOption(&KRYLOV.reltol, "-krtol", "--krylov-rel-tol", "KRYLOV: Relative stopping tolerance");
     args.AddOption(&KRYLOV.abstol, "-katol", "--krylov-abs-tol", "KRYLOV: Absolute stopping tolerance");
     args.AddOption(&KRYLOV.maxiter, "-kmaxit", "--krylov-max-iterations", "KRYLOV: Maximum iterations");
@@ -364,7 +364,7 @@ int main(int argc, char *argv[])
     // Set final forms of remaing params
     advection_bias = static_cast<FDBias>(advection_bias_temp);
     AMG.use_AIR = (bool) use_AIR_temp;
-    KRYLOV.solver = static_cast<IRK::KrylovMethod>(krylov_solver);
+    KRYLOV.solver = static_cast<IRK::AccelMethod>(krylov_solver);
     NEWTON.jac_solver_sparsity = static_cast<IRK::JacSparsity>(newton_jacs);
     NEWTON.jac_prec_sparsity = static_cast<IRK::JacSparsity>(newton_jacp);
     std::vector<int> np = {};
