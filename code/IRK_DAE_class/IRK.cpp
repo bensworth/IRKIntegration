@@ -52,15 +52,16 @@ void KronTransformTranspose(const DenseMatrix &A, const BlockVector &x, BlockVec
 
 /// Constructor
 IRK::IRK(IRKOperator *IRKOper_, const RKData &ButcherTableau)
-        : m_IRKOper(IRKOper_), m_Butcher{ButcherTableau}, 
+        : m_comm{IRKOper_->GetComm()},
+        m_Butcher{ButcherTableau}, 
+        m_IRKOper(IRKOper_),
         m_stageOper(NULL),
+        m_solversInit(false),
         m_newton_solver(NULL),
         m_tri_jac_solver(NULL),
         m_jac_solverSparsity(NULL),
         m_jac_precSparsity(NULL),
-        m_solversInit(false),
-        m_krylov2(false),
-        m_comm{IRKOper_->GetComm()}
+        m_krylov2(false)
 {
     // Get proc IDs
     MPI_Comm_rank(m_comm, &m_rank);

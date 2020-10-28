@@ -333,10 +333,10 @@ private:
     // Jacobian solver need access
     friend class TriJacSolver;     
     
-    Array<int> &offsets;            // Offsets of operator     
-    
     mutable IRKOperator * IRKOper;  // Spatial discretization
     const RKData &Butcher;          // All RK information
+    
+    Array<int> &offsets;            // Offsets of operator     
     
     // Parameters that operator depends on
     const Vector * u;             // Current state.
@@ -347,15 +347,15 @@ private:
     mutable BlockVector w_block, y_block;
     
     // Auxillary vectors
-    mutable BlockVector temp_block;
     mutable Vector temp_vector1, temp_vector2;    
+    mutable BlockVector temp_block;
     
-    Operator * dummy_gradient; 
     
     // Current iterate that true Jacobian would linearize with (this is passed 
     // into GetGradient())
     mutable BlockVector current_iterate;
     
+    Operator * dummy_gradient; 
     // Number of times GetGradient() been called with current states (u, t, dt).
     mutable int getGradientCalls;
     
@@ -364,8 +364,10 @@ public:
     IRKStageOper(IRKOperator * S_, Array<int> &offsets_, const RKData &RK_) 
         : BlockOperator(offsets_), 
             IRKOper{S_}, Butcher{RK_}, 
-            u(NULL), t{0.0}, dt{0.0}, 
             offsets(offsets_),
+            u(NULL),
+            t{0.0},
+            dt{0.0}, 
             w_block(offsets_), y_block(offsets_),
             temp_vector1(S_->Height()), temp_vector2(S_->Height()), 
             temp_block(offsets_),
@@ -689,10 +691,10 @@ private:
     
     // Data defining 1x1 operator
     double R00;
-    Vector Z00;
-    
     // Additional data required to define 2x2 operator
     double R01, R10, R11;
+    
+    Vector Z00;
     Vector Z01, Z10, Z11; 
     mutable BlockVector x_block, y_block;
     
@@ -702,7 +704,7 @@ public:
     JacDiagBlock(const Array<int> &offsets_, const IRKOperator &IRKOper_, 
         double R00_) 
         : BlockOperator(offsets_),
-        size{1}, IRKOper{IRKOper_}, offsets{offsets_}, dt{0.0}, temp_vector(IRKOper_.Height()),
+        size{1}, offsets{offsets_}, IRKOper{IRKOper_}, dt{0.0}, temp_vector(IRKOper_.Height()),
         R00{R00_}
         {
             MFEM_ASSERT(IRKOper.GetExplicitGradientsType() == IRKOperator::ExplicitGradients::APPROXIMATE,
@@ -714,7 +716,7 @@ public:
     JacDiagBlock(const Array<int> &offsets_, const IRKOperator &IRKOper_, 
         double R00_, Vector Z00_) 
         : BlockOperator(offsets_),
-        size{1}, IRKOper{IRKOper_}, offsets{offsets_}, dt{0.0}, temp_vector(IRKOper_.Height()),
+        size{1}, offsets{offsets_}, IRKOper{IRKOper_}, dt{0.0}, temp_vector(IRKOper_.Height()),
         R00{R00_}, Z00{Z00_}
         {
             MFEM_ASSERT(IRKOper.GetExplicitGradientsType() == IRKOperator::ExplicitGradients::EXACT,
@@ -726,7 +728,7 @@ public:
     JacDiagBlock(const Array<int> &offsets_, const IRKOperator &IRKOper_, 
         double R00_, double R01_, double R10_, double R11_)
         : BlockOperator(offsets_),
-        size{2}, IRKOper{IRKOper_}, offsets{offsets_}, dt{0.0}, temp_vector(IRKOper_.Height()),
+        size{2}, offsets{offsets_}, IRKOper{IRKOper_}, dt{0.0}, temp_vector(IRKOper_.Height()),
         R00{R00_}, R01{R01_}, R10{R10_}, R11{R11_}
         {
             MFEM_ASSERT(IRKOper.GetExplicitGradientsType() == IRKOperator::ExplicitGradients::APPROXIMATE,
@@ -739,7 +741,7 @@ public:
         double R00_, double R01_, double R10_, double R11_, 
         Vector Z00_, Vector Z01_, Vector Z10_, Vector Z11_) 
         : BlockOperator(offsets_),
-        size{2}, IRKOper{IRKOper_}, offsets{offsets_}, dt{0.0}, temp_vector(IRKOper_.Height()),
+        size{2}, offsets{offsets_}, IRKOper{IRKOper_}, dt{0.0}, temp_vector(IRKOper_.Height()),
         R00{R00_}, R01{R01_}, R10{R10_}, R11{R11_}, 
         Z00{Z00_}, Z01{Z01_}, Z10{Z10_}, Z11{Z11_} 
         {
@@ -889,8 +891,8 @@ class JacDiagBlockPrec : public Solver
 {
 private:
     const JacDiagBlock &BlockOper;
-    mutable Vector temp_vector; // Auxillary vector
     bool identity;              // Use identity preconditioner. Useful as a comparison.
+    mutable Vector temp_vector; // Auxillary vector
     
     // Extra data required for 2x2 blocks
     double R10;                 
@@ -1091,8 +1093,9 @@ public:
                 const QuasiMatrixProduct * Z_solver_, const QuasiMatrixProduct * Z_prec_) 
         : Solver(StageOper_.Height()),
         StageOper(StageOper_),
-        jac_update_rate(jac_update_rate_), gamma_idx(gamma_idx_),
         printlevel(solver_params1.printlevel),
+        jac_update_rate(jac_update_rate_),
+        gamma_idx(gamma_idx_),
         offsets(StageOper_.RowOffsets()),
         x_block(StageOper_.RowOffsets()), b_block(StageOper_.RowOffsets()), 
         b_block_temp(StageOper_.RowOffsets()), x_block_temp(StageOper_.RowOffsets()), 
