@@ -52,8 +52,8 @@ void KronTransformTranspose(const DenseMatrix &A, const BlockVector &x, BlockVec
 
 /// Constructor
 IRK::IRK(IRKOperator *IRKOper_, const RKData &ButcherTableau)
-        : m_comm{IRKOper_->GetComm()},
-        m_Butcher{ButcherTableau}, 
+        : m_comm(IRKOper_->GetComm()),
+        m_Butcher(ButcherTableau), 
         m_IRKOper(IRKOper_),
         m_stageOper(NULL),
         m_solversInit(false),

@@ -53,7 +53,7 @@ public:
     IRKOperator(MPI_Comm comm, int n=0, double t=0.0, Type type=EXPLICIT, 
                 ExplicitGradients ex_gradients=EXACT) 
         : TimeDependentOperator(n, t, type), 
-            m_comm{comm}, m_gradients{ex_gradients}, temp(n) {};
+            m_comm(comm), m_gradients(ex_gradients), temp(n) {};
     
     ~IRKOperator() { };
 
@@ -285,7 +285,7 @@ private:
     
 public:
     /// Constructor for real RK schemes
-    RKData(Type ID_) : ID{ID_} { SetData(); };
+    RKData(Type ID_) : ID(ID_) { SetData(); };
     
     /** Constructor for setting dummy RK data with 2x2 matrix having complex 
         conjugate eigenvalues with ratio beta_on_eta and real-component of eta */
@@ -363,17 +363,17 @@ public:
     
     IRKStageOper(IRKOperator * S_, Array<int> &offsets_, const RKData &RK_) 
         : BlockOperator(offsets_), 
-            IRKOper{S_}, Butcher{RK_}, 
+            IRKOper(S_), Butcher(RK_), 
             offsets(offsets_),
             u(NULL),
-            t{0.0},
-            dt{0.0}, 
+            t(0.0),
+            dt(0.0), 
             w_block(offsets_), y_block(offsets_),
             temp_vector1(S_->Height()), temp_vector2(S_->Height()), 
             temp_block(offsets_),
             current_iterate(),
             dummy_gradient(NULL),
-            getGradientCalls{0}
+            getGradientCalls(0)
             { };
     
     inline void SetParameters(const Vector * u_, double t_, double dt_) { 
@@ -443,7 +443,7 @@ private:
 
 public: 
     QuasiMatrixProduct(DenseMatrix Q) 
-        : Array2D<Vector>(Q.Height(), Q.Height()), height{Q.Height()} 
+        : Array2D<Vector>(Q.Height(), Q.Height()), height(Q.Height()) 
     {
         MFEM_ASSERT(Q.Height() == Q.Width(), "QuasiMatrixProduct:: Matrix must be square");
         
@@ -704,8 +704,8 @@ public:
     JacDiagBlock(const Array<int> &offsets_, const IRKOperator &IRKOper_, 
         double R00_) 
         : BlockOperator(offsets_),
-        size{1}, offsets{offsets_}, IRKOper{IRKOper_}, dt{0.0}, temp_vector(IRKOper_.Height()),
-        R00{R00_}
+        size(1), offsets(offsets_), IRKOper(IRKOper_), dt(0.0), temp_vector(IRKOper_.Height()),
+        R00(R00_)
         {
             MFEM_ASSERT(IRKOper.GetExplicitGradientsType() == IRKOperator::ExplicitGradients::APPROXIMATE,
                         "JacDiagBlock:: This constructor is for IRKOperator's \
@@ -716,8 +716,8 @@ public:
     JacDiagBlock(const Array<int> &offsets_, const IRKOperator &IRKOper_, 
         double R00_, Vector Z00_) 
         : BlockOperator(offsets_),
-        size{1}, offsets{offsets_}, IRKOper{IRKOper_}, dt{0.0}, temp_vector(IRKOper_.Height()),
-        R00{R00_}, Z00{Z00_}
+        size(1), offsets(offsets_), IRKOper(IRKOper_), dt(0.0), temp_vector(IRKOper_.Height()),
+        R00(R00_), Z00(Z00_)
         {
             MFEM_ASSERT(IRKOper.GetExplicitGradientsType() == IRKOperator::ExplicitGradients::EXACT,
                         "JacDiagBlock:: This constructor is for IRKOperator's \
@@ -728,8 +728,8 @@ public:
     JacDiagBlock(const Array<int> &offsets_, const IRKOperator &IRKOper_, 
         double R00_, double R01_, double R10_, double R11_)
         : BlockOperator(offsets_),
-        size{2}, offsets{offsets_}, IRKOper{IRKOper_}, dt{0.0}, temp_vector(IRKOper_.Height()),
-        R00{R00_}, R01{R01_}, R10{R10_}, R11{R11_}
+        size(2), offsets(offsets_), IRKOper(IRKOper_), dt(0.0), temp_vector(IRKOper_.Height()),
+        R00(R00_), R01(R01_), R10(R10_), R11(R11_)
         {
             MFEM_ASSERT(IRKOper.GetExplicitGradientsType() == IRKOperator::ExplicitGradients::APPROXIMATE,
                         "JacDiagBlock:: This constructor is for IRKOperator's \
@@ -741,9 +741,9 @@ public:
         double R00_, double R01_, double R10_, double R11_, 
         Vector Z00_, Vector Z01_, Vector Z10_, Vector Z11_) 
         : BlockOperator(offsets_),
-        size{2}, offsets{offsets_}, IRKOper{IRKOper_}, dt{0.0}, temp_vector(IRKOper_.Height()),
-        R00{R00_}, R01{R01_}, R10{R10_}, R11{R11_}, 
-        Z00{Z00_}, Z01{Z01_}, Z10{Z10_}, Z11{Z11_} 
+        size(2), offsets(offsets_), IRKOper(IRKOper_), dt(0.0), temp_vector(IRKOper_.Height()),
+        R00(R00_), R01(R01_), R10(R10_), R11(R11_), 
+        Z00(Z00_), Z01(Z01_), Z10(Z10_), Z11(Z11_) 
         {
             MFEM_ASSERT(IRKOper.GetExplicitGradientsType() == IRKOperator::ExplicitGradients::EXACT,
                         "JacDiagBlock:: This constructor is for IRKOperator's \
@@ -905,7 +905,7 @@ public:
     /// 1x1 block
     JacDiagBlockPrec(const JacDiagBlock &BlockOper_, 
         bool identity_=false) 
-        : Solver(BlockOper_.Height()), BlockOper{BlockOper_}, 
+        : Solver(BlockOper_.Height()), BlockOper(BlockOper_), 
         identity(identity_) 
         {}
         
@@ -913,10 +913,10 @@ public:
     JacDiagBlockPrec(const JacDiagBlock &BlockOper_, double R10_, 
         int prec00_idx_, int prec11_idx_, 
         bool identity_=false) 
-        : Solver(BlockOper_.Height()), BlockOper{BlockOper_}, 
+        : Solver(BlockOper_.Height()), BlockOper(BlockOper_), 
             identity(identity_), temp_vector(BlockOper_.Offsets()[1]),
-            R10{R10_}, 
-            prec00_idx{prec00_idx_}, prec11_idx{prec11_idx_}  
+            R10(R10_), 
+            prec00_idx(prec00_idx_), prec11_idx(prec11_idx_)  
         {
             MFEM_ASSERT(BlockOper.IRKOper.GetExplicitGradientsType() == IRKOperator::ExplicitGradients::APPROXIMATE,
                         "JacDiagBlockPrec:: This constructor is for IRKOperator's \
@@ -927,10 +927,10 @@ public:
     JacDiagBlockPrec(const JacDiagBlock &BlockOper_, double R10_, Vector Y10_, 
         int prec00_idx_, int prec11_idx_, 
         bool identity_=false) 
-        : Solver(BlockOper_.Height()), BlockOper{BlockOper_}, 
+        : Solver(BlockOper_.Height()), BlockOper(BlockOper_), 
             identity(identity_), temp_vector(BlockOper_.Offsets()[1]),
-            R10{R10_}, Y10{Y10_}, 
-            prec00_idx{prec00_idx_}, prec11_idx{prec11_idx_} 
+            R10(R10_), Y10(Y10_), 
+            prec00_idx(prec00_idx_), prec11_idx(prec11_idx_) 
         {
             MFEM_ASSERT(BlockOper.IRKOper.GetExplicitGradientsType() == IRKOperator::ExplicitGradients::EXACT,
                         "JacDiagBlockPrec:: This constructor is for IRKOperator's \
