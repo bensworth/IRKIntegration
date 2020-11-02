@@ -359,9 +359,6 @@ for nice comparison w/ BDF for DAEs.}
 % 	\item
 % \end{itemize}
 
-% \begin{itemize}
-% 	\item if the underlying IRK methods are A-stable, irreducible, and have invertible coefficientmatrixA, such as Gauss, RadauIIA, and LobattoIIIC (cf., e.g., [Hairer]), then the real partsof the eigenvalues ofAare positive,
-% 	\item One benefit of this method is ability to use PCG or GMRES on smaller system, not full system. 
 % \end{itemize}
 
 % ------------------------------------------------------------------------------------- %
@@ -661,7 +658,7 @@ this yields the linear system
 Picard and Newton iterations both require the solution of such a system each
 iteration (see $\mathcal{P}^{-1}$ in \eqref{eq:non_rich}). Here we propose 
 approximations to the solution of \eqref{eq:keq4} that are (i) solvable using
-techniques similar to the simplified Newton setting \Cref{sec:nonlinear:simp}, and
+techniques similar to the simplified Newton setting in \Cref{sec:nonlinear:simp}, and
 (ii) yield nonlinear  convergence close to a true Newton or Picard iteration. In principle,
 these approximations can also be iterated to convergence in the linear sense, yielding
 a precise Newton or Picard iteration, but here we opt to resolve the approximations
@@ -789,8 +786,9 @@ R_0 \otimes M - \delta t \widehat{P} \approx R_0 \otimes I -  \delta t \widetild
 \end{align}
 %
 via block backward substitution, preconditioning each $1\times 1$
-or $2\times 2$ diagonal block as in \Cref{sec:nonlinear:simp}.
-In addition to the simplified Newton
+or $2\times 2$ diagonal block similar to the simplified Newton setting in
+\Cref{sec:nonlinear:simp} (formal details on preconditiong are introduced
+in \Cref{sec:theory}). In addition to the simplified Newton
 method discussed in \Cref{sec:nonlinear:simp}, we propose three (successively
 more accurate) approximations to \eqref{eq:Q0approx}:
 \vspace{1ex}
@@ -866,18 +864,21 @@ To that end, we consider preconditioners of the form
 \widehat{S}_\gamma := \gamma I - \widehat{\mathcal{L}}_2
 \end{align*}
 %
-for some $\gamma > 0$. \Cref{sec:theory:spd} considers the simplest case
-of symmetric semi-definite $\widehat{\mathcal{L}}_1 = \widehat{\mathcal{L}}_2$
-and uses eigenvalues to determine an optimal choice of $\gamma\mapsto\gamma_*$,
-with the resulting preconditioned operator having norm $\mathcal{O}(1)$ with
-only weak dependence on number of stages/polynomial order. \Cref{sec:theory:gen}
-then extends the theory to prove that cond$(\widehat{S}_{\gamma_*}^{-1}S)
-\leq 2 + \tfrac{\beta^2}{\eta^2}$ under minimal assumptions on
-$\widehat{\mathcal{L}}_1 \neq \widehat{\mathcal{L}}_2$. 
+for some $\gamma > 0$. \Cref{sec:theory:simp} considers the simpler case
+of $\widehat{\mathcal{L}}_1 = \widehat{\mathcal{L}}_2$, deriving tight bounds
+on the conditioning of the preconditioned operator as well as an optimal choice
+of $\gamma\mapsto\gamma_*$. \Cref{sec:theory:gen} then extends the theory to
+the more general $\widehat{\mathcal{L}}_1 \neq \widehat{\mathcal{L}}_2$.
+Under an additional assumption that $\widehat{\mathcal{L}}_1$ and 
+$\widehat{\mathcal{L}}_2$ are ``close'' in some sense, the condition number
+of the preconditioned operator is bounded via cond$(\widehat{S}_{\gamma_*}^{-1}S)
+\leq 2 + \tfrac{\beta^2}{\eta^2}$, which is only a factor of two larger than
+the tight bounds derived for $\widehat{\mathcal{L}}_1 = \widehat{\mathcal{L}}_2$,
+and remains $\mathcal{O}(1)$ for IRK schemes with $\mathcal{O}(1)$ stages.
 
-In practice, we typically
-do not want to apply $(\eta I - \widehat{\mathcal{L}})^{-1}$ or
-$\widehat{S}_\gamma^{-1}$ exactly for each iteration of the preconditioner
+
+In practice, we typically do not want to apply $(\eta I - \widehat{\mathcal{L}})^{-1}$
+or $\widehat{S}_\gamma^{-1}$ exactly for each iteration of the preconditioner
 \eqref{eq:Lprec}. It is well-known in the block-preconditioning community
 that a few iterations of an effective preconditioner, such as multigrid,
 to represent the inverse of diagonal blocks in \eqref{eq:Lprec} typically
@@ -1179,8 +1180,12 @@ simplified form
 	(\gamma I- \widehat{\mathcal{L}})^{-1}.
 \end{align}
 %
-The following theorem (restated from \todo{cite linear paper}) tightly bounds the condition number of a slightly more general operator than the preconditioned
-Schur complement \eqref{eq:P_gamma2} as well as optimality of $\gamma \in (0, \infty)$. The corollary following it provides tight bounds on the condition number of \eqref{eq:P_gamma2} for the optimal choice of $\gamma = \gamma_*$.
+The following theorem (restated from \todo{cite linear paper}) tightly bounds
+the condition number of a slightly more general operator than the preconditioned
+Schur complement \eqref{eq:P_gamma2}, and proves the optimality of a certain
+$\gamma_* \in (0,
+\infty)$. The corollary following it provides tight bounds on the condition
+number of \eqref{eq:P_gamma2} for the optimal choice of $\gamma = \gamma_*$.
 %
 Although the resulting conditioning here is slightly worse than can be achieved with the
 method designed specifically for linear PDEs, \Cref{tab:cond} shows that
@@ -1220,7 +1225,7 @@ With respect to a tight upper bound on its condition number, the optimal value o
 \end{align}
 Furthermore, the condition number of \eqref{eq:P_gamma2} when $\gamma = \gamma_*$ is tightly bounded by
 \begin{align} \label{eq:kappa_gamma*_L1=L2}
-\kappa({\cal P}_{\gamma_*}) \leq  1 +  \frac{1}{2} \frac{\beta^2}{\eta^2}.
+\kappa({\cal P}_{\gamma_*}) \leq  1 +  \frac{\beta^2}{2\eta^2}.
 \end{align}
 \end{corollary}
 \begin{proof}
@@ -1263,27 +1268,31 @@ Lobatto IIIC & 1.50 & 1.00 & 2.11 & 2.76 & 1.07 & 1.00 & 3.44 & 1.19 \\\hline
 
 %
 \begin{remark}[Symmetric definite and skew symmetric operators]
-Using eigenvalue analyses, it is possible to derive tight upper bounds on the condition number of \eqref{eq:P_gamma2} for all $\gamma \in (0, \infty)$ for both symmetric positive semi-definite (SPSD) $-\cL$ and skew symmetric (SS) $\cL$. These tight upper bounds achieve equality for all $\gamma \in (0, \infty)$ as the spectrum of $\cL$ becomes dense in $[0, \infty)$ in the SPSD case, and in $(- \mathrm{i} \infty, \mathrm{i} \infty)$ in the SS case.
-In each case, the tight upper bounds are minimized over all $\gamma \in (0, \infty)$ when $\gamma = \gamma_*$, for $\gamma_*$ given by \eqref{eq:gamma*}, which is perhaps unsurprising given \Cref{col:cond_L1=L2}. At the minimum $\gamma = \gamma_*$, the tight bound for the SPSD case is
+Using eigenvalue analyses, it is possible to derive tight upper bounds on the
+condition number of \eqref{eq:P_gamma2} for all $\gamma \in (0, \infty)$ for
+$\cL$ that is symmetric negative semi-definite (SPND) or skew symmetric (SS)
+$\cL$. These tight upper bounds achieve equality for all $\gamma \in (0,
+\infty)$ as the spectrum of $\cL$ becomes dense in $[0, \infty)$ for SPND
+$\cL$, and in $(- \mathrm{i} \infty, \mathrm{i} \infty)$ for SS $\cL$. In each
+case, the tight upper bounds are minimized over all $\gamma \in (0, \infty)$
+when $\gamma = \gamma_*$, for $\gamma_*$ given by \eqref{eq:gamma*}, which is
+perhaps unsurprising given \Cref{col:cond_L1=L2}. At the minimum $\gamma =
+\gamma_*$, the tight bound for the SPND case is
 \begin{align*}
-\kappa({\cal P}_{\gamma*}) \leq \frac{1}{2} \left( 1 + \sqrt{1 + \frac{\beta^2}{\eta^2}} \right).
+\kappa({\cal P}_{\gamma*}) \leq \frac{1}{2} \left( 1 + \sqrt{1 + \frac{\beta^2}{\eta^2}} \right),
 \end{align*}
-And for the SS case it is equal to that in \eqref{eq:kappa_gamma*_L1=L2}, as the observant reader might already have realised, due to the general bound  of \eqref{eq:kappa_gamma*_L1=L2} achieving equality for a matrix $\cL$ having eigenvalues $\{0, \pm \mathrm{i} \sqrt{\eta^2 + \beta^2} \}$. 
-
-\tcb{Decide whether we should include $\gamma = \eta$ or not: Also, for $\gamma = \eta$, the bounds for SPSD and SS cases respectively are
-\begin{align*}
-\kappa({\cal P}_{\eta}) \leq 1 + \frac{\beta^2}{\eta^2}, 
-\quad
-\kappa({\cal P}_{\eta}) \leq \frac{1}{2} \sqrt{4 + \frac{\beta^2}{\eta^2}} \left( 1 + \frac{\beta^2}{\eta^2} \right).
-\end{align*}
-}
+and for the SS case it is equal to that in \eqref{eq:kappa_gamma*_L1=L2}, due
+to the general bound  of \eqref{eq:kappa_gamma*_L1=L2} achieving equality for a
+matrix $\cL$ having eigenvalues $\{0, \pm \mathrm{i} \sqrt{\eta^2 + \beta^2} \}$. 
+% \tcb{Decide whether we should include $\gamma = \eta$ or not: Also, for $\gamma = \eta$, the bounds for SPND and SS cases respectively are
+% \begin{align*}
+% \kappa({\cal P}_{\eta}) \leq 1 + \frac{\beta^2}{\eta^2}, 
+% \quad
+% \kappa({\cal P}_{\eta}) \leq \frac{1}{2} \sqrt{4 + \frac{\beta^2}{\eta^2}} \left( 1 + \frac{\beta^2}{\eta^2} \right).
+% \end{align*}
+% }
 \end{remark}
 
-%
-% \begin{align} \label{eq:cond_min}
-% \textnormal{cond}\left((\gamma_* I- \widehat{\mathcal{L}})^{-1}S\right) \leq
-% 	c(\gamma_*) = \frac{1}{2} \left( 1 + \sqrt{1 + \left( \frac{\beta}{\eta} \right)^2} \right).
-% \end{align}
 
 % ---------------------------------------------------------------------------------------------- %
 % ---------------------------------------------------------------------------------------------- %
@@ -1300,7 +1309,7 @@ $\langle\widehat{\mathcal{L}}_1\mathbf{w},
 \widehat{\mathcal{L}}_2\mathbf{w}\rangle\geq 0$. In general, this is a technical
 assumption to simplify the proof, and we do not believe it to be necessary.
 Rather, for bounds in \Cref{th:cond} to hold, a more accurate assumption is 
-simply that $\cL_1$ and $\cL_2$ are not wildly different operators.
+simply that $\cL_1$ and $\cL_2$ are not fundamentally different operators.
 Also, considering right preconditioning is a theoretical tool to facilitate
 the proof of \Cref{th:cond}, but \tcb{numerical results demonstrate effective
 left or right preconditioning.} Under these additional assumptions, \Cref{th:cond}
@@ -1427,7 +1436,7 @@ s_{\min}(\mathcal{P}_\gamma)^2
 %
 Here, we make the strategic choice of $\gamma$ such that the identity perturbation
 $(\beta^2+\eta^2 - \gamma\eta) I = \mathbf{0}$, given by $\gamma_*
-:= \tfrac{\eta^2+\beta^2}{\eta}$ \eqref{eq:gammastar}. Expanding,
+:= \tfrac{\eta^2+\beta^2}{\eta}$ \eqref{eq:gamma*_gen}. Expanding,
 %
 {\small
 \begin{align}
@@ -1606,6 +1615,7 @@ Time propagation using Runge-Kutta integration then takes a similar form to
 %
 and stage vectors $\{\mathbf{k}_i\}$ and $\{\boldsymbol{\ell}_i\}$ are
 given as the solution of the nonlinear set of equations
+\todo{reference}
 %
 \begin{align}\label{eq:dae_stage}
 \begin{split}
@@ -1656,9 +1666,8 @@ be expressed as a large block linear system,
 & = \begin{bmatrix} \mathbf{f}_1 \\ \mathbf{g}_1 \\ \vdots \\
 	\mathbf{f}_s \\ \mathbf{g}_s \end{bmatrix},
 \end{align}
-}
 %
-where $\mathbf{f}_i = ( \mathbf{f}(t_i + c_i\delta t) + \mathcal{L}_u\mathbf{u}_n
+}where $\mathbf{f}_i = ( \mathbf{f}(t_i + c_i\delta t) + \mathcal{L}_u\mathbf{u}_n
 + \mathcal{L}_w\mathbf{w}_n) $ and $\mathbf{g}_i = (\mathbf{g}(t_i + c_i\delta t) +
 \mathcal{G}_u\mathbf{u}_n + \mathcal{G}_w\mathbf{w}_n)$. In this case,
 \eqref{eq:daestage_lin} can be reduced to the Kronecker-product form
@@ -1673,15 +1682,14 @@ where $\mathbf{f}_i = ( \mathbf{f}(t_i + c_i\delta t) + \mathcal{L}_u\mathbf{u}_
 \end{align*}
 %
 
-\textbf{The nonlinear case:} For general nonlinear DAEs \eqref{eq:dae} that arise
-in the context of numerical PDEs, it is often the case (although we do not
-claim always) that linearizing \eqref{eq:dae_stage} results in a linear set of
-equations similar to \eqref{eq:daestage_lin}, but with linearized operator that
-depends on stages. Similar to the nonlinear ODE case (see \todo{ref}), it is
-generally the case that the $2\times 2$ linearized operator is fixed for a
-given stage (i.e., block row of the matrix), a natural result of the chain
-rule applied to \eqref{eq:dae_stage}. Pulling out an $A_0\otimes I$ as
-in the ODE case yields a block linear system of the form
+\textbf{The nonlinear case:} No consider general nonlinear DAEs \eqref{eq:dae}
+that arise in the context of numerical PDEs. Linearizing \eqref{eq:dae_stage}
+results in a linear set of equations similar to \eqref{eq:daestage_lin}, but
+with linearized operator that depends on stages. Similar to the nonlinear ODE
+case (see \Cref{sec:intro:irk}), it is generally the case that the $2\times 2$
+linearized operator is fixed for a given stage (i.e., block row of the matrix),
+a natural result of the chain rule applied to \eqref{eq:dae_stage}. Pulling out
+an $A_0\otimes I$ as in the ODE case yields a block linear system of the form
 %
 {\small
 \begin{align}\label{eq:daestage_nonlin}
@@ -1699,9 +1707,8 @@ in the ODE case yields a block linear system of the form
 & = \begin{bmatrix} \mathbf{f}_1 \\ \mathbf{g}_1 \\ \vdots \\
 	\mathbf{f}_s \\ \mathbf{g}_s \end{bmatrix}.
 \end{align}
-}
 %
-Inverting \eqref{eq:daestage_nonlin} corresponds to the application of
+}Inverting \eqref{eq:daestage_nonlin} corresponds to the application of
 $\mathcal{P}^{-1}$ in the nonlinear Richardson iteration \eqref{eq:non_rich}
 applied to solving the nonlinear stage equations \eqref{eq:dae_stage}. Note,
 in a nonlinear iteration, the operator in \eqref{eq:daestage_nonlin} is
