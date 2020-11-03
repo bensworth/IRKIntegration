@@ -135,7 +135,7 @@ with diagonal blocks $M^{-1}$ and redefine $\mathcal{L}_i \mapsto
 \delta tM^{-1}\mathcal{L}_i$. The scaled system then takes the form
 %
 \begin{align}\label{eq:k1}
-\left( \begin{bmatrix} I & & \mathbf{0} \\ & \ddots \\ \mathbf{0} & & I\end{bmatrix}
+\left( \begin{bmatrix} M & & \mathbf{0} \\ & \ddots \\ \mathbf{0} & & M \end{bmatrix}
 	- \begin{bmatrix} a_{11}\mathcal{L}_1 & ... & a_{1s}\mathcal{L}_1 \\
 	\vdots & \ddots & \vdots \\ a_{s1}\mathcal{L}_s & ... & a_{ss} \mathcal{L}_s \end{bmatrix} \right)
 	\begin{bmatrix} \mathbf{k}_1 \\ \vdots \\ \mathbf{k}_s \end{bmatrix} 
@@ -155,8 +155,8 @@ of $A_0^{-1}$, and consider an equivalent formulation of \eqref{eq:k1},
 
 %
 \begin{align}\label{eq:k2}
-\left( \begin{bmatrix} \alpha_{11} I & ... & \alpha_{1s}I  \\ \vdots & \ddots & \vdots
-		\\ \alpha_{s1}I &  ... & \alpha_{ss}I\end{bmatrix}
+\left( \begin{bmatrix} \alpha_{11} M & ... & \alpha_{1s}M  \\ \vdots & \ddots & \vdots
+		\\ \alpha_{s1}M &  ... & \alpha_{ss}M\end{bmatrix}
 	- \begin{bmatrix} \mathcal{L}_1 &  \\
 	 & \ddots & \\ & & \mathcal{L}_s \end{bmatrix} \right) 
 	(A_0\otimes I)
@@ -165,7 +165,7 @@ of $A_0^{-1}$, and consider an equivalent formulation of \eqref{eq:k1},
 \end{align}
 %
 We consider the system matrix we have to solve in \eqref{eq:k2} as the leading
-block matrix. Inverting this solves for the scaled stage vectors $(A_0\times I)\mathbf{K}$,
+block matrix. Inverting this solves for the scaled stage vectors $(A_0\otimes I)\mathbf{K}$,
 and we can then easily invert $A_0\otimes I$ to get the real stage vectors.
 Here we have nicer field-of-value measures. In particular, note that the first
 operator $A_0^{-1}\otimes I$ satisfies $W(A_0^{-1}\otimes I) \geq 0$ and the second operator
@@ -203,53 +203,63 @@ $\mathbf{u}^s$ denote the $s$th right and left singular vector (corresponding
 to the smallest singular value). Then, define 
 %
 \begin{align*} 
-R = \begin{bmatrix} \mathbf{u}^s_1 I & \hdots & \mathbf{u}^s_s I \end{bmatrix},
+R = \begin{bmatrix} {u}^s_1 I & \hdots & {u}^s_s I \end{bmatrix},
 \hspace{5ex}
-P^T = \begin{bmatrix} \mathbf{v}^s_1 I & \hdots & \mathbf{v}^s_s I \end{bmatrix}.
+P^T = \begin{bmatrix} {v}^s_1 I & \hdots & {v}^s_s I \end{bmatrix}.
 \end{align*}
 %
 This yields a coarse-grid operator
 %
 \begin{align}\nonumber
-RAP & \coloneqq \begin{bmatrix} \mathbf{u}^s_1 I & \hdots & \mathbf{u}^s_s I \end{bmatrix}
-	\begin{bmatrix} \alpha_{11} I - \mathcal{L}_1 & ... & \alpha_{1s}I  \\
-		\vdots & \ddots & \vdots \\ \alpha_{s1}I &  ... & \alpha_{ss}I - \mathcal{L}_s\end{bmatrix}
-	\begin{bmatrix} \mathbf{v}^s_1 I \\ \vdots \\ \mathbf{v}^s_s I\end{bmatrix} \\
-& = \sigma_sI - \sum_{i=1}^s \mathbf{u}^s_i\mathbf{v}^s_i\mathcal{L}_i \label{eq:cg_sv},
+RAP & \coloneqq \begin{bmatrix} {u}^s_1 I & \hdots & {u}^s_s I \end{bmatrix}
+	\begin{bmatrix} \alpha_{11} M - \mathcal{L}_1 & ... & \alpha_{1s}M  \\
+		\vdots & \ddots & \vdots \\ \alpha_{s1}M &  ... & \alpha_{ss}M - \mathcal{L}_s\end{bmatrix}
+	\begin{bmatrix} {v}^s_1 I \\ \vdots \\ {v}^s_s I\end{bmatrix} \\
+& = \sigma_sM - \sum_{i=1}^s {u}^s_i{v}^s_i\mathcal{L}_i \label{eq:cg_sv},
 \end{align}
 %
-\tcb{(there maybe should be a scaling by $n$ or somethign here because we are
-taking a dot product of identity matrices, not scalars)} and restricted operator
+and restricted operator
 %
 \begin{align}\nonumber
-RA & = \begin{bmatrix} \mathbf{u}^s_1 I & \hdots & \mathbf{u}^s_s I \end{bmatrix}
-	\begin{bmatrix} \alpha_{11} I - \mathcal{L}_1 & ... & \alpha_{1s}I  \\
-		\vdots & \ddots & \vdots \\ \alpha_{s1}I &  ... & \alpha_{ss}I - \mathcal{L}_s\end{bmatrix} \\
-& = \begin{bmatrix} \sigma_s\mathbf{v}^s_1I - \mathbf{u}^s_1 \mathcal{L}_1 & \hdots &
-	\sigma_s\mathbf{v}^s_sI - \mathbf{u}^s_s \mathcal{L}_s \end{bmatrix}\label{eq:ra_sv}
+RA & = \begin{bmatrix} {u}^s_1 I & \hdots & {u}^s_s I \end{bmatrix}
+	\begin{bmatrix} \alpha_{11} M - \mathcal{L}_1 & ... & \alpha_{1s}M  \\
+		\vdots & \ddots & \vdots \\ \alpha_{s1}M &  ... & \alpha_{ss}M - \mathcal{L}_s\end{bmatrix} \\
+& = \begin{bmatrix} \sigma_s{v}^s_1M - {u}^s_1 \mathcal{L}_1 & \hdots &
+	\sigma_s{v}^s_sM - {u}^s_s \mathcal{L}_s \end{bmatrix}\label{eq:ra_sv}
 \end{align}
 %
 
 Now consider the simplification $\mathcal{L}_i = \mathcal{L}_j$ and let $c :=
-(\mathbf{u}^s\cdot\mathbf{v}^s)$. \tcb{(This dot product should have the
-identity terms, otherwise norm is not right).} Then, coarse-grid correction takes the form
+(\mathbf{u}^s\cdot\mathbf{v}^s)$. Then, coarse-grid correction takes the form
 %
 \begin{align*}
-I - P(RAP)^{-1}RA & = I - 
-	\begin{bmatrix} \mathbf{v}^s_1 I \\ \vdots \\ \mathbf{v}^s_s I\end{bmatrix}
-	(\sigma_sI - c\mathcal{L})^{-1}
-	\begin{bmatrix} \tfrac{\mathbf{u}^s_1}{c}(\sigma_sI - c\mathcal{L} +
-		\sigma_s(\tfrac{\mathbf{v}^s_1c}{\mathbf{u}^s_1} - 1)I) & \hdots &
-	\tfrac{\mathbf{u}^s_s}{c}(\sigma_sI - c\mathcal{L} +
-		\sigma_s(\tfrac{\mathbf{v}^s_sc}{\mathbf{u}^s_s} - 1)I) \end{bmatrix} \\
+& \hspace{-2ex} I - P(RAP)^{-1}RA = I - 
+	\begin{bmatrix} {v}^s_1 I \\ \vdots \\ {v}^s_s I\end{bmatrix}
+	(\sigma_sM - c\mathcal{L})^{-1}
+	\begin{bmatrix} \sigma_s{v}^s_1M - {u}^s_1 \mathcal{L}_1 & \hdots &
+		\sigma_s{v}^s_sM - {u}^s_s \mathcal{L}_s \end{bmatrix} \\
+& = I -  \begin{bmatrix} {v}^s_1 I \\ \vdots \\ {v}^s_s I\end{bmatrix}
+	(\sigma_sM - c\mathcal{L})^{-1}
+	\begin{bmatrix} \tfrac{{u}^s_1}{c}(\sigma_sM - c\mathcal{L} +
+		\sigma_s(\tfrac{{v}^s_1c}{{u}^s_1} - 1)M) & \hdots &
+	\tfrac{{u}^s_s}{c}(\sigma_sM - c\mathcal{L} +
+		\sigma_s(\tfrac{{v}^s_sc}{{u}^s_s} - 1)M) \end{bmatrix} \\
 & = I - \frac{1}{\mathbf{u}^s\cdot\mathbf{v}^s}
-	\begin{bmatrix} \mathbf{v}^s_1 I \\ \vdots \\ \mathbf{v}^s_s I\end{bmatrix}
-	\begin{bmatrix} \mathbf{u}^s_1 I & \hdots & \mathbf{u}^s_s I\end{bmatrix}
-	- \sigma_s\begin{bmatrix} \mathbf{v}^s_1 I \\ \vdots \\ \mathbf{v}^s_s I\end{bmatrix}
-	(\sigma_sI - c\mathcal{L})^{-1}...
+	\begin{bmatrix} {v}^s_1 I \\ \vdots \\ {v}^s_s I\end{bmatrix}
+	\begin{bmatrix} {u}^s_1 I & \hdots & {u}^s_s I\end{bmatrix}
+	- \sigma_s\begin{bmatrix} {v}^s_1 I \\ \vdots \\ {v}^s_s I\end{bmatrix}
+	(\sigma_sM - c\mathcal{L})^{-1}
+	\begin{bmatrix} ({v}^s_1 - \tfrac{u^s_1}{\mathbf{u}^s\cdot\mathbf{v}^s}) M &
+		\hdots & ({v}^s_s - \tfrac{u^s_s}{\mathbf{u}^s\cdot\mathbf{v}^s}) M\end{bmatrix} \\
+& = I - \frac{1}{\mathbf{u}^s\cdot\mathbf{v}^s}
+	\begin{bmatrix} {v}^s_1 I \\ \vdots \\ {v}^s_s I\end{bmatrix}
+	\begin{bmatrix} {u}^s_1 I & \hdots & {u}^s_s I\end{bmatrix}
+	- \begin{bmatrix} {v}^s_1 I \\ \vdots \\ {v}^s_s I\end{bmatrix}
+	(M - \tfrac{c}{\sigma_s}\mathcal{L})^{-1}
+	\begin{bmatrix} ({v}^s_1 - \tfrac{u^s_1}{\mathbf{u}^s\cdot\mathbf{v}^s}) M &
+		\hdots & ({v}^s_s - \tfrac{u^s_s}{\mathbf{u}^s\cdot\mathbf{v}^s}) M \end{bmatrix}
 \end{align*}
 %
-\tcb{Finish algebra here, got it mixed up...}
 
 I cannot find information in the literature regarding Butcher tableaux and
 their corresponding singular value decompositions. Here we note a few interesting
@@ -349,144 +359,6 @@ Alternatively, we could just apply the theory in the nonlinear paper and use
 a modified $\gamma_*$ relaxation constant in the $(2,2)$-block.
 
 
-
-
-% ------------------------------------------------------------------------------------- %
-\subsubsection{Old: An aggregation approach}\label{sec:mg:mg:agg}
-
-The main question here is how do we develop a block multigrid method to precondition
-the block operator
-%
-\begin{align}\label{eq:k3}
-\begin{bmatrix} \alpha_{11} I & ... & \alpha_{1s}I  \\ \vdots & \ddots & \vdots
-		\\ \alpha_{s1}I &  ... & \alpha_{ss}I\end{bmatrix}
-	- \begin{bmatrix} \mathcal{L}_1 &  \\
-	 & \ddots & \\ & & \mathcal{L}_s \end{bmatrix} = 
-\begin{bmatrix} \alpha_{11} I - \mathcal{L}_1 & ... & \alpha_{1s}I  \\ \vdots & \ddots & \vdots
-		\\ \alpha_{s1}I &  ... & \alpha_{ss}I - \mathcal{L}_s\end{bmatrix}.
-\end{align}
-%
-In particular, we want to project down such that we only solve one system involving
-$\mathcal{L}$ as a coarse-grid operator, and couple this with some kind of relaxation
-scheme on the ``fine'' grid to address the coupling between stages.
-
-Even in the block setting, the matrix in \eqref{eq:k3} isn't symmetric and also isn't
-triangular like AIR likes. Thus, a first thought is to use a smoothed-aggregation
-type approach, where we define a single coarse-grid operator. Continuing with the
-idea from \Cref{sec:mg:prob}, the block constant vector is likely a good
-approximation of the near null space of \eqref{eq:k3}, which suggests a
-plausible $P = \begin{bmatrix} I & \hdots & I\end{bmatrix}^T.$ For restriction,
-let us define a scaled version, $R = \begin{bmatrix} r_1I & \hdots & r_sI\end{bmatrix}^T.$ 
-Then, the coarse-grid operator is defined by 
-%
-\begin{align}\nonumber
-RAP & \coloneqq \begin{bmatrix} r_1I & \hdots & r_sI\end{bmatrix}
-	\begin{bmatrix} \alpha_{11} I - \mathcal{L}_1 & ... & \alpha_{1s}I  \\
-		\vdots & \ddots & \vdots \\ \alpha_{s1}I &  ... & \alpha_{ss}I - \mathcal{L}_s\end{bmatrix}
-	\begin{bmatrix} I \\ \vdots \\ I\end{bmatrix} \\
-& = \sum_{i=1}^s \left( r_i \left(\sum_{j=1}^s \alpha_{ij}\right)I - r_i\mathcal{L}_i \right)\label{eq:cg}
-\end{align}
-%
-Here, we propose to choose $R$ under three constraints:
-\begin{enumerate}
-	\item $\sum_{i=1}^s r_i = 1$ -- this means that we are defining our
-	coarse grid with some form of weighted average over $\{\mathcal{L}_i\}$.
-	\item $\sum_{i=1}^s r_i \left(\sum_{j=1}^s \alpha_{ij}\right) = 1$ --
-	This ensures that the leading constant in \eqref{eq:cg} is positive (not
-	always true if $R = P^T$) and unity. Moreover, if $\mathcal{L}_i = \mathcal{L}_j$
-	for all $i,j$, constraints (1) and (2) yield backward Euler as a coarse-grid
-	operator.
-	\item Obviously for more than two stages, the above constraints are underdetermined.
-	To constrain the full system, we propose to constrain the constants $\{r_i\}$
-	to all be as close as possible. This makes $R$ as close to a scaled $P^T$ as
-	possible, while satisfying (1) and (2). One way to formalize this is to 
-	find the minimum variance solution to the underdetermined set of equations.
-	This is nicely formalized in \url{https://arxiv.org/pdf/1906.09121.pdf}. In
-	particular, the minimum variance solution to $M\mathbf{x} = \mathbf{b}$ is
-	given by
-	%
-	\begin{align*}
-	\mathbf{x}_V &\coloneqq M^T(MM^T)^{-1}(\mathbf{b} - \alpha M\boldsymbol{1})) + \alpha\boldsymbol{1},
-		\hspace{5ex}\textnormal{where}\\
-	\alpha & = \frac{\boldsymbol{1}^TM^T(MM^T)^{-1}\mathbf{b}}
-		{\boldsymbol{1}^TM^T(MM^T)^{-1}M\boldsymbol{1}}.
-	\end{align*}
-	%
-	Here, the first row of $M$ is all ones, corresponding to constraint (1),
-	the second row of $M$ corresponds to the row sums of the Butcher tableaux,
-	and $\mathbf{b} = [1,1]^T$.
-
-\end{enumerate}
-
-Note that by satisfying constraints (1) and (2), the coarse-grid operator
-takes the simplified form
-%
-\begin{align}\label{eq:cg2}
-RAP & = I - \sum_{i=1}^s \mathcal{L}_i,
-\end{align}
-%
-and
-%
-\begin{align*}
-RA & = \begin{bmatrix} \left(\sum_{i=1}^s r_i\alpha_{i1}\right)I - r_1\mathcal{L}_1
-	& \hdots & \left(\sum_{i=1}^s r_i\alpha_{is}\right)I - r_s\mathcal{L}_s\end{bmatrix} .
-\end{align*}
-%
-For ease of notation, define constants
-%
-\begin{align*}
-c_j \coloneqq \sum_{i=1}^s r_i\alpha_{ij} - r_j.
-\end{align*}
-%
-Then, $RA$ can be expressed in the simplified representation
-%
-\begin{align}\label{eq:simp}
-RA & = \begin{bmatrix} r_1(I - \mathcal{L}_1) + c_1I
-	& \hdots & r_s(I - \mathcal{L}_s) + c_sI\end{bmatrix}.
-\end{align}
-%
-
-% ------------------------------------------------------------------------------------- %
-% ------------------------------------------------------------------------------------- %
-\subsubsection{$\mathcal{L}_i = \mathcal{L}_j$}\label{sec:mg:mg:simp}
-
-Suppose $\mathcal{L}_i = \mathcal{L}_j$. Then, \eqref{eq:cg2} reduces to
-$RAP = I - \mathcal{L}$, and we have
-%
-\begin{align}\nonumber
-I - P(RAP)^{-1}RA & = I - \begin{bmatrix} I \\ \vdots \\ I\end{bmatrix}
-	(I - \mathcal{L})^{-1}\begin{bmatrix} r_1(I - \mathcal{L}_1) + c_1I
-	& \hdots & r_s(I - \mathcal{L}_s) + c_sI\end{bmatrix} \\
-& = I - \begin{bmatrix} I \\ \vdots \\ I\end{bmatrix}
-	\bigg( \begin{bmatrix} r_1 I  & \hdots & r_s I\end{bmatrix} 
-	+ 	\begin{bmatrix} c_1(I - \mathcal{L})^{-1}
-	& \hdots & c_s(I - \mathcal{L})^{-1}\end{bmatrix} \bigg) \nonumber \\
-& = I - \begin{bmatrix} r_1 I & \hdots & r_s I \\ 
-		\vdots & \ddots & \vdots \\
-		r_1 I & \hdots & r_s I \end{bmatrix}
-	- \begin{bmatrix} (I - \mathcal{L})^{-1} \\ & \ddots \\ && (I - \mathcal{L})^{-1} \end{bmatrix}
-	\begin{bmatrix} c_1 I & \hdots & c_s I \\ 
-	\vdots & \ddots & \vdots \\
-	c_1 I & \hdots & c_s I \end{bmatrix}.
-	\label{eq:cgc}
-\end{align}
-%
-Recall $\sum_{i=1}^s r_i = 1$ and, thus, the leading $I - \mathcal{R}$ term has
-row-sum zero. The matrix with $\{c_i\}$ constants also has row sum zero. Thus,
-as expected, if the error modes are fixed across stages, coarse-grid correction
-\eqref{eq:cgc} is exact. Moreover, for all schemes I have tested $r_i > 0$ (this
-should always be the case, but I do not have a proof) and the leading
-$I - \mathcal{R}$ has eigenvalues $\{0,1,...,1\}$, so if error modes are
-moderately similar across stages, this term should remain small. Similarly,
-by assumption $W(\mathcal{L}) \leq 0$ and it follows that
-$\|(I - \mathcal{L})^{-1}\| \leq 1$. Even better, the error we expect
-to vary more noticeably across stages is high-frequency error, which
-corresponds to large eigenvalues of $\mathcal{L}$. However, applying 
-$(I - \mathcal{L})^{-1}$ to such error is $\ll 1$, this such error in
-the second term should be made small by the diagonal scaling by
-$(I - \mathcal{L})^{-1}$. The key is to thus eliminate high-frequency
-error in stages and leave low frequency error moderately similar across
-stages.
 
 
 
