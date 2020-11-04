@@ -700,6 +700,7 @@ class JacDiagBlock : public BlockOperator
 private:
     // Allow preconditioner access so that it can use IRKOper
     friend class JacDiagBlockTriPrec;
+    friend class JacDiagGenPrec;
 
     int size;                   // Block size
     const Array<int> &offsets;  // Block offsets for operator
@@ -1035,7 +1036,7 @@ public:
     /// 1x1 block
     JacDiagGenPrec(const JacDiagBlock &BlockOper_, int Schur_block_id_, int num_blocks_) 
         : Solver(BlockOper_.Height()), BlockOper(BlockOper_),
-        Schur_block_id(Schur_block_id_), num_blocks(size_)
+        Schur_block_id(Schur_block_id_), num_blocks(num_blocks_)
     {
 
     }
@@ -1043,7 +1044,7 @@ public:
     ~JacDiagGenPrec() {}
     
     /// Apply action of preconditioner
-    inline void Mult(const Vector &x_scalar, Vector &y_scalar) const {
+    void Mult(const Vector &x_scalar, Vector &y_scalar) const {
         BlockOper.IRKOper.ImplicitPrec(Schur_block_id, x_scalar, y_scalar);
     }
     
@@ -1115,7 +1116,7 @@ private:
     Array<JacDiagBlock *> DiagBlock;
 
     // Preconditioners to assist with inversion of diagonal blocks
-    Array<JacDiagBlockTriPrec *> DiagBlockPrec;
+    Array<Solver *> DiagBlockPrec;
 
     // Solvers for inverting diagonal blocks
     IterativeSolver * krylov_solver1; // 1x1 solver
