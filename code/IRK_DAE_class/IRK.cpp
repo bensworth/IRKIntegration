@@ -162,6 +162,8 @@ void IRK::SetSolvers(bool schur_precondition)
 /// Call base class' init and initialize remaing things here.
 void IRK::Init(TimeDependentOperator &F)
 {
+    m_w = 0.;     // Initialize stage vectors to 0
+    SetSolvers(); // Initialize solvers for computing stage vectors
     ODESolver::Init(F);
     m_w.Update(m_stageOffsets, mem_type); // Stage vectors
 }
@@ -202,7 +204,7 @@ void IRK::Step(Vector &x, double &t, double &dt)
     // Check for convergence
     if (!m_newton_solver->GetConverged()) {
         string msg = "IRK::Step() Newton solver at t=" + to_string(t) + " not converged\n";
-        mfem_error(msg.c_str());
+        mfem_warning(msg.c_str());
     }
 
     // Update solution with weighted sum of stages, x = x + (dt*d0^\top \otimes I)*w
