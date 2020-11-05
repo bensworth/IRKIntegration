@@ -163,8 +163,9 @@ iterative methods must be used. However, IRK methods are rarely employed in prac
 to the difficulties of solving \eqref{eq:k0}. Even for relatively simple
 parabolic PDEs where $-\mathcal{L}$ is symmetric positive definite (SPD), \eqref{eq:k0}
 instead yields a large nonsymmetric system with significant block coupling. For
-nonsymmetric systems $\mathcal{L}$ that already have variable coupling, fast iterative
-methods are even less likely to yield acceptable performance in solving \eqref{eq:k0}.
+nonsymmetric systems $\mathcal{L}$ that already have variable coupling, traditional
+iterative methods are even less likely to yield acceptable performance in solving
+\eqref{eq:k0}.
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -245,11 +246,52 @@ Numerical results for nonlinear problems are then provided in
 % ------------------------------------------------------------------------------------- %
 \subsection{Why fully implicit and previous work}\label{sec:intro:hist}
 
+Aside from the difficulty of solving \eqref{eq:k0} in a fast, parallel manner,
+IRK methods have a number of desirable properties in practice. For stiff PDEs,
+the observed accuracy of Runge-Kutta methods can be limited to $\approx \min\{
+p, q+1\}$ or $q$, respectively, for integration order $p$ and stage-order $q$
+\cite{hairer96,kennedy16}. For index-2 DAEs, the order of accuracy is formally
+limited to that of the stage order. Diagonally implicit Runge Kutta (DIRK)
+methods are most commonly used in practice for numerical PDEs due to ease of
+implementation, but DIRK methods have a maximum order of $p=s$ or $p=s+1$ with
+reasonable stability properties \cite[Section IV.6]{hairer96} and, moreover, are
+limited to stage-order one \cite{kennedy16}. In contrast, IRK methods can have
+order as high as $p=2s$ for $s$ stages and, moreover, can have stage-order $q =
+s$. An example of the advantages of IRK methods (in a discretization sense) for
+the system of DAEs that arise in incompressible Navier Stokes can be seen in
+\cite{Sanderse.2013}. For PDEs where DIRK methods are ineffective, linear
+multistep methods, in particular BDF schemes, can offer improved accuracy and
+are often used in practice. However, A-stable implicit multistep methods can
+have at most order two, and the stability region of higher-order methods moves
+progressively farther away from the imaginary axis, which is particularly
+problematic for advection-dominated flows. Multistep methods also introduce
+their own difficulties in initializing (or restarting after discontinuities)
+with high-order accuracy, due to their multistep nature \cite[Chapter
+4]{brenan1995numerical}, whereas Runge-Kutta methods naturally start with
+high-order accuracy. \todo{Mention GLM, GARK, Polynomial?}
 
 
-\tcb{See Ch. 4 of Numerical Solution of Initial-Value Problems in Differential-Algebraic Equations
-for nice comparison w/ BDF for DAEs.}
-
+It should be noted that IRK methods are by no means new, and many papers have
+considered the efficient implementation of IRK integration in various contexts.
+Much of the early work was focused on ODEs and minimizing the number of LU
+decompositions that must be computed. Most of these works use a simplified
+Newton method, where it is assumed that $\mathcal{L}_i = \mathcal{L}_j$ for all
+$i,j$, and either consider the solution of the simplified \eqref{eq:k0} (see,
+e.g., \cite{varah79,butcher76,bickart77,houwen97b,jay99}), or introduce/analyze
+a modified nonlinear iteration or time stepping scheme (see, e.g.,
+\cite{cooper83,pinto95,pinto96,cooper90,hoffmann97,jay00}). Some of the first
+works to consider IRK methods for PDEs were the sequence of papers
+\cite{mardel07,nissen11,staff06}, which analyze block triangular and diagonal
+preconditioners for the (linear) diffusion and biodomain equations in the
+Sobolev setting, and demonstrate nice conditioning of the preconditioned
+operators. Other papers have demonstrated success with various IRK
+preconditioning strategies for parabolic type problems as well
+\cite{vanlent05,chen14,exh,8jp,27n}, with the method in \cite{exh} also
+demonstrating success in practice on linear hyperbolic problems. Nevertheless,
+very few works have considered the true nonlinear setting for numerical PDEs
+(that is, not simplified Newton) and, to our knowledge, no works have provided
+analysis of preconditioning \eqref{eq:k0} for non-parabolic problems. This work
+addresses both of these issues.
 
 % Simplified newton scheme uses fixed Jacobian for all stages
 % Single step Newton (Cooper (83/90), Gonzales-Pinto (95/97)
@@ -517,9 +559,8 @@ conditioning of the preconditioned operator.
 %
 \begin{remark}[Real Schur decomposition]
 It should be pointed out that a real Schur decomposition is by no means
-unique to Runge-Kutta literature. Many papers have considered similar
-approaches as above, particularly for systems of ODEs (rather than PDEs)
-\todo{cite}.
+unique to Runge-Kutta literature, most notably used in the RADAU code
+by Hairer and Wanner \cite{hairer99}.
 The key contribution here for the simplified Newton setting is proving a
 robust and general way to precondition the resulting operators in the
 context of numerical PDEs (see \Cref{sec:theory}). Moreover, the real
@@ -787,7 +828,7 @@ R_0 \otimes M - \delta t \widehat{P} \approx R_0 \otimes I -  \delta t \widetild
 %
 via block backward substitution, preconditioning each $1\times 1$
 or $2\times 2$ diagonal block similar to the simplified Newton setting in
-\Cref{sec:nonlinear:simp} (formal details on preconditiong are introduced
+\Cref{sec:nonlinear:simp} (formal details on preconditioning are introduced
 in \Cref{sec:theory}). In addition to the simplified Newton
 method discussed in \Cref{sec:nonlinear:simp}, we propose three (successively
 more accurate) approximations to \eqref{eq:Q0approx}:
@@ -1682,7 +1723,7 @@ be expressed as a large block linear system,
 \end{align*}
 %
 
-\textbf{The nonlinear case:} No consider general nonlinear DAEs \eqref{eq:dae}
+\textbf{The nonlinear case:} Now consider general nonlinear DAEs \eqref{eq:dae}
 that arise in the context of numerical PDEs. Linearizing \eqref{eq:dae_stage}
 results in a linear set of equations similar to \eqref{eq:daestage_lin}, but
 with linearized operator that depends on stages. Similar to the nonlinear ODE
