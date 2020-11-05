@@ -1,0 +1,122 @@
+DAEs:
+-----
+To apply code to general DAEs, everything should work as implemented,
+we simply treat the solution vector as the stacked solution [u; w],
+for time-dependent variables u and algebraic variables w. In the
+user defined IRKOperator, we must define:
+	
+	- IRKOperator->ImplicitMult(const Vector &x, Vector &y) const
+		+ This must apply [M,0;0,0], where the mass matrix is applied
+		to u and zero applied to algebraic constraints.
+	
+	- IRKOperator->ExplicitMult(const Vector &x, Vector &y) const
+		+ This must correspond to applying the action of the full 2x2
+		block DAE operator
+	
+	- IRKOperator->SetExplicitGradient(const Vector &u, double dt, 
+                                       const BlockVector &x, const Vector &c)
+ 		+ Set approximate gradient Na', which is an approximation to
+ 		the s explicit gradients 
+            {N'} == { N'(u + dt*x[i], this->GetTime()+dt*c[i]) },
+        for i=0,...,s-1. As with explicit mult, the gradient must
+        correspond to the entire 2x2 DAE system.
+		+ This method only needs to be implemented for 
+			ExplicitGradients::APPROXIMATE
+
+	- IRKOperator->SetExplicitGradients(const Vector &u, double dt, 
+                                        const BlockVector &x, const Vector &c)
+ 		+ Set the explicit gradients 
+            {Ni'} == { N'(u + dt*x[i], this->GetTime()+dt*c[i]) },
+        for i=0,...,s-1. As with explicit mult, the gradient must
+        correspond to the entire 2x2 DAE system.
+		+ This method only needs to be implemented for 
+			ExplicitGradients::EXACT
+
+	- IRKOperator->ExplicitGradientMult(const Vector &x, Vector &y) const
+		+ Compute action of Na' explicit gradient operator as constructed
+		in IRKOperator->SetExplicitGradient().
+		+ This must correspond to applying the action of the full
+		linearized 2x2 block DAE operator.
+		+ This method only needs to be implemented for 
+			ExplicitGradients::APPROXIMATE
+
+	- IRKOperator->ExplicitGradientMult(int index, const Vector &x, Vector &y) const
+		+ Compute action of `index`-th explicit gradient operator as constructed
+		in IRKOperator->SetExplicitGradients().
+		+ This must correspond to applying the action of the full
+		linearized 2x2 block DAE operator.
+		+ This method only needs to be implemented for 
+			ExplicitGradients::EXACT
+
+	- IRKOperator->BuildPreconditioner(int index, double dt, double gamma, int type) 
+		+ Build preconditioner for one backward-Euler-like time step
+		applied to the linearized DAE system constructed in
+		IRKOperator->SetExplicitGradient(), with time step dt and 
+		constant gamma: ( [\gamma*M,0; 0, 0] - dt*Na' ), where
+		Na' ~ [Lu, Lw; Gu, Gw].
+		+ "index" is used to track preconditioners built for different
+		stages. If used correctly, preconditioners can be reused is
+		possible.
+		+ This method only needs to be implemented for 
+			ExplicitGradients::APPROXIMATE
+		+ "type" indicates this is for a 1x1 or 2x2 block system. Note, for
+		this preconditioner, type should not affect implementation.
+	
+	- IRKOperator->BuildPreconditionerSchur(int index, double dt, double gamma, int type) 
+		+ Analagous to above, but option to provide different preconditioner
+		in (2,2) block to approximate Schur complement. If not implemented,
+		Schur complement is approximated analagous to (1,1) block in 
+		IRKOperator->BuildPreconditioner(), but with modified gamma.
+		+ "type" indicates this is for a 1x1 or 2x2 block system. Note, for
+		this preconditioner, type should not affect implementation.
+
+	- IRKOperator->BuildPreconditioner(int index, double dt, double gamma, Vector weights) 
+		+ Build preconditioner for one backward-Euler-like time step
+		applied to a combination of linearized DAE systems constructed in
+		IRKOperator->SetExplicitGradients(), with time step dt and 
+		constant gamma: ( [\gamma*M,0; 0, 0] - dt*<weights,{Ni'}> ), where
+		Ni' ~ [Lu, Lw; Gu, Gw] for stages i=0,...,s-1.
+		+ "index" is used to track preconditioners built for different
+		stages (the weights vector varies by stages). If used correctly,
+		preconditioners can be reused is possible.
+		+ This method only needs to be implemented for 
+			ExplicitGradients::EXACT
+	
+	- IRKOperator->BuildPreconditionerSchur(int index, double dt, double gamma, Vector weights) 
+		+ Analagous to above, but option to provide different preconditioner
+		in (2,2) block to approximate Schur complement. If not implemented,
+		Schur complement is approximated analagous to (1,1) block in 
+		IRKOperator->BuildPreconditioner(), but with modified gamma.
+
+	- IRKOperator->ImplicitPrec(const Vector &x, Vector &y) const
+		+ Apply preconditioner set with previous call to BuildPreconditioner().
+	
+	- IRKOperator->ImplicitPrec(int index, const Vector &x, Vector &y) const
+		+ Apply preconditioner set with call to BuildPreconditioner()
+		using "index."
+
+
+
+KHI Model
+----------
+In the KHI model, we have a somewhat unique system where we can re order the
+4x4 system so that instead of solving for [k1,l1,k2,l2], if we solve for
+[k1,k2,l1,l2], we can solve a 2x2 system for [k1,k2] exactly as in the
+ODE case, then do a diffusion solve to get [l1,l2].
+
+Here, we need to replace the JacDiagBlockTriPrec object with a more general
+preconditioner, say JacDiagGenPrec. This is a effectively a placeholder, and we 
+construct the preconditioner by overriding the function BuildGenPreconditioner
+in IRKOperator. This function must build a preconditioner that solves the whole
+2x2 block system of the linearized DAE, rather than just one block at a time.
+
+
+---> In JacDiagBlockTriPrec.Mult(), why does ImplicitMult not have an index?
+
+
+
+
+
+
+
+
