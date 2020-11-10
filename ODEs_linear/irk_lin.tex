@@ -174,7 +174,7 @@ system,
 \end{align}
 %
 where $\mathcal{L}_i := \mathcal{L}(t_n+\delta tc_i)$ and $\mathbf{f}_i :=
-\mathbf{f}(t_n+\delta tc_i)$. Primarily this paper
+\mathbf{f}(t_n+\delta tc_i) + \mathcal{L}(t_n+\delta tc_i)\mathbf{u}_n$. Primarily this paper
 focuses on spatial operators $\mathcal{L}$ that are independent of time; however, some of
 the results hold for commuting operators, such as those that may arise from, for example,
 a time-dependent reaction term, so for now we maintain this generality.
@@ -244,10 +244,10 @@ used throughout the paper.
 \Cref{sec:solve} introduces a new method to solve for the IRK update
 \eqref{eq:update} for linear operators $\mathcal{L}$ that are independent of time.
 This new method requires the preconditioning of $s$ real-valued matrices of the form
-$\eta M - \delta t\mathcal{L}$ for some $\eta > 1$, analogous as the matrices that
+$\eta M - \delta t\mathcal{L}$ for some $\eta > 1$, analogous to the matrices that
 arise in backward Euler integration, and is easily implemented
 using existing preconditioners and parallel software libraries.
-In contrast to other works that have considered the preconditioning of \eqref{eq:kron1},
+In contrast to other works that have considered the preconditioning of \eqref{eq:k0},
 the proposed algorithm here (i) is amenable to short-term Krylov recursion (conjugate
 gradient (CG)/MINRES) if $\eta M - \mathcal{L}$ is, and (ii) only operates on the solution,
 thus not requiring the storage of each stage vector. Theory is developed in
@@ -309,7 +309,7 @@ Many papers have considered the solution of \eqref{eq:kron1}, with Butcher
 \cite{butcher76} and Bickart's \cite{bickart77} being some of the earliest works,
 which develop ways to transform \eqref{eq:kron1} to a simpler form.\footnote{In Kronecker form \eqref{eq:kron1}, SIRK methods \cite{norsett1976runge} are also
 relatively straightforward to solve using existing preconditioning techniques.
-But, although SIRK method offer some advantages over DIRK methods, they still lack
+But, although SIRK methods offer some advantages over DIRK methods, they still lack
 the favorable stability and accuracy properties of IRK methods \cite{burrage82,orel91}.}
 There, and in many of the works that followed, the goal was to minimize the cost of LU
 decompositions used to solve \eqref{eq:kron1}, typically in the context of ODEs.
@@ -381,8 +381,8 @@ lie within distance $\mathcal{O}(\delta t)$ of the region of stability for
 the Runge-Kutta scheme of choice (e.g., see \cite{reddy92}). Here we are
 interested in implicit schemes and, because most implicit Runge-Kutta schemes
 used in practice are A- or L-stable, an effectively necessary condition for
-stability is that the eigenvalues of $\mathcal{L}$ be nonpositive. For
-normal operators, this requirement ends up being a necessary and sufficient
+stability is that the real part of eigenvalues of $\mathcal{L}$ be nonpositive.
+For normal operators, this requirement ends up being a necessary and sufficient
 condition for stability.
 
 For non-normal or non-diagonalizable operators, the analysis is more complicated.
@@ -404,7 +404,8 @@ W(\mathcal{L}) := \left\{ \langle \mathcal{L}\mathbf{x},\mathbf{x}\rangle \text{
 This motivates the following assumption for the analysis done in this paper:
 %
 \begin{assumption} \label{ass:fov}
-Let $\mathcal{L}$ be the linear spatial operator, and assume that $W(\mathcal{L}) \leq 0$.
+Let $\mathcal{L}$ be the linear spatial operator, and assume that $W(\mathcal{L}) \leq 0$
+(that is, $W(\mathcal{L})$ is a subset of the left half plane (including imaginary axis)).
 \end{assumption}
 %
 It should be noted that the field of values has an additional connection
@@ -416,7 +417,8 @@ sufficient) condition $\|e^{t\mathcal{L}}\|\leq C$ for all $t\geq 0$ and
 some constant $C$. In practice, \Cref{ass:fov} often holds when
 simulating numerical PDEs, and in \Cref{sec:solve:prec}, it is proven that
 \Cref{ass:eig,ass:fov} guarantee the methods proposed here yield
-$\mathcal{O}(1)$ conditioning of the preconditioned operator.
+$\mathcal{O}(1)$ conditioning of the preconditioned operator. It should
+also be noted that $\mathcal{L}$ need not be nonsingular.
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -460,7 +462,10 @@ but using a different framework and generalized to hold for commuting
 operators. We consider $\mathcal{M}_s$ as a matrix over the commutative
 ring of linear combinations of $\{I, \widehat{\mathcal{L}}\}$,
 and the determinant and adjugate referred to in \Cref{lem:inv} are defined
-over matrix-valued elements rather than scalars.
+over matrix-valued elements rather than scalars. For the interested reader,
+see \cite{brown1993matrices} for details on matrices and the corresponding
+linear algebra when matrix elements are defined over a space of commuting
+matrices.
 
 %
 \begin{lemma}\label{lem:inv}
@@ -802,7 +807,7 @@ on $\ell^2$-condition number, is given by
 		\Big[(\eta I - \widehat{\mathcal{L}})^2 + \beta^2 I\Big].
 \end{align}
 %
-where $\gamma = \gamma_* = \sqrt{\eta^2+\beta^2}$.
+where $\delta = \gamma = \gamma_* = \sqrt{\eta^2+\beta^2}$.
 
 %
 \begin{theorem}[Optimal preconditioning]\label{th:cond}
@@ -823,7 +828,7 @@ Then
 \end{align}
 
 Moreover, (i) bound \eqref{eq:kappa_gen_gamma*_bound} is tight in the sense that $\exists$ $\cL$
-that satisfy \eqref{eq:kappa_gen_gamma*_bound} exactly, and (ii) $\gamma = \gamma_*$ is optimal
+such that \eqref{eq:kappa_gen_gamma*_bound} holds with equality, and (ii) $\gamma = \gamma_*$ is optimal
 in the sense that, without further assumptions on $\cL$, $\gamma_*$ minimizes a tight
 upper bound on $\kappa({\cal P}_{\delta, \gamma})$ over all $\gamma \in (0, \infty)$.
 \end{theorem}
@@ -851,22 +856,22 @@ by bounding $\Vert {\cal P}_{\delta,\gamma} \bm{v} \Vert^2 / \Vert \bm{v} \Vert^
 from above and below, respectively.
 %
 Consider the form of the preconditioned operator ${\cal P}_{\delta,\gamma}$ in
-\eqref{eq:P_gen} and make the substitution $\bm{v} = (\gamma I - \cL) (\delta I - \cL) \bm{w}$. 
-Now, for real-valued $\bm{v}$ (and, thus, real-valued $\bm{w}$),
-$\|{\cal P}_{\delta,\gamma} \bm{v}\|^2$ can be expanded as
+\eqref{eq:P_gen} and make the substitution $\bm{v} \mapsto (\gamma I - \cL) (\delta I - \cL) \bm{w}$.
+Using the fact that rational functions of $\mathcal{L}$ commute,
+$\|{\cal P}_{\delta,\gamma} \bm{v}\|^2$ can be expanded for real-valued
+$\bm{v}$ (and, thus, real-valued $\bm{w}$) as
 %
 \begin{align}
 \label{eq:norm_Pv_gen}
 \begin{split}
-\Vert {\cal P}_{\delta, \gamma} \bm{v} \Vert^2
-&=
-\bVert [( \eta I - \cL)^2 + \beta^2] \bm{w} \bVert^2, \\
-&=
-\bVert (\eta^2 + \beta^2) \bm{w} + \cLs \bm{w} \bVert^2  
+\Vert {\cal P}_{\delta, \gamma} \bm{v} \Vert^2 &= 
+	\bVert [( \eta I - \cL)^2 + \beta^2] \bm{w} \bVert^2, \\
+& = \bVert [(\eta^2+\beta^2)\bm{w} - 2\eta\cL\bm{w} + \cL^2\bm{w} \bVert^2 \\
+&= \bVert (\eta^2 + \beta^2) \bm{w} + \cLs \bm{w} \bVert^2  
 	-4 \eta (\eta^2 +\beta^2) \langle \cL \bm{w}, \bm{w} \rangle 
 	\\&\quad\quad	
 	-4 \eta \langle \cL (\cL \bm{w}), \cL \bm{w} \rangle
-	+4 \eta^2 \bVert \cL \bm{w} \bVert^2
+	+4 \eta^2 \bVert \cL \bm{w} \bVert^2.
 \end{split}
 \end{align}
 %
@@ -874,19 +879,19 @@ Similarly, expanding $\|\bm{v}\|^2$ yields
 %
 \begin{align}
 \label{eq:norm_v_gen}
+\begin{split}
 \Vert \bm{v} \Vert^2
-&=
-\bVert ( \gamma I - \cL) ( \delta I - \cL) \bm{w} \bVert^2, \\
-&=
-\nonumber
-\bVert \delta \gamma \bm{w} + \cLs \bm{w} \bVert^2  
+&= \bVert ( \gamma I - \cL) ( \delta I - \cL) \bm{w} \bVert^2, \\
+&= \bVert \delta\gamma \bm{w} -(\delta+\gamma)\cL\bm{w} + \cL^2\bm{w} \bVert^2, \\
+&= \bVert \delta \gamma \bm{w} + \cLs \bm{w} \bVert^2  
 	- 2 \delta \gamma (\delta + \gamma ) \langle \cL \bm{w}, \bm{w} \rangle
 	\\&\quad\quad	
 	-2  (\delta + \gamma ) \langle \cL ( \cL \bm{w}), \cL \bm{w} \rangle 
-	+  (\delta + \gamma)^2 \bVert \cL \bm{w} \bVert^2 
+	+  (\delta + \gamma)^2 \bVert \cL \bm{w} \bVert^2.
+\end{split}
 \end{align}
 %
-Thus, the key term in \eqref{eq:kappa_gen_def} takes the form
+Thus, the key ratio in \eqref{eq:kappa_gen_def} takes the form
 \begin{align}
 \label{eq:P_gen_frac}
 \frac{\Vert {\cal P}_{\delta,\gamma} \bm{v} \Vert^2}{\Vert \bm{v} \Vert^2}
@@ -898,13 +903,13 @@ c_0(\bm{w}) f_0(\bm{w}) + c_1 f_1(\bm{w}) + c_2 f_2(\bm{w}) + c_3 f_3(\bm{w})
 f_0(\bm{w}) + f_1(\bm{w}) + f_2(\bm{w}) + f_3(\bm{w})
 },
 \end{align}
-where we have defined the functions and constants
+where for $\delta, \gamma > 0$, we have defined the functions and constants
 \begin{equation}
 \begin{aligned}
 \label{eq:f_c_gen_def}
-f_0 &\coloneqq \bVert \delta \gamma \bm{w} + \cLs \bm{w} \bVert^2 > 0,
+f_0 &\coloneqq \bVert \delta \gamma \bm{w} + \cLs \bm{w} \bVert^2 \geq 0,
 \quad
-&&c_0\coloneqq \frac{\bVert (\eta^2 + \beta^2) \bm{w} + \cLs \bm{w} \bVert^2}{\bVert \delta \gamma \bm{w} + \cLs \bm{w} \bVert^2} > 0,
+&&c_0\coloneqq \frac{\bVert (\eta^2 + \beta^2) \bm{w} + \cLs \bm{w} \bVert^2}{\bVert \delta \gamma \bm{w} + \cLs \bm{w} \bVert^2} \geq 0,
 \\
 f_1 &\coloneqq -2 \delta \gamma (\delta + \gamma)  \langle \cL \bm{w}, \bm{w} \rangle \geq 0,
 \quad 
@@ -917,11 +922,12 @@ f_3 &\coloneqq (\delta+\gamma)^2 \bVert \cL \bm{w} \bVert^2 \geq 0,
 &&c_3\coloneqq \left(\frac{2 \eta}{\delta + \gamma}\right)^2 > 0, \\
 \end{aligned}
 \end{equation}
-assuming $\delta, \gamma > 0$. Note that functions $f_1$ and $f_2$ are non-negative by
-assumption of $W( \cL ) \leq 0$, while for all $\bm{w}$, it must hold that
-either $f_3 > 0$ or $c_0f_0 > 0$ (or both).
+Note that functions $f_1$ and $f_2$ are non-negative by
+assumption of $W( \cL ) \leq 0$, while for all $\bm{w}\neq\mathbf{0}$, it must hold that
+either $c_0f_0 > 0$ or $c_3f_3 > 0$ (or both, because $c_3f_3 = 0$ i.f.f.
+$\cL\mathbf{w} = \mathbf{0}$, which implies $c_0f_0 > 0$ for $\mathbf{w}\neq\mathbf{0}$).
 
-Since all of the addends in the numerator and denominator of \eqref{eq:P_gen_frac} are non-negative, and at least one addend in each is positive, it can be bounded as
+Since all of the addends in the numerator and denominator of \eqref{eq:P_gen_frac} are non-negative, and at least one addend in each is positive, \eqref{eq:P_gen_frac} can be bounded as
 \begin{align*}
 \min \{ c_0, c_1, c_2, c_3 \} \eqqcolon c_{\min}
 \leq
@@ -938,7 +944,7 @@ Applying these bounds to the norms in \eqref{eq:kappa_gen_def} yields
 %
 Bounding $c_0$ for general $\gamma$, and hence $c_{\min}$ and $c_{\max}$, is
 difficult because the sign of $\langle \cLs \bm{w}, \bm{w} \rangle$ (which
-appears in expanding $\bVert \gamma^2 \bm{w} + \cLs \bm{w} \bVert^2$) is not
+appears in expanding $\bVert \delta \gamma \bm{w} + \cLs \bm{w} \bVert^2$) is not
 known for general $\cL$, noting that the sign of $W(\cL)$ does not determine
 that of $W(\cLs)$. However, observe from \eqref{eq:f_c_gen_def} that the judicious
 choice of $\gamma = \gamma_* \coloneqq (\eta^2 + \beta^2)/\delta$ yields $c_0(\bm{w}) = 1$.
@@ -980,7 +986,7 @@ define the following function of $\xi$:
 \coloneqq 
 \left. \frac{\Vert {\cal P}_{\delta, \gamma} \bm{v} \Vert^2 }{\Vert \bm{v} \Vert^2} \right|_{\cL \bm{w} = \mathrm{i} \xi \bm{w}}
 =
-\frac{|(\eta- \mathrm{i} \xi)^2 + \beta^2|^2}{|(\delta \gamma - \xi^2 - \mathrm{i} (\delta \gamma) \xi|^2}
+\frac{|(\eta- \mathrm{i} \xi)^2 + \beta^2|^2}{|(\delta \gamma - \xi^2 - \mathrm{i} (\delta + \gamma) \xi|^2}
 =
 \frac{(\delta \gamma_* - \xi^2)^2 + (2 \eta \xi)^2}{(\delta \gamma-\xi^2)^2 + [\xi ( \delta + \gamma) ]^2},
 \end{align}
@@ -998,7 +1004,7 @@ By virtue of restricting that $\bm{w}$ be an eigenvector, from \eqref{eq:kappa_g
 That is, any value of $1/{\cal H}_{\delta,\gamma}(\xi)$ serves as a lower bound on
 $\Vert {\cal P}_{\delta,\gamma}^{-1} \Vert^2$, while any value of ${\cal
 H}_{\delta,\gamma}(\xi)$ serves as a lower bound on $\Vert {\cal P}_{\delta,\gamma} \Vert^2$.
-Therefore, the ratio of any two values of ${\cal H}_{\delta,\gamma}(\xi)$ provide a
+Therefore, the ratio of any two values of ${\cal H}_{\delta,\gamma}(\xi)$ provides a
 lower bound on $\kappa^2({\cal P}_{\delta,\gamma})$.
 
 We now show that bound \eqref{eq:kappa_gen_gamma*_bound} on $\kappa({\cal P}_{\delta,\gamma_*})$
@@ -1025,7 +1031,7 @@ a matrix $\cL$ having eigenvalues $\mathrm{i} \xi = \pm \mathrm{i} \sqrt{\delta 
 Therefore, bound \eqref{eq:kappa_gen_gamma*_bound} on $\kappa({\cal P}_{\delta,\gamma_*})$
 achieves equality for any matrix $\cL$ having eigenvalues $\{0, \pm
 \mathrm{i}\sqrt{\delta \gamma_*}\}$.\footnote{By nature of the continuity of
-eigenvalues and continuity of $\mathcal{H}_{\delta,\gamma}(\xi)$ at $\xi 0$, there
+eigenvalues and continuity of $\mathcal{H}_{\delta,\gamma}(\xi)$ at $\xi = 0$, there
 also exist nonsingular matrices with condition number within
 $\epsilon$ of \eqref{eq:kappa_gen_gamma*_bound} for any $\epsilon > 0$.}
 
@@ -1047,7 +1053,7 @@ and \eqref{eq:H1_gen}, that for $0 < \gamma < \gamma_*$,
 \leq
 \kappa^2({\cal P}_{\delta,\gamma}),
 \end{align}
-by noting that the above inequality is equivalent to 
+by noting that the first inequality in \eqref{eq:kappa_gen_lwr_bnd1} is equivalent to 
 $\gamma_*(\gamma_* - \gamma)^2 + (\gamma_* - \gamma) [2 \gamma_*  \gamma + \delta(\gamma_* + \gamma)] > 0$, which is clearly true when $0 < \gamma < \gamma_*$.
 Now suppose that $\cL$ has eigenvalues $\mathrm{i} \xi \to \pm \mathrm{i} \infty$,
 which, when substituted into \eqref{eq:H_gen_def}, yields
@@ -1065,12 +1071,12 @@ for $\gamma_* < \gamma < \infty$,
 \leq
 \kappa^2({\cal P}_{\delta,\gamma}),
 \end{align}
-by noting that the above inequality is equivalent to 
+by noting that the first inequality in \eqref{eq:kappa_gen_lwr_bnd2} is equivalent to 
 $\delta (\gamma - \gamma_*)^2 + \gamma_*(\gamma - \gamma_*) (2 \delta + \gamma_* + \gamma) > 0$, which is clearly satisfied for $\gamma > \gamma_*$.
 %
 
 By construction in \eqref{eq:kappa_gen_lwr_bnd1} and \eqref{eq:kappa_gen_lwr_bnd2},
-we have shown that for all $\gamma \in (0, \infty) \setminus \gamma_*$, there exists
+we have shown that for all $\gamma \in (0, \infty) \setminus \gamma_*$, there exist
 matrices $\cL$ such that $\kappa({\cal P}_{\delta,\gamma}) > \kappa({\cal
 P}_{\delta,\gamma_*}) = (\delta + \gamma_*)/(2\eta)$. It therefore holds for general $\cL$
 satisfying \Cref{ass:fov} that a tight upper bound on $\kappa({\cal P}_{\delta,\gamma})$
@@ -1105,8 +1111,7 @@ $6\times$ reduction in iteration count achieved by using $\gamma_*$ instead of
 $\eta$. For parabolic/diffusive problems we have explored, $\gamma_*$ has offered
 a much more modest improvement over $\eta$. Nevertheless, $\mathcal{P}_{\gamma_*}$
 has performed better than $\mathcal{P}_{\eta}$ for all problems we have tested,
-and is the recommended preconditioner in practice.
-%
+and is the recommended preconditioner in practice. 
 {
 % \renewcommand{\tabcolsep}{4pt}
 \renewcommand{\arraystretch}{1.15}
@@ -1149,7 +1154,7 @@ of eigenvalues, the quadratic polynomial \eqref{eq:imag1} can be expressed as
 \end{align}
 %
 In this context, it is best to first scale both sides of the linear system by $M$.
-This halves the number of times $M^{-1}$ must applied for each Krylov iteration,
+This halves the number of times $M^{-1}$ must be applied for each Krylov iteration,
 and if $M$ and $\mathcal{L}$ are Hermitian, the resulting quadratic system is SPD
 and can be solved using preconditioned CG or MINRES, preconditioned
 with one application of a preconditioner, the action of $M$, and a second application
@@ -1456,7 +1461,7 @@ tolerance of $10^{-12}$. There are a total of 1,638,400 spatial degrees-of-freed
 Lawrence Livermore National Lab, resulting in $\sim$5600 DOFs/processor.
 
 \Cref{tab:gamma} shows the average number of AIR iterations to solve for
-each stage of an IRK method using $\eta$ and $\gamma_*$ as the preconditioning
+each pair of stages of an IRK method using $\eta$ and $\gamma_*$ as the preconditioning
 constants. Iteration counts are shown for Gauss, Radau IIA, and Lobatto IIIC integration,
 with 2--5 stages, and the (factor of) reduction in iteration count achieved using $\gamma_*$
 vs. $\eta$ is also shown. For 5-stage Lobatto IIIC integration, $\gamma_*$ yields
@@ -1571,7 +1576,7 @@ outer iteration, which allows for GMRES to be applied in an inner iteration
 as a preconditioner for $(\gamma_* M - \delta t \mathcal{L})$. \Cref{fig:dg_o2} plots the
 total number of AIR iterations per time step as a function of the number of
 AIR iterations applied for each application of the preconditioner, using an
-inner GMRES or an inner fixed-point. An advection-dominated problem
+inner GMRES or an inner fixed-point iteration. An advection-dominated problem
 with $\varepsilon = 10^{-6}$ is also shown for comparison.
 
 Recall we have three stages, one of which is a single linear system corresponding
@@ -1659,7 +1664,7 @@ The relative $L^2$ error, obtained by comparing against the exact solution, is s
 \end{figure}
 
 We also use this test case to study the effect of inner iterations on the convergence of the iteration solver.
-As discussed in \Cref{sec:inexact-precond}, it is important that the underlying preconditioner provide a good approximation of the inverse of the operator.
+As discussed in \Cref{sec:inexact-precond}, it is important that the underlying preconditioner provides a good approximation of the inverse of the operator.
 For that reason, we consider the use of an inner Krylov solver at every iteration.
 Since this corresponds to using a variable preconditioner at each iteration, a flexible Krylov method may have to be used for the outer iteration, although in practice good convergence is often still observed using the standard CG method \cite{Notay2000}.
 In particular, we compare the total number of preconditioner applications required to converge the outer iteration to a relative tolerance of $10^{-10}$, both with and without an inner Krylov solver.
