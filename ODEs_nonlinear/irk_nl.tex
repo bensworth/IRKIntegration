@@ -1991,6 +1991,31 @@ The parameters for this test case are given by $\epsilon = 15$, $r_c = 1.5$, $M_
 	\end{tabular}
 \end{table}
 
+\begin{table}
+	\centering
+	\caption{Error and convergence rates for Euler vortex problem}
+	\begin{tabular}{r|cccccc}
+		\toprule
+		& \multicolumn{2}{c}{Gauss 2} & \multicolumn{2}{c}{Gauss 4} & \multicolumn{2}{c}{Gauss 6}\\
+		$\Delta t$ & Error & Rate & Error & Rate & Error & Rate\\
+		\midrule
+		$2.50\times 10^{-2}$ & $5.89 \times 10^{-3}$ & --- & $5.29 \times 10^{-4}$ & --- & $1.65 \times 10^{-5}$ & --- \\
+		$1.25\times 10^{-2}$ & $1.18 \times 10^{-3}$ & 2.32 & $2.75 \times 10^{-5}$ & 4.26 & $2.35 \times 10^{-7}$ & 6.14 \\
+		\midrule
+		& \multicolumn{2}{c}{Radau 3} & \multicolumn{2}{c}{Radau 5} & \multicolumn{2}{c}{Radau 7}\\
+		\midrule
+		$2.50\times 10^{-2}$ & $1.19 \times 10^{-3}$ & --- & $8.48 \times 10^{-5}$ & --- & $1.92 \times 10^{-6}$ & --- \\
+		$1.25\times 10^{-2}$ & $1.62 \times 10^{-4}$ & 2.88 & $2.78 \times 10^{-6}$ & 4.92 & $1.68 \times 10^{-8}$ & 6.84 \\
+		\midrule
+		& \multicolumn{2}{c}{Lobatto 2} & \multicolumn{2}{c}{Lobatto 4} & \multicolumn{2}{c}{Lobatto 6}\\
+		\midrule
+		$2.50\times 10^{-2}$ & $2.45 \times 10^{-3}$ & --- & $2.76 \times 10^{-4}$ & --- & $1.30 \times 10^{-5}$ & --- \\
+		$1.25\times 10^{-2}$ & $1.12 \times 10^{-3}$ & 1.13 & $2.39 \times 10^{-5}$ & 3.53 & $2.52 \times 10^{-7}$ & 5.69 \\
+		$6.25\times 10^{-3}$ & $3.93 \times 10^{-4}$ & 1.88 & $2.39 \times 10^{-6}$ & 3.67 & $4.42 \times 10^{-9}$ & 5.83 \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
 \subsection{(Incompressible) Kelvin-Helmholtz instability}\label{sec:numerics:khi}
