@@ -1989,6 +1989,19 @@ The parameters for this test case are given by $\epsilon = 15$, $r_c = 1.5$, $M_
 		& 6.0 & 8.4 & 8.1 & 7.6 & 7.3 & 10.2 & 8.4 & 9.3 & 11.0 & 12.0 & 10.5 & 11.2 \\
 		\bottomrule
 	\end{tabular}
+
+	\vspace{\floatsep}
+	\caption{Newton and GMRES iterations for SDIRK methods.}
+	\begin{tabular}{r|cccc}
+		\toprule
+		& \multicolumn{4}{c}{DIRK}\\
+		Order & 1 & 2 & 3 & 4\\
+		\midrule
+		Newton its. & 3 & 3 & 3 & 3\\
+		\midrule
+		Krylov its. & 6.7 & 4.3 & 5 & 4\\
+		\bottomrule
+	\end{tabular}
 \end{table}
 
 \begin{table}
