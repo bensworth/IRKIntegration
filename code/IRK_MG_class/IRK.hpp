@@ -1873,15 +1873,8 @@ private:
                     }
                 }
                 
-                // --- Solve 1x1 system --- 
-                // Pass preconditioner for diagonal block to Krylov solver
-                krylov_solver1->SetPreconditioner(*DiagBlockPrec[diagBlock]);
-                // Pass diagonal block to Krylov solver
-                krylov_solver1->SetOperator(*DiagBlock[diagBlock]);
-                // Solve
-                krylov_solver1->Mult(z_block.GetBlock(row), y_block.GetBlock(row));
-                krylov_converged = krylov_solver1->GetConverged();
-                krylov_iters[diagBlock] += krylov_solver1->GetNumIterations();
+                // --- Relax on 1x1 system --- 
+                DiagBlockPrec[diagBlock]->Mult(z_block.GetBlock(row), y_block.GetBlock(row));
             } 
             // Invert 2x2 diagonal block
             else if (size[diagBlock] == 2) 
@@ -1939,31 +1932,12 @@ private:
                 // Point y_2block to data array of solution vector
                 y_2block.Update(y_block.GetBlock(row).GetData(), offsets_2);
                 
-                // --- Solve 2x2 system --- 
-                // Pass preconditioner for diagonal block to Krylov solver
-                krylov_solver2->SetPreconditioner(*DiagBlockPrec[diagBlock]);
-                // Pass diagonal block to Krylov solver
-                krylov_solver2->SetOperator(*DiagBlock[diagBlock]);
-                // Solve
-                krylov_solver2->Mult(z_2block, y_2block);
-                krylov_converged = krylov_solver2->GetConverged();    
-                krylov_iters[diagBlock] += krylov_solver1->GetNumIterations();
-            }
-            
-            // Check convergence 
-            if (!krylov_converged) {
-                string msg = "KronJacSolver::BlockBackwardSubstitution() Krylov solver at t=" 
-                                + to_string(StageOper.IRKOper->GetTime()) 
-                                + " not converged [system " + to_string(solve) 
-                                + "/" + to_string(s_eff) 
-                                + ", size=" + to_string(size[diagBlock]) + ")]\n";
-                mfem_error(msg.c_str());
+                // --- Relax on 2x2 system --- 
+                DiagBlockPrec[diagBlock]->Mult(z_2block, y_2block);
             }
         }
     }        
 };
-
-
 
 
 
@@ -1972,6 +1946,7 @@ private:
     - Need flag for simplified Newton/linear vs. different Li/stage
         + kronecker_form needs to default to true for linear
     - jac_update_rate_ = 0 --> linear or simplified Newton?
+    - relax operation needs to be written as a residual correction
 */
 class IRK_MG_Preconditioner : public Solver
 {
@@ -2061,6 +2036,7 @@ public:
 
 private:
 
+    TriJacRelax smoother;
     IRKStageOper &StageOper;
     bool Li_eq_Lj;
     bool kronecker_form;
