@@ -14,7 +14,7 @@
 	\setlist{nosep} % or \setlist{noitemsep} to leave space around whole list
 \usepackage{color}
 \usepackage{verbatim}
-\usepackage{showlabels}
+% \usepackage{showlabels}
 \usepackage{adjustbox}
 \usepackage{hyperref}
 \definecolor{darkgreen}{rgb}{0.0, 0.5, 0}
@@ -102,7 +102,7 @@ differential equations (ODEs) in time,
 	M\mathbf{u}'(t) =  \mathcal{N}(\mathbf{u},t) \quad\text{in }(0,T], \quad \mathbf{u}(0) = \mathbf{u}_0,
 \end{align}
 %
-where $M$ is a mass matrix and $\mathcal{N}\in\mathbb{R}^{N\times N}$ is a discrete,
+where $M$ is a mass matrix and $\mathcal{N}:\mathbb{R}^{N}\mapsto\mathbb{R}^{N}$ is a discrete,
 time-dependent, nonlinear operator depending on $t$ and $\mathbf{u}$ (including potential
 forcing terms). Note, PDEs with an algebraic constraint, for example, the divergence-free
 constraint in Navier Stokes, instead yield a system of differential algebraic equations
@@ -173,7 +173,7 @@ iterative methods are even less likely to yield acceptable performance in solvin
 % ------------------------------------------------------------------------------------- %
 \subsection{Discontinuous Galerkin in time}\label{sec:intro:dg}
 
-For completeness, here we repeat the discussion from the companion paper \todo{cite}
+For completeness, here we repeat the discussion from the companion paper \cite{irk1}
 regarding the relation of Discontinuous Galerkin (DG) discretizations in time to IRK
 methods. After linearization, DG discretizations in time give rise to linear
 algebraic systems of the form
@@ -212,10 +212,10 @@ fixed slab-based meshes.
 % ------------------------------------------------------------------------------------- %
 \subsection{Outline}\label{sec:intro:outline}
 
-In \todo{cite}, fast parallel preconditioning techniques are developed for
+In \cite{irk1}, fast parallel preconditioning techniques are developed for
 the solution of fully implicit Runge Kutta methods and DG discretizations
 in time applied to linear numerical PDEs. This paper builds on ideas from
-\todo{cite} to address nonlinearities and DAEs. First, new ways to pose the
+\cite{irk1} to address nonlinearities and DAEs. First, new ways to pose the
 linearized problem \eqref{eq:k0} are introduced in \Cref{sec:nonlinear},
 which can be used as either a preconditioning to solve \eqref{eq:k0} exactly,
 or as a modified linearization. The new approach only requires the solution
@@ -225,7 +225,7 @@ of the simplified Newton approaches seen previously in the literature, the
 new approach can yield convergence comparable to true Newton iterations, as
 demonstrated numerically in \Cref{sec:numerics}.
 
-Although the linear IRK preconditioning developed in \todo{cite} takes
+Although the linear IRK preconditioning developed in \cite{irk1} takes
 advantage of certain properties that are not available in the nonlinear
 setting, we can use a similar framework to develop preconditioners for the
 aforementioned $2\times 2$ systems. \Cref{sec:theory} introduces block
@@ -251,15 +251,15 @@ Numerical results for nonlinear problems are then provided in
 Aside from the difficulty of solving \eqref{eq:k0} in a fast, parallel manner,
 IRK methods have a number of desirable properties in practice. For stiff PDEs,
 the observed accuracy of Runge-Kutta methods can be limited to $\approx \min\{
-p, q+1\}$ or $q$, respectively, for integration order $p$ and stage-order $q$
+p, q+1\}$, for integration order $p$ and stage-order $q$
 \cite{hairer96,kennedy16}. For index-2 DAEs, the order of accuracy is formally
-limited to that of the stage order. Diagonally implicit Runge Kutta (DIRK)
+limited to that of the stage order, $q$. Diagonally implicit Runge Kutta (DIRK)
 methods are most commonly used in practice for numerical PDEs due to ease of
 implementation, but DIRK methods have a maximum order of $p=s$ or $p=s+1$ with
 reasonable stability properties \cite[Section IV.6]{hairer96} and, moreover, are
-limited to stage-order one \cite{kennedy16}. In contrast, IRK methods can have
-order as high as $p=2s$ for $s$ stages and, moreover, can have stage-order $q =
-s$. An example of the advantages of IRK methods (in a discretization sense) for
+limited to stage-order $q=1$ \cite{kennedy16}. In contrast, IRK methods can have
+order as high as $p=2s$ for $s$ stages and stage-order $q =
+s$. The advantages of IRK methods (in a discretization sense) for
 the system of DAEs that arise in incompressible Navier Stokes can be seen in
 \cite{Sanderse.2013}. For PDEs where DIRK methods are ineffective, linear
 multistep methods, in particular BDF schemes, can offer improved accuracy and
@@ -270,8 +270,7 @@ problematic for advection-dominated flows. Multistep methods also introduce
 their own difficulties in initializing (or restarting after discontinuities)
 with high-order accuracy, due to their multistep nature \cite[Chapter
 4]{brenan1995numerical}, whereas Runge-Kutta methods naturally start with
-high-order accuracy. \todo{Mention GLM, GARK, Polynomial?}
-
+high-order accuracy.
 
 It should be noted that IRK methods are by no means new, and many papers have
 considered the efficient implementation of IRK integration in various contexts.
@@ -409,8 +408,9 @@ addresses both of these issues.
 % ------------------------------------------------------------------------------------- %
 \subsection{A preconditioning framework and stability}\label{sec:intro:stab}
 
-Similar to \cite{pazner17}\todo{cite}, methods developed in this paper appeal
-to pulling an $A_0\otimes I$ out of \eqref{eq:k0}, yielding an equivalent problem
+Similar to \cite{pazner17,irk1}, methods developed in this paper appeal
+to pulling $(A_0\otimes I)$ out of the matrix in \eqref{eq:k0}, yielding
+an equivalent problem
 %
 \begin{align}\label{eq:keq}
 \left( A_0^{-1}\otimes M - \delta t \begin{bmatrix} \mathcal{L}_1  & \\ & \ddots \\ && \mathcal{L}_s\end{bmatrix}\right)
@@ -456,10 +456,11 @@ W(\mathcal{L}) := \left\{ \langle \mathcal{L}\mathbf{x},\mathbf{x}\rangle \text{
 This motivates the following assumption for the analysis done in this paper:
 %
 \begin{assumption}\label{ass:fov}
-Let $\mathcal{L}$ be a linearized spatial operator, and assume that $W(\mathcal{L}) \leq 0$.
+Let $\mathcal{L}$ be a linearized spatial operator, and assume that $W(\mathcal{L}) \leq 0$
+(that is, $W(\mathcal{L})$ is a subset of the left half plane (including imaginary axis)).
 \end{assumption}
 %
-As discussed in \todo{cite}, note that the field of values has an additional
+As discussed in \cite{irk1}, note that the field of values has an additional
 connection to stability. From \cite[Theorem 17.1]{trefethen2005spectra}, we
 have that $\|e^{t\mathcal{L}}\|\leq 1$ for all $t\geq 0$ if and only if
 $W(\mathcal{L}) \leq 0$. This is analogous to the ``strong stability'' discussed
@@ -489,7 +490,7 @@ blocks $M^{-1}$, and define
 for $i=1,...,s$. This is not necessary, but simplifies the derivations. Note,
 such a scaling is not used when considering DAEs in \Cref{sec:dae}.
 Additionally, let $\zeta_{\pm} := \eta \pm \mathrm{i}\beta$ denote an
-eigenvalue of $A_0^{-1}$, where under \Cref{ass:eig} $\eta > 0$.
+eigenvalue of $A_0^{-1}$, where, under \Cref{ass:eig}, $\eta > 0$.
 
 % In \todo{cite}, an IRK preconditioning method is developed that can be applied on the
 % solution level, rather than solving for all stages and updating the solution
@@ -815,7 +816,7 @@ defined by $\widehat{\mathcal{L}}$ evaluated at a single time point (coefficient
 shown in bold). Moreover, not only are the off-diagonal constants
 a measure of commutivity, many of them are quite small in the first place;
 then, regardless of commutivity, ignoring such terms in the lower-triangular
-or off-diagonal blocks is a natural preconditioning.
+or off-diagonal blocks is a natural choice of preconditioning.
 
 Motivated by the above discussion, we construct {block upper triangular}
 $\widetilde{P} \approx \widehat{P}$ as Newton-like methods (or more
@@ -872,7 +873,7 @@ solving $2\times 2$ block systems along the lines of
 \end{align}
 %
 for some $\eta > 0, \phi \neq 0$, and where it is assumed that
-$W(\widehat{\mathcal{L}}_i) \leq 0$ for $i=1,2$ (see \Cref{ass:fov}). In some
+$W(\widehat{\mathcal{L}}_i) \leq 0$ for $i=1,2$ (\Cref{ass:fov}). In some
 cases (in particular, simplified Newton methods) $\widehat{\mathcal{L}}_1 =
 \widehat{\mathcal{L}}_2$, but we are also interested in the more general
 setting of $\widehat{\mathcal{L}}_1 \neq \widehat{\mathcal{L}}_2$. We will solve
@@ -1211,7 +1212,7 @@ takes the form
 & = \left[ (\eta^2+\beta^2) I - \eta (\widehat{\mathcal{L}}_1 + \widehat{\mathcal{L}}_2) +
 		\widehat{\mathcal{L}}_2\widehat{\mathcal{L}}_1 \right]
 		(\eta I- \widehat{\mathcal{L}}_1)^{-1}(\gamma I- \widehat{\mathcal{L}}_2)^{-1}
-		\label{eq:P_gamma1}
+		\nonumber
 \end{align}
 %
 Making the simplification $\cL_1 = \cL_2 = \cL$, $\mathcal{P}_\gamma$ takes the
@@ -1223,7 +1224,7 @@ simplified form
 	(\gamma I- \widehat{\mathcal{L}})^{-1}.
 \end{align}
 %
-The following theorem (restated from \todo{cite linear paper}) tightly bounds
+The following theorem (restated from \cite[Th. 5]{irk1}) tightly bounds
 the condition number of a slightly more general operator than the preconditioned
 Schur complement \eqref{eq:P_gamma2}, and proves the optimality of a certain
 $\gamma_* \in (0,
@@ -1232,15 +1233,18 @@ number of \eqref{eq:P_gamma2} for the optimal choice of $\gamma = \gamma_*$.
 %
 Although the resulting conditioning here is slightly worse than can be achieved with the
 method designed specifically for linear PDEs, \Cref{tab:cond} shows that
-for 8th--10th-order integration, at worst the preconditioned Schur complement
+for up to 10th-order integration, at worst the preconditioned Schur complement
 has condition number on the order of 2--3.
 
-\begin{theorem}[Optimal preconditioning, $\cL_1 = \cL_2$. \todo{cite Theorem in linear paper.}]\label{th:cond_L1=L2}
+% \begin{theorem}[Optimal preconditioning, $\cL_1 = \cL_2$ \cite[Th. 5]{irk1}]
+\begin{theorem}[Optimal preconditioning, $\cL_1 = \cL_2$ \cite{irk1}]
+\label{th:cond_L1=L2}
 Let $\cL$ be real-valued and suppose \Cref{ass:eig,ass:fov} hold,
 that is, $\eta > 0$ and $W(\cL) \leq 0$. Let $\mathcal{P}_{\delta,\gamma}$ denote
 the preconditioned operator,
 \begin{align} \label{eq:P_gen}
-{\cal P}_{\delta, \gamma} \coloneqq (\delta I - \cL)^{-1} (\gamma I - \cL)^{-1} [(\eta I  - \cL)^2 + \beta^2 I] , \quad \delta, \gamma \in (0, \infty),
+{\cal P}_{\delta, \gamma} \coloneqq [(\eta I  - \cL)^2 + \beta^2 I]
+	(\delta I - \cL)^{-1} (\gamma I - \cL)^{-1}, \quad \delta, \gamma \in (0, \infty),
 \end{align}
 in which $[(\eta I  - \cL)^2 + \beta^2 I]$ is preconditioned with $(\delta I - \cL)^{-1} (\gamma I - \cL)^{-1}$.
 %
@@ -1255,7 +1259,7 @@ Then
 \end{align}
 
 Moreover, (i) bound \eqref{eq:kappa_gen_gamma*_bound} is tight in the sense that $\exists$ $\cL$
-that satisfy \eqref{eq:kappa_gen_gamma*_bound} exactly, and (ii) $\gamma = \gamma_*$ is optimal
+such that \eqref{eq:kappa_gen_gamma*_bound} holds with equality, and (ii) $\gamma = \gamma_*$ is optimal
 in the sense that, without further assumptions on $\cL$, $\gamma_*$ minimizes a tight
 upper bound on $\kappa({\cal P}_{\delta, \gamma})$ over all $\gamma \in (0, \infty)$.
 \end{theorem}
@@ -1322,7 +1326,7 @@ when $\gamma = \gamma_*$, for $\gamma_*$ given by \eqref{eq:gamma*}, which is
 perhaps unsurprising given \Cref{col:cond_L1=L2}. At the minimum $\gamma =
 \gamma_*$, the tight bound for the SPND case is
 \begin{align*}
-\kappa({\cal P}_{\gamma*}) \leq \frac{1}{2} \left( 1 + \sqrt{1 + \frac{\beta^2}{\eta^2}} \right),
+\kappa({\cal P}_{\gamma*}) \leq \frac{1}{2} \left( 1 + \sqrt{1 + \beta^2/\eta^2} \right),
 \end{align*}
 and for the SS case it is equal to that in \eqref{eq:kappa_gamma*_L1=L2}, due
 to the general bound  of \eqref{eq:kappa_gamma*_L1=L2} achieving equality for a
@@ -1355,8 +1359,8 @@ Rather, for bounds in \Cref{th:cond} to hold, a more accurate assumption is
 simply that $\cL_1$ and $\cL_2$ are not fundamentally different operators.
 Also, considering right preconditioning is a theoretical tool to facilitate
 the proof of \Cref{th:cond}, but \tcb{numerical results demonstrate effective
-left or right preconditioning.} Under these additional assumptions, \Cref{th:cond}
-proves the condition number of the preconditioned Schur complement for
+left or right preconditioning.} Under this additional assumption, \Cref{th:cond}
+proves that the condition number of the preconditioned Schur complement for
 $\cL_1 \neq \cL_2$ is at most $2\times$ larger than as proven for
 $\cL_1 = \cL_2$ in \Cref{col:cond_L1=L2}. By \Cref{tab:cond}, it is clear the
 conditioning is still $\mathcal{O}(1)$, even for 10th-order integration.
@@ -1364,7 +1368,7 @@ conditioning is still $\mathcal{O}(1)$, even for 10th-order integration.
 %
 \begin{theorem}[Conditioning of preconditioned operator]\label{th:cond}
 Suppose Assumptions \ref{ass:eig} and \ref{ass:fov} hold, that is, $\eta > 0$
-and $W(\widehat{\mathcal{L}}_1),W(\widehat{\mathcal{L}}_2) \leq 0$ \eqref{eq:fov}.
+and $W(\widehat{\mathcal{L}}_1),W(\widehat{\mathcal{L}}_2) \leq 0$.
 Additionally, assume that $\langle\widehat{\mathcal{L}}_1\mathbf{w},
 \widehat{\mathcal{L}}_2\mathbf{w}\rangle\geq 0$. Let $\mathcal{P}_\gamma$
 denote the right-preconditioned Schur complement \eqref{eq:P_gamma}, with
@@ -1377,7 +1381,7 @@ Then
 \end{align}
 \end{theorem}
 \begin{proof}
-As in \todo{cite proof of theorem in linear paper}, the square of the condition number of ${\cal P}_{\gamma}$
+As in \cite[Th. 5]{irk1}, the square of the condition number of ${\cal P}_{\gamma}$
 is given by
 %
 \begin{align}
@@ -1411,15 +1415,29 @@ First, consider bounding $\|\mathcal{P}_\gamma\|$ for $\gamma \geq \eta$. Expand
 		\frac{\beta^2}{\gamma\eta}\label{eq:Pgn}.
 \end{align}
 %
-For the first term, note that maximizing over $\mathbf{v}\in\mathbb{R}^n$ and
-letting $\mathbf{v} \mapsto (I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2)\mathbf{w}$,
+The last inequality follows by noting 
+%
+\begin{align*}
+\sup_{\mathbf{v}\neq\mathbf{0}} \frac{\|( I- \tfrac{1}{\gamma}
+	\widehat{\mathcal{L}}_2)^{-1}\mathbf{v}\|^2}{\|\mathbf{v}\|^2}
+& = \sup_{\mathbf{w}\neq\mathbf{0}} \frac{\|\mathbf{w}\|^2}{\|( I- \tfrac{1}{\gamma}
+	\widehat{\mathcal{L}}_2)\mathbf{w}\|^2} \\
+&\hspace{-5ex}= \sup_{\mathbf{w}\neq\mathbf{0}} \frac{\|\mathbf{w}\|^2}{{\|\mathbf{w}\|^2 -
+	\tfrac{2}{\gamma} \langle \widehat{\mathcal{L}}_2
+	\mathbf{w},\mathbf{w}\rangle + \tfrac{1}{\gamma^2}\|\widehat{\mathcal{L}}_2\mathbf{w}\|^2}}
+\leq 1,
+\end{align*}
+%
+because all terms in the denominator are nonnegative. For the first term in
+\eqref{eq:Pgn}, note that maximizing over $\mathbf{v}\in\mathbb{R}^n$ and
+letting $\mathbf{v} \mapsto (\gamma I - \widehat{\mathcal{L}}_2)\mathbf{w}$,
 %
 \begin{align*}
 \left\| I - (\gamma-\eta)(\gamma I - \widehat{\mathcal{L}}_2)^{-1}\right\|^2
 % & = \sup_{\mathbf{v}\neq\mathbf{0}} \frac{\left\| [I - (\gamma-\eta)
 % 	(\gamma I - \widehat{\mathcal{L}}_2)^{-1}]\mathbf{v}\right\|^2}{\|\mathbf{v}\|^2}  \\
-& = \sup_{\mathbf{w}\neq\mathbf{0}} \frac{\left\| (\gamma I - \widehat{\mathcal{L}}_2 -
-		(\gamma-\eta)I )\mathbf{w}\right\|^2}{\|(\gamma I - \widehat{\mathcal{L}}_2)
+& = \sup_{\mathbf{w}\neq\mathbf{0}} \frac{\| (\gamma I - \widehat{\mathcal{L}}_2 -
+		(\gamma-\eta)I )\mathbf{w}\|^2}{\|(\gamma I - \widehat{\mathcal{L}}_2)
 		\mathbf{w}\|^2} \\
 % & = \sup_{\mathbf{w}\neq\mathbf{0}} \frac{\left\|[(1 - 2\frac{\gamma-\eta}{\gamma})
 % 	I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2]\mathbf{w}\right\|^2}{\|(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}_2)
@@ -1472,13 +1490,13 @@ s_{\min}(\mathcal{P}_\gamma)^2
 & = \min_{\mathbf{w}\neq\mathbf{0}}
 	\frac{\left\| \left[(\gamma I- \widehat{\mathcal{L}}_2)(\eta I- \widehat{\mathcal{L}}_1)
 		+ (\gamma-\eta)\widehat{\mathcal{L}}_1 +
-		(\beta^2+\eta^2 - \gamma\eta) I\right]\mathbf{w} \right\|^2}
+		(\eta^2+\beta^2 - \gamma\eta) I\right]\mathbf{w} \right\|^2}
 	{\|(\gamma I- \widehat{\mathcal{L}}_2)(\eta I- \widehat{\mathcal{L}}_1)\mathbf{w}\|^2}.
 	\nonumber
 \end{align}
 %
 Here, we make the strategic choice of $\gamma$ such that the identity perturbation
-$(\beta^2+\eta^2 - \gamma\eta) I = \mathbf{0}$, given by $\gamma_*
+$(\eta^2+\beta^2 - \gamma\eta) I = \mathbf{0}$, given by $\gamma_*
 := \tfrac{\eta^2+\beta^2}{\eta}$ \eqref{eq:gamma*_gen}. Expanding,
 %
 {\small
@@ -1504,10 +1522,10 @@ s_{\min}(\mathcal{P}_{\gamma_*})^2 =
 \end{align}
 }
 %
-Expanding the numerator term, we have
+Expanding the numerator in \eqref{eq:gen_smin} yields
 {\small
 \begin{align}\nonumber
-& -2\left\langle(\gamma_* I- \widehat{\mathcal{L}}_2)(\eta I- \widehat{\mathcal{L}}_1)\mathbf{w},
+& \hspace{-5ex}-2\left\langle(\gamma_* I- \widehat{\mathcal{L}}_2)(\eta I- \widehat{\mathcal{L}}_1)\mathbf{w},
 		\widehat{\mathcal{L}}_1\mathbf{w} \right\rangle-
 		\frac{\beta^2}{\eta}\left\|\widehat{\mathcal{L}}_1\mathbf{w} \right\|^2 \\
 & = \left(2\gamma_* - \frac{\beta^2}{\eta}\right)
@@ -1570,12 +1588,12 @@ and denominator \eqref{eq:den_gen}. Moreover, by assumption
 $\langle\widehat{\mathcal{L}}_1\mathbf{w},\widehat{\mathcal{L}}_2\mathbf{w}\rangle\geq 0$,
 and thus all terms in \eqref{eq:num_gen} and \eqref{eq:den_gen} are non-negative.
 Returning to the minimum singular value defined in \eqref{eq:gen_smin} and plugging in
-the numerator \eqref{eq:num_gen} and denominator bounds \eqref{eq:den_gen}, we appeal to
-a similar technique as in the proof of \todo{cite theorem in linear paper}, wherein we consider the maximum
-ratio between matching numerator and denominator terms:
+the numerator \eqref{eq:num_gen} and denominator bounds \eqref{eq:den_gen}, we can
+bound the total ratio by considering the maximum ratio between matching numerator
+and denominator terms:
 %
 {\small
-\begin{align}\label{eq:max_bound0}
+\begin{align}\nonumber
 &\max_{\mathbf{w}\neq\mathbf{0}}
 	\frac{-2\left\langle(\gamma_* I- \widehat{\mathcal{L}}_2)(\eta I- \widehat{\mathcal{L}}_1)\mathbf{w},
 		\widehat{\mathcal{L}}_1\mathbf{w} \right\rangle-
@@ -1595,7 +1613,7 @@ ratio between matching numerator and denominator terms:
 	+ 2\gamma_*\eta\langle\widehat{\mathcal{L}}_1\mathbf{w},\widehat{\mathcal{L}}_2\mathbf{w}\rangle}
 	\nonumber\\
 & \leq \max \left\{ \frac{\eta(2\eta^2+\beta^2)}{(\eta^2+\beta^2)^2}, \frac{\eta}{\eta^2+\beta^2},
-	\frac{\eta}{\eta^2+\beta^2}, \frac{\eta}{\eta^2+\beta^2}\right\} \\
+	\frac{\eta}{\eta^2+\beta^2}, \frac{\eta}{\eta^2+\beta^2}\right\} \nonumber \\
 & = \frac{\eta(2\eta^2+\beta^2)}{(\eta^2+\beta^2)^2}.\label{eq:max_bound}
 % & = \frac{2\eta^2 + \beta^2}{\eta^2+\beta^2}.
 \end{align}
@@ -1632,7 +1650,7 @@ This section considers differential algebraic equations (DAEs) that result from
 the spatial discretization of a time-dependent PDE with a spatial constraint.
 DAEs account for many interesting physical problems, with obvious examples
 including the many variations in incompressible flow that arise in fluid
-dynamics and plasma simulations. Special treatment is also required for
+dynamics and plasma physics. Special treatment is also required for
 the time integration of DAEs, and this section discusses how to extend
 methods developed in this paper to DAEs.
 
@@ -1658,7 +1676,7 @@ Time propagation using Runge-Kutta integration then takes a similar form to
 %
 and stage vectors $\{\mathbf{k}_i\}$ and $\{\boldsymbol{\ell}_i\}$ are
 given as the solution of the nonlinear set of equations
-\todo{reference}
+\cite[Ch. 4]{brenan1995numerical}
 %
 \begin{align}\label{eq:dae_stage}
 \begin{split}
@@ -1673,7 +1691,7 @@ given as the solution of the nonlinear set of equations
 \end{align}
 %
 
-\textbf{The linear case:} As an initial example, consider a
+\textbf{The linear case:} To start, consider a
 linear set of DAEs, where \eqref{eq:dae} can be expressed as the linear set of
 equations
 %
@@ -1762,7 +1780,8 @@ usually updated each iteration to reflect the latest nonlinear iterate.
 Now, techniques developed in \Cref{sec:nonlinear} can be applied to solve
 or approximate \eqref{eq:daestage_nonlin} as a single step in the larger
 nonlinear iteration to solve \eqref{eq:dae_stage}. For DAEs, the $2\times 2$
-block systems discussed in \Cref{sec:theory} are now $4\times 4$ systems of
+block systems that arise after applying the real Schur decomposition (as
+discussed in \Cref{sec:theory}) are now $4\times 4$ systems of
 the form
 %
 \begin{align}\label{eq:dae_block}
@@ -1777,7 +1796,7 @@ the form
 	\begin{bmatrix} \mathbf{k}_1 \\ \boldsymbol{\ell}_1 \\
 		 \mathbf{k}_2 \\ \boldsymbol{\ell}_2 \end{bmatrix}
 	= 	\begin{bmatrix} \mathbf{f}_1 \\ \mathbf{g}_1 \\
-		 \mathbf{f}_2 \\ \mathbf{g}_2 \end{bmatrix}
+		 \mathbf{f}_2 \\ \mathbf{g}_2 \end{bmatrix}.
 \end{align}
 %
 If we form a $2\times 2$ Schur complement by eliminating the leading
