@@ -952,9 +952,12 @@ Moreover, in the final part of this proof we demonstrate that
 $\gamma = \gamma_*$ is optimal, and, as such, moving forward we
 only consider the case $\gamma = \gamma_*$.
 
-Letting $\gamma = \gamma_* \coloneqq (\eta^2 + \beta^2)/\delta$, from \eqref{eq:f_c_gen_def} one has $c_0 = 1 > c_1 = c_2
-= \sqrt{c_3} = 2 \eta/(\delta + \gamma_*)$, where the inequality $1 > 2 \eta/(\delta + \gamma_*)$ follows from the arithmetic-mean-geometric-mean inequality applied to $\delta$ and $\gamma_*$, for $\beta \neq 0$. Thus, for $\gamma = \gamma_*$, the bounds in \eqref{eq:P_gen_bounds}
-are given by
+Letting $\gamma = \gamma_* \coloneqq (\eta^2 + \beta^2)/\delta$, from
+\eqref{eq:f_c_gen_def} one has $c_0 = 1 \geq c_1 = c_2 = \sqrt{c_3} = 2
+\eta/(\delta + \gamma_*)$, where the inequality $1 \geq 2 \eta/(\delta +
+\gamma_*)$ follows by noting the equivalent relation $\delta^2
+-2\eta\delta+\eta^2+\beta^2 \geq 0$ for all $\eta,\delta>0$. Thus, for $\gamma =
+\gamma_*$, the bounds in \eqref{eq:P_gen_bounds} are given by
 \begin{align}
 \label{eq:P_gen_gamma*_bounds}
 \Vert {\cal P}_{\delta,\gamma_*} \Vert \leq 1,
@@ -1104,14 +1107,6 @@ From \Cref{th:cond}, a tight upper bound on the condition number of ${\cal P}_{\
 
 \Cref{tab:cond} provides condition number bounds from \Cref{cor:cond} and
 \eqref{eq:kappa_gamma*} for Gauss, Radau IIA, and Lobatto IIIC Runge-Kutta methods.
-It is worth pointing out that numerical tests indicate using the modified constant
-$\gamma_*$ as opposed to $\eta$ is particularly important for hyperbolic-type
-problems. Indeed, one example in \Cref{sec:numerics:dg} demonstrates an almost
-$6\times$ reduction in iteration count achieved by using $\gamma_*$ instead of
-$\eta$. For parabolic/diffusive problems we have explored, $\gamma_*$ has offered
-a much more modest improvement over $\eta$. Nevertheless, $\mathcal{P}_{\gamma_*}$
-has performed better than $\mathcal{P}_{\eta}$ for all problems we have tested,
-and is the recommended preconditioner in practice. 
 {
 % \renewcommand{\tabcolsep}{4pt}
 \renewcommand{\arraystretch}{1.15}
@@ -1142,6 +1137,25 @@ Lobatto IIIC & 1.41 & 1.00 & 1.79 & 2.12 & 1.06 & 1.00 & 2.42 & 1.17 \\\hline
 % bn = [0.33 , 0 , 0.91 , 1.59 , 0.09 , 0 , 2.36 , 0.27; 0.50 , 0 , 1.29 , 2.21 , 0.11 , 0 , 3.20 , 0.32; 1 , 0 , 2.21 , 3.51 , 0.13 , 0 , 4.88 , 0.38];
 \vspace{-3ex}
 }
+
+In the proof of \Cref{th:cond}, $\gamma_*$ provides a delicate cancellation, and
+we have been unable to complete a general proof for $\gamma\neq\gamma_*$ without
+further assumptions, such as $W(\cL^2)\geq 0$. For the specific case of $\delta=
+\gamma=\eta$, one can derive a tight bound of $1+\beta^2/\eta^2$ for SPD
+operators and $\approx (1 + \beta^2/\eta^2)^{3/2}$ for skew symmetric operators
+(by appealling to normality). Numerical tests indicate using the modified
+constant $\gamma_*$ as opposed to $\eta$ is particularly important for
+hyperbolic-type problems. Indeed, one example in \Cref{sec:numerics:dg}
+demonstrates an almost $6\times$ reduction in iteration count achieved by using
+$\gamma_*$ instead of $\eta$, whereas $\gamma_*$ has offered a much more modest
+improvement over $\eta$ for parabolic/diffusive problems we have explored. It is
+unclear if perhaps an $\mathcal{O}(1)$ bound on condition number does not hold
+for general nonsymmetric operators with $\delta=\gamma=\eta$, or if the simple
+increase in condition number from $\approx 1+\beta^2/\eta^2 \mapsto
+(1+\beta^2/\eta^2)^{3/2}$ is enough to cause a significant degradation in
+convergence. In any case, $\mathcal{P}_{\gamma_*}$ has performed better than
+$\mathcal{P}_{\eta}$ for all problems we have tested, and is the recommended
+preconditioner in practice. 
 
 \begin{remark}[Mass matrices]
 Recall in the finite element context where mass matrices are involved, we defined
@@ -1576,8 +1590,8 @@ outer iteration, which allows for GMRES to be applied in an inner iteration
 as a preconditioner for $(\gamma_* M - \delta t \mathcal{L})$. \Cref{fig:dg_o2} plots the
 total number of AIR iterations per time step as a function of the number of
 AIR iterations applied for each application of the preconditioner, using an
-inner GMRES or an inner fixed-point iteration. An advection-dominated problem
-with $\varepsilon = 10^{-6}$ is also shown for comparison.
+inner GMRES or an inner fixed-point (Richardson) iteration. An advection-dominated
+problem with $\varepsilon = 10^{-6}$ is also shown for comparison.
 
 Recall we have three stages, one of which is a single linear system corresponding
 to a real eigenvalue, and the other corresponding to a pair of complex conjugate
