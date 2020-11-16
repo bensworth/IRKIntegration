@@ -270,7 +270,13 @@ problematic for advection-dominated flows. Multistep methods also introduce
 their own difficulties in initializing (or restarting after discontinuities)
 with high-order accuracy, due to their multistep nature \cite[Chapter
 4]{brenan1995numerical}, whereas Runge-Kutta methods naturally start with
-high-order accuracy.
+high-order accuracy. Furthermore, neither linear multistep nor explicit
+Runge Kutta methods can be symplectic \cite{Hairer.2002}. Although DIRK methods
+can be symplectic, they are limited to at most 4th order and, moreover, known
+methods above second order are impractical due to negative diagonal entries
+of $A_0$ (leading to a negative shift rather than positive shift of the spatial
+discretization) \cite{kennedy16}. Thus, even moderate order symplectic
+integration requires IRK methods.
 
 It should be noted that IRK methods are by no means new, and many papers have
 considered the efficient implementation of IRK integration in various contexts.

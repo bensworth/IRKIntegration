@@ -293,7 +293,14 @@ IV.6]{hairer96}. Multistep methods can overcome some of the accuracy
 constraints of SDIRK methods, but implicit multistep methods cannot be
 A-stable and greater than order two, which is limiting when considering
 advection-dominated or hyperbolic problems, where the field-of-values often
-push up against the imaginary axis.
+push up against the imaginary axis. Furthermore, for problems where symplectic
+integration is desirable for conservation, neither linear multistep nor explicit
+Runge Kutta methods can be symplectic \cite{Hairer.2002}. Although DIRK methods
+can be symplectic, they are limited to at most 4th order and, moreover, known
+methods above second order are impractical due to negative diagonal entries
+of $A_0$ (leading to a negative shift rather than positive shift of the spatial
+discretization) \cite{kennedy16}. Thus, even moderate order symplectic
+integration requires IRK methods.
 
 One simplification for using IRK methods is to assume $\mathcal{L}_i =
 \mathcal{L}_j$ for all $i,j$, in which case \eqref{eq:k0} can be expressed in
@@ -1143,7 +1150,7 @@ we have been unable to complete a general proof for $\gamma\neq\gamma_*$ without
 further assumptions, such as $W(\cL^2)\geq 0$. For the specific case of $\delta=
 \gamma=\eta$, one can derive a tight bound of $1+\beta^2/\eta^2$ for SPD
 operators and $\approx (1 + \beta^2/\eta^2)^{3/2}$ for skew symmetric operators
-(by appealling to normality). Numerical tests indicate using the modified
+(by appealing to normality). Numerical tests indicate using the modified
 constant $\gamma_*$ as opposed to $\eta$ is particularly important for
 hyperbolic-type problems. Indeed, one example in \Cref{sec:numerics:dg}
 demonstrates an almost $6\times$ reduction in iteration count achieved by using
