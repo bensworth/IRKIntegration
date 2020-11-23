@@ -2004,7 +2004,7 @@ The DG finite element space is chosen to use piecewise polynomials of degree 4.
 
 We first verify the temporal order of accuracy by fixing the spatial discretization  computing a baseline solution using an explicit fourth-order Runge--Kutta method with $\Delta t = 5\times 10^{-5}$.
 Then, the solutions computed using the implicit Runge--Kutta methods are compared to the baseline solution to estimate the observed order of convergence for these problems.
-The resoluts are presented in Table \ref{tab:ev-errors}.
+The results are presented in Table \ref{tab:ev-errors}.
 The expected rates of convergence are observed for Gauss, Radau, and Lobatto methods, of orders 2 through 7.
 
 \begin{table}
@@ -2101,7 +2101,7 @@ Although this assumption does not hold in this case because the equations are fu
 	\caption{Snapshot of vorticity for Reynolds 40{,}000 flow over NACA airfoil.}
 \end{figure}
 
-As a more challening test case, we consider the Reynolds number 40{,}000 flow over a NACA0012 airfoil.
+As a more challenging test case, we consider the Reynolds number 40{,}000 flow over a NACA0012 airfoil.
 The angle of attack is $30^\circ$ and the farfield Mach number is $0.1$.
 The domain is discretized using a triangular mesh with 3154 elements, and the spatial discretization is a high-order discontinuous Galerkin method using compact stencils for the second order (viscous) terms with polynomial degree $p=3$.
 No-slip boundary conditions are enforced at the surface of the airfoil, and farfield boundary conditions at all other domain boundaries.
@@ -2123,7 +2123,7 @@ The equations are given by
 \end{align}
 where the velocity $\bm u$ is defined by $\bm u = \nabla^\perp \psi$, for $\nabla^\perp = (-\partial_y, \partial_x)$.
 Here, $\omega$ is the vorticity, and $\psi$ is a scalar field known as the streamfunction, which is used to naturally enforce the divergence-free condition on the velocity.
-Note that this formulation can be easily extended to the 2D incomressible Navier--Stokes equations with the addition of a viscosity term.
+Note that this formulation can be easily extended to the 2D incompressible Navier--Stokes equations with the addition of a viscosity term.
 Equation \eqref{eq:ins-1} is essentially a scalar advection equation for $\omega$, which we discretize using an upwind discontinuous Galerkin method.
 If the streamfunction $\psi$ is in $H^1$, then the velocity $\bm u = \nabla^\perp \psi$ is automatically continuous across element interfaces, and therefore the standard upwind flux is well-defined.
 We therefore discretize \eqref{eq:ins-2} using a standard $H^1$-conforming finite element method.
@@ -2140,7 +2140,7 @@ After performing the discretization, this system of equations can be written as
 where $M_{\rm dg}$ represents the DG mass matrix, $M_{\rm mix}$ is the mixed DG-$H^1$ mass matrix, $K(\psi)$ is the discretized advection operator (depending the velocity $\bm u$ as a function of $\psi$), and $A$ is the $H^1$-conforming diffusion operator.
 A Picard linearization of \eqref{eq:ins-system} will result in a block-triangular system that is of the same form as \eqref{eq:ins-system}, but using an iteratively lagged advection operator.
 In the notation of \Cref{sec:dae}, we have $\mathcal{L}_u^{(i)} = K(\psi^{(i)})$, $\mathcal{L}_w = 0$, $\mathcal{G}_u = M_{\rm mix}$, and $\mathcal{G}_w = A$.
-Therefore, the $4\times4$ block system \eqref{eq:dae_block} that arises from IRK integration can be rearragned to be written as
+Therefore, the $4\times4$ block system \eqref{eq:dae_block} that arises from IRK integration can be rearranged to be written as
 \begin{align}
 \begin{bmatrix}
 	\eta M - \delta t\mathcal{L}_{u}^{(1)} & \phi M & \mathbf{0} & \mathbf{0} \\
