@@ -1421,7 +1421,7 @@ First, consider bounding $\|\mathcal{P}_\gamma\|$ for $\gamma \geq \eta$. Expand
 		\frac{\beta^2}{\gamma\eta}\label{eq:Pgn}.
 \end{align}
 %
-The last inequality follows by noting 
+The last inequality follows by noting
 %
 \begin{align*}
 \sup_{\mathbf{v}\neq\mathbf{0}} \frac{\|( I- \tfrac{1}{\gamma}
@@ -1938,7 +1938,7 @@ representing time-dependent variables ($\mathbf{k}_1$ and $\mathbf{k}_2$).
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
-\subsection{Compressible Navier--Stokes equations}\label{sec:numerics:ns}
+\subsection{Compressible Euler and Navier--Stokes equations}\label{sec:numerics:ns}
 
 Consider the compressible Navier--Stokes equations, given by
 \begin{align}
@@ -1972,10 +1972,11 @@ We obtain the compressible Euler equations from equations (\ref{eq:ns-1}--\ref{e
 For the viscous problems, we introduce an additional isentropic assumption of the form $p = K \rho^\gamma,$ for a given constant $K$.
 This simplification is described in \cite{Kanner2015} and results in a reduced system of equtions.
 
+\subsubsection{Isentropic Euler vortex}
 For a first test case, we consider the model problem of an inviscid isentropic vortex \cite{Shu1998,Wang2013}.
 The spatial domain is $\Omega = [0,20] \times [-7.5,7.5]$.
 The vortex, initially centered at $(x_0, y_0)$, is advected with the freestream velocity at an angle of $\theta$.
-This problem is useful for measuring the accuracy of the temporal integration methods because the exact solution is given analytically by
+The exact solution for this problem is given analytically by
 \begin{gather}
 \label{eq:ev-exact-1}
    u = u_\infty \left( \cos(\theta) - \frac{\epsilon ((y-y_0)
@@ -1997,41 +1998,19 @@ This problem is useful for measuring the accuracy of the temporal integration me
 In the above, $f(x,y,t) = (1 - ((x-x_0) - \overline{u}t)^2 - ((y-y_0) - \overline{v}t)^2)/r_c^2$, and $M_\infty, \rho_\infty,$ and $p_\infty$ are the freestream Mach number, density, and pressure, respectively.
 The freestream velocity is given by $(\overline{u},\overline{v}) = u_\infty (\cos(\theta), \sin(\theta))$.
 The parameters for this test case are given by $\epsilon = 15$, $r_c = 1.5$, $M_0 = 0.5$, $\theta = \arctan(1/2)$.
+We discretize this problem using a high-order discontinuous Galerkin method with Roe numerical fluxes.
+The spatial domain is discretized with a structured triangular mesh with 532 elements.
+The DG finite element space is chosen to use piecewise polynomials of degree 4.
 
-\begin{table}
-	\centering
-	\caption{Convergence results for Euler vortex test case. Average Krylov iterations are shown for $2 \times 2$ systems.}
-	\begin{tabular}{r|cccc|cccc|cccc}
-		\toprule
-		& \multicolumn{4}{c}{Gauss} & \multicolumn{4}{c}{Radau} & \multicolumn{4}{c}{Lobatto}\\
-		Order & 4 & 6 & 8 & 10 & 3 & 5 & 7 & 9 & 2 & 4 & 6 & 8 \\
-		\midrule
-		Newton its. & 3 & 5 & 5 & 5 & 3 & 5 & 5 & 5 & 3 & 8 & 5 & 6 \\
-		\midrule
-		\makecell[r]{Krylov its.\\($\gamma = \eta$)}
-		& 7.7 & 12.6 & 12.5 & 14.9 & 9.0 & 16.8 & 15.5 & 20.6 & 13.7 & 24.4 & 25.3 & 35.2 \\[12pt]
-		\makecell[r]{Krylov its.\\($\gamma = \eta + \beta^2/\eta$)}
-		& 6.0 & 8.4 & 8.1 & 7.6 & 7.3 & 10.2 & 8.4 & 9.3 & 11.0 & 12.0 & 10.5 & 11.2 \\
-		\bottomrule
-	\end{tabular}
-
-	\vspace{\floatsep}
-	\caption{Newton and GMRES iterations for SDIRK methods.}
-	\begin{tabular}{r|cccc}
-		\toprule
-		& \multicolumn{4}{c}{DIRK}\\
-		Order & 1 & 2 & 3 & 4\\
-		\midrule
-		Newton its. & 3 & 3 & 3 & 3\\
-		\midrule
-		Krylov its. & 6.7 & 4.3 & 5 & 4\\
-		\bottomrule
-	\end{tabular}
-\end{table}
+We first verify the temporal order of accuracy by fixing the spatial discretization  computing a baseline solution using an explicit fourth-order Runge--Kutta method with $\Delta t = 5\times 10^{-5}$.
+Then, the solutions computed using the implicit Runge--Kutta methods are compared to the baseline solution to estimate the observed order of convergence for these problems.
+The resoluts are presented in Table \ref{tab:ev-errors}.
+The expected rates of convergence are observed for Gauss, Radau, and Lobatto methods, of orders 2 through 7.
 
 \begin{table}
 	\centering
 	\caption{Error and convergence rates for Euler vortex problem}
+	\label{tab:ev-errors}
 	\begin{tabular}{r|cccccc}
 		\toprule
 		& \multicolumn{2}{c}{Gauss 2} & \multicolumn{2}{c}{Gauss 4} & \multicolumn{2}{c}{Gauss 6}\\
@@ -2054,109 +2033,227 @@ The parameters for this test case are given by $\epsilon = 15$, $r_c = 1.5$, $M_
 	\end{tabular}
 \end{table}
 
+We next study the effectiveness of the solvers and preconditioners for the resulting algebraic systems of equations.
+We make use of an element-wise block ILU preconditioner with minimum discarded fill ordering that has been shown to be effective for convection-dominated fluid problems \cite{Persson2008}.
+In Table \ref{tab:ev-solvers}, we present the number of nonlinear iterations required to converge with a representative time step of $\Delta t = 2 \times 10^{-2}$, together with the total number of Krylov iterations in one step.
+We note that the second- and fourth-order Gauss methods require fewer total Krylov iterations when compared with the equal-order SDIRK methods.
+Similarly, the third-order Radau IIA method requires one fewer Krylov iteration when compared with the third-order SDIRK method.
+The Lobatto methods are significantly more expensive than the equal-order Gauss methods for this test case.
+
+\begin{table}
+	\centering
+	\caption{Convergence results for Euler vortex test case, showing Newton iterations required for a single time step with $\Delta t = 2\times10^{-2}$, and total Krylov iterations per time step.}
+	\label{tab:ev-solvers}
+	\begin{tabular}{r|cccc|ccccc}
+		\toprule
+		& \multicolumn{4}{c}{SDIRK} & \multicolumn{5}{c}{Gauss} \\
+		Order  & 1 & 2 & 3 & 4 & 2 & 4 & 6 & 8 & 10\\
+		\midrule
+		Newton its. & 3 & 3 & 3 & 3 & 3 & 3 & 5 & 5 & 5\\
+		\midrule
+		Total Krylov its. & 20 & 26 & 45 & 59 & 15 & 36 & 103 & 162 & 169\\
+		\bottomrule
+	\end{tabular}
+
+	\vspace{\floatsep}
+
+	\begin{tabular}{r|cccc|cccc}
+		\toprule
+		& \multicolumn{4}{c}{Radau} & \multicolumn{4}{c}{Lobatto} \\
+		Order  & 3 & 5 & 7 & 9 & 2 & 4 & 6 & 8\\
+		\midrule
+		Newton its. & 3 & 5 & 5 & 5 & 3 & 8 & 5 & 6\\
+		\midrule
+		Total Krylov its. & 44 & 121 & 168 & 205 & 66 & 225 & 210 & 292\\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+Finally, we study the effect of the choice of the coefficient $\gamma$.
+We compare the naive choice of $\gamma = \eta$ to the improved choice of $\gamma = \gamma_*$, where $\gamma_*$ is as in \Cref{th:cond_L1=L2}.
+This choice is shown to be optimal in the case where $\cL_1 = \cL_2$.
+Although this assumption does not hold in this case because the equations are fully nonlinear, we still observe significantly improved iteration counts with this choice of $\gamma$.
+
+\begin{table}
+	\centering
+	\caption{Convergence results for Euler vortex test case. Average Krylov iterations are shown for $2 \times 2$ systems.}
+	\begin{tabular}{r|cccc|cccc|cccc}
+		\toprule
+		& \multicolumn{4}{c}{Gauss} & \multicolumn{4}{c}{Radau} & \multicolumn{4}{c}{Lobatto}\\
+		Order & 4 & 6 & 8 & 10 & 3 & 5 & 7 & 9 & 2 & 4 & 6 & 8 \\
+		\midrule
+		Newton its. & 3 & 5 & 5 & 5 & 3 & 5 & 5 & 5 & 3 & 8 & 5 & 6 \\
+		\midrule
+		\makecell[r]{Krylov its.\\($\gamma = \eta$)}
+		& 7.7 & 12.6 & 12.5 & 14.9 & 9.0 & 16.8 & 15.5 & 20.6 & 13.7 & 24.4 & 25.3 & 35.2 \\[12pt]
+		\makecell[r]{Krylov its.\\($\gamma = \eta + \beta^2/\eta$)}
+		& 6.0 & 8.4 & 8.1 & 7.6 & 7.3 & 10.2 & 8.4 & 9.3 & 11.0 & 12.0 & 10.5 & 11.2 \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\subsubsection{Flow over NACA airfoil}
+
+\begin{figure}
+	\centering
+	\setlength{\fboxsep}{0pt}
+	\fbox{\includegraphics[width=3in]{figures/naca_vorticity}}
+	\caption{Snapshot of vorticity for Reynolds 40{,}000 flow over NACA airfoil.}
+\end{figure}
+
+As a more challening test case, we consider the Reynolds number 40{,}000 flow over a NACA0012 airfoil.
+The angle of attack is $30^\circ$ and the farfield Mach number is $0.1$.
+The domain is discretized using a triangular mesh with 3154 elements, and the spatial discretization is a high-order discontinuous Galerkin method using compact stencils for the second order (viscous) terms with polynomial degree $p=3$.
+No-slip boundary conditions are enforced at the surface of the airfoil, and farfield boundary conditions at all other domain boundaries.
+The main challenge associated with this problem is the resolution of the thin boundary layer at the surface of the airfoil that results from the no-slip condition.
+This boundary layer is resolved using a layer of anisotropically stretched elements near the surface of the airfoil.
+These elements result in a highly restrictive CFL stability condition, motivating the use of implicit time integration for this problem.
+
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
-\subsection{(Incompressible) Kelvin-Helmholtz instability}\label{sec:numerics:khi}
+\subsection{Incompressible Euler in vorticity-streamfunction form}\label{sec:numerics:khi}
 
-Define $\mathbf{v}$ as a curl, such that $\nabla \cdot\mathbf{v}w =
-\mathbf{v}\cdot\nabla w$, and
-consider the equations
-%
-\begin{align}\label{eq:2dfluid}
-\begin{split}
-\partial_t w + \mathbf{v}\cdot\nabla w - \nabla_\perp \cdot\mu\nabla_\perp w & = 0, \\
--\nabla_\perp^2\phi + w & = 0, \\
-\mathbf{v} + \nabla \times \phi\hat{\mathbf{z}} & = \mathbf{0}.
-\end{split}
+As an example of an index-1 differential-algebraic equation, we consider the vorticity-streamfunction formulation of the 2D incompressible Euler equations \cite{Liu2000}.
+The equations are given by
+\begin{align}
+	\label{eq:ins-1}
+	\frac{\partial\omega}{\partial t} + \nabla\cdot(\bm{u} \omega) &= 0. \\
+	\label{eq:ins-2}
+	\Delta \psi &= \omega,
 \end{align}
-%
-Here $\mu$ is a fixed (spatially dependent) diffusion constant or tensor, and $\nabla_\perp$
-indicates the gradient in the $xy$-plane. $\mathbf{v}$ is the drift velocity, and is a nonlinear
-coupling in the time propagation of \eqref{eq:2dfluid}. Equation \eqref{eq:2dfluid} can
-be represented as a $3\times 3$ block set of equations with nonlinearity in the leading block,
-%
-\begin{align}\label{eq:block_khi}
-\begin{bmatrix} \partial_t w \\ 0 \\ \mathbf{0}\end{bmatrix} =
-\begin{bmatrix} {N}(\mathbf{v}) + \nabla_\perp \cdot\mu\nabla_\perp &
-		\mathbf{0} & \mathbf{0} \\
-	-M_w &  \nabla_\perp^2 & \mathbf{0} \\ \mathbf{0} & \nabla\times \mathbf{z} & M_{\mathbf{v}}
-\end{bmatrix}
-	\begin{bmatrix} w \\ \phi \\ \mathbf{v}\end{bmatrix} ,
-\end{align}
-%
-where $N(\mathbf{v}) := -\mathbf{v}\cdot\nabla$.
+where the velocity $\bm u$ is defined by $\bm u = \nabla^\perp \psi$, for $\nabla^\perp = (-\partial_y, \partial_x)$.
+Here, $\omega$ is the vorticity, and $\psi$ is a scalar field known as the streamfunction, which is used to naturally enforce the divergence-free condition on the velocity.
+Note that this formulation can be easily extended to the 2D incomressible Navier--Stokes equations with the addition of a viscosity term.
+Equation \eqref{eq:ins-1} is essentially a scalar advection equation for $\omega$, which we discretize using an upwind discontinuous Galerkin method.
+If the streamfunction $\psi$ is in $H^1$, then the velocity $\bm u = \nabla^\perp \psi$ is automatically continuous across element interfaces, and therefore the standard upwind flux is well-defined.
+We therefore discretize \eqref{eq:ins-2} using a standard $H^1$-conforming finite element method.
+Equal-order finite element spaces are chosen for $\omega$ and $\psi$.
 
-A Picard linearization of the nonlinear operator in \eqref{eq:block_khi} takes
-the simple block lower triangular form,
-%
-\begin{align}\label{eq:dae_pic}
-L[w_k,\phi_k,\mathbf{v}_k] :=
-	\begin{bmatrix} \mathbf{v}_k\cdot\nabla + \nabla_\perp \cdot\mu\nabla_\perp &
-		\mathbf{0} & \mathbf{0} \\
-	-M_w &  \nabla_\perp^2 & \mathbf{0} \\ \mathbf{0} & \nabla\times \mathbf{z} & M_{\mathbf{v}}
-\end{bmatrix}
-\end{align}
-%
-Now, let us swap the rows and columns of $\phi$ and $\mathbf{v}$. Then, a
-Newton linearization can be expressed in strong form as the Jacobian as a
-function of previous nonlinear iterates,
-%
-\begin{align*}
-J[w_k,\mathbf{v}_k, \phi_k] :=
-	\begin{bmatrix} \mathbf{v}_k\cdot\nabla + \nabla_\perp \cdot\mu\nabla_\perp &
-		(\nabla w_k)\cdot  & \mathbf{0} \\
-	\mathbf{0} & M_{\mathbf{v}} & \nabla\times \mathbf{z} \\
-	-M_w & \mathbf{0} & \nabla_\perp^2 \\
-\end{bmatrix}.
-\end{align*}
-%
-A reasonable Newton-like method would be to ignore the weak mass-matrix
-coupling between $w$ and $\phi$ and consider the block upper triangular
-nonlinear preconditioning,
-%
-\begin{align}\label{eq:dae_jac}
-\widehat{J}[w_k,\mathbf{v}_k, \phi_k] :=
-	\begin{bmatrix} \mathbf{v}_k\cdot\nabla + \nabla_\perp \cdot\mu\nabla_\perp &
-		(\nabla w_k)\cdot  & \mathbf{0} \\
-	\mathbf{0} & M_{\mathbf{v}} & \nabla\times \mathbf{z} \\
-	\mathbf{0} & \mathbf{0} & \nabla_\perp^2 \\
-\end{bmatrix}.
-\end{align}
-%
-
-Note that in both \eqref{eq:dae_pic} and \eqref{eq:dae_jac}, one of the
-off-diagonal blocks coupling time-dependent variables with algebraic
-constraints is zero (in the notation of \Cref{sec:dae}, either
-$\mathcal{L}_{w}=\mathbf{0}$ \eqref{eq:dae_pic} or $\mathcal{G}_{u} = \mathbf{0}$
-\eqref{eq:dae_jac}). Without loss of generality, consider the Picard
-linearization \eqref{eq:dae_pic} -- the $4\times 4$ block linear system
-\eqref{eq:dae_block} that arises in IRK integration can be reordered
-to take the block lower triangular form
-%
-\begin{align}\label{eq:dae_block_pic}
-\begin{bmatrix} \eta M - \delta t\mathcal{L}_{u}^{(1)} & \phi M & \mathbf{0} & \mathbf{0} \\
+After performing the discretization, this system of equations can be written as
+\begin{equation}
+	\label{eq:ins-system}
+	\left[ \begin{array}{c} M_{\rm dg} \omega_t \\ 0 \end{array} \right]
+	=
+	\left[ \begin{array}{cc} K(\psi) & 0 \\ M_{\rm mix} & A \end{array} \right]
+	\left[ \begin{array}{c} \omega \\ \psi \end{array} \right],
+\end{equation}
+where $M_{\rm dg}$ represents the DG mass matrix, $M_{\rm mix}$ is the mixed DG-$H^1$ mass matrix, $K(\psi)$ is the discretized advection operator (depending the velocity $\bm u$ as a function of $\psi$), and $A$ is the $H^1$-conforming diffusion operator.
+A Picard linearization of \eqref{eq:ins-system} will result in a block-triangular system that is of the same form as \eqref{eq:ins-system}, but using an iteratively lagged advection operator.
+In the notation of \Cref{sec:dae}, we have $\mathcal{L}_u^{(i)} = K(\psi^{(i)})$, $\mathcal{L}_w = 0$, $\mathcal{G}_u = M_{\rm mix}$, and $\mathcal{G}_w = A$.
+Therefore, the $4\times4$ block system \eqref{eq:dae_block} that arises from IRK integration can be rearragned to be written as
+\begin{align}
+\begin{bmatrix}
+	\eta M - \delta t\mathcal{L}_{u}^{(1)} & \phi M & \mathbf{0} & \mathbf{0} \\
 	-\tfrac{\beta^2}{\phi}M & \eta M - \delta t\mathcal{L}_{u}^{(2)} & \mathbf{0} & \mathbf{0} \\
-	-\delta t\mathcal{G}_{u}^{(1)} & \mathbf{0} & -\delta t\mathcal{G}_w^{(1)} & \mathbf{0} \\
-	\mathbf{0} & -\delta t\mathcal{G}_{u}^{(2)}  & \mathbf{0} &
-		-\delta t\mathcal{G}_w^{(2)} \end{bmatrix}
-	\begin{bmatrix} \mathbf{k}_1 \\ \mathbf{k}_2 \\
-		\boldsymbol{\ell}_1 \\ \boldsymbol{\ell}_2 \end{bmatrix}
-	= 	\begin{bmatrix} \mathbf{f}_1 \\ \mathbf{f}_2 \\
-		 \mathbf{g}_1 \\ \mathbf{g}_2 \end{bmatrix}.
+	-\delta t\mathcal{G}_{u} & \mathbf{0} & -\delta t\mathcal{G}_w & \mathbf{0} \\
+	\mathbf{0} & -\delta t\mathcal{G}_{u}  & \mathbf{0} & -\delta t\mathcal{G}_w
+\end{bmatrix}
+\begin{bmatrix} \mathbf{k}_1 \\ \mathbf{k}_2 \\ \boldsymbol{\ell}_1 \\ \boldsymbol{\ell}_2 \end{bmatrix}
+=
+\begin{bmatrix} \mathbf{f}_1 \\ \mathbf{f}_2 \\ \mathbf{g}_1 \\ \mathbf{g}_2 \end{bmatrix}.
 \end{align}
-%
-where $\mathcal{L}_{u}\sim \mathbf{v}_k\cdot\nabla + \nabla_\perp \cdot\mu\nabla_\perp$,
-$\mathcal{G}_{u} \sim [-M_w;\mathbf{0}]$, and $\mathcal{G}_w\sim
-\begin{bmatrix} \nabla_\perp^2 & \mathbf{0} \\ \nabla\times \mathbf{z} & M_{\mathbf{v}}
-\end{bmatrix}$. Here, the theory and $2\times 2$ preconditioners developed in
-\Cref{sec:theory} can be applied to invert the leading $2\times 2$ block in
-\eqref{eq:dae_block_pic}, and the algebraic constraints can then be
-applied by inverting $\mathcal{G}_w^{(1)}$ and $\mathcal{G}_w^{(2)}$,
-exactly as would be done in DIRK integration. Analogous results hold
-for the Newton-like iteration \eqref{eq:dae_jac}, but the resulting system
-ends up being upper triangular. There, the algebraic constraints are
-enforced first and the leading $2\times 2$ block in \eqref{eq:dae_block_pic}
-then inverted to update the time-dependent variable.
+This block-triangular system can be solved using a forward-substitution algorithm, first solving the leading $2\times2$ block for the time-dependent variables, and then solving two (independent) Poisson problems for the algebraic constraints (i.e.\ the streamfunctions).
+
+% \subsection{(Incompressible) Kelvin-Helmholtz instability}\label{sec:numerics:khi}
+% Define $\mathbf{v}$ as a curl, such that $\nabla \cdot\mathbf{v}w =
+% \mathbf{v}\cdot\nabla w$, and
+% consider the equations
+% %
+% \begin{align}\label{eq:2dfluid}
+% \begin{split}
+% \partial_t w + \mathbf{v}\cdot\nabla w - \nabla_\perp \cdot\mu\nabla_\perp w & = 0, \\
+% -\nabla_\perp^2\phi + w & = 0, \\
+% \mathbf{v} + \nabla \times \phi\hat{\mathbf{z}} & = \mathbf{0}.
+% \end{split}
+% \end{align}
+% %
+% Here $\mu$ is a fixed (spatially dependent) diffusion constant or tensor, and $\nabla_\perp$
+% indicates the gradient in the $xy$-plane. $\mathbf{v}$ is the drift velocity, and is a nonlinear
+% coupling in the time propagation of \eqref{eq:2dfluid}. Equation \eqref{eq:2dfluid} can
+% be represented as a $3\times 3$ block set of equations with nonlinearity in the leading block,
+% %
+% \begin{align}\label{eq:block_khi}
+% \begin{bmatrix} \partial_t w \\ 0 \\ \mathbf{0}\end{bmatrix} =
+% \begin{bmatrix} {N}(\mathbf{v}) + \nabla_\perp \cdot\mu\nabla_\perp &
+% 		\mathbf{0} & \mathbf{0} \\
+% 	-M_w &  \nabla_\perp^2 & \mathbf{0} \\ \mathbf{0} & \nabla\times \mathbf{z} & M_{\mathbf{v}}
+% \end{bmatrix}
+% 	\begin{bmatrix} w \\ \phi \\ \mathbf{v}\end{bmatrix} ,
+% \end{align}
+% %
+% where $N(\mathbf{v}) := -\mathbf{v}\cdot\nabla$.
+
+% A Picard linearization of the nonlinear operator in \eqref{eq:block_khi} takes
+% the simple block lower triangular form,
+% %
+% \begin{align}\label{eq:dae_pic}
+% L[w_k,\phi_k,\mathbf{v}_k] :=
+% 	\begin{bmatrix} \mathbf{v}_k\cdot\nabla + \nabla_\perp \cdot\mu\nabla_\perp &
+% 		\mathbf{0} & \mathbf{0} \\
+% 	-M_w &  \nabla_\perp^2 & \mathbf{0} \\ \mathbf{0} & \nabla\times \mathbf{z} & M_{\mathbf{v}}
+% \end{bmatrix}
+% \end{align}
+% %
+% Now, let us swap the rows and columns of $\phi$ and $\mathbf{v}$. Then, a
+% Newton linearization can be expressed in strong form as the Jacobian as a
+% function of previous nonlinear iterates,
+% %
+% \begin{align*}
+% J[w_k,\mathbf{v}_k, \phi_k] :=
+% 	\begin{bmatrix} \mathbf{v}_k\cdot\nabla + \nabla_\perp \cdot\mu\nabla_\perp &
+% 		(\nabla w_k)\cdot  & \mathbf{0} \\
+% 	\mathbf{0} & M_{\mathbf{v}} & \nabla\times \mathbf{z} \\
+% 	-M_w & \mathbf{0} & \nabla_\perp^2 \\
+% \end{bmatrix}.
+% \end{align*}
+% %
+% A reasonable Newton-like method would be to ignore the weak mass-matrix
+% coupling between $w$ and $\phi$ and consider the block upper triangular
+% nonlinear preconditioning,
+% %
+% \begin{align}\label{eq:dae_jac}
+% \widehat{J}[w_k,\mathbf{v}_k, \phi_k] :=
+% 	\begin{bmatrix} \mathbf{v}_k\cdot\nabla + \nabla_\perp \cdot\mu\nabla_\perp &
+% 		(\nabla w_k)\cdot  & \mathbf{0} \\
+% 	\mathbf{0} & M_{\mathbf{v}} & \nabla\times \mathbf{z} \\
+% 	\mathbf{0} & \mathbf{0} & \nabla_\perp^2 \\
+% \end{bmatrix}.
+% \end{align}
+% %
+
+% Note that in both \eqref{eq:dae_pic} and \eqref{eq:dae_jac}, one of the
+% off-diagonal blocks coupling time-dependent variables with algebraic
+% constraints is zero (in the notation of \Cref{sec:dae}, either
+% $\mathcal{L}_{w}=\mathbf{0}$ \eqref{eq:dae_pic} or $\mathcal{G}_{u} = \mathbf{0}$
+% \eqref{eq:dae_jac}). Without loss of generality, consider the Picard
+% linearization \eqref{eq:dae_pic} -- the $4\times 4$ block linear system
+% \eqref{eq:dae_block} that arises in IRK integration can be reordered
+% to take the block lower triangular form
+% %
+% \begin{align}\label{eq:dae_block_pic}
+% \begin{bmatrix} \eta M - \delta t\mathcal{L}_{u}^{(1)} & \phi M & \mathbf{0} & \mathbf{0} \\
+% 	-\tfrac{\beta^2}{\phi}M & \eta M - \delta t\mathcal{L}_{u}^{(2)} & \mathbf{0} & \mathbf{0} \\
+% 	-\delta t\mathcal{G}_{u}^{(1)} & \mathbf{0} & -\delta t\mathcal{G}_w^{(1)} & \mathbf{0} \\
+% 	\mathbf{0} & -\delta t\mathcal{G}_{u}^{(2)}  & \mathbf{0} &
+% 		-\delta t\mathcal{G}_w^{(2)} \end{bmatrix}
+% 	\begin{bmatrix} \mathbf{k}_1 \\ \mathbf{k}_2 \\
+% 		\boldsymbol{\ell}_1 \\ \boldsymbol{\ell}_2 \end{bmatrix}
+% 	= 	\begin{bmatrix} \mathbf{f}_1 \\ \mathbf{f}_2 \\
+% 		 \mathbf{g}_1 \\ \mathbf{g}_2 \end{bmatrix}.
+% \end{align}
+% %
+% where $\mathcal{L}_{u}\sim \mathbf{v}_k\cdot\nabla + \nabla_\perp \cdot\mu\nabla_\perp$,
+% $\mathcal{G}_{u} \sim [-M_w;\mathbf{0}]$, and $\mathcal{G}_w\sim
+% \begin{bmatrix} \nabla_\perp^2 & \mathbf{0} \\ \nabla\times \mathbf{z} & M_{\mathbf{v}}
+% \end{bmatrix}$. Here, the theory and $2\times 2$ preconditioners developed in
+% \Cref{sec:theory} can be applied to invert the leading $2\times 2$ block in
+% \eqref{eq:dae_block_pic}, and the algebraic constraints can then be
+% applied by inverting $\mathcal{G}_w^{(1)}$ and $\mathcal{G}_w^{(2)}$,
+% exactly as would be done in DIRK integration. Analogous results hold
+% for the Newton-like iteration \eqref{eq:dae_jac}, but the resulting system
+% ends up being upper triangular. There, the algebraic constraints are
+% enforced first and the leading $2\times 2$ block in \eqref{eq:dae_block_pic}
+% then inverted to update the time-dependent variable.
 
 
 
