@@ -250,6 +250,10 @@ void RKData::SizeData() {
     b0.SetSize(s);
     c0.SetSize(s);
     d0.SetSize(s); 
+
+    // Block multigrid interpolation/restriction coefficients
+    interp.SetSize(s); 
+    restr.SetSize(s); 
     
     // NOTE:
     //     s := 2*n(cc_eig_pairs) + n(r_eigs)
@@ -792,6 +796,16 @@ void RKData::SetData() {
             R0(1, 1) = +3.000000000000000;
             /* --- R block sizes --- */
             R0_block_sizes[0] = 2;
+            /* --- smallest left singular vector of A0^{-1} ---- */
+            restr(0) = 0.936998;
+            restr(1) = 0.349336;
+            /* --- smallest right singular vector of A0^{-1} ---- */
+            interp(0) = 0.349336;
+            interp(1) = 0.936998;
+            /* --- smallest singular value of A0^{-1} ---- */
+            sig_min = 1.58258;
+            /* --- inner product of smallest left/right singular vectors ---- */
+            us_dot_vs = 0.654654;
             break;
 
         // 3-stage 6th-order Gauss--Legendre
@@ -860,6 +874,18 @@ void RKData::SetData() {
             /* --- R block sizes --- */
             R0_block_sizes[0] = 2;
             R0_block_sizes[1] = 1;
+            /* --- smallest left singular vector of A0^{-1} ---- */
+            restr(0) = 0.909015;
+            restr(1) = 0.390437;
+            restr(2) = 0.145776;
+            /* --- smallest right singular vector of A0^{-1} ---- */
+            interp(0) = 0.244021;
+            interp(1) = 0.765417;
+            interp(2) = 0.595475;
+            /* --- smallest singular value of A0^{-1} ---- */
+            sig_min = 2.14746;
+            /* --- inner product of smallest left/right singular vectors ---- */
+            us_dot_vs = 0.607471;
             break;
 
         // 4-stage 8th-order Gauss--Legendre
@@ -960,6 +986,20 @@ void RKData::SetData() {
             /* --- R block sizes --- */
             R0_block_sizes[0] = 2;
             R0_block_sizes[1] = 2;
+            /* --- smallest left singular vector of A0^{-1} ---- */
+            restr(0) = 0.4283122774601881;
+            restr(1) = 0.7312567562269842;
+            restr(2) = 0.5240432397060767;
+            restr(3) = 0.08479877574361166;
+            /* --- smallest right singular vector of A0^{-1} ---- */
+            interp(0) = 0.03576248155732931;
+            interp(1) = 0.2755431436928351;
+            interp(2) = 0.6151157820220988;
+            interp(3) = 0.7378547252569934;
+            /* --- smallest singular value of A0^{-1} ---- */
+            sig_min = 1.483366262535218;
+            /* --- inner product of smallest left/right singular vectors ---- */
+            us_dot_vs = 0.6017267399644856;
             break;
 
         // 5-stage 10th-order Gauss--Legendre
@@ -1101,6 +1141,22 @@ void RKData::SetData() {
             R0_block_sizes[0] = 2;
             R0_block_sizes[1] = 1;
             R0_block_sizes[2] = 2;
+            /* --- smallest left singular vector of A0^{-1} ---- */
+            restr(0) = 0.3197581722756033;
+            restr(1) = 0.6239152366998282;
+            restr(2) = 0.6204877460143180;
+            restr(3) = 0.3476518209345809;
+            restr(4) = 0.05116304451168076;
+            /* --- smallest right singular vector of A0^{-1} ---- */
+            interp(0) = 0.01735770922999218;
+            interp(1) = 0.1520817942175031;
+            interp(2) = 0.4100094441034837;
+            interp(3) = 0.6071807103024236;
+            interp(4) = 0.6631694192138753;
+            /* --- smallest singular value of A0^{-1} ---- */
+            sig_min = 1.464865154102248;
+            /* --- inner product of smallest left/right singular vectors ---- */
+            us_dot_vs = 0.5998594999185906;
             break;
 
         // 2-stage 3rd-order Radau IIA
@@ -1144,6 +1200,16 @@ void RKData::SetData() {
             R0(1, 1) = +2.000000000000000;
             /* --- R block sizes --- */
             R0_block_sizes[0] = 2;
+            /* --- smallest left singular vector of A0^{-1} ---- */
+            restr(0) = 0.977002;
+            restr(1) = 0.213231;
+            /* --- smallest right singular vector of A0^{-1} ---- */
+            interp(0) = 0.443822;
+            interp(1) = 0.896115;
+            /* --- smallest singular value of A0^{-1} ---- */
+            sig_min = 1.14001;
+            /* --- inner product of smallest left/right singular vectors ---- */
+            us_dot_vs = 0.624695;
             break;
 
         // 3-stage 5th-order Radau IIA
@@ -1212,6 +1278,18 @@ void RKData::SetData() {
             /* --- R block sizes --- */
             R0_block_sizes[0] = 2;
             R0_block_sizes[1] = 1;
+            /* --- smallest left singular vector of A0^{-1} ---- */
+            restr(0) = 0.694085;
+            restr(1) = 0.715163;
+            restr(2) = 0.0823913;
+            /* --- smallest right singular vector of A0^{-1} ---- */
+            interp(0) = 0.114288;
+            interp(1) = 0.597288;
+            interp(2) = 0.793842;
+            /* --- smallest singular value of A0^{-1} ---- */
+            sig_min = 1.24637;
+            /* --- inner product of smallest left/right singular vectors ---- */
+            us_dot_vs = 0.57189;
             break;
 
         // 4-stage 7th-order Radau IIA
@@ -1312,6 +1390,20 @@ void RKData::SetData() {
             /* --- R block sizes --- */
             R0_block_sizes[0] = 2;
             R0_block_sizes[1] = 2;
+            /* --- smallest left singular vector of A0^{-1} ---- */
+            restr(0) = 0.4780535106567122;
+            restr(1) = 0.7635805816897800;
+            restr(2) = 0.4319606050022632;
+            restr(3) = 0.04265644079349214;
+            /* --- smallest right singular vector of A0^{-1} ---- */
+            interp(0) = 0.04360358549619952;
+            interp(1) = 0.3210090310156406;
+            interp(2) = 0.6346223830764432;
+            interp(3) = 0.7016454661983153;
+            /* --- smallest singular value of A0^{-1} ---- */
+            sig_min = 1.283833915511943;
+            /* --- inner product of smallest left/right singular vectors ---- */
+            us_dot_vs = 0.5700226765828628;
             break;
 
         // 5-stage 9th-order Radau IIA
@@ -1453,6 +1545,22 @@ void RKData::SetData() {
             R0_block_sizes[0] = 2;
             R0_block_sizes[1] = 1;
             R0_block_sizes[2] = 2;
+            /* --- smallest left singular vector of A0^{-1} ---- */
+            restr(0) = 0.3523162484067514;
+            restr(1) = 0.6583562631368295;
+            restr(2) = 0.6063758884709813;
+            restr(3) = 0.2722207747105542;
+            restr(4) = 0.02538549968221307;
+            /* --- smallest right singular vector of A0^{-1} ---- */
+            interp(0) = 0.02097906223182040;
+            interp(1) = 0.1748866068118628;
+            interp(2) = 0.4424759300574641;
+            interp(3) = 0.6076327987687155;
+            interp(4) = 0.6355879064975876;
+            /* --- smallest singular value of A0^{-1} ---- */
+            sig_min = 1.305918094874295;
+            /* --- inner product of smallest left/right singular vectors ---- */
+            us_dot_vs = 0.5723806804683383;
             break;
 
         // 2-stage 2nd-order Lobatto IIIC
@@ -1565,6 +1673,18 @@ void RKData::SetData() {
             /* --- R block sizes --- */
             R0_block_sizes[0] = 2;
             R0_block_sizes[1] = 1;
+            /* --- smallest left singular vector of A0^{-1} ---- */
+            restr(0) = 0.185612;
+            restr(1) = 0.981776;
+            restr(2) = 0.0407826;
+            /* --- smallest right singular vector of A0^{-1} ---- */
+            interp(0) = -0.333503;
+            interp(1) = 0.502927;
+            interp(2) = 0.797396;
+            /* --- smallest singular value of A0^{-1} ---- */
+            sig_min = 1.15189;
+            /* --- inner product of smallest left/right singular vectors ---- */
+            us_dot_vs = 0.46438;
             break;
 
         // 4-stage 6th-order Lobatto IIIC
@@ -1665,6 +1785,20 @@ void RKData::SetData() {
             /* --- R block sizes --- */
             R0_block_sizes[0] = 2;
             R0_block_sizes[1] = 2;
+            /* --- smallest left singular vector of A0^{-1} ---- */
+            restr(0) = 0.162075;
+            restr(1) = 0.812954;
+            restr(2) = 0.555619;
+            restr(3) = 0.0642271;
+            /* --- smallest right singular vector of A0^{-1} ---- */
+            interp(0) = -0.0503795;
+            interp(1) = 0.211144;
+            interp(2) = 0.629892;
+            interp(3) = 0.745732;
+            /* --- smallest singular value of A0^{-1} ---- */
+            sig_min = 1.26589;
+            /* --- inner product of smallest left/right singular vectors ---- */
+            us_dot_vs = 0.561361;
             break;
 
         // 5-stage 8th-order Lobatto IIIC

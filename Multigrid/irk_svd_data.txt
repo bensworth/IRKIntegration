@@ -1,19 +1,188 @@
-{us, vs, sig_s, us*vs}
+MISSING: 2-stage Lobatto, 5-stage lobatto
 
-Gauss
-4: {{0.936998, 0.349336}, {0.349336, 0.936998}, 1.58258, 0.654654}
-6: {{0.909015, 0.390437, 0.145776}, {0.244021, 0.765417, 0.595475}, 2.14746, 0.607471}
-8: {{0.4283122774601881, 0.7312567562269842, 0.5240432397060767, 0.08479877574361166}, {0.03576248155732931, 0.2755431436928351, 0.6151157820220988, 0.7378547252569934}, 1.483366262535218, 0.6017267399644856}
-10: {{0.3197581722756033, 0.6239152366998282, 0.6204877460143180, 0.3476518209345809, 0.05116304451168076}, {0.01735770922999218, 0.1520817942175031, 0.4100094441034837, 0.6071807103024236, 0.6631694192138753}, 1.464865154102248, 0.5998594999185906}
-12: {{0.2511099490857562, 0.5167855418105545, 0.6142130892846026, 0.4838198084493504, 0.2396173775911682, 0.03347661132120152}, {0.009827595955411796, 0.08902136403717097, 0.2697432915885784, 0.4652370570440348, 0.5789142560432444, 0.6063249431192487}, 1.452225437697755, 0.5982591455680424}
 
-Radau
-3: {{0.977002, 0.213231}, {0.443822, 0.896115}, 1.14001, 0.624695}
-5: {{0.694085, 0.715163, 0.0823913}, {0.114288, 0.597288, 0.793842}, 1.24637, 0.57189}
-7: {{0.4780535106567122, 0.7635805816897800, 0.4319606050022632, 0.04265644079349214}, {0.04360358549619952, 0.3210090310156406, 0.6346223830764432, 0.7016454661983153}, 1.283833915511943, 0.5700226765828628}
-9: {{0.3523162484067514, 0.6583562631368295, 0.6063758884709813, 0.2722207747105542, 0.02538549968221307}, {0.02097906223182040, 0.1748866068118628, 0.4424759300574641, 0.6076327987687155, 0.6355879064975876}, 1.305918094874295, 0.5723806804683383}
-11: {{0.2720640027125810, 0.5501004532295531, 0.6202897386844532, 0.4529026077492560, 0.1822702133302535, 0.01637397611727825}, {0.01128382139050869, 0.1017595328823552, 0.2948931387468312, 0.4829276737616797, 0.5719083685990040, 0.5850276825962961}, 1.320139561701621, 0.5745073671991398}
+        {us, vs, sig_s, us*vs}
 
-Lobatto
-4: {{0.185612, 0.981776, 0.0407826}, {-0.333503, 0.502927, 0.797396}, 1.15189, 0.46438}
-6: {{-0.162075, -0.812954, -0.555619, -0.0642271}, {0.0503795, -0.211144, -0.629892, -0.745732}, 1.26589, 0.561361}
+        Gauss
+        4
+            /* --- smallest left singular vector of A0^{-1} ---- */
+            rest(0) = 0.936998;
+            rest(1) = 0.349336;
+            /* --- smallest right singular vector of A0^{-1} ---- */
+            interp(0) = 0.349336;
+            interp(1) = 0.936998;
+            /* --- smallest singular value of A0^{-1} ---- */
+            sig_s = 1.58258;
+            /* --- inner product of smallest left/right singular vectors ---- */
+            us_dot_vs = 0.654654;
+        6
+            /* --- smallest left singular vector of A0^{-1} ---- */
+            rest(0) = 0.909015;
+            rest(1) = 0.390437;
+            rest(2) = 0.145776;
+            /* --- smallest right singular vector of A0^{-1} ---- */
+            interp(0) = 0.244021;
+            interp(1) = 0.765417;
+            interp(2) = 0.595475;
+            /* --- smallest singular value of A0^{-1} ---- */
+            sig_s = 2.14746;
+            /* --- inner product of smallest left/right singular vectors ---- */
+            us_dot_vs = 0.607471;
+        8
+            /* --- smallest left singular vector of A0^{-1} ---- */
+            rest(0) = 0.4283122774601881;
+            rest(1) = 0.7312567562269842;
+            rest(2) = 0.5240432397060767;
+            rest(3) = 0.08479877574361166;
+            /* --- smallest right singular vector of A0^{-1} ---- */
+            interp(0) = 0.03576248155732931;
+            interp(1) = 0.2755431436928351;
+            interp(2) = 0.6151157820220988;
+            interp(3) = 0.7378547252569934;
+            /* --- smallest singular value of A0^{-1} ---- */
+            sig_s = 1.483366262535218;
+            /* --- inner product of smallest left/right singular vectors ---- */
+            us_dot_vs = 0.6017267399644856;
+        10
+            /* --- smallest left singular vector of A0^{-1} ---- */
+            rest(0) = 0.3197581722756033;
+            rest(1) = 0.6239152366998282;
+            rest(2) = 0.6204877460143180;
+            rest(3) = 0.3476518209345809;
+            rest(4) = 0.05116304451168076;
+            /* --- smallest right singular vector of A0^{-1} ---- */
+            interp(0) = 0.01735770922999218;
+            interp(1) = 0.1520817942175031;
+            interp(2) = 0.4100094441034837;
+            interp(3) = 0.6071807103024236;
+            interp(4) = 0.6631694192138753;
+            /* --- smallest singular value of A0^{-1} ---- */
+            sig_s = 1.464865154102248;
+            /* --- inner product of smallest left/right singular vectors ---- */
+            us_dot_vs = 0.5998594999185906;
+        12
+            /* --- smallest left singular vector of A0^{-1} ---- */
+            rest(0) = 0.2511099490857562;
+            rest(1) = 0.5167855418105545;
+            rest(2) = 0.6142130892846026;
+            rest(3) = 0.4838198084493504;
+            rest(4) = 0.2396173775911682;
+            rest(5) = 0.03347661132120152;
+            /* --- smallest right singular vector of A0^{-1} ---- */
+            interp(0) = 0.009827595955411796;
+            interp(1) = 0.08902136403717097;
+            interp(2) = 0.2697432915885784;
+            interp(3) = 0.4652370570440348;
+            interp(4) = 0.5789142560432444;
+            interp(5) = 0.6063249431192487;
+            /* --- smallest singular value of A0^{-1} ---- */
+            sig_s = 1.452225437697755;
+            /* --- inner product of smallest left/right singular vectors ---- */
+            us_dot_vs = 0.5982591455680424;
+
+        Radau
+        3
+            /* --- smallest left singular vector of A0^{-1} ---- */
+            rest(0) = 0.977002;
+            rest(1) = 0.213231;
+            /* --- smallest right singular vector of A0^{-1} ---- */
+            interp(0) = 0.443822;
+            interp(1) = 0.896115;
+            /* --- smallest singular value of A0^{-1} ---- */
+            sig_s = 1.14001;
+            /* --- inner product of smallest left/right singular vectors ---- */
+            us_dot_vs = 0.624695;
+        5
+            /* --- smallest left singular vector of A0^{-1} ---- */
+            rest(0) = 0.694085;
+            rest(1) = 0.715163;
+            rest(2) = 0.0823913;
+            /* --- smallest right singular vector of A0^{-1} ---- */
+            interp(0) = 0.114288;
+            interp(1) = 0.597288;
+            interp(2) = 0.793842;
+            /* --- smallest singular value of A0^{-1} ---- */
+            sig_s = 1.24637;
+            /* --- inner product of smallest left/right singular vectors ---- */
+            us_dot_vs = 0.57189;
+        7
+            /* --- smallest left singular vector of A0^{-1} ---- */
+            rest(0) = 0.4780535106567122;
+            rest(1) = 0.7635805816897800;
+            rest(2) = 0.4319606050022632;
+            rest(3) = 0.04265644079349214;
+            /* --- smallest right singular vector of A0^{-1} ---- */
+            interp(0) = 0.04360358549619952;
+            interp(1) = 0.3210090310156406;
+            interp(2) = 0.6346223830764432;
+            interp(3) = 0.7016454661983153;
+            /* --- smallest singular value of A0^{-1} ---- */
+            sig_s = 1.283833915511943;
+            /* --- inner product of smallest left/right singular vectors ---- */
+            us_dot_vs = 0.5700226765828628;
+        9
+            /* --- smallest left singular vector of A0^{-1} ---- */
+            rest(0) = 0.3523162484067514;
+            rest(1) = 0.6583562631368295;
+            rest(2) = 0.6063758884709813;
+            rest(3) = 0.2722207747105542;
+            rest(4) = 0.02538549968221307;
+            /* --- smallest right singular vector of A0^{-1} ---- */
+            interp(0) = 0.02097906223182040;
+            interp(1) = 0.1748866068118628;
+            interp(2) = 0.4424759300574641;
+            interp(3) = 0.6076327987687155;
+            interp(4) = 0.6355879064975876;
+            /* --- smallest singular value of A0^{-1} ---- */
+            sig_s = 1.305918094874295;
+            /* --- inner product of smallest left/right singular vectors ---- */
+            us_dot_vs = 0.5723806804683383;
+        11
+            /* --- smallest left singular vector of A0^{-1} ---- */
+            rest(0) = 0.2720640027125810;
+            rest(1) = 0.5501004532295531;
+            rest(2) = 0.6202897386844532;
+            rest(3) = 0.4529026077492560;
+            rest(4) = 0.1822702133302535;
+            rest(5) = 0.01637397611727825;
+            /* --- smallest right singular vector of A0^{-1} ---- */
+            interp(0) = 0.01128382139050869;
+            interp(1) = 0.1017595328823552;
+            interp(2) = 0.2948931387468312;
+            interp(3) = 0.4829276737616797;
+            interp(4) = 0.5719083685990040;
+            interp(5) = 0.5850276825962961;
+            /* --- smallest singular value of A0^{-1} ---- */
+            sig_s = 1.320139561701621;
+            /* --- inner product of smallest left/right singular vectors ---- */
+            us_dot_vs = 0.5745073671991398;
+
+        Lobatto
+        4
+            /* --- smallest left singular vector of A0^{-1} ---- */
+            rest(0) = 0.185612;
+            rest(1) = 0.981776;
+            rest(2) = 0.0407826;
+            /* --- smallest right singular vector of A0^{-1} ---- */
+            interp(0) = -0.333503;
+            interp(1) = 0.502927;
+            interp(2) = 0.797396;
+            /* --- smallest singular value of A0^{-1} ---- */
+            sig_s = 1.15189;
+            /* --- inner product of smallest left/right singular vectors ---- */
+            us_dot_vs = 0.46438;
+        6
+            /* --- smallest left singular vector of A0^{-1} ---- */
+            rest(0) = 0.162075;
+            rest(1) = 0.812954;
+            rest(2) = 0.555619;
+            rest(3) = 0.0642271;
+            /* --- smallest right singular vector of A0^{-1} ---- */
+            interp(0) = -0.0503795;
+            interp(1) = 0.211144;
+            interp(2) = 0.629892;
+            interp(3) = 0.745732;
+            /* --- smallest singular value of A0^{-1} ---- */
+            sig_s = 1.26589;
+            /* --- inner product of smallest left/right singular vectors ---- */
+            us_dot_vs = 0.561361;

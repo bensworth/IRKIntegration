@@ -302,6 +302,12 @@ public:
     Vector c0;          // Butcher tableau nodes
     Vector d0;          // inv(A0^\top)*b0
     
+    // Coarse-grid data for block multigrid
+    Vector interp;      // Block multigrig interpolation
+    Vector rest;        // Block multigrig restriction
+    double sig_min;
+    double us_dot_vs;
+    
     // Associated data required by LINEAR solver
     Vector zeta;        // REAL eigenvalues of inv(A0)
     Vector beta;        // IMAGINARY parts of complex pairs of eigenvalues of inv(A0)
@@ -984,7 +990,8 @@ public:
             y_scalar = x_scalar;
             
         // Use a proper preconditioner    
-        } else {
+        }
+        else {
             // 1x1 system
             if (BlockOper.Size() == 1) {
                 BlockOper.IRKOper.ImplicitPrec(x_scalar, y_scalar);
@@ -1561,9 +1568,6 @@ private:
 };
 
 
-
-
-
 class TriJacRelax : public Solver
 {
 
@@ -1598,19 +1602,17 @@ private:
 public:
 
     /** General constructor, where 1x1 and 2x2 systems can use different Krylov 
-        solvers.
-        NOTE: To use only a single solver, requires &solver_params1==&solver_params2 */
+        solvers. */
     TriJacRelax(IRKStageOper &StageOper_, int jac_update_rate_, int gamma_idx_,
                  const QuasiMatrixProduct * Z_solver_, const QuasiMatrixProduct * Z_prec_) 
         : Solver(StageOper_.Height()),
         StageOper(StageOper_),
         jac_update_rate(jac_update_rate_), gamma_idx(gamma_idx_),
-        printlevel(solver_params1.printlevel),
         offsets(StageOper_.RowOffsets()),
         x_block(StageOper_.RowOffsets()), b_block(StageOper_.RowOffsets()), 
         b_block_temp(StageOper_.RowOffsets()), x_block_temp(StageOper_.RowOffsets()), 
         temp_scalar1(StageOper_.RowOffsets()[1]), temp_scalar2(StageOper_.RowOffsets()[1]),
-        Z_solver(Z_solver_), Z_prec(Z_prec_)
+        Z_solver(Z_solver_), Z_prec(Z_prec_), printlevel(1)
     {        
         
         kronecker_form = (StageOper.IRKOper->GetExplicitGradientsType() == IRKOperator::ExplicitGradients::APPROXIMATE);
@@ -1827,7 +1829,8 @@ private:
                     StageOper.IRKOper->SetPreconditioner(row+1, dt, gamma, size[diagBlock]);
                 }
                 
-            } else {
+            }
+            else {
                 // Preconditioner for R(row,row)*M-dt*<Z_prec(row,row),{N'}> 
                 StageOper.IRKOper->SetPreconditioner(row, dt, R(row,row), (*Z_prec)(row,row));
 
@@ -1859,7 +1862,8 @@ private:
                         z_block.GetBlock(row) += temp_scalar2; // Add to existing RHS
                         
                     // NO MASS MATRIX    
-                    } else {
+                    }
+                    else {
                         for (int j = row+1; j < s; j++) {
                             z_block.GetBlock(row).Add(-R(row,j), y_block.GetBlock(j));
                         }
@@ -1910,7 +1914,8 @@ private:
                         z_2block.GetBlock(1) += temp_scalar2; // Add to existing RHS
                     
                     // NO MASS MATRIX    
-                    } else {
+                    }
+                    else {
                         for (int j = row+2; j < s; j++) {
                             z_2block.GetBlock(0).Add(-R(row,j), y_block.GetBlock(j)); // First component
                             z_2block.GetBlock(1).Add(-R(row+1,j), y_block.GetBlock(j)); // Second component
@@ -1953,7 +1958,7 @@ class IRK_MG_Preconditioner : public Solver
 public:
     IRK_MG_Preconditioner(IRKStageOper &StageOper_, int jac_update_rate_=0) :
         num_stages(StageOper.Butcher.s), zfine(StageOper_.RowOffsets()),
-        jac_update_rate(jac_update_rate_), s_min(StageOper.Butcher.smin)
+        jac_update_rate(jac_update_rate_), s_min(StageOper.Butcher.sig_min)
     {
         kronecker_form = (StageOper.IRKOper->GetExplicitGradientsType() ==
             IRKOperator::ExplicitGradients::APPROXIMATE);
@@ -1961,7 +1966,7 @@ public:
         // Set L_coefficients as (u1v1, ..., usvs)
         L_coefficients.SetSize(num_stages);
         for (int s=0; s<num_stages; s++) {
-            L_coefficients(i) = StageOper.Butcher.interp(s)*StageOper.Butcher.restrict(s);
+            L_coefficients(i) = StageOper.Butcher.interp(s)*StageOper.Butcher.restr(s);
         } 
 
         // Check for IRK schemes with >1 stage, no DIRK schemes.
@@ -2014,7 +2019,7 @@ public:
         }
 
         // Pre-relax, y = M^{-1}x
-        BlockRelax.Mult(x,y);
+        blockRelax.Mult(x,y);
 
         // Residual update, zfine = (I - AM^{-1})x
         StageOper.Mult(y,zfine);
@@ -2036,7 +2041,7 @@ public:
 
 private:
 
-    TriJacRelax smoother;
+    TriJacRelax blockRelax;
     IRKStageOper &StageOper;
     bool Li_eq_Lj;
     bool kronecker_form;
@@ -2059,13 +2064,10 @@ private:
     {
         coarse = 0.0;
         for (int row=0; row<num_stages; row++) {
-            double temp = StageOper.Butcher.restrict(row);
+            double temp = StageOper.Butcher.restr(row);
             coarse.Add(temp, fine.GetBlock(row));
         }
     }
-
-    BlockRelax(const BlockVector &x, BlockVector &y);
-
 }
 
 
