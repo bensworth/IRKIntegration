@@ -159,24 +159,31 @@ public:
 
       // BUild AMG solver
       if (blocksize > 0) {
-         BlockInverseScale(&B, &B_s, NULL, NULL, blocksize, 0);
+         BlockInverseScale(&B, &B_s, NULL, NULL, blocksize, BlockInverseScaleJob::MATRIX_ONLY);
          AMG_solver = new HypreBoomerAMG(B_s);
       }
       else {
          AMG_solver = new HypreBoomerAMG(B);
       }
-      AMG_solver->SetMaxLevels(50); 
+
+      // AMG parameters
+      bool aggressive_coarsen = false;
+      AMG_solver->SetAdvectiveOptions(15, "", "FA");
+      AMG_solver->SetStrongThresholdR(0.1);
+      AMG_solver->SetStrengthThresh(0.1);
+      AMG_solver->SetAggressiveCoarsening(0);
+      if (aggressive_coarsen) AMG_solver->SetCoarsening(10);
+      else AMG_solver->SetCoarsening(6);
+      AMG_solver->SetRelaxType(10);
+      AMG_solver->SetMaxLevels(50);
       if (eps > 1e-4) {
-         AMG_solver->SetLAIROptions(1.5, "", "FA", 0.1, 0.01, 0.0,
-                                    0, 3, 0.0, 6, -1, 1);
+         AMG_solver->SetInterpolation(0);
       }
       else {
-         AMG_solver->SetLAIROptions(1.5, "", "FA", 0.1, 0.01, 0.0,
-                                    100, 3, 0.0, 6, -1, 1);
-         // AMG_solver->SetLAIROptions(1.5, "", "FFC", 0.1, 0.01, 0.0,
-         //                           100, 3, 0.0, 6, -1, 1);
+         AMG_solver->SetInterpolation(100);
       }
       AMG_solver->SetTol(1e-12);
+
       if (use_gmres) {
          if (blocksize > 0) GMRES_solver = new HypreGMRES(B_s);
          else GMRES_solver = new HypreGMRES(B);
@@ -198,7 +205,7 @@ public:
       if (AMG_solver) {
          if (blocksize > 0) {
             HypreParVector b_s;
-            BlockInverseScale(&B, NULL, &x, &b_s, blocksize, 2);
+            BlockInverseScale(&B, NULL, &x, &b_s, blocksize, BlockInverseScaleJob::RHS_ONLY);
             if (use_gmres) GMRES_solver->Mult(b_s, y);
             else AMG_solver->Mult(b_s, y);
          }
@@ -235,11 +242,15 @@ struct DGAdvDiff : IRKOperator
    ConstantCoefficient diff_coeff;
    ParBilinearForm a, m;
    DGMassMatrix mass;
-   std::map<std::pair<double,double>,BackwardEulerPreconditioner*> prec;
+   mutable HypreSmoother relax;
+   std::map<int, double> gamma_;
+   std::map<int, double> dt_;
    BackwardEulerPreconditioner *current_prec;
    HypreParMatrix *A_mat, *M_mat;
    int use_AIR;
    bool use_gmres;
+   double mass_const;
+   double shift_;
 public:
    DGAdvDiff(ParFiniteElementSpace &fes_, int use_AIR_= 1,
       bool use_gmres_ = false)
@@ -278,6 +289,9 @@ public:
       M_mat = m.ParallelAssemble();
 
       current_prec = nullptr;
+
+      int relax_iters = 2;
+      relax.SetType(HypreSmoother::l1GS, 2);
    }
 
    // Compute the right-hand side of the ODE system.
@@ -288,31 +302,23 @@ public:
       mass.Solve(du_dt);
    }
 
-   virtual void ApplyL(const Vector &x, Vector &y) const override
+   virtual void ExplicitMult(const Vector &u, Vector &du_dt) const override
    {
-      y.SetSize(x.Size());
-      A_mat->Mult(x, y);
-   }
-
-   void ExplicitMult(const Vector &u, Vector &du_dt) const override
-   {
+      du_dt.SetSize(u.Size());
       A_mat->Mult(u, du_dt);
    }
 
    // Apply action of the mass matrix
    virtual void ImplicitMult(const Vector &x, Vector &y) const override
    {
+      y.SetSize(x.Size());
       mass.Mult(x, y);
-   }
-
-   virtual void ApplyMInv(const Vector &x, Vector &y) const override
-   {
-      mass.Solve(x, y);
    }
 
    /// Precondition B*x=y <==> (\gamma*I - dt*L)*x=y
    inline void CoarseIRKSolve(const Vector &x, Vector &y) const override
    {
+      y.SetSize(x.Size());
       MFEM_VERIFY(current_prec != NULL, "Must call SetCoarseIRKOperator before CoarseIRKSolve");
       current_prec->Mult(x, y);
    }
@@ -325,14 +331,18 @@ public:
    */
    virtual void SetCoarseIRKOperator(double dt, double s_min, const Vector &L_coefficients) override
    {
-      if (!current_prec)
+      // Compute multipliers for L, shift = dt*\sum_i L_coefficients[i]
+      double shift = 0.;
+      for (int i=0; i<L_coefficients.Size(); i++) {
+         shift += L_coefficients(i);
+      }
+      shift *= dt;
+
+      if ( (!current_prec) || abs(shift-shift_) > 1e-12 || abs(s_min-mass_const) > 1e-12)
       {
-         // Compute multipliers for L, shift = dt*\sum_i L_coefficients[i]
-         double shift = 0.;
-         for (i=0; i<L_coefficients.Size(); i++) {
-            shift += L_coefficients(i);
-         }
-         shift *= dt; 
+         shift_ = shift;
+         mass_const = s_min;
+         if (current_prec) delete current_prec;
 
          // Form preconditioner
          if (use_AIR > 0) {
@@ -340,10 +350,50 @@ public:
                                                            *A_mat, use_AIR, use_gmres);
          }
          else {
-            current_prec = new BackwardEulerPreconditioner(fes, gamma, *M_mat, shift, *A_mat);
+            current_prec = new BackwardEulerPreconditioner(fes, s_min, *M_mat, shift, *A_mat);
          }
       }
    }
+
+   void SetTimeStep(double dt)
+   {
+      if ( (!current_prec) || abs(dt-shift_) > 1e-12 || abs(1-mass_const) > 1e-12)
+      {
+         shift_ = dt;
+         mass_const = 1;
+         if (current_prec) delete current_prec;
+
+         // Form preconditioner
+         if (use_AIR > 0) {
+            current_prec = new BackwardEulerPreconditioner(fes, 1.0, *M_mat, dt,
+                                                           *A_mat, use_AIR, use_gmres);
+         }
+         else {
+            current_prec = new BackwardEulerPreconditioner(fes, 1.0, *M_mat, dt, *A_mat);
+         }
+      }
+   }
+
+   virtual void SetPreconditioner(int index, double dt, double gamma, int type) override
+   {
+      gamma_[index] = gamma;
+      dt_[index] = dt;
+   }
+
+   virtual void ImplicitPrec(int index, const Vector &x, Vector &y) const override
+   {
+      // Set B = gamma*M - dt*A
+      HypreParMatrix B(*A_mat);
+      B *= -1*(dt_.at(index));
+      SparseMatrix B_diag, M_diag;
+      B.GetDiag(B_diag);
+      M_mat->GetDiag(M_diag);
+      // M is block diagonal, so suffices to only add the processor-local part
+      B_diag.Add(gamma_.at(index), M_diag);
+      relax.SetOperator(B);
+      relax.Mult(x, y);
+   }
+
 
    ~DGAdvDiff()
    {
@@ -373,7 +423,7 @@ public:
 
    void SetTimeStep(double dt)
    {
-      dg.SetSystem(0, dt, 1.0, 0);
+      dg.SetTimeStep(dt);
       linear_solver.SetPreconditioner(*dg.current_prec);
       linear_solver.SetOperator(dg.current_prec->B);
    }
@@ -547,7 +597,6 @@ int run_adv_diff(int argc, char *argv[])
       // krylov_params.abstol = 1e-12;
       krylov_params.reltol = 1e-12;
       if (use_gmres==-1 || use_gmres==1) krylov_params.solver = IRK::KrylovMethod::FGMRES;
-      else if(use_gmres == 2) krylov_params.solver = IRK::KrylovMethod::FP;
       else krylov_params.solver = IRK::KrylovMethod::GMRES;
 
       // Build IRK object using spatial discretization

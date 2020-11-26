@@ -51,8 +51,9 @@ void KronTransformTranspose(const DenseMatrix &A, const BlockVector &x, BlockVec
 
 
 /// Constructor
-IRK::IRK(IRKOperator *IRKOper_, const RKData &ButcherTableau)
+IRK::IRK(IRKOperator *IRKOper_, const RKData &ButcherTableau, bool multigrid_)
         : m_IRKOper(IRKOper_), m_Butcher(ButcherTableau), 
+        multigrid(multigrid_),
         m_stageOper(NULL),
         m_newton_solver(NULL),
         m_tri_jac_solver(NULL),
@@ -60,6 +61,7 @@ IRK::IRK(IRKOperator *IRKOper_, const RKData &ButcherTableau)
         m_jac_precSparsity(NULL),
         m_solversInit(false),
         m_krylov2(false),
+        m_multigrid_solver(NULL),
         m_comm(IRKOper_->GetComm())
 {
     // Get proc IDs
@@ -108,7 +110,7 @@ IRK::~IRK() {
     if (m_tri_jac_solver) delete m_tri_jac_solver;
     if (m_newton_solver) delete m_newton_solver;
     if (m_stageOper) delete m_stageOper;
-    
+    if (m_multigrid_solver) delete m_multigrid_solver;
     if (m_jac_solverSparsity) delete m_jac_solverSparsity;
     if (m_jac_precSparsity) delete m_jac_precSparsity;
 }
@@ -139,23 +141,36 @@ void IRK::SetSolvers()
         m_jac_precSparsity->Sparsify(static_cast<int>(m_newton_params.jac_prec_sparsity));
     }
     
-    
-    
-    // Create Jacobian solver
-    // User requested different Krylov solvers for 1x1 and 2x2 blocks
-    if (m_krylov2) {
-        m_tri_jac_solver = new TriJacSolver(*m_stageOper, 
-                                m_newton_params.jac_update_rate, m_newton_params.gamma_idx,
-                                m_krylov_params, m_krylov_params2, 
-                                m_jac_solverSparsity, m_jac_precSparsity);
-    // Use same Krylov solvers for 1x1 and 2x2 blocks
-    } else {
-        m_tri_jac_solver = new TriJacSolver(*m_stageOper, 
-                                    m_newton_params.jac_update_rate, m_newton_params.gamma_idx,
-                                    m_krylov_params, 
-                                    m_jac_solverSparsity, m_jac_precSparsity);
+    // Create multigrid Jacobian solver
+    if (multigrid) {
+        m_multigrid_solver = new IRK_MG_Preconditioner(*m_stageOper,
+                                        m_newton_params.jac_update_rate,
+                                        m_newton_params.gamma_idx,
+                                        m_jac_solverSparsity, m_jac_precSparsity);
+        m_newton_solver->SetSolver(*m_multigrid_solver);
     }
-    m_newton_solver->SetSolver(*m_tri_jac_solver);
+    // Create block inverse Jacobian solver
+    else {
+        // User requested different Krylov solvers for 1x1 and 2x2 blocks
+        if (m_krylov2) {
+            m_tri_jac_solver = new TriJacSolver(*m_stageOper, 
+                                    m_newton_params.jac_update_rate, m_newton_params.gamma_idx,
+                                    m_krylov_params, m_krylov_params2, 
+                                    m_jac_solverSparsity, m_jac_precSparsity);
+        // Use same Krylov solvers for 1x1 and 2x2 blocks
+        }
+        else {
+            m_tri_jac_solver = new TriJacSolver(*m_stageOper, 
+                                        m_newton_params.jac_update_rate, m_newton_params.gamma_idx,
+                                        m_krylov_params, 
+                                        m_jac_solverSparsity, m_jac_precSparsity);
+        }
+        m_newton_solver->SetSolver(*m_tri_jac_solver);
+    }
+
+
+    // TODO :  need to account for ResetNumIterations and GetNumIterations in Step().
+
 }
 
 

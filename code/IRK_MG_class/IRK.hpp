@@ -119,25 +119,24 @@ public:
             {N'} == {N'(u + dt*x[i], this->GetTime() + dt*c[i])}, i=0,...,s-1.
         Such that it is referenceable with ExplicitGradientMult() and 
         SetPreconditioner() 
-        If not re-implemented, this method simply generates an error. */
+        If not re-implemented, this method does nothing, as
+        would happen for a linear problem. */
     virtual void SetExplicitGradient(const Vector &u, double dt, 
                                      const BlockVector &x, const Vector &c)
     {
         MFEM_ASSERT(m_gradients == ExplicitGradients::APPROXIMATE, 
                     "IRKOperator::SetExplicitGradient() applies only for \
                     ExplicitGradients::APPROXIMATE");
-        mfem_error("IRKOperator::SetExplicitGradient() is not overridden!");
     }
     
     /** Compute action of Na' explicit gradient operator.
-        If not re-implemented, this method simply generates an error. */    
+        If not re-implemented, this method calls ExplicitMult(). */    
     virtual void ExplicitGradientMult(const Vector &x, Vector &y) const
     {
         MFEM_ASSERT(m_gradients == ExplicitGradients::APPROXIMATE, 
                     "IRKOperator::ExplicitGradientMult() applies only for \
                     ExplicitGradients::APPROXIMATE");
-        
-        mfem_error("IRKOperator::ExplicitGradientMult() is not overridden!");
+        ExplicitMult(x, y);
     }
     
     /** Assemble preconditioner for gamma*M - dt*Na' that's applied by
@@ -160,26 +159,26 @@ public:
     /** Set the explicit gradients 
             {N'} == {N'(u + dt*x[i], this->GetTime() + dt*c[i])}, i=0,...,s-1.
         Such that they are referenceable with ExplicitGradientMult() and 
-        SetPreconditioner() 
-        
-        If not re-implemented, this method simply generates an error. */
+        SetPreconditioner().
+        If not re-implemented, this method does nothing, as
+        would happen for a linear problem. */
     virtual void SetExplicitGradients(const Vector &u, double dt, 
                                       const BlockVector &x, const Vector &c)
     {
         MFEM_ASSERT(m_gradients == ExplicitGradients::EXACT, 
                     "IRKOperator::SetExplicitGradients() applies only for \
                     ExplicitGradients::EXACT");
-        mfem_error("IRKOperator::SetExplicitGradients() is not overridden!");
     }
     
     /** Compute action of `index`-th explicit gradient operator.
-        If not re-implemented, this method simply generates an error. */    
+        If not re-implemented, this method simply generates an error. 
+        If not re-implemented, this method calls ExplicitMult(). */    
     virtual void ExplicitGradientMult(int index, const Vector &x, Vector &y) const
     {
         MFEM_ASSERT(m_gradients == ExplicitGradients::EXACT, 
                     "IRKOperator::ExplicitGradientMult() applies only for \
                     ExplicitGradients::EXACT");
-        mfem_error("IRKOperator::ExplicitGradientMult() is not overridden!");
+        ExplicitMult(x, y);
     }
     
     /** Assemble preconditioner for matrix 
@@ -250,7 +249,19 @@ public:
     LINEAR and NONLINEAR IRK solvers */
 class RKData 
 {
+private:    
+    
+    /// Set data required by solvers 
+    void SetData();     
+    /// Set dimensions of data structures 
+    void SizeData();    
+    
+    /** Set dummy 2x2 RK data that has the specified values of 
+        beta_on_eta == beta/eta and eta */
+    void SetDummyData(double beta_on_eta, double eta);
+
 public:
+
     // Implicit Runge Kutta type. Enumeration:
     //  First digit: group of schemes
     //  - 1 = A-stable (but NOT L-stable) SDIRK schemes
@@ -268,19 +279,8 @@ public:
         LobIIIC2 = 32, LobIIIC4 = 34, LobIIIC6 = 36, LobIIIC8 = 38
     };  
     
-private:    
-    Type ID;
-    
-    /// Set data required by solvers 
-    void SetData();     
-    /// Set dimensions of data structures 
-    void SizeData();    
-    
-    /** Set dummy 2x2 RK data that has the specified values of 
-        beta_on_eta == beta/eta and eta */
-    void SetDummyData(double beta_on_eta, double eta);
+    const Type ID;
 
-public:
     /// Constructor for real RK schemes
     RKData(Type ID_) : ID(ID_) { SetData(); };
     
@@ -303,8 +303,8 @@ public:
     Vector d0;          // inv(A0^\top)*b0
     
     // Coarse-grid data for block multigrid
-    Vector interp;      // Block multigrig interpolation
-    Vector rest;        // Block multigrig restriction
+    Vector interp;      // Block multigrid interpolation
+    Vector restr;        // Block multigrid restriction
     double sig_min;
     double us_dot_vs;
     
@@ -321,6 +321,7 @@ public:
 
 
 class TriJacSolver;
+class TriJacRelax;
 class IRK_MG_Preconditioner;
 /** Operator F defining the s stage equations. They satisfy F(w) = 0, 
     where w = (A0 \otimes I)*k, and
@@ -336,6 +337,7 @@ class IRKStageOper : public BlockOperator
 private:
     // Jacobian solver need access
     friend class TriJacSolver;     
+    friend class TriJacRelax;     
     friend class IRK_MG_Preconditioner;     
     
     Array<int> &offsets;            // Offsets of operator     
@@ -602,9 +604,11 @@ private:
     bool m_solversInit;             // Have the solvers been initialized?
     NewtonSolver * m_newton_solver; // Nonlinear solver for inverting F
     TriJacSolver * m_tri_jac_solver;// Linear solver for inverting (approximate) Jacobian
+    IRK_MG_Preconditioner * m_multigrid_solver;// Linear solver for inverting (approximate) Jacobian
     QuasiMatrixProduct * m_jac_solverSparsity;
     QuasiMatrixProduct * m_jac_precSparsity;
-    
+    bool multigrid;
+
     NewtonParams m_newton_params;   // Parameters for Newton solver
     KrylovParams m_krylov_params;   // Parameters for Krylov solver.
     KrylovParams m_krylov_params2;  // Parameters for Krylov solver for 2x2 systems, if different than that for 1x1 systems
@@ -620,7 +624,7 @@ private:
     void SetSolvers();
     
 public:
-    IRK(IRKOperator *IRKOper_, const RKData &ButcherTableau);
+    IRK(IRKOperator *IRKOper_, const RKData &ButcherTableau, bool multigrid_=false);
     ~IRK();
  
     void Init(TimeDependentOperator &F);
@@ -1212,7 +1216,7 @@ public:
                 
                 // Form of operator and preconditioner depends on IRKOperator::ExplicitGradients
                 if (kronecker_form) {
-                    DiagBlock[block]     = new JacDiagBlock(offsets_2, *(StageOper.IRKOper), 
+                    DiagBlock[block] = new JacDiagBlock(offsets_2, *(StageOper.IRKOper), 
                                                     R00, R01, R10, R11);
                                                     
                     // Diagonal blocks in preconditioner are the same
@@ -1223,7 +1227,8 @@ public:
                                                         row,  // Precondition (row+1,row+1) block with IRKOper.ImplicitPrec(row,.,.)
                                                         identity);                                                                
                     // Diagonal blocks in preconditioner are different
-                    } else {
+                    }
+                    else {
                         DiagBlockPrec[block] = new JacDiagBlockPrec(*(DiagBlock[block]),
                                                         R10, 
                                                         row,  // Precondition (row,row) block with IRKOper.ImplicitPrec(row,.,.)
@@ -1231,8 +1236,9 @@ public:
                                                         identity);                                
                     }
                     
-                } else {
-                    DiagBlock[block]     = new JacDiagBlock(offsets_2, *(StageOper.IRKOper), 
+                }
+                else {
+                    DiagBlock[block] = new JacDiagBlock(offsets_2, *(StageOper.IRKOper), 
                                                     R00, R01, R10, R11, 
                                                     (*Z_solver)(row,row), 
                                                     (*Z_solver)(row,row+1), 
@@ -1337,8 +1343,6 @@ public:
         // Transform to get original x
         KronTransform(StageOper.Butcher.Q0, x_block_temp, x_block); 
     }
-    
-    
     
 private:
     
@@ -1719,12 +1723,6 @@ public:
         }
     };
     
-    /// Functions to track solver progress
-    inline vector<int> GetNumIterations() { return krylov_iters; };
-    inline void ResetNumIterations() { 
-        for (int i = 0; i < krylov_iters.size(); i++) krylov_iters[i] = 0; 
-    };
-    
     /** Newton method will pass the operator returned from its GetGradient() to 
         this, but we don't actually use it. Instead, we update the approximate 
         gradient Na' or the exact gradients {N'} if requested */
@@ -1955,10 +1953,42 @@ private:
 */
 class IRK_MG_Preconditioner : public Solver
 {
+private:
+    TriJacRelax blockRelax;
+    IRKStageOper &StageOper;
+    bool Li_eq_Lj;
+    bool kronecker_form;
+    int num_stages, coarse_width, jac_update_rate;
+    mutable BlockVector zfine;
+    mutable Vector xcoarse, ycoarse;
+    Vector L_coefficients;
+    double s_min;
+    
+
+    void Interpolate(const Vector &coarse, BlockVector &fine) const
+    {
+        for (int row=0; row<num_stages; row++) {
+            double temp = StageOper.Butcher.interp(row);
+            fine.GetBlock(row).Set(temp, coarse);
+        }
+    }
+
+    void Restrict(const BlockVector &fine, Vector &coarse) const
+    {
+        coarse = 0.0;
+        for (int row=0; row<num_stages; row++) {
+            double temp = StageOper.Butcher.restr(row);
+            coarse.Add(temp, fine.GetBlock(row));
+        }
+    }
+
 public:
-    IRK_MG_Preconditioner(IRKStageOper &StageOper_, int jac_update_rate_=0) :
-        num_stages(StageOper.Butcher.s), zfine(StageOper_.RowOffsets()),
-        jac_update_rate(jac_update_rate_), s_min(StageOper.Butcher.sig_min)
+    IRK_MG_Preconditioner(IRKStageOper &StageOper_, int jac_update_rate_, int gamma_idx_,
+                 const QuasiMatrixProduct * Z_solver_, const QuasiMatrixProduct * Z_prec_) :
+        blockRelax(StageOper_, jac_update_rate_, gamma_idx_, Z_solver_, Z_prec_),
+        StageOper(StageOper_),  num_stages(StageOper.Butcher.s),
+        zfine(StageOper_.RowOffsets()), jac_update_rate(jac_update_rate_),
+        s_min(StageOper.Butcher.sig_min)
     {
         kronecker_form = (StageOper.IRKOper->GetExplicitGradientsType() ==
             IRKOperator::ExplicitGradients::APPROXIMATE);
@@ -1966,7 +1996,7 @@ public:
         // Set L_coefficients as (u1v1, ..., usvs)
         L_coefficients.SetSize(num_stages);
         for (int s=0; s<num_stages; s++) {
-            L_coefficients(i) = StageOper.Butcher.interp(s)*StageOper.Butcher.restr(s);
+            L_coefficients(s) = StageOper.Butcher.interp(s)*StageOper.Butcher.restr(s);
         } 
 
         // Check for IRK schemes with >1 stage, no DIRK schemes.
@@ -1978,9 +2008,6 @@ public:
         }
 
         // Set coarse_width 
-
-
-
 
     }
 
@@ -2037,38 +2064,6 @@ public:
         //      y = [M^{-1} + PK^{-1}R(I - AM^{-1}) ]x
         y += zfine;
     }
-
-
-private:
-
-    TriJacRelax blockRelax;
-    IRKStageOper &StageOper;
-    bool Li_eq_Lj;
-    bool kronecker_form;
-    int num_stages, coarse_width, jac_update_rate;
-    mutable BlockVector zfine;
-    mutable Vector xcoarse, ycoarse;
-    Vector L_coefficients;
-    double s_min;
-    
-
-    Interpolate(const Vector &coarse, BlockVector &fine)
-    {
-        for (int row=0; row<num_stages; row++) {
-            double temp = StageOper.Butcher.interp(row);
-            fine.GetBlock(row).Set(temp, coarse);
-        }
-    }
-
-    Restrict(const BlockVector &fine, Vector &coarse)
-    {
-        coarse = 0.0;
-        for (int row=0; row<num_stages; row++) {
-            double temp = StageOper.Butcher.restr(row);
-            coarse.Add(temp, fine.GetBlock(row));
-        }
-    }
-}
-
+};
 
 #endif
