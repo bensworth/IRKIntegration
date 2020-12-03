@@ -32,3 +32,5 @@ analysis/fov.pdf
 irk_nl.pdf
 ODEs_linear/irk_lin.pdf
 .vscode
+
+vorticity-streamfunction/

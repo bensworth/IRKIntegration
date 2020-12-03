@@ -1303,7 +1303,8 @@ We consider tests using IRK methods of orders three, four, seven, and eight. The
 3rd- and 4th-order IRK methods are paired with 4th-order
 central-finite-differences in space, and the 7th- and 8th-order methods with
 8th-order central-finite-differences in space. In all cases, a time-step of
-$\delta t = 2 h$ is used, with $h$ denoting the spatial mesh size. Due to the
+$\delta t = 2 h$ is used, with $h$ denoting the spatial mesh size, and results
+are run on four cores. Due to the
 diffusive, but non-SPD nature of the spatial discretization, we apply GMRES(30)
 preconditioned by a classical algebraic multigrid (AMG) method in the
 \textit{hypre} library \cite{Falgout:2002vu}. Specifically, we
