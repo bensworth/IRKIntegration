@@ -2035,9 +2035,11 @@ The expected rates of convergence are observed for Gauss, Radau, and Lobatto met
 
 We next study the effectiveness of the solvers and preconditioners for the resulting algebraic systems of equations.
 We make use of an element-wise block ILU preconditioner with minimum discarded fill ordering that has been shown to be effective for convection-dominated fluid problems \cite{Persson2008}.
-In Table \ref{tab:ev-solvers}, we present the number of nonlinear iterations required to converge with a representative time step of $\Delta t = 2 \times 10^{-2}$, together with the total number of Krylov iterations in one step.
-We note that the second- and fourth-order Gauss methods require fewer total Krylov iterations when compared with the equal-order SDIRK methods.
-Similarly, the third-order Radau IIA method requires one fewer Krylov iteration when compared with the third-order SDIRK method.
+In Table \ref{tab:ev-solvers}, we present the number of nonlinear iterations required to converge with a representative time step of $\Delta t = 2 \times 10^{-2}$, together with the total number of preconditioner applications in one step.
+Each Krylov iteration for the SDIRK methods corresponds to a single preconditioner application.
+For the fully implicit IRK methods, one Kyrlov iteration for a $1\times1$ system corresponds to one preconditioner application, whereas for a $2\times2$ system, one Krylov iteration corresponds to two preconditioner applications.
+We note that the second- and fourth-order Gauss methods require fewer total preconditioner applications when compared with the equal-order SDIRK methods.
+Similarly, the third-order Radau IIA method requires one fewer preconditioner application when compared with the third-order SDIRK method.
 The Lobatto methods are significantly more expensive than the equal-order Gauss methods for this test case.
 
 \begin{table}
@@ -2051,7 +2053,7 @@ The Lobatto methods are significantly more expensive than the equal-order Gauss 
 		\midrule
 		Newton its. & 3 & 3 & 3 & 3 & 3 & 3 & 5 & 5 & 5\\
 		\midrule
-		Total Krylov its. & 20 & 26 & 45 & 59 & 15 & 36 & 103 & 162 & 169\\
+		Precond.\ applications & 20 & 26 & 45 & 59 & 15 & 36 & 103 & 162 & 169\\
 		\bottomrule
 	\end{tabular}
 
@@ -2064,7 +2066,7 @@ The Lobatto methods are significantly more expensive than the equal-order Gauss 
 		\midrule
 		Newton its. & 3 & 5 & 5 & 5 & 3 & 8 & 5 & 6\\
 		\midrule
-		Total Krylov its. & 44 & 121 & 168 & 205 & 66 & 225 & 210 & 292\\
+		Precond.\ applications & 44 & 121 & 168 & 205 & 66 & 225 & 210 & 292\\
 		\bottomrule
 	\end{tabular}
 \end{table}
@@ -2108,10 +2110,45 @@ No-slip boundary conditions are enforced at the surface of the airfoil, and farf
 The main challenge associated with this problem is the resolution of the thin boundary layer at the surface of the airfoil that results from the no-slip condition.
 This boundary layer is resolved using a layer of anisotropically stretched elements near the surface of the airfoil.
 These elements result in a highly restrictive CFL stability condition, motivating the use of implicit time integration for this problem.
+A time accurate time step of $\Delta t = 5 \times 10^{-2}$ is chosen for this problem.
+This time step is several orders of magnitude larger than the largest stable explicit time step.
+The number of nonlinear iterations and preconditioner applications required for convergence are shown in Table \ref{tab:naca-iters}.
+As in the previous case, each Krylov iteration for the SDIRK methods corresponds to a single preconditioner application.
+For the IRK methods, one Kyrlov iteration for a $1\times1$ system corresponds to one preconditioner application, whereas for a $2\times2$ system, one Krylov iteration corresponds to two preconditioner applications.
+As we observed in the case of the Euler vortex, the Gauss and Radau fully implicit Runge--Kutta methods of 2, 3, and 4 converge with fewer total preconditioner applications than the equal-order SDIRK method.
+
+\begin{table}
+	\centering
+	\caption{Nonlinear iterations and preconditioner applications for the NACA airfoil test case, with time step $\Delta t = 5 \times 10^{-2}.$}
+	\label{tab:naca-iters}
+	\begin{tabular}{r|cccc|ccccc}
+		\toprule
+		& \multicolumn{4}{c}{SDIRK} & \multicolumn{5}{c}{Gauss} \\
+		Order  & 1 & 2 & 3 & 4 & 2 & 4 & 6 & 8 & 10\\
+		\midrule
+		Newton its. & 5 & 5 & 5 & 5 & 5 & 5 & 8 & 8 & 8\\
+		\midrule
+		Precond.\ applications & 173 & 200 & 359 & 481 & 128 & 244 & 557 & 732 & 830\\
+		\bottomrule
+	\end{tabular}
+
+	\vspace{\floatsep}
+
+	\begin{tabular}{r|cccc|ccc}
+		\toprule
+		& \multicolumn{4}{c}{Radau} & \multicolumn{3}{c}{Lobatto} \\
+		Order  & 3 & 5 & 7 & 9 & 2 & 6 & 8\\
+		\midrule
+		Newton its. & 5 & 9 & 9 & 9 & 5 & 15 & 17\\
+		\midrule
+		Precond.\ applications & 314 & 728 & 926 & 1061 & 454 & 1670 & 1995\\
+		\bottomrule
+	\end{tabular}
+\end{table}
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
-\subsection{Incompressible Euler in vorticity-streamfunction form}\label{sec:numerics:khi}
+\subsection{Incompressible Euler and Navier--Stokes in vorticity-streamfunction form}\label{sec:numerics:khi}
 
 As an example of an index-1 differential-algebraic equation, we consider the vorticity-streamfunction formulation of the 2D incompressible Euler equations \cite{Liu2000}.
 The equations are given by
@@ -2123,11 +2160,16 @@ The equations are given by
 \end{align}
 where the velocity $\bm u$ is defined by $\bm u = \nabla^\perp \psi$, for $\nabla^\perp = (-\partial_y, \partial_x)$.
 Here, $\omega$ is the vorticity, and $\psi$ is a scalar field known as the streamfunction, which is used to naturally enforce the divergence-free condition on the velocity.
-Note that this formulation can be easily extended to the 2D incompressible Navier--Stokes equations with the addition of a viscosity term.
+Note that this formulation can be easily extended to the 2D incomressible Navier--Stokes equations with the addition of a viscosity term, such that \eqref{eq:ins-1} is replaced by
+\begin{equation} \label{eq:ins-3}
+	\frac{\partial\omega}{\partial t} + \nabla\cdot(\bm{u} \omega) = \frac{1}{\rm Re} \Delta \omega,
+\end{equation}
+where $\rm Re$ is the Reynolds number.
 Equation \eqref{eq:ins-1} is essentially a scalar advection equation for $\omega$, which we discretize using an upwind discontinuous Galerkin method.
 If the streamfunction $\psi$ is in $H^1$, then the velocity $\bm u = \nabla^\perp \psi$ is automatically continuous across element interfaces, and therefore the standard upwind flux is well-defined.
 We therefore discretize \eqref{eq:ins-2} using a standard $H^1$-conforming finite element method.
 Equal-order finite element spaces are chosen for $\omega$ and $\psi$.
+In the case of the Navier--Stokes equations, we discretize the viscous term on the right-hand side of \eqref{eq:ins-3} using a standard interior penalty discontinuous Galerkin method \cite{Arnold1982}.
 
 After performing the discretization, this system of equations can be written as
 \begin{equation}
@@ -2137,7 +2179,7 @@ After performing the discretization, this system of equations can be written as
 	\left[ \begin{array}{cc} K(\psi) & 0 \\ M_{\rm mix} & A \end{array} \right]
 	\left[ \begin{array}{c} \omega \\ \psi \end{array} \right],
 \end{equation}
-where $M_{\rm dg}$ represents the DG mass matrix, $M_{\rm mix}$ is the mixed DG-$H^1$ mass matrix, $K(\psi)$ is the discretized advection operator (depending the velocity $\bm u$ as a function of $\psi$), and $A$ is the $H^1$-conforming diffusion operator.
+where $M_{\rm dg}$ represents the DG mass matrix, $M_{\rm mix}$ is the mixed DG-$H^1$ mass matrix, $K(\psi)$ is the discretized advection (or advection--diffusion) operator (depending the velocity $\bm u$ as a function of $\psi$), and $A$ is the $H^1$-conforming diffusion operator.
 A Picard linearization of \eqref{eq:ins-system} will result in a block-triangular system that is of the same form as \eqref{eq:ins-system}, but using an iteratively lagged advection operator.
 In the notation of \Cref{sec:dae}, we have $\mathcal{L}_u^{(i)} = K(\psi^{(i)})$, $\mathcal{L}_w = 0$, $\mathcal{G}_u = M_{\rm mix}$, and $\mathcal{G}_w = A$.
 Therefore, the $4\times4$ block system \eqref{eq:dae_block} that arises from IRK integration can be rearranged to be written as
@@ -2153,6 +2195,48 @@ Therefore, the $4\times4$ block system \eqref{eq:dae_block} that arises from IRK
 \begin{bmatrix} \mathbf{f}_1 \\ \mathbf{f}_2 \\ \mathbf{g}_1 \\ \mathbf{g}_2 \end{bmatrix}.
 \end{align}
 This block-triangular system can be solved using a forward-substitution algorithm, first solving the leading $2\times2$ block for the time-dependent variables, and then solving two (independent) Poisson problems for the algebraic constraints (i.e.\ the streamfunctions).
+
+We consider the two-dimensional incompressible Taylor--Green vortex problem.
+The initial conditions are given by
+\[
+	\omega(x,y,0) = -2\sin(x)\sin(y).
+\]
+The domain is taken to be the square $[0,2\pi] \times [0,2\pi]$, and periodic boundary conditions are enforced at the domain boundaries.
+These initial conditions are a steady solution for the incompressible Euler equations.
+In order to test the accuracy of the time integration method, we instead consider the Navier--Stokes equations, for which the exact solution is given by
+\[
+	\omega(x,y,t) = -2\sin(x)\sin(y) \exp(-2t/\rm Re).
+\]
+An advantage of implicit time integration for this problem is that the scheme remains stable even for small Reynolds numbers.
+As such, we choose $\rm Re = 10$ for this problem, and integrate until $t = 0.1$.
+We compare the numerical solutions with a reference solution computed using a small time step of $\Delta t = 10^{-5}$.
+The results are presented in \Cref{tab:tgv-errors}.
+As a consequence of the nonlinear solver tolerance, the observed order of convergence is slightly reduced for the sixth and seventh order Lobatto and Radau methods.
+
+\begin{table}
+	\centering
+	\caption{Error and convergence rates for Taylor--Green vortex problem}
+	\label{tab:tgv-errors}
+	\begin{tabular}{r|cccccc}
+		\toprule
+		& \multicolumn{2}{c}{Gauss 2} & \multicolumn{2}{c}{Gauss 4} & \multicolumn{2}{c}{Gauss 6}\\
+		$\Delta t$ & Error & Rate & Error & Rate & Error & Rate\\
+		\midrule
+		$3.20\times 10^{-2}$ & $1.96 \times 10^{-5}$ & --- & $2.30 \times 10^{-6}$ & --- & $3.45 \times 10^{-8}$ & --- \\
+		$1.60\times 10^{-2}$ & $7.10 \times 10^{-6}$ & 1.47 & $1.10 \times 10^{-7}$ & 4.38 & $8.70 \times 10^{-11}$ & 8.63 \\
+		\midrule
+		\multicolumn{2}{c}{Radau 3} & \multicolumn{2}{c}{Radau 5} & \multicolumn{2}{c}{Radau 7}\\
+		\midrule
+		$3.20\times 10^{-2}$ & $2.18 \times 10^{-8}$ & --- & $9.52 \times 10^{-10}$ & --- & $7.78 \times 10^{-11}$ & --- \\
+		$1.60\times 10^{-2}$ & $3.17 \times 10^{-9}$ & 2.78 & $2.92 \times 10^{-11}$ & 5.03 & $1.61 \times 10^{-12}$ & 5.60 \\
+		\midrule
+		& \multicolumn{2}{c}{Lobatto 2} & \multicolumn{2}{c}{Lobatto 4} & \multicolumn{2}{c}{Lobatto 6}\\
+		\midrule
+		$3.20\times 10^{-2}$ & $8.11 \times 10^{-7}$ & --- & $4.68 \times 10^{-9}$ & --- & $1.26 \times 10^{-10}$ & --- \\
+		$1.60\times 10^{-2}$ & $2.05 \times 10^{-7}$ & 1.99 & $3.82 \times 10^{-10}$ & 3.62 & $2.36 \times 10^{-12}$ & 5.73 \\
+		\bottomrule
+	\end{tabular}
+\end{table}
 
 % \subsection{(Incompressible) Kelvin-Helmholtz instability}\label{sec:numerics:khi}
 % Define $\mathbf{v}$ as a curl, such that $\nabla \cdot\mathbf{v}w =
