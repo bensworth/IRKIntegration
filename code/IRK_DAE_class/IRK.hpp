@@ -1206,7 +1206,7 @@ public:
                     DiagBlockPrec[block] = new JacDiagBlockTriPrec(*(DiagBlock[block]), identity);
                 }
                 else {
-                    DiagBlockPrec[block] = new JacDiagGenPrec(*(DiagBlock[block]), block, 1);
+                    DiagBlockPrec[block] = new JacDiagGenPrec(*(DiagBlock[block]), row, 1);
                 }
             }
             // 2x2 diagonal block spanning rows=(row,row+1),cols=(row,row+1)
@@ -1243,7 +1243,7 @@ public:
                         }
                     }
                     else {
-                        DiagBlockPrec[block] = new JacDiagGenPrec(*(DiagBlock[block]), block, 2);
+                        DiagBlockPrec[block] = new JacDiagGenPrec(*(DiagBlock[block]), row, 2);
                     }
                 }
                 else {
@@ -1265,7 +1265,7 @@ public:
                                                         identity);
                     }
                     else {
-                        DiagBlockPrec[block] = new JacDiagGenPrec(*(DiagBlock[block]), block, 2);
+                        DiagBlockPrec[block] = new JacDiagGenPrec(*(DiagBlock[block]), row, 2);
                     }
                 }
             }
@@ -1464,7 +1464,7 @@ private:
                 }
                 else {
                     double beta = StageOper.Butcher.beta[row];
-                    StageOper.IRKOper->BuildGenPreconditioner(diagBlock, dt, R(row,row), R(row,row+1), beta, size[diagBlock]);
+                    StageOper.IRKOper->BuildGenPreconditioner(row, dt, R(row,row), R(row,row+1), beta, size[diagBlock]);
                 }
             }
             else {
@@ -1477,7 +1477,7 @@ private:
                         StageOper.IRKOper->BuildPreconditionerSchur(row+1, dt, gamma, (*Z_prec)(row+1,row+1));
                     } else {
                         double beta = StageOper.Butcher.beta[row];
-                        StageOper.IRKOper->BuildGenPreconditioner(diagBlock, dt, R(row,row), R(row,row+1), beta,
+                        StageOper.IRKOper->BuildGenPreconditioner(row, dt, R(row,row), R(row,row+1), beta,
                                                                 (*Z_prec)(row,row),
                                                                 (*Z_prec)(row+1,row+1));
                     }
