@@ -61,7 +61,8 @@ IRK::IRK(IRKOperator *IRKOper_, const RKData &ButcherTableau)
         m_tri_jac_solver(NULL),
         m_jac_solverSparsity(NULL),
         m_jac_precSparsity(NULL),
-        m_krylov2(false)
+        m_krylov2(false),
+        m_schur_precondition(true)
 {
     // Get proc IDs
     MPI_Comm_rank(m_comm, &m_rank);
@@ -116,7 +117,7 @@ IRK::~IRK() {
 
 
 /// Build solvers
-void IRK::SetSolvers(bool schur_precondition)
+void IRK::SetSolvers()
 {
     if (m_solversInit) return;
     m_solversInit = true;
@@ -126,6 +127,7 @@ void IRK::SetSolvers(bool schur_precondition)
     m_newton_solver->iterative_mode = false;
     m_newton_solver->SetMaxIter(m_newton_params.maxiter);
     m_newton_solver->SetRelTol(m_newton_params.reltol);
+    m_newton_solver->SetAbsTol(m_newton_params.abstol);
     m_newton_solver->SetPrintLevel(m_newton_params.printlevel);
     if (m_newton_params.printlevel == 2) m_newton_solver->SetPrintLevel(-1);
 
@@ -144,16 +146,16 @@ void IRK::SetSolvers(bool schur_precondition)
     if (m_krylov2) {
         m_tri_jac_solver = new TriJacSolver(*m_stageOper,
                                 m_newton_params.jac_update_rate, m_newton_params.gamma_idx,
-                                m_krylov_params, m_krylov_params2, 
+                                m_krylov_params, m_krylov_params2,
                                 m_jac_solverSparsity, m_jac_precSparsity,
-                                schur_precondition);
+                                m_schur_precondition);
     // Use same Krylov solvers for 1x1 and 2x2 blocks
     } else {
         m_tri_jac_solver = new TriJacSolver(*m_stageOper,
                                     m_newton_params.jac_update_rate, m_newton_params.gamma_idx,
-                                    m_krylov_params, 
+                                    m_krylov_params,
                                     m_jac_solverSparsity, m_jac_precSparsity,
-                                    schur_precondition);
+                                    m_schur_precondition);
     }
     m_newton_solver->SetSolver(*m_tri_jac_solver);
 }

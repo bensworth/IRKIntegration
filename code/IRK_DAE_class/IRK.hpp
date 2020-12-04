@@ -151,7 +151,7 @@ public:
         Applied by calling
             ImplicitPrec(index,.,.)
         Only needed if schur_precondition=false. */
-    virtual void BuildGenPreconditioner(int index, double dt, double gamma, int type)
+    virtual void BuildGenPreconditioner(int index, double dt, double eta, double phi, double beta, int type)
     {
         mfem_error("IRKOperator::BuildGenPreconditioner() is not overridden!");
     }
@@ -210,7 +210,7 @@ public:
         with weight vectors weights1 and weights2. Applied by calling
             ImplicitPrec(index,.,.)
         Only needed if schur_precondition=false. */
-    virtual void BuildGenPreconditioner(int index, double dt, double gamma,
+    virtual void BuildGenPreconditioner(int index, double dt, double eta, double phi, double beta,
         Vector weights1, Vector weights2)
     {
         mfem_error("IRKOperator::BuildGenPreconditioner() is not overridden!");
@@ -617,6 +617,7 @@ private:
     KrylovParams m_krylov_params;   // Parameters for Krylov solver.
     KrylovParams m_krylov_params2;  // Parameters for Krylov solver for 2x2 systems, if different than that for 1x1 systems
     bool m_krylov2;                 // Do we use a second solver?
+    bool m_schur_precondition;
 
     /* Statistics on solution of nonlinear and linear systems across whole integration */
     int m_avg_newton_iter;          // Avg number of Newton iterations per time step
@@ -625,8 +626,8 @@ private:
     vector<double> m_eig_ratio;     // The ratio beta/eta
 
     /// Build nonlinear and linear solvers
-    void SetSolvers(bool schur_precondition=true);
-    
+    void SetSolvers();
+
 public:
     IRK(IRKOperator *IRKOper_, const RKData &ButcherTableau);
     ~IRK();
@@ -656,6 +657,10 @@ public:
         m_krylov_params  = params1;
         m_krylov_params2 = params2;
         m_krylov2 = true; // Using two Krylov solvers
+    }
+
+    inline void UseSchurPreconditioner(bool schur_precond) {
+        m_schur_precondition = schur_precond;
     }
 
     /// Get statistics about solution of nonlinear and linear systems
@@ -922,16 +927,16 @@ private:
 
 public:
     /// 1x1 block
-    JacDiagBlockTriPrec(const JacDiagBlock &BlockOper_, 
-        bool identity_=false) 
-        : Solver(BlockOper_.Height()), BlockOper(BlockOper_), 
-        identity(identity_) 
+    JacDiagBlockTriPrec(const JacDiagBlock &BlockOper_,
+        bool identity_=false)
+        : Solver(BlockOper_.Height()), BlockOper(BlockOper_),
+        identity(identity_)
         {}
 
     /// ExplicitGradients==APPROXIMATE, 2x2 block
-    JacDiagBlockTriPrec(const JacDiagBlock &BlockOper_, double R10_, 
-        int prec00_idx_, int prec11_idx_, 
-        bool identity_=false) 
+    JacDiagBlockTriPrec(const JacDiagBlock &BlockOper_, double R10_,
+        int prec00_idx_, int prec11_idx_,
+        bool identity_=false)
         : Solver(BlockOper_.Height()), BlockOper(BlockOper_),
             identity(identity_), temp_vector(BlockOper_.Offsets()[1]),
             R10(R10_),
@@ -943,10 +948,10 @@ public:
         }
 
     /// ExplicitGradients==EXACT, 2x2 block
-    JacDiagBlockTriPrec(const JacDiagBlock &BlockOper_, double R10_, Vector Y10_, 
-        int prec00_idx_, int prec11_idx_, 
-        bool identity_=false) 
-        : Solver(BlockOper_.Height()), BlockOper(BlockOper_), 
+    JacDiagBlockTriPrec(const JacDiagBlock &BlockOper_, double R10_, Vector Y10_,
+        int prec00_idx_, int prec11_idx_,
+        bool identity_=false)
+        : Solver(BlockOper_.Height()), BlockOper(BlockOper_),
             identity(identity_), temp_vector(BlockOper_.Offsets()[1]),
             R10(R10_), Y10(Y10_),
             prec00_idx(prec00_idx_), prec11_idx(prec11_idx_)
@@ -955,7 +960,7 @@ public:
                         "JacDiagBlockTriPrec:: This constructor is for IRKOperator's \
                         with ExplicitGradients::EXACT");
         }
-    
+
     ~JacDiagBlockTriPrec() {}
 
     /// Apply action of preconditioner
@@ -963,8 +968,8 @@ public:
         // Use an identity preconditioner
         if (identity) {
             y_scalar = x_scalar;
-            
-        // Use a proper preconditioner    
+
+        // Use a proper preconditioner
         }
         else {
 
@@ -1031,10 +1036,10 @@ private:
     const JacDiagBlock &BlockOper;
     int Schur_block_id;
     int num_blocks;
-        
+
 public:
     /// 1x1 block
-    JacDiagGenPrec(const JacDiagBlock &BlockOper_, int Schur_block_id_, int num_blocks_) 
+    JacDiagGenPrec(const JacDiagBlock &BlockOper_, int Schur_block_id_, int num_blocks_)
         : Solver(BlockOper_.Height()), BlockOper(BlockOper_),
         Schur_block_id(Schur_block_id_), num_blocks(num_blocks_)
     {
@@ -1042,12 +1047,12 @@ public:
     }
 
     ~JacDiagGenPrec() {}
-    
+
     /// Apply action of preconditioner
     void Mult(const Vector &x_scalar, Vector &y_scalar) const {
         BlockOper.IRKOper.ImplicitPrec(Schur_block_id, x_scalar, y_scalar);
     }
-    
+
     /// Purely virtual function we must implement but do not use.
     virtual void SetOperator(const Operator &op) {  }
 };
@@ -1101,7 +1106,6 @@ private:
     int printlevel;
     int jac_update_rate;    // How frequently is Jacobian updated?
     int gamma_idx;          // Constant used to precondition Schur complement
-    bool schur_precondition;
 
     Array<int> &offsets;    // Offsets for vectors with s blocks
     Array<int> offsets_1;   // Offsets for vectors with 1 block
@@ -1133,6 +1137,8 @@ private:
     const QuasiMatrixProduct * Z_solver;    // For solver
     const QuasiMatrixProduct * Z_prec;      // For diagonal preconditioners
 
+    bool schur_precondition;
+
 public:
 
     /** General constructor, where 1x1 and 2x2 systems can use different Krylov
@@ -1141,7 +1147,7 @@ public:
     TriJacSolver(IRKStageOper &StageOper_, int jac_update_rate_, int gamma_idx_,
                 const IRK::KrylovParams &solver_params1, const IRK::KrylovParams &solver_params2,
                 const QuasiMatrixProduct * Z_solver_, const QuasiMatrixProduct * Z_prec_,
-                bool schur_precondition_=true) 
+                bool schur_precondition_=true)
         : Solver(StageOper_.Height()),
         StageOper(StageOper_),
         printlevel(solver_params1.printlevel),
@@ -1153,7 +1159,7 @@ public:
         temp_vector1(StageOper_.RowOffsets()[1]), temp_vector2(StageOper_.RowOffsets()[1]),
         krylov_solver1(NULL), krylov_solver2(NULL), multiple_krylov(false),
         Z_solver(Z_solver_), Z_prec(Z_prec_), schur_precondition(schur_precondition_)
-    {        
+    {
 
         kronecker_form = (StageOper.IRKOper->GetExplicitGradientsType() == IRKOperator::ExplicitGradients::APPROXIMATE);
 
@@ -1222,18 +1228,18 @@ public:
                         // Diagonal blocks in preconditioner are the same
                         if (gamma_idx == 0) {
                             DiagBlockPrec[block] = new JacDiagBlockTriPrec(*(DiagBlock[block]),
-                                                            R10, 
+                                                            R10,
                                                             row,  // Precondition (row,row) block with IRKOper.ImplicitPrec(row,.,.)
                                                             row,  // Precondition (row+1,row+1) block with IRKOper.ImplicitPrec(row,.,.)
-                                                            identity);                                                                
+                                                            identity);
                         }
                         // Diagonal blocks in preconditioner are different
                         else {
                             DiagBlockPrec[block] = new JacDiagBlockTriPrec(*(DiagBlock[block]),
-                                                            R10, 
+                                                            R10,
                                                             row,  // Precondition (row,row) block with IRKOper.ImplicitPrec(row,.,.)
                                                             row+1,// Precondition (row+1,row+1) block with IRKOper.ImplicitPrec(row+1,.,.)
-                                                            identity);                                
+                                                            identity);
                         }
                     }
                     else {
@@ -1241,19 +1247,19 @@ public:
                     }
                 }
                 else {
-                    DiagBlock[block] = new JacDiagBlock(offsets_2, *(StageOper.IRKOper), 
-                                                    R00, R01, R10, R11, 
-                                                    (*Z_solver)(row,row), 
-                                                    (*Z_solver)(row,row+1), 
-                                                    (*Z_solver)(row+1,row), 
+                    DiagBlock[block] = new JacDiagBlock(offsets_2, *(StageOper.IRKOper),
+                                                    R00, R01, R10, R11,
+                                                    (*Z_solver)(row,row),
+                                                    (*Z_solver)(row,row+1),
+                                                    (*Z_solver)(row+1,row),
                                                     (*Z_solver)(row+1,row+1));
 
                     // Precondition using predefined block triangular preconditioning
                     // (schur) or using custom approach for full system.
                     if (schur_precondition) {
                         DiagBlockPrec[block] = new JacDiagBlockTriPrec(*(DiagBlock[block]),
-                                                        R10, 
-                                                        (*Z_prec)(row+1,row), 
+                                                        R10,
+                                                        (*Z_prec)(row+1,row),
                                                         row,  // Precondition (row,row) block with IRKOper.ImplicitPrec(row,.,.)
                                                         row+1,// Precondition (row+1,row+1) block with IRKOper.ImplicitPrec(row+1,.,.)
                                                         identity);
@@ -1291,8 +1297,8 @@ public:
     TriJacSolver(IRKStageOper &StageOper_, int jac_update_rate_, int gamma_idx_,
                 const IRK::KrylovParams &solver_params,
                 const QuasiMatrixProduct * Z_solver, const QuasiMatrixProduct * Z_prec,
-                bool schur_precondition_=true) 
-        : TriJacSolver(StageOper_, jac_update_rate_, gamma_idx_, solver_params, solver_params, 
+                bool schur_precondition_=true)
+        : TriJacSolver(StageOper_, jac_update_rate_, gamma_idx_, solver_params, solver_params,
                         Z_solver, Z_prec, schur_precondition_) {};
 
     ~TriJacSolver()
@@ -1445,37 +1451,38 @@ private:
             }
 
             // Assemble preconditioner(s) for diag block
-            if (kronecker_form) {                
+            if (kronecker_form) {
                 if (schur_precondition) {
-                    // Preconditioner for R(row,row)*M-dt*Na' 
+                    // Preconditioner for R(row,row)*M-dt*Na'
                     StageOper.IRKOper->BuildPreconditioner(row, dt, R(row,row), size[diagBlock]);
-                    
-                    /* Inverting 2x2 block: Assemble a 2nd preconditioner for 
+
+                    /* Inverting 2x2 block: Assemble a 2nd preconditioner for
                         gamma*M-dt*Na' if gamma is not eta */
                     if (size[diagBlock] == 2 && gamma_idx != 0) {
                         StageOper.IRKOper->BuildPreconditionerSchur(row+1, dt, gamma, size[diagBlock]);
                     }
                 }
                 else {
-                    StageOper.IRKOper->BuildGenPreconditioner(diagBlock, dt, R(row,row), size[diagBlock]);
+                    double beta = StageOper.Butcher.beta[row];
+                    StageOper.IRKOper->BuildGenPreconditioner(diagBlock, dt, R(row,row), R(row,row+1), beta, size[diagBlock]);
                 }
             }
             else {
-                
-                if (schur_precondition) {
-                    // Preconditioner for R(row,row)*M-dt*<Z_prec(row,row),{N'}> 
-                    StageOper.IRKOper->BuildPreconditioner(row, dt, R(row,row), (*Z_prec)(row,row));
-
-                    /* Inverting 2x2 block: Assemble a 2nd preconditioner for 
+                // Preconditioner for R(row,row)*M-dt*<Z_prec(row,row),{N'}>
+                if (size[diagBlock] == 2) {
+                    /* Inverting 2x2 block: Assemble a 2nd preconditioner for
                         gamma*M-dt*<Z_prec(row+1,row+1),{N'}> */
-                    if (size[diagBlock] == 2) {
+                    if (schur_precondition) {
+                        StageOper.IRKOper->BuildPreconditioner(row, dt, R(row,row), (*Z_prec)(row,row));
                         StageOper.IRKOper->BuildPreconditionerSchur(row+1, dt, gamma, (*Z_prec)(row+1,row+1));
+                    } else {
+                        double beta = StageOper.Butcher.beta[row];
+                        StageOper.IRKOper->BuildGenPreconditioner(diagBlock, dt, R(row,row), R(row,row+1), beta,
+                                                                (*Z_prec)(row,row),
+                                                                (*Z_prec)(row+1,row+1));
                     }
-                }
-                else {
-                    StageOper.IRKOper->BuildGenPreconditioner(diagBlock, dt, R(row,row),  
-                                                              (*Z_prec)(row,row),
-                                                              (*Z_prec)(row+1,row+1));
+                } else {
+                    StageOper.IRKOper->BuildPreconditioner(row, dt, R(row,row), (*Z_prec)(row,row));
                 }
             }
 
