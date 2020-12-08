@@ -54,16 +54,16 @@
       Alamos National Laboratory.
   }}
 
-\author{Ben S. Southworth\thanks{Department of Applied Mathematics,
-    University of Colorado,
-    U.S.A. (\url{ben.s.southworth@gmail.com}),
+\author{Ben S. Southworth\thanks{Theoretical Division, Los Alamos National Laboratory,
+    U.S.A. (\url{southworth@lanl.gov}),
     \url{http://orcid.org/0000-0002-0283-4928}}
     \and
     Oliver Krzysik
   	\thanks{School of Mathematical Sciences, Monash University,
   	Australia (\url{oliver.krzysik@monash.edu})}
   	\and
-  	Will Pazner\thanks{Lawrence Livermore National Laboratory,
+  	Will Pazner\thanks{Center for Applied Scientific Computing,
+  	Lawrence Livermore National Laboratory,
     U.S.A. (\url{pazner1@llnl.gov})}
 }
 
@@ -83,13 +83,26 @@
 
 \begin{abstract}
 This paper introduces a theoretical and algorithmic framework for the fast,
-parallel solution of fully implicit Runge-Kutta schemes in the integration
-of numerical PDEs, including nonlinearities and differential algebraic
-equations (DAEs). This framework also naturally applies to discontinuous Galerkin
-discretizations in time. The new method can be used with arbitrary existing
-preconditioners for backward Euler-type time stepping schemes
-
-
+parallel solution of fully implicit Runge-Kutta (IRK) schemes in the integration
+of numerical PDEs, focusing on nonlinearities and differential algebraic
+equations (DAEs). This framework also naturally applies to discontinuous
+Galerkin discretizations in time. Moreover, the new method only requires
+preconditioners as would be used for backward Euler-type time stepping schemes.
+Several new methods of linearizing the nonlinear IRK equations are developed,
+offering faster and more robust convergence than the often-considered simplified
+Newton, as well as an effective preconditioner for the true Jacobian if exact
+Newton iterations are desired. Inverting these linearizations requires solving a
+set of block $2\times 2$ systems, and, under quite general assumptions on the
+spatial discretization, it is proven that the right combination of
+backward-Euler-type preconditioners in a $2\times 2$ block preconditioner yields
+a preconditioned operator with conditioning $\sim\mathcal{O}(1)$, with only
+weak dependence on the number of stages or integration accuracy. The new
+methods are applied to multiple examples of the compressible Euler and Navier
+Stokes equations, and the incompressible Euler and Navier Stokes equations
+in the vorticity-streamfunction formulation. Up to 10th order accuracy is
+demonstrated using Gauss integration, while in many cases 4th-order Gauss integration
+requires roughly half the number of preconditioner applications as required
+by standard SDIRK methods.
 \end{abstract}
 
 
@@ -1833,17 +1846,27 @@ S :& = \begin{bmatrix} \eta M - \delta t\mathcal{L}_{u}^{(2)} &
 \end{align*}
 %
 
-Preconditioning \eqref{eq:dae_block} and the corresponding Schur complement
-requires more problem-specific analysis than the general theory developed for
-ODEs in \Cref{sec:theory}. In particular, \Cref{ass:fov} does not necessarily
-hold for the larger linear system that includes time-dependent variables and
-constraints (the obvious example being indefinite saddle-point systems that
-often arise in incompressible fluid dynamics). However, \Cref{sec:numerics:khi}
-considers a Picard iteration of incompressible Navier Stokes in
-vorticity-stream-function form, where \eqref{eq:dae_block} can be reordered to
-be block triangular, and the theory and preconditioning developed in
-\Cref{sec:theory} can be applied directly to the leading $2\times 2$ block
-representing time-dependent variables ($\mathbf{k}_1$ and $\mathbf{k}_2$).
+For index-1 DAEs, where the algebraic constraint can be formally eliminated from
+the problem (although it is often not practical to do so), \Cref{ass:fov}
+naturally applies to the reduced problem. Then, the block preconditioning
+techniques and theory developed in \Cref{sec:theory} can be formally applied
+when the algebraic constraint is inverted to high accuracy within each
+preconditioner application. Inexact application of the constraint makes
+\Cref{ass:fov} less certain, but for index-1 DAEs we expect the methods
+developed here to remain effective with approximate inner inverses.
+
+In the more general setting, such as index-2 DAEs, preconditioning
+\eqref{eq:dae_block} and the corresponding Schur complement requires more
+problem-specific analysis than the theory developed for ODEs in
+\Cref{sec:theory}. In particular, \Cref{ass:fov} does not necessarily hold for
+the larger linear system that includes time-dependent variables and constraints
+(the obvious example being indefinite saddle-point systems that often arise in
+incompressible fluid dynamics). However, \Cref{sec:numerics:khi} considers a
+Picard iteration of incompressible Navier Stokes in vorticity-stream-function
+form (an index-1 DAE), where \eqref{eq:dae_block} can be reordered to be block
+triangular, and the theory and preconditioning developed in \Cref{sec:theory}
+can be applied directly to the leading $2\times 2$ block representing
+time-dependent variables ($\mathbf{k}_1$ and $\mathbf{k}_2$).
 
 % In the case that $\mathcal{G}_w^{(2)}$ is invertible (which typically occurs
 % in semi-explicit index-1 DAEs), we get the simplified form
@@ -1942,13 +1965,13 @@ representing time-dependent variables ($\mathbf{k}_1$ and $\mathbf{k}_2$).
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
-\subsection{Compressible Euler and Navier--Stokes equations}\label{sec:numerics:ns}
+\subsection{Compressible Euler \& Navier--Stokes equations}\label{sec:numerics:ns}
 
 Consider the compressible Navier--Stokes equations, given by
 \begin{align}
     \label{eq:ns-1}
 	 \frac{\partial\rho}{\partial t} + \frac{\partial}{\partial x_j}(\rho u_j)
-	 	&= 0 \\
+	 	&= 0, \\
     \label{eq:ns-2}
     \frac{\partial}{\partial t}(\rho u_i) + \frac{\partial}{\partial x_j} (\rho u_i u_j) + \frac{\partial p}{\partial x_i}
       &= \frac{\partial \tau_{ij}}{\partial x_j} \qquad \text{for $i=1,2,3,$}\\
@@ -1976,6 +1999,7 @@ We obtain the compressible Euler equations from equations (\ref{eq:ns-1}--\ref{e
 For the viscous problems, we introduce an additional isentropic assumption of the form $p = K \rho^\gamma,$ for a given constant $K$.
 This simplification is described in \cite{Kanner2015} and results in a reduced system of equtions.
 
+% ------------------------------------------------------------------------------------- %
 \subsubsection{Isentropic Euler vortex}
 For a first test case, we consider the model problem of an inviscid isentropic vortex \cite{Shu1998,Wang2013}.
 The spatial domain is $\Omega = [0,20] \times [-7.5,7.5]$.
@@ -2079,7 +2103,8 @@ Finally, we study the effect of the choice of the coefficient $\gamma$.
 We compare the naive choice of $\gamma = \eta$ to the improved choice of $\gamma = \gamma_*$, where $\gamma_*$ is as in \Cref{th:cond_L1=L2}.
 This choice is shown to be optimal in the case where $\cL_1 = \cL_2$.
 Although this assumption does not hold in this case because the equations are fully nonlinear, we still observe significantly improved iteration counts with this choice of $\gamma$.
-
+{
+\renewcommand{\tabcolsep}{4pt}
 \begin{table}
 	\centering
 	\caption{Convergence results for Euler vortex test case. Average Krylov iterations are shown for $2 \times 2$ systems.}
@@ -2092,12 +2117,14 @@ Although this assumption does not hold in this case because the equations are fu
 		\midrule
 		\makecell[r]{Krylov its.\\($\gamma = \eta$)}
 		& 7.7 & 12.6 & 12.5 & 14.9 & 9.0 & 16.8 & 15.5 & 20.6 & 13.7 & 24.4 & 25.3 & 35.2 \\[12pt]
-		\makecell[r]{Krylov its.\\($\gamma = \eta + \beta^2/\eta$)}
+		\makecell[r]{Krylov its.\\($\gamma = \gamma_*$)}
 		& 6.0 & 8.4 & 8.1 & 7.6 & 7.3 & 10.2 & 8.4 & 9.3 & 11.0 & 12.0 & 10.5 & 11.2 \\
 		\bottomrule
 	\end{tabular}
 \end{table}
+}
 
+% ------------------------------------------------------------------------------------- %
 \subsubsection{Flow over NACA airfoil}
 
 \begin{figure}
@@ -2152,7 +2179,8 @@ As we observed in the case of the Euler vortex, the Gauss and Radau fully implic
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
-\subsection{Incompressible Euler and Navier--Stokes in vorticity-streamfunction form}\label{sec:numerics:khi}
+\subsection{Incompressible Euler \& Navier--Stokes in vorticity-streamfunction form}
+\label{sec:numerics:khi}
 
 As an example of an index-1 differential-algebraic equation, we consider the vorticity-streamfunction formulation of the 2D incompressible Euler equations \cite{Liu2000}.
 The equations are given by
@@ -2229,7 +2257,7 @@ As a consequence of the nonlinear solver tolerance, the observed order of conver
 		$3.20\times 10^{-2}$ & $1.96 \times 10^{-5}$ & --- & $2.30 \times 10^{-6}$ & --- & $3.45 \times 10^{-8}$ & --- \\
 		$1.60\times 10^{-2}$ & $7.10 \times 10^{-6}$ & 1.47 & $1.10 \times 10^{-7}$ & 4.38 & $8.70 \times 10^{-11}$ & 8.63 \\
 		\midrule
-		\multicolumn{2}{c}{Radau 3} & \multicolumn{2}{c}{Radau 5} & \multicolumn{2}{c}{Radau 7}\\
+		& \multicolumn{2}{c}{Radau 3} & \multicolumn{2}{c}{Radau 5} & \multicolumn{2}{c}{Radau 7}\\
 		\midrule
 		$3.20\times 10^{-2}$ & $2.18 \times 10^{-8}$ & --- & $9.52 \times 10^{-10}$ & --- & $7.78 \times 10^{-11}$ & --- \\
 		$1.60\times 10^{-2}$ & $3.17 \times 10^{-9}$ & 2.78 & $2.92 \times 10^{-11}$ & 5.03 & $1.61 \times 10^{-12}$ & 5.60 \\
