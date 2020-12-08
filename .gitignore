@@ -26,7 +26,6 @@ irk_lin.pdf
 code/FDadv_dif/convergence/tex/results.pdf
 code/FD_utils/**/*.pdf
 code/FD_utils/**/__pycache__/
-<<<<<<< HEAD
 ODEs_linear/figures/ParaviewFiles
 analysis/fov.pdf
 irk_nl.pdf
@@ -34,3 +33,5 @@ ODEs_linear/irk_lin.pdf
 .vscode
 
 vorticity-streamfunction/
+letter_lin.pdf
+letter_nl.pdf

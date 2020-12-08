@@ -82,17 +82,20 @@
 \allowdisplaybreaks
 
 \begin{abstract}
+Fully implicit Runge-Kutta (IRK) methods have many desirable properties as time
+integration schemes in terms of accuracy and stability, but are rarely used in
+practice with numerical PDEs due to the difficulty of solving the stage equations.
 This paper introduces a theoretical and algorithmic framework for the fast,
-parallel solution of fully implicit Runge-Kutta (IRK) schemes in the integration
-of numerical PDEs, focusing on nonlinearities and differential algebraic
-equations (DAEs). This framework also naturally applies to discontinuous
+parallel solution of the nonlinear equations that arise from
+IRK methods applied to nonlinear numerical PDEs, including PDEs with algebraic
+constraints. This framework also naturally applies to discontinuous
 Galerkin discretizations in time. Moreover, the new method only requires
 preconditioners as would be used for backward Euler-type time stepping schemes.
-Several new methods of linearizing the nonlinear IRK equations are developed,
+Several new linearizations of the nonlinear IRK equations are developed,
 offering faster and more robust convergence than the often-considered simplified
 Newton, as well as an effective preconditioner for the true Jacobian if exact
 Newton iterations are desired. Inverting these linearizations requires solving a
-set of block $2\times 2$ systems, and, under quite general assumptions on the
+set of block $2\times 2$ systems. Under quite general assumptions on the
 spatial discretization, it is proven that the right combination of
 backward-Euler-type preconditioners in a $2\times 2$ block preconditioner yields
 a preconditioned operator with conditioning $\sim\mathcal{O}(1)$, with only

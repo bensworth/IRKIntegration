@@ -90,24 +90,27 @@
 \allowdisplaybreaks
 
 \begin{abstract}
-This paper introduces a theoretical and algorithmic framework for the fast,
-parallel solution of the systems of equations that arise from the application of
-fully implicit Runge-Kutta methods to linear numerical PDEs (without algebraic
-constraints). This framework also naturally applies to discontinuous Galerkin
-discretizations in time. The new method can be used with arbitrary existing
-preconditioners for backward Euler-type time stepping schemes, and is amenable
-to the use of three-term recursion Krylov methods when the underlying spatial
-discretization is symmetric. Under quite general assumptions on the spatial
-discretization that yield stable time integration, the preconditioned operator
-is proven to have conditioning $\sim\mathcal{O}(1)$, with only weak dependence
-on number of stages/polynomial order; for example, the preconditioned operator for
-10th-order Gauss integration has condition number less than two. The new method is
-demonstrated to be effective on various high-order finite-difference and finite-element
-discretizations of linear parabolic and hyperbolic problems, demonstrating fast,
-scalable solution of up to 10th order accuracy. In several cases, the new method
-can achieve 4th-order accuracy using Gauss integration with roughly half the
-number of preconditioner applications as required using standard SDIRK
-techniques.
+Fully implicit Runge-Kutta (IRK) methods have many desirable properties as time
+integration schemes in terms of accuracy and stability, but are rarely used in
+practice with numerical PDEs due to the difficulty of solving the stage
+equations. This paper introduces a theoretical and algorithmic framework for the
+fast, parallel solution of the systems of equations that arise from IRK methods
+applied to linear numerical PDEs (without algebraic constraints). This framework
+also naturally applies to discontinuous Galerkin discretizations in time. The
+new method can be used with arbitrary existing preconditioners for backward
+Euler-type time stepping schemes, and is amenable to the use of three-term
+recursion Krylov methods when the underlying spatial discretization is
+symmetric. Under quite general assumptions on the spatial discretization that
+yield stable time integration, the preconditioned operator is proven to have
+conditioning $\sim\mathcal{O}(1)$, with only weak dependence on number of
+stages/polynomial order; for example, the preconditioned operator for 10th-order
+Gauss integration has condition number less than two. The new method is
+demonstrated to be effective on various high-order finite-difference and
+finite-element discretizations of linear parabolic and hyperbolic problems,
+demonstrating fast, scalable solution of up to 10th order accuracy. In several
+cases, the new method can achieve 4th-order accuracy using Gauss integration
+with roughly half the number of preconditioner applications as required using
+standard SDIRK techniques.
 \end{abstract}
 
 
