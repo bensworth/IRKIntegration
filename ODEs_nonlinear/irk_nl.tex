@@ -3,6 +3,7 @@
 \usepackage{url}
 \usepackage{amssymb}
 \usepackage{amsmath}
+\usepackage{mathtools}
 \usepackage{bm}
 \usepackage{stmaryrd}
 \usepackage{array}
@@ -81,6 +82,13 @@
 \allowdisplaybreaks
 
 \begin{abstract}
+This paper introduces a theoretical and algorithmic framework for the fast,
+parallel solution of fully implicit Runge-Kutta schemes in the integration
+of numerical PDEs, including nonlinearities and differential algebraic
+equations (DAEs). This framework also naturally applies to discontinuous Galerkin
+discretizations in time. The new method can be used with arbitrary existing
+preconditioners for backward Euler-type time stepping schemes
+
 
 \end{abstract}
 
@@ -121,7 +129,7 @@ Runge-Kutta scheme, characterized by the Butcher tableaux
 \end{align*}
 %
 with Runge-Kutta matrix $A_0 = (a_{ij})$, weight vector $\mathbf{b}_0^T = (b_1, \ldots, b_s)^T$,
-and quadrature nodes $\mathbf{c}_0 = (c_0, \ldots, c_s)$.
+and quadrature nodes $\mathbf{c}_0 = (c_1, \ldots, c_s)$.
 
 Runge-Kutta methods update the solution using a sum over stage vectors,
 %
@@ -259,7 +267,7 @@ implementation, but DIRK methods have a maximum order of $p=s$ or $p=s+1$ with
 reasonable stability properties \cite[Section IV.6]{hairer96} and, moreover, are
 limited to stage-order $q=1$ \cite{kennedy16}. In contrast, IRK methods can have
 order as high as $p=2s$ for $s$ stages and stage-order $q =
-s$. The advantages of IRK methods (in a discretization sense) for
+s$. Advantages of IRK methods (in a discretization sense) for
 the system of DAEs that arise in incompressible Navier Stokes can be seen in
 \cite{Sanderse.2013}. For PDEs where DIRK methods are ineffective, linear
 multistep methods, in particular BDF schemes, can offer improved accuracy and
@@ -275,7 +283,8 @@ Runge Kutta methods can be symplectic \cite{Hairer.2002}. Although DIRK methods
 can be symplectic, they are limited to at most 4th order and, moreover, known
 methods above second order are impractical due to negative diagonal entries
 of $A_0$ (leading to a negative shift rather than positive shift of the spatial
-discretization) \cite{kennedy16}. Thus, even moderate order symplectic
+discretization) \cite{kennedy16}. IRK methods are able to satisfy conditions
+for symplecticty of arbitrary order, and even moderate order symplectic
 integration requires IRK methods.
 
 It should be noted that IRK methods are by no means new, and many papers have
@@ -476,7 +485,7 @@ some constant $C$. In practice, \Cref{ass:fov} often holds when
 simulating numerical PDEs, and in \Cref{sec:theory} it is proven that
 \Cref{ass:eig} and \ref{ass:fov} guarantee the preconditioning methods
 proposed here yield $\mathcal{O}(1)$ conditioning of the preconditioned Schur
-complement, within the larger $2\times 2$ system discussed in
+complement, within the larger $2\times 2$ systems discussed in
 \Cref{sec:intro:outline}.
 
 
@@ -963,7 +972,7 @@ some $\gamma \neq \eta$. The preconditioned operator then takes the form
 with spectrum given by
 %
 \begin{align}\label{eq:eig_gamma}
-\mathcal{F}(\gamma,\lambda) :&=
+\mathcal{F}(\gamma,\lambda) &\coloneqq
 	1 - \frac{\gamma-\eta}{\gamma + \lambda} + \frac{\beta^2}{(\gamma + \lambda)(\eta+\lambda)},
 \end{align}
 %
@@ -1217,7 +1226,7 @@ takes the form
 	(\eta I- \widehat{\mathcal{L}}_1)^{-1}(\gamma I- \widehat{\mathcal{L}}_2)^{-1} \nonumber\\
 & = \left[ (\eta^2+\beta^2) I - \eta (\widehat{\mathcal{L}}_1 + \widehat{\mathcal{L}}_2) +
 		\widehat{\mathcal{L}}_2\widehat{\mathcal{L}}_1 \right]
-		(\eta I- \widehat{\mathcal{L}}_1)^{-1}(\gamma I- \widehat{\mathcal{L}}_2)^{-1}
+		(\eta I- \widehat{\mathcal{L}}_1)^{-1}(\gamma I- \widehat{\mathcal{L}}_2)^{-1}.
 		\nonumber
 \end{align}
 %
@@ -1324,9 +1333,10 @@ Lobatto IIIC & 1.50 & 1.00 & 2.11 & 2.76 & 1.07 & 1.00 & 3.44 & 1.19 \\\hline
 Using eigenvalue analyses, it is possible to derive tight upper bounds on the
 condition number of \eqref{eq:P_gamma2} for all $\gamma \in (0, \infty)$ for
 $\cL$ that is symmetric negative semi-definite (SPND) or skew symmetric (SS)
-$\cL$. These tight upper bounds achieve equality for all $\gamma \in (0,
+$\cL$ (see \cite{exh} for related derivations).
+These tight upper bounds achieve equality for all $\gamma \in (0,
 \infty)$ as the spectrum of $\cL$ becomes dense in $[0, \infty)$ for SPND
-$\cL$, and in $(- \mathrm{i} \infty, \mathrm{i} \infty)$ for SS $\cL$. In each
+$\cL$, and dense in $(- \mathrm{i} \infty, \mathrm{i} \infty)$ for SS $\cL$. In each
 case, the tight upper bounds are minimized over all $\gamma \in (0, \infty)$
 when $\gamma = \gamma_*$, for $\gamma_*$ given by \eqref{eq:gamma*}, which is
 perhaps unsurprising given \Cref{col:cond_L1=L2}. At the minimum $\gamma =
@@ -1364,8 +1374,8 @@ assumption to simplify the proof, and we do not believe it to be necessary.
 Rather, for bounds in \Cref{th:cond} to hold, a more accurate assumption is
 simply that $\cL_1$ and $\cL_2$ are not fundamentally different operators.
 Also, considering right preconditioning is a theoretical tool to facilitate
-the proof of \Cref{th:cond}, but \tcb{numerical results demonstrate effective
-left or right preconditioning.} Under this additional assumption, \Cref{th:cond}
+the proof of \Cref{th:cond}, but in practice left and right preconditioning
+have both proven effective. Under this additional assumption, \Cref{th:cond}
 proves that the condition number of the preconditioned Schur complement for
 $\cL_1 \neq \cL_2$ is at most $2\times$ larger than as proven for
 $\cL_1 = \cL_2$ in \Cref{col:cond_L1=L2}. By \Cref{tab:cond}, it is clear the
@@ -1653,11 +1663,11 @@ which completes the proof.
 \section{Differential algebraic equations}\label{sec:dae}
 
 This section considers differential algebraic equations (DAEs) that result from
-the spatial discretization of a time-dependent PDE with a spatial constraint.
-DAEs account for many interesting physical problems, with obvious examples
-including the many variations in incompressible flow that arise in fluid
-dynamics and plasma physics. Special treatment is also required for
-the time integration of DAEs, and this section discusses how to extend
+the spatial discretization of a time-dependent PDE with an algebraic (non
+time-dependent) constraint. DAEs account for many interesting physical problems,
+with obvious examples including the many variations in incompressible flow that
+arise in fluid dynamics and plasma physics. Special treatment is also required
+for the time integration of DAEs, and this section discusses how to extend
 methods developed in this paper to DAEs.
 
 DAEs arising from numerical PDEs take the general form
@@ -1686,11 +1696,11 @@ given as the solution of the nonlinear set of equations
 %
 \begin{align}\label{eq:dae_stage}
 \begin{split}
-\mathcal{N}_i :&= M\mathbf{k}_i -
+\mathcal{N}_i &\coloneqq M\mathbf{k}_i -
 	\mathcal{N} \left (\mathbf{u}_{n} + \delta t\sum_{j=1}^s a_{ij}\mathbf{k}_j,
 	\mathbf{w}_{n} + \delta t\sum_{j=1}^s a_{ij}\boldsymbol{\ell}_j, t_{n} + c_i\delta t\right)
 	= \mathbf{0}, \\
-\mathcal{G}_i :&= - \left (\mathbf{u}_{n} + \delta t\sum_{j=1}^s a_{ij}\mathbf{k}_j,
+\mathcal{G}_i &\coloneqq - \left (\mathbf{u}_{n} + \delta t\sum_{j=1}^s a_{ij}\mathbf{k}_j,
 	\mathbf{w}_{n} + \delta t\sum_{j=1}^s a_{ij}\boldsymbol{\ell}_j, t_{n} + c_i\delta t\right)
 	= \mathbf{0}.
 \end{split}
@@ -1756,7 +1766,7 @@ with linearized operator that depends on stages. Similar to the nonlinear ODE
 case (see \Cref{sec:intro:irk}), it is generally the case that the $2\times 2$
 linearized operator is fixed for a given stage (i.e., block row of the matrix),
 a natural result of the chain rule applied to \eqref{eq:dae_stage}. Pulling out
-an $A_0\otimes I$ as in the ODE case yields a block linear system of the form
+an $A_0\otimes I$ as in the ODE setting yields a block linear system of the form
 %
 {\small
 \begin{align}\label{eq:daestage_nonlin}
@@ -1823,14 +1833,14 @@ S :& = \begin{bmatrix} \eta M - \delta t\mathcal{L}_{u}^{(2)} &
 \end{align*}
 %
 
-Preconditioning \eqref{eq:dae_block} and the corresponding
-Schur complement requires more problem-specific analysis than the general
-theory developed for ODEs in \Cref{sec:theory}. In particular, \Cref{ass:fov}
-does not necessarily hold for the larger linear system that includes
-time-dependent variables and constraints (the obvious example being indefinite
-saddle-point systems that often arise in incompressible fluid dynamics).
-However, \Cref{sec:numerics:khi} considers \tcb{incompressible Navier Stokes
-in potential formulation}, where \eqref{eq:dae_block} can be reordered to
+Preconditioning \eqref{eq:dae_block} and the corresponding Schur complement
+requires more problem-specific analysis than the general theory developed for
+ODEs in \Cref{sec:theory}. In particular, \Cref{ass:fov} does not necessarily
+hold for the larger linear system that includes time-dependent variables and
+constraints (the obvious example being indefinite saddle-point systems that
+often arise in incompressible fluid dynamics). However, \Cref{sec:numerics:khi}
+considers a Picard iteration of incompressible Navier Stokes in
+vorticity-stream-function form, where \eqref{eq:dae_block} can be reordered to
 be block triangular, and the theory and preconditioning developed in
 \Cref{sec:theory} can be applied directly to the leading $2\times 2$ block
 representing time-dependent variables ($\mathbf{k}_1$ and $\mathbf{k}_2$).
@@ -1847,12 +1857,6 @@ representing time-dependent variables ($\mathbf{k}_1$ and $\mathbf{k}_2$).
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
 \section{Numerical results}\label{sec:numerics}
-
-% ------------------------------------------------------------------------------------- %
-% ------------------------------------------------------------------------------------- %
-\subsection{Nonlinear advection-diffusion}\label{sec:numerics:advdiff}
-
-
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -2346,11 +2350,19 @@ As a consequence of the nonlinear solver tolerance, the observed order of conver
 % ------------------------------------------------------------------------------------- %
 \section{Conclusions}\label{sec:conc}
 
-This paper introduced a theoretical and algorithmic framework for the fast, parallel
-solution of fully implicit Runge-Kutta methods in numerical PDEs (without algebraic
-constraints). A field-of-values analysis is derived to guarantee rapid Krylov
-convergence...\todo{finish}
-
+This paper introduces a theoretical and algorithmic framework for the fast, parallel
+solution of fully implicit Runge-Kutta methods in numerical PDEs. Multiple approximate
+linearizations are developed, and linear algebra theory is derived to guarantee 
+fast and effective block preconditioning techniques for the linearized systems, 
+guaranteeing $\mathcal{O}(1)$ conditioning and only requiring standard preconditioners
+as would be used for backward Euler. The new methods are shown to achieve fast,
+high-order accuracy on multiple different compressible and incompressible Navier
+Stokes and Euler problems. In addition, using low-order Gauss integration schemes
+with the new method also typically requires less preconditioner applications than
+needed by standard DIRK schemes to achieve the same accuracy, demonstrating that
+the new method can not only offer very high-order accuracy (along with other benefits
+obtained by using fully implicit Runge-Kutta), but also improve upon state-of-the-art
+low-order integration.
 
 % % ------------------------------------------------------------------------------------- %
 % % ------------------------------------------------------------------------------------- %
