@@ -22,6 +22,8 @@
 \usepackage[numbers,sort]{natbib}
 \usepackage{cleveref}
 \usepackage[belowskip=-5pt]{subcaption}
+\usepackage{pbox}
+
 
 \newsiamremark{remark}{Remark}
 \newsiamremark{assumption}{Assumption}
@@ -2033,7 +2035,7 @@ We discretize this problem using a high-order discontinuous Galerkin method with
 The spatial domain is discretized with a structured triangular mesh with 532 elements.
 The DG finite element space is chosen to use piecewise polynomials of degree 4.
 
-We first verify the temporal order of accuracy by fixing the spatial discretization  computing a baseline solution using an explicit fourth-order Runge--Kutta method with $\Delta t = 5\times 10^{-5}$.
+We first verify the temporal order of accuracy by fixing the spatial discretization  computing a baseline solution using an explicit fourth-order Runge--Kutta method with $\delta t = 5\times 10^{-5}$.
 Then, the solutions computed using the implicit Runge--Kutta methods are compared to the baseline solution to estimate the observed order of convergence for these problems.
 The results are presented in Table \ref{tab:ev-errors}.
 The expected rates of convergence are observed for Gauss, Radau, and Lobatto methods, of orders 2 through 7.
@@ -2045,7 +2047,7 @@ The expected rates of convergence are observed for Gauss, Radau, and Lobatto met
 	\begin{tabular}{r|cccccc}
 		\toprule
 		& \multicolumn{2}{c}{Gauss 2} & \multicolumn{2}{c}{Gauss 4} & \multicolumn{2}{c}{Gauss 6}\\
-		$\Delta t$ & Error & Rate & Error & Rate & Error & Rate\\
+		$\delta t$ & Error & Rate & Error & Rate & Error & Rate\\
 		\midrule
 		$2.50\times 10^{-2}$ & $5.89 \times 10^{-3}$ & --- & $5.29 \times 10^{-4}$ & --- & $1.65 \times 10^{-5}$ & --- \\
 		$1.25\times 10^{-2}$ & $1.18 \times 10^{-3}$ & 2.32 & $2.75 \times 10^{-5}$ & 4.26 & $2.35 \times 10^{-7}$ & 6.14 \\
@@ -2066,7 +2068,7 @@ The expected rates of convergence are observed for Gauss, Radau, and Lobatto met
 
 We next study the effectiveness of the solvers and preconditioners for the resulting algebraic systems of equations.
 We make use of an element-wise block ILU preconditioner with minimum discarded fill ordering that has been shown to be effective for convection-dominated fluid problems \cite{Persson2008}.
-In Table \ref{tab:ev-solvers}, we present the number of nonlinear iterations required to converge with a representative time step of $\Delta t = 2 \times 10^{-2}$, together with the total number of preconditioner applications in one step.
+In Table \ref{tab:ev-solvers}, we present the number of nonlinear iterations required to converge with a representative time step of $\delta t = 2 \times 10^{-2}$, together with the total number of preconditioner applications in one step.
 Each Krylov iteration for the SDIRK methods corresponds to a single preconditioner application.
 For the fully implicit IRK methods, one Kyrlov iteration for a $1\times1$ system corresponds to one preconditioner application, whereas for a $2\times2$ system, one Krylov iteration corresponds to two preconditioner applications.
 We note that the second- and fourth-order Gauss methods require fewer total preconditioner applications when compared with the equal-order SDIRK methods.
@@ -2075,7 +2077,7 @@ The Lobatto methods are significantly more expensive than the equal-order Gauss 
 
 \begin{table}
 	\centering
-	\caption{Convergence results for Euler vortex test case, showing Newton iterations required for a single time step with $\Delta t = 2\times10^{-2}$, and total Krylov iterations per time step.}
+	\caption{Convergence results for Euler vortex test case, showing Newton iterations required for a single time step with $\delta t = 2\times10^{-2}$, and total Krylov iterations per time step.}
 	\label{tab:ev-solvers}
 	\begin{tabular}{r|cccc|ccccc}
 		\toprule
@@ -2139,12 +2141,12 @@ Although this assumption does not hold in this case because the equations are fu
 
 As a more challenging test case, we consider the Reynolds number 40{,}000 flow over a NACA0012 airfoil.
 The angle of attack is $30^\circ$ and the farfield Mach number is $0.1$.
-The domain is discretized using a triangular mesh with 3154 elements, and the spatial discretization is a high-order discontinuous Galerkin method using compact stencils for the second order (viscous) terms with polynomial degree $p=3$.
+The domain is discretized using a triangular mesh with 3154 elements, and the spatial discretization is a high-order discontinuous Galerkin method using compact stencils for the second order (viscous) terms with polynomial degree $p=3$ \cite{Peraire2008}.
 No-slip boundary conditions are enforced at the surface of the airfoil, and farfield boundary conditions at all other domain boundaries.
 The main challenge associated with this problem is the resolution of the thin boundary layer at the surface of the airfoil that results from the no-slip condition.
 This boundary layer is resolved using a layer of anisotropically stretched elements near the surface of the airfoil.
 These elements result in a highly restrictive CFL stability condition, motivating the use of implicit time integration for this problem.
-A time accurate time step of $\Delta t = 5 \times 10^{-2}$ is chosen for this problem.
+A time accurate time step of $\delta t = 5 \times 10^{-2}$ is chosen for this problem.
 This time step is several orders of magnitude larger than the largest stable explicit time step.
 The number of nonlinear iterations and preconditioner applications required for convergence are shown in Table \ref{tab:naca-iters}.
 As in the previous case, each Krylov iteration for the SDIRK methods corresponds to a single preconditioner application.
@@ -2153,7 +2155,7 @@ As we observed in the case of the Euler vortex, the Gauss and Radau fully implic
 
 \begin{table}
 	\centering
-	\caption{Nonlinear iterations and preconditioner applications for the NACA airfoil test case, with time step $\Delta t = 5 \times 10^{-2}.$}
+	\caption{Nonlinear iterations and preconditioner applications for the NACA airfoil test case, with time step $\delta t = 5 \times 10^{-2}.$}
 	\label{tab:naca-iters}
 	\begin{tabular}{r|cccc|ccccc}
 		\toprule
@@ -2194,14 +2196,14 @@ The equations are given by
 	\Delta \psi &= \omega,
 \end{align}
 where the velocity $\bm u$ is defined by $\bm u = \nabla^\perp \psi$, for $\nabla^\perp = (-\partial_y, \partial_x)$.
-Here, $\omega$ is the vorticity, and $\psi$ is a scalar field known as the streamfunction, which is used to naturally enforce the divergence-free condition on the velocity.
-Note that this formulation can be easily extended to the 2D incomressible Navier--Stokes equations with the addition of a viscosity term, such that \eqref{eq:ins-1} is replaced by
+Here, $\omega$ is the vorticity, and $\psi$ is a scalar field known as the streamfunction, which is used to naturally enforce the divergence-free constraint on the velocity.
+Note that this formulation can be easily extended to the 2D incomressible Navier--Stokes equations with the addition of a viscosity term, replacing equation \eqref{eq:ins-1} with
 \begin{equation} \label{eq:ins-3}
 	\frac{\partial\omega}{\partial t} + \nabla\cdot(\bm{u} \omega) = \frac{1}{\rm Re} \Delta \omega,
 \end{equation}
 where $\rm Re$ is the Reynolds number.
-Equation \eqref{eq:ins-1} is essentially a scalar advection equation for $\omega$, which we discretize using an upwind discontinuous Galerkin method.
-If the streamfunction $\psi$ is in $H^1$, then the velocity $\bm u = \nabla^\perp \psi$ is automatically continuous across element interfaces, and therefore the standard upwind flux is well-defined.
+For a fixed velocity $\bm u$, equation \eqref{eq:ins-1} is a scalar advection equation for $\omega$, which we discretize using an upwind discontinuous Galerkin method.
+If the streamfunction $\psi$ is in $H^1$, then the velocity $\bm u = \nabla^\perp \psi$ is automatically continuous across element interfaces, and therefore the standard upwind numerical flux is well-defined.
 We therefore discretize \eqref{eq:ins-2} using a standard $H^1$-conforming finite element method.
 Equal-order finite element spaces are chosen for $\omega$ and $\psi$.
 In the case of the Navier--Stokes equations, we discretize the viscous term on the right-hand side of \eqref{eq:ins-3} using a standard interior penalty discontinuous Galerkin method \cite{Arnold1982}.
@@ -2217,34 +2219,143 @@ After performing the discretization, this system of equations can be written as
 where $M_{\rm dg}$ represents the DG mass matrix, $M_{\rm mix}$ is the mixed DG-$H^1$ mass matrix, $K(\psi)$ is the discretized advection (or advection--diffusion) operator (depending the velocity $\bm u$ as a function of $\psi$), and $A$ is the $H^1$-conforming diffusion operator.
 A Picard linearization of \eqref{eq:ins-system} will result in a block-triangular system that is of the same form as \eqref{eq:ins-system}, but using an iteratively lagged advection operator.
 In the notation of \Cref{sec:dae}, we have $\mathcal{L}_u^{(i)} = K(\psi^{(i)})$, $\mathcal{L}_w = 0$, $\mathcal{G}_u = M_{\rm mix}$, and $\mathcal{G}_w = A$.
-Therefore, the $4\times4$ block system \eqref{eq:dae_block} that arises from IRK integration can be rearranged to be written as
-\begin{align}
-\begin{bmatrix}
-	\eta M - \delta t\mathcal{L}_{u}^{(1)} & \phi M & \mathbf{0} & \mathbf{0} \\
-	-\tfrac{\beta^2}{\phi}M & \eta M - \delta t\mathcal{L}_{u}^{(2)} & \mathbf{0} & \mathbf{0} \\
-	-\delta t\mathcal{G}_{u} & \mathbf{0} & -\delta t\mathcal{G}_w & \mathbf{0} \\
-	\mathbf{0} & -\delta t\mathcal{G}_{u}  & \mathbf{0} & -\delta t\mathcal{G}_w
-\end{bmatrix}
-\begin{bmatrix} \mathbf{k}_1 \\ \mathbf{k}_2 \\ \boldsymbol{\ell}_1 \\ \boldsymbol{\ell}_2 \end{bmatrix}
-=
-\begin{bmatrix} \mathbf{f}_1 \\ \mathbf{f}_2 \\ \mathbf{g}_1 \\ \mathbf{g}_2 \end{bmatrix}.
+The resulting $4\times4$ block system that arises from IRK integration has the form
+\begin{align} \label{eq:vsf-system-1}
+	\begin{bmatrix}
+		\eta M_{\rm dg} - \delta t K^{(1)} & \mathbf{0} & \phi M_{\rm dg} & \mathbf{0} \\
+		-\delta t M_{\rm mix} & -\delta t A & \mathbf{0} & \mathbf{0} \\
+		-\tfrac{\beta^2}{\phi}M_{\rm dg} & \mathbf{0} & \eta M_{\rm dg} - \delta t K^{(2)} & \mathbf{0} \\
+		\mathbf{0} & \mathbf{0} & -\delta t M_{\rm mix} & -\delta t A
+	\end{bmatrix}
+	\begin{bmatrix} \bm\omega_1 \\ \bm\psi_1 \\ \bm\omega_2 \\ \bm\psi_2 \end{bmatrix}
+	=
+	\begin{bmatrix} \mathbf{f}_1 \\ \mathbf{g}_1 \\ \mathbf{f}_2 \\ \mathbf{g}_2 \end{bmatrix}.
+\end{align}
+
+We consider two types of preconditioners for this system.
+The first is a standard block-triangular preconditioner, obtained by neglecting the term $\phi M_{\rm dg}$ term in the $(1,3)$ position, and replacing the diagonal blocks by appropriate preconditioners.
+An alternative preconditioner is obtained by noticing that this sytem can be reordered to obtain the block-triangular system
+\begin{align} \label{eq:vsf-system-2}
+	\begin{bmatrix}
+		\eta M_{\rm dg} - \delta t K^{(1)} & \phi M_{\rm dg} & \mathbf{0} & \mathbf{0} \\
+		-\tfrac{\beta^2}{\phi}M_{\rm dg} & \eta M_{\rm dg} - \delta t K^{(2)}  & \mathbf{0}& \mathbf{0} \\
+		-\delta t M_{\rm mix} & \mathbf{0} & -\delta t A & \mathbf{0} \\
+		\mathbf{0} & -\delta t M_{\rm mix} & \mathbf{0} & -\delta t A
+	\end{bmatrix}
+	\begin{bmatrix} \bm\omega_1 \\ \bm\omega_2 \\ \bm\psi_1 \\ \bm\psi_2 \end{bmatrix}
+	=
+	\begin{bmatrix} \mathbf{f}_1 \\ \mathbf{f}_2 \\ \mathbf{g}_1 \\ \mathbf{g}_2 \end{bmatrix}.
 \end{align}
 This block-triangular system can be solved using a forward-substitution algorithm, first solving the leading $2\times2$ block for the time-dependent variables, and then solving two (independent) Poisson problems for the algebraic constraints (i.e.\ the streamfunctions).
+The time-dependent block is preconditioned using the block-triangular preconditioners described in \Cref{sec:theory}.
+The Poisson problems are solved with optimal complexity using algebraic multigrid preconditioners.
+We compare the effectiveness of these two approaches in this section.
 
-We consider the two-dimensional incompressible Taylor--Green vortex problem.
+\begin{figure}
+	\def\dslfigwidth{1.75in}
+	\centering
+	\setlength{\fboxsep}{0pt}
+	\begin{minipage}{\dslfigwidth}
+		\centering
+		\fbox{\includegraphics[width=0.99\linewidth]{figures/dsl_0000}}\\
+		$t=0$
+	\end{minipage}
+	\hspace{0.5in}
+	\begin{minipage}{\dslfigwidth}
+		\centering
+		\fbox{\includegraphics[width=0.99\linewidth]{figures/dsl_0250}}\\
+		$t=5$
+	\end{minipage}
+
+	\vspace{\floatsep}
+
+	\begin{minipage}{\dslfigwidth}
+		\centering
+		\fbox{\includegraphics[width=0.99\linewidth]{figures/dsl_0500}}\\
+		$t=10$
+	\end{minipage}
+	\hspace{0.5in}
+	\begin{minipage}{\dslfigwidth}
+		\centering
+		\fbox{\includegraphics[width=0.99\linewidth]{figures/dsl_0750}}\\
+		$t=15$
+	\end{minipage}
+
+	\caption{Time evolution of vorticity for the double shear layer problem.}
+	\label{fig:dsl}
+\end{figure}
+
+To study the convergence behavior of these preconditioners, we consider the double shear layer problem \cite{Bell1989}.
+The domain is taken to be the square $[0,2\pi] \times [0,2\pi]$, and periodic boundary conditions are enforced at the domain boundaries.
+The initial condition is given by
+\[
+	\omega(x,y,0) = \begin{cases}
+		\delta \cos(x) - \frac{1}{\rho}\operatorname{sech}^2((y-\pi/2)/\rho) \qquad & y \leq \pi, \\
+		\delta \cos(x) + \frac{1}{\rho}\operatorname{sech}^2((3\pi/2 - y) \qquad & y > \pi.
+	\end{cases}
+\]
+This test case is well-suited for high-order methods because the solution quickly develops small-scale features, as shown in \Cref{fig:dsl}.
+We use finite element spaces with polynomial degree $p=3$, and choose a representative time step of $\delta t = 10^{-2}$.
+We measure the total number of preconditioner applications required per time step for each of the IRK methods.
+The results are shown in \Cref{tab:dsl-iters}.
+The rows indicated ``Prec.\ applications'' denote the number of block triangular preconditioner applications when using the formulation of equation \eqref{eq:vsf-system-1}.
+Each such preconditioner application requires one ILU application and one AMG application.
+The rows indicated ``ILU applications'' and ``AMG applications'' denote the number of preconditioner applications when using the block forward substitution algorithm applied to the formulation given by \eqref{eq:vsf-system-2}.
+In this case, since the time-dependent and algebraic blocks are solved separately, the number of ILU applications (to solve for the vorticity) and the number of AMG applications (to solve for the streamfunction) are not equal.
+
+We note that the second and fourth order Gauss methods are significantly more efficient than the corresponding equal-order SDIRK methods in terms of total number of preconditioner applications.
+The eigth-order Gauss method requires approximately as many preconditioner applications per time step as the fourth-order SDIRK method.
+For several of the IRK methods, performing the triangular solve can reduce the total number of iterations required.
+However, this effect is not large, and for the high-order methods (tenth-order Gauss, ninth-order Radau, and sixth- and eighth-order Lobatto), the block triangular solve requires many more iterations.
+{\color{red}
+This is because the triangular solve neglects off-diagonal coupling terms that result in a greater number of nonlinear iterations to converge.
+WP: This is not really discussed in the paper, but for the high-order methods it's important --- the ``simplified'' system that neglects the non-mass off-diagonal coupling terms leads to very bad Newton convergence for this problem}
+
+\begin{table}
+	\centering
+	\caption{Preconditioner applications for the double shear layer test case, with time step $\delta t = 10^{-2}.$}
+	\label{tab:dsl-iters}
+	\begin{tabular}{r|cccc|ccccc}
+		\toprule
+		& \multicolumn{4}{c}{SDIRK} & \multicolumn{5}{c}{Gauss} \\
+		Order  & 1 & 2 & 3 & 4 & 2 & 4 & 6 & 8 & 10\\
+		\midrule
+		Prec.\ applications & 72 & 133 & 206 & 331 & 68 & 149 & 224 & 305 & 354\\
+		\midrule
+		ILU applications & 72 & 133 & 206 & 331 & 68 & 101 & 214 & 313 & 1161\\
+		AMG applications & 72 & 133 & 206 & 331 & 68 & 132 & 230 & 378 & 1095\\
+		\bottomrule
+	\end{tabular}
+
+	\vspace{\floatsep}
+
+	\begin{tabular}{r|cccc|ccc}
+		\toprule
+		& \multicolumn{4}{c}{Radau} & \multicolumn{3}{c}{Lobatto} \\
+		Order  & 3 & 5 & 7 & 9 & 2 & 6 & 8\\
+		\midrule
+		Prec.\ applications & 159 & 237 & 313 & 369 & 179 & 245 & 387\\
+		\midrule
+		ILU applications & 129 & 243 & 401 & 1070 & 291 & 5635 & 1105\\
+		AMG applications & 136 & 238 & 445 & 949 & 250 & 1666 & 896\\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+To assess the accuracy of the IRK methods applied to this problem, we consider the two-dimensional incompressible Taylor--Green vortex problem.
+As in the previous case, the domain is taken to be the periodic square $[0,2\pi]^2$.
 The initial conditions are given by
 \[
 	\omega(x,y,0) = -2\sin(x)\sin(y).
 \]
-The domain is taken to be the square $[0,2\pi] \times [0,2\pi]$, and periodic boundary conditions are enforced at the domain boundaries.
 These initial conditions are a steady solution for the incompressible Euler equations.
-In order to test the accuracy of the time integration method, we instead consider the Navier--Stokes equations, for which the exact solution is given by
+For this problem, we consider the Navier--Stokes equations, for which the exact solution is given by
 \[
 	\omega(x,y,t) = -2\sin(x)\sin(y) \exp(-2t/\rm Re).
 \]
 An advantage of implicit time integration for this problem is that the scheme remains stable even for small Reynolds numbers.
 As such, we choose $\rm Re = 10$ for this problem, and integrate until $t = 0.1$.
-We compare the numerical solutions with a reference solution computed using a small time step of $\Delta t = 10^{-5}$.
+We compare the numerical solutions with a reference solution computed using a small time step of $\delta t = 10^{-5}$.
 The results are presented in \Cref{tab:tgv-errors}.
 As a consequence of the nonlinear solver tolerance, the observed order of convergence is slightly reduced for the sixth and seventh order Lobatto and Radau methods.
 
@@ -2255,7 +2366,7 @@ As a consequence of the nonlinear solver tolerance, the observed order of conver
 	\begin{tabular}{r|cccccc}
 		\toprule
 		& \multicolumn{2}{c}{Gauss 2} & \multicolumn{2}{c}{Gauss 4} & \multicolumn{2}{c}{Gauss 6}\\
-		$\Delta t$ & Error & Rate & Error & Rate & Error & Rate\\
+		$\delta t$ & Error & Rate & Error & Rate & Error & Rate\\
 		\midrule
 		$3.20\times 10^{-2}$ & $1.96 \times 10^{-5}$ & --- & $2.30 \times 10^{-6}$ & --- & $3.45 \times 10^{-8}$ & --- \\
 		$1.60\times 10^{-2}$ & $7.10 \times 10^{-6}$ & 1.47 & $1.10 \times 10^{-7}$ & 4.38 & $8.70 \times 10^{-11}$ & 8.63 \\
@@ -2383,8 +2494,8 @@ As a consequence of the nonlinear solver tolerance, the observed order of conver
 
 This paper introduces a theoretical and algorithmic framework for the fast, parallel
 solution of fully implicit Runge-Kutta methods in numerical PDEs. Multiple approximate
-linearizations are developed, and linear algebra theory is derived to guarantee 
-fast and effective block preconditioning techniques for the linearized systems, 
+linearizations are developed, and linear algebra theory is derived to guarantee
+fast and effective block preconditioning techniques for the linearized systems,
 guaranteeing $\mathcal{O}(1)$ conditioning and only requiring standard preconditioners
 as would be used for backward Euler. The new methods are shown to achieve fast,
 high-order accuracy on multiple different compressible and incompressible Navier
