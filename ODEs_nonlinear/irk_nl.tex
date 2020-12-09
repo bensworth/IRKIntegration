@@ -2031,7 +2031,7 @@ The exact solution for this problem is given analytically by
 In the above, $f(x,y,t) = (1 - ((x-x_0) - \overline{u}t)^2 - ((y-y_0) - \overline{v}t)^2)/r_c^2$, and $M_\infty, \rho_\infty,$ and $p_\infty$ are the freestream Mach number, density, and pressure, respectively.
 The freestream velocity is given by $(\overline{u},\overline{v}) = u_\infty (\cos(\theta), \sin(\theta))$.
 The parameters for this test case are given by $\epsilon = 15$, $r_c = 1.5$, $M_0 = 0.5$, $\theta = \arctan(1/2)$.
-We discretize this problem using a high-order discontinuous Galerkin method with Roe numerical fluxes.
+We discretize this problem using a high-order DG method with Roe numerical fluxes.
 The spatial domain is discretized with a structured triangular mesh with 532 elements.
 The DG finite element space is chosen to use piecewise polynomials of degree 4.
 
@@ -2107,7 +2107,8 @@ The Lobatto methods are significantly more expensive than the equal-order Gauss 
 Finally, we study the effect of the choice of the coefficient $\gamma$.
 We compare the naive choice of $\gamma = \eta$ to the improved choice of $\gamma = \gamma_*$, where $\gamma_*$ is as in \Cref{th:cond_L1=L2}.
 This choice is shown to be optimal in the case where $\cL_1 = \cL_2$.
-Although this assumption does not hold in this case because the equations are fully nonlinear, we still observe significantly improved iteration counts with this choice of $\gamma$.
+Although this assumption does not hold in this case because the equations are fully nonlinear, we still observe significantly improved iteration counts with this choice of $\gamma$, consistent
+with \Cref{th:cond}.
 {
 \renewcommand{\tabcolsep}{4pt}
 \begin{table}
@@ -2150,7 +2151,7 @@ A time accurate time step of $\delta t = 5 \times 10^{-2}$ is chosen for this pr
 This time step is several orders of magnitude larger than the largest stable explicit time step.
 The number of nonlinear iterations and preconditioner applications required for convergence are shown in Table \ref{tab:naca-iters}.
 As in the previous case, each Krylov iteration for the SDIRK methods corresponds to a single preconditioner application.
-For the IRK methods, one Kyrlov iteration for a $1\times1$ system corresponds to one preconditioner application, whereas for a $2\times2$ system, one Krylov iteration corresponds to two preconditioner applications.
+For the IRK methods, one Krylov iteration for a $1\times1$ system corresponds to one preconditioner application, whereas for a $2\times2$ system, one Krylov iteration corresponds to two preconditioner applications.
 As we observed in the case of the Euler vortex, the Gauss and Radau fully implicit Runge--Kutta methods of 2, 3, and 4 converge with fewer total preconditioner applications than the equal-order SDIRK method.
 
 \begin{table}
@@ -2187,11 +2188,11 @@ As we observed in the case of the Euler vortex, the Gauss and Radau fully implic
 \subsection{Incompressible Euler \& Navier--Stokes in vorticity-streamfunction form}
 \label{sec:numerics:khi}
 
-As an example of an index-1 differential-algebraic equation, we consider the vorticity-streamfunction formulation of the 2D incompressible Euler equations \cite{Liu2000}.
+As an example of an index-1 DAE, we consider the vorticity-streamfunction formulation of the 2D incompressible Euler equations \cite{Liu2000}.
 The equations are given by
 \begin{align}
 	\label{eq:ins-1}
-	\frac{\partial\omega}{\partial t} + \nabla\cdot(\bm{u} \omega) &= 0. \\
+	\frac{\partial\omega}{\partial t} + \nabla\cdot(\bm{u} \omega) &= 0, \\
 	\label{eq:ins-2}
 	\Delta \psi &= \omega,
 \end{align}
@@ -2206,7 +2207,7 @@ For a fixed velocity $\bm u$, equation \eqref{eq:ins-1} is a scalar advection eq
 If the streamfunction $\psi$ is in $H^1$, then the velocity $\bm u = \nabla^\perp \psi$ is automatically continuous across element interfaces, and therefore the standard upwind numerical flux is well-defined.
 We therefore discretize \eqref{eq:ins-2} using a standard $H^1$-conforming finite element method.
 Equal-order finite element spaces are chosen for $\omega$ and $\psi$.
-In the case of the Navier--Stokes equations, we discretize the viscous term on the right-hand side of \eqref{eq:ins-3} using a standard interior penalty discontinuous Galerkin method \cite{Arnold1982}.
+In the case of the Navier--Stokes equations, we discretize the viscous term on the right-hand side of \eqref{eq:ins-3} using a standard interior penalty DG method \cite{Arnold1982}.
 
 After performing the discretization, this system of equations can be written as
 \begin{equation}
