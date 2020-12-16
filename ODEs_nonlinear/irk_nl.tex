@@ -2316,29 +2316,29 @@ WP: This is not really discussed in the paper, but for the high-order methods it
 	\centering
 	\caption{Preconditioner applications for the double shear layer test case, with time step $\delta t = 10^{-2}.$}
 	\label{tab:dsl-iters}
-	\begin{tabular}{r|cccc|ccccc}
+	\begin{tabular}{rr|cccc|ccccc}
 		\toprule
-		& \multicolumn{4}{c}{SDIRK} & \multicolumn{5}{c}{Gauss} \\
-		Order  & 1 & 2 & 3 & 4 & 2 & 4 & 6 & 8 & 10\\
+		&& \multicolumn{4}{c}{SDIRK} & \multicolumn{5}{c}{Gauss} \\
+		& Order  & 1 & 2 & 3 & 4 & 2 & 4 & 6 & 8 & 10\\
 		\midrule
-		Prec.\ applications & 72 & 133 & 206 & 331 & 68 & 149 & 224 & 305 & 354\\
+		Form \eqref{eq:vsf-system-1} & Prec.\ applications & 72 & 133 & 206 & 331 & 68 & 149 & 224 & 305 & 354\\
 		\midrule
-		ILU applications & 72 & 133 & 206 & 331 & 68 & 101 & 214 & 313 & 1161\\
-		AMG applications & 72 & 133 & 206 & 331 & 68 & 132 & 230 & 378 & 1095\\
+		\multirow{2}{*}{Form \eqref{eq:vsf-system-2}} & ILU applications & 72 & 133 & 206 & 331 & 68 & 101 & 214 & 313 & 1161\\
+		& AMG applications & 72 & 133 & 206 & 331 & 68 & 132 & 230 & 378 & 1095\\
 		\bottomrule
 	\end{tabular}
 
 	\vspace{\floatsep}
 
-	\begin{tabular}{r|cccc|ccc}
+	\begin{tabular}{rr|cccc|ccc}
 		\toprule
-		& \multicolumn{4}{c}{Radau} & \multicolumn{3}{c}{Lobatto} \\
-		Order  & 3 & 5 & 7 & 9 & 2 & 6 & 8\\
+		&& \multicolumn{4}{c}{Radau} & \multicolumn{3}{c}{Lobatto} \\
+		& Order  & 3 & 5 & 7 & 9 & 2 & 6 & 8\\
 		\midrule
-		Prec.\ applications & 159 & 237 & 313 & 369 & 179 & 245 & 387\\
+		Form \eqref{eq:vsf-system-1} & Prec.\ applications & 159 & 237 & 313 & 369 & 179 & 245 & 387\\
 		\midrule
-		ILU applications & 129 & 243 & 401 & 1070 & 291 & 5635 & 1105\\
-		AMG applications & 136 & 238 & 445 & 949 & 250 & 1666 & 896\\
+		\multirow{2}{*}{Form \eqref{eq:vsf-system-2}} & ILU applications & 129 & 243 & 401 & 1070 & 291 & 5635 & 1105\\
+		& AMG applications & 136 & 238 & 445 & 949 & 250 & 1666 & 896\\
 		\bottomrule
 	\end{tabular}
 \end{table}
