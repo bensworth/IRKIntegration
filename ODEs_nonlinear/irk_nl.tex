@@ -2081,7 +2081,7 @@ The Lobatto methods are significantly more expensive than the equal-order Gauss 
 	\label{tab:ev-solvers}
 	\begin{tabular}{r|cccc|ccccc}
 		\toprule
-		& \multicolumn{4}{c}{SDIRK} & \multicolumn{5}{c}{Gauss} \\
+		& \multicolumn{4}{c|}{SDIRK} & \multicolumn{5}{c}{Gauss} \\
 		Order  & 1 & 2 & 3 & 4 & 2 & 4 & 6 & 8 & 10\\
 		\midrule
 		Newton its. & 3 & 3 & 3 & 3 & 3 & 3 & 5 & 5 & 5\\
@@ -2094,7 +2094,7 @@ The Lobatto methods are significantly more expensive than the equal-order Gauss 
 
 	\begin{tabular}{r|cccc|cccc}
 		\toprule
-		& \multicolumn{4}{c}{Radau} & \multicolumn{4}{c}{Lobatto} \\
+		& \multicolumn{4}{c|}{Radau} & \multicolumn{4}{c}{Lobatto} \\
 		Order  & 3 & 5 & 7 & 9 & 2 & 4 & 6 & 8\\
 		\midrule
 		Newton its. & 3 & 5 & 5 & 5 & 3 & 8 & 5 & 6\\
@@ -2116,7 +2116,7 @@ with \Cref{th:cond}.
 	\caption{Convergence results for Euler vortex test case. Average Krylov iterations are shown for $2 \times 2$ systems.}
 	\begin{tabular}{r|cccc|cccc|cccc}
 		\toprule
-		& \multicolumn{4}{c}{Gauss} & \multicolumn{4}{c}{Radau} & \multicolumn{4}{c}{Lobatto}\\
+		& \multicolumn{4}{c|}{Gauss} & \multicolumn{4}{c|}{Radau} & \multicolumn{4}{c}{Lobatto}\\
 		Order & 4 & 6 & 8 & 10 & 3 & 5 & 7 & 9 & 2 & 4 & 6 & 8 \\
 		\midrule
 		Newton its. & 3 & 5 & 5 & 5 & 3 & 5 & 5 & 5 & 3 & 8 & 5 & 6 \\
@@ -2160,7 +2160,7 @@ As we observed in the case of the Euler vortex, the Gauss and Radau fully implic
 	\label{tab:naca-iters}
 	\begin{tabular}{r|cccc|ccccc}
 		\toprule
-		& \multicolumn{4}{c}{SDIRK} & \multicolumn{5}{c}{Gauss} \\
+		& \multicolumn{4}{c|}{SDIRK} & \multicolumn{5}{c}{Gauss} \\
 		Order  & 1 & 2 & 3 & 4 & 2 & 4 & 6 & 8 & 10\\
 		\midrule
 		Newton its. & 5 & 5 & 5 & 5 & 5 & 5 & 8 & 8 & 8\\
@@ -2173,7 +2173,7 @@ As we observed in the case of the Euler vortex, the Gauss and Radau fully implic
 
 	\begin{tabular}{r|cccc|ccc}
 		\toprule
-		& \multicolumn{4}{c}{Radau} & \multicolumn{3}{c}{Lobatto} \\
+		& \multicolumn{4}{c|}{Radau} & \multicolumn{3}{c}{Lobatto} \\
 		Order  & 3 & 5 & 7 & 9 & 2 & 6 & 8\\
 		\midrule
 		Newton its. & 5 & 9 & 9 & 9 & 5 & 15 & 17\\
@@ -2198,7 +2198,7 @@ The equations are given by
 \end{align}
 where the velocity $\bm u$ is defined by $\bm u = \nabla^\perp \psi$, for $\nabla^\perp = (-\partial_y, \partial_x)$.
 Here, $\omega$ is the vorticity, and $\psi$ is a scalar field known as the streamfunction, which is used to naturally enforce the divergence-free constraint on the velocity.
-Note that this formulation can be easily extended to the 2D incomressible Navier--Stokes equations with the addition of a viscosity term, replacing equation \eqref{eq:ins-1} with
+Note that this formulation can be easily extended to the 2D incompressible Navier--Stokes equations with the addition of a viscosity term, replacing equation \eqref{eq:ins-1} with
 \begin{equation} \label{eq:ins-3}
 	\frac{\partial\omega}{\partial t} + \nabla\cdot(\bm{u} \omega) = \frac{1}{\rm Re} \Delta \omega,
 \end{equation}
@@ -2234,8 +2234,8 @@ The resulting $4\times4$ block system that arises from IRK integration has the f
 \end{align}
 
 We consider two types of preconditioners for this system.
-The first is a standard block-triangular preconditioner, obtained by neglecting the term $\phi M_{\rm dg}$ term in the $(1,3)$ position, and replacing the diagonal blocks by appropriate preconditioners.
-An alternative preconditioner is obtained by noticing that this sytem can be reordered to obtain the block-triangular system
+The first is a standard block-triangular preconditioner, obtained by neglecting the term $\phi M_{\rm dg}$ term in the $(1,3)$ position, replacing the diagonal blocks by appropriate preconditioners, and using the preconditioning developed in \Cref{sec:theory}.
+An alternative preconditioner is obtained by noticing that this system can be reordered to obtain the block-triangular system
 \begin{align} \label{eq:vsf-system-2}
 	\begin{bmatrix}
 		\eta M_{\rm dg} - \delta t K^{(1)} & \phi M_{\rm dg} & \mathbf{0} & \mathbf{0} \\
@@ -2248,9 +2248,10 @@ An alternative preconditioner is obtained by noticing that this sytem can be reo
 	\begin{bmatrix} \mathbf{f}_1 \\ \mathbf{f}_2 \\ \mathbf{g}_1 \\ \mathbf{g}_2 \end{bmatrix}.
 \end{align}
 This block-triangular system can be solved using a forward-substitution algorithm, first solving the leading $2\times2$ block for the time-dependent variables, and then solving two (independent) Poisson problems for the algebraic constraints (i.e.\ the streamfunctions).
-The time-dependent block is preconditioned using the block-triangular preconditioners described in \Cref{sec:theory}.
-The Poisson problems are solved with optimal complexity using algebraic multigrid preconditioners.
-We compare the effectiveness of these two approaches in this section.
+
+Each of these approaches require preconditioning/inverting the diagonal blocks in
+\eqref{eq:vsf-system-1}/\eqref{eq:vsf-system-2}. Poisson problems are solved with optimal complexity using AMG preconditioners. The advection diffusion equations defining vorticity are preconditioned using nonsymmetric AMG based on approximate ideal restriction (AIR) \cite{Manteuffel:2019,Manteuffel:2018}.
+The leading $2\times 2$ time-dependent vorticity equations are preconditioned using the block-triangular preconditioners described in \Cref{sec:theory}, coupled with AIR preconditioning for individual systems.
 
 \begin{figure}
 	\def\dslfigwidth{1.75in}
@@ -2286,7 +2287,7 @@ We compare the effectiveness of these two approaches in this section.
 	\label{fig:dsl}
 \end{figure}
 
-To study the convergence behavior of these preconditioners, we consider the double shear layer problem \cite{Bell1989}.
+To study the effectiveness of these preconditioners, we consider the double shear layer problem \cite{Bell1989}.
 The domain is taken to be the square $[0,2\pi] \times [0,2\pi]$, and periodic boundary conditions are enforced at the domain boundaries.
 The initial condition is given by
 \[
@@ -2296,54 +2297,91 @@ The initial condition is given by
 	\end{cases}
 \]
 This test case is well-suited for high-order methods because the solution quickly develops small-scale features, as shown in \Cref{fig:dsl}.
-We use finite element spaces with polynomial degree $p=3$, and choose a representative time step of $\delta t = 10^{-2}$.
-We measure the total number of preconditioner applications required per time step for each of the IRK methods.
-The results are shown in \Cref{tab:dsl-iters}.
-The rows indicated ``Prec.\ applications'' denote the number of block triangular preconditioner applications when using the formulation of equation \eqref{eq:vsf-system-1}.
-Each such preconditioner application requires one ILU application and one AMG application.
-The rows indicated ``ILU applications'' and ``AMG applications'' denote the number of preconditioner applications when using the block forward substitution algorithm applied to the formulation given by \eqref{eq:vsf-system-2}.
-In this case, since the time-dependent and algebraic blocks are solved separately, the number of ILU applications (to solve for the vorticity) and the number of AMG applications (to solve for the streamfunction) are not equal.
+We use finite element spaces with polynomial degree $p=3$, mesh spacing $h = 0.0025$, and choose a representative time step of $\delta t = 10^{-2}$. \Cref{tab:dsl-iters} shows the total number of preconditioner applications required per time step for each of the IRK methods with Reynolds number Re$=10$. Rows indicated ``Prec.\ applications'' denote the number of block triangular preconditioner applications when using the formulation of equation \eqref{eq:vsf-system-1}, where each such preconditioner application requires one AIR application and one AMG application. Rows indicated ``AIR applications'' and ``AMG applications'' denote the number of preconditioner applications when using the block forward substitution algorithm applied to the formulation given by \eqref{eq:vsf-system-2}.
+In this case, because the time-dependent and algebraic blocks are solved separately, the number of AIR applications (to solve for the vorticity) and the number of AMG applications (to solve for the streamfunction) are not equal. These results were run on 288 cores on the Quartz machine at Lawrence Livermore National Laboratory.
 
-We note that the second and fourth order Gauss methods are significantly more efficient than the corresponding equal-order SDIRK methods in terms of total number of preconditioner applications.
-The eigth-order Gauss method requires approximately as many preconditioner applications per time step as the fourth-order SDIRK method.
-For several of the IRK methods, performing the triangular solve can reduce the total number of iterations required.
-However, this effect is not large, and for the high-order methods (tenth-order Gauss, ninth-order Radau, and sixth- and eighth-order Lobatto), the block triangular solve requires many more iterations.
-{\color{red}
-This is because the triangular solve neglects off-diagonal coupling terms that result in a greater number of nonlinear iterations to converge.
-WP: This is not really discussed in the paper, but for the high-order methods it's important --- the ``simplified'' system that neglects the non-mass off-diagonal coupling terms leads to very bad Newton convergence for this problem}
-
-\begin{table}
+\begin{table}[h!]
 	\centering
-	\caption{Preconditioner applications for the double shear layer test case, with time step $\delta t = 10^{-2}.$}
+	\caption{Preconditioner applications for the double shear layer test case, with third-order
+	finite elements, mesh spacing $h=0.0025$, time step $\delta t = 10^{-2}$, and Re$=10$.}
 	\label{tab:dsl-iters}
-	\begin{tabular}{rr|cccc|ccccc}
+	\begin{tabular}{rl|cccc|ccccc}
 		\toprule
-		&& \multicolumn{4}{c}{SDIRK} & \multicolumn{5}{c}{Gauss} \\
-		& Order  & 1 & 2 & 3 & 4 & 2 & 4 & 6 & 8 & 10\\
+		&& \multicolumn{4}{c|}{SDIRK} & \multicolumn{5}{c}{Gauss} \\
+		& \multicolumn{1}{r|}{Order}  & 1 & 2 & 3 & 4 & 2 & 4 & 6 & 8 & 10\\
 		\midrule
-		Form \eqref{eq:vsf-system-1} & Prec.\ applications & 72 & 133 & 206 & 331 & 68 & 149 & 224 & 305 & 354\\
+		\eqref{eq:vsf-system-1} & Prec.\ applications & 127 & 141 & 322 & 365 & 78 & 161 & 218 & 287 & 333 \\
 		\midrule
-		\multirow{2}{*}{Form \eqref{eq:vsf-system-2}} & ILU applications & 72 & 133 & 206 & 331 & 68 & 101 & 214 & 313 & 1161\\
-		& AMG applications & 72 & 133 & 206 & 331 & 68 & 132 & 230 & 378 & 1095\\
+		\multirow{2}{*}{\eqref{eq:vsf-system-2}} & AIR applications & 127 & 141 & 322 & 365 & 78 & 365 & 538 & 731 & 1064\\
+		& AMG applications & 127 & 141 & 322 & 365 & 78 & 368 & 562 & 766 & 1204 \\
 		\bottomrule
 	\end{tabular}
 
 	\vspace{\floatsep}
 
-	\begin{tabular}{rr|cccc|ccc}
+	\begin{tabular}{rl|cccc|cccc}
 		\toprule
-		&& \multicolumn{4}{c}{Radau} & \multicolumn{3}{c}{Lobatto} \\
-		& Order  & 3 & 5 & 7 & 9 & 2 & 6 & 8\\
+		&& \multicolumn{4}{c|}{Radau} & \multicolumn{4}{c}{Lobatto} \\
+		& \multicolumn{1}{r|}{Order} & 3 & 5 & 7 & 9 & 2 & 4 & 6 & 8\\
 		\midrule
-		Form \eqref{eq:vsf-system-1} & Prec.\ applications & 159 & 237 & 313 & 369 & 179 & 245 & 387\\
+		\eqref{eq:vsf-system-1} & Prec.\ applications & 237 & 232 & 299 & 490 & 217 & 234 & 311 & 375 \\
 		\midrule
-		\multirow{2}{*}{Form \eqref{eq:vsf-system-2}} & ILU applications & 129 & 243 & 401 & 1070 & 291 & 5635 & 1105\\
-		& AMG applications & 136 & 238 & 445 & 949 & 250 & 1666 & 896\\
+		\multirow{2}{*}{\eqref{eq:vsf-system-2}} & AIR applications & 451 & 603 & 841 & 989 & 421 & 697 & 2013 & 1405 \\
+		& AMG applications & 432 & 566 & 819 & 980 & 350 & 670 & 1580 & 1227\\
 		\bottomrule
 	\end{tabular}
 \end{table}
 
-To assess the accuracy of the IRK methods applied to this problem, we consider the two-dimensional incompressible Taylor--Green vortex problem.
+Note from \Cref{tab:dsl-iters} that the second and fourth order Gauss methods
+are significantly more efficient than the corresponding equal-order SDIRK
+methods in terms of total number of preconditioner applications, while the
+\textit{10th-order} Gauss method requires approximately
+as many (in fact, slightly less) preconditioner
+applications per time step as the fourth-order SDIRK method. In all cases, the
+triangular nonlinear preconditioning \eqref{eq:vsf-system-1} requires many more iterations than the
+more general approach following the development in this paper \eqref{eq:vsf-system-2}.
+This is for two reasons, (i) the linear preconditioning ends up being more efficient
+when applied to the full system \eqref{eq:vsf-system-2}, rather than the reordered
+system in \eqref{eq:vsf-system-1}, and (ii) the triangular solve neglects off-diagonal
+coupling terms (see \Cref{sec:nonlinear:gen}) that result in a greater number of
+nonlinear iterations to converge. This again highlights the importance of the more robust
+nonlinear iteration developed in \Cref{sec:nonlinear:gen} compared with simplified
+approaches. 
+
+\Cref{tab:dsl-iters2} demonstrates that the proposed methods are also robust across
+Reynolds number, showing similar results as in \Cref{tab:dsl-iters}, for the
+preconditioning in \eqref{eq:vsf-system-2} with Reynolds number 25,000. As
+before, Gauss methods require roughly half the preconditioner applications as
+required by equal order SDIRK methods, while 4th-order SDIRK requires almost as many
+preconditioner applications as 10th-order Gauss.
+
+\begin{table}[h!]
+	\centering
+	\caption{Preconditioner applications for the double shear layer test case, with third-order
+	finite elements, mesh spacing $h=0.0025$, time step $\delta t = 10^{-2}$, and Re$=$25,000.}
+	\label{tab:dsl-iters2}
+	\begin{tabular}{rl|cccc|ccccc}
+		\toprule
+		&& \multicolumn{4}{c|}{SDIRK} & \multicolumn{5}{c}{Gauss} \\
+		& \multicolumn{1}{r|}{Order}  & 1 & 2 & 3 & 4 & 2 & 4 & 6 & 8 & 10\\
+		\midrule
+		\eqref{eq:vsf-system-1} & Prec.\ applications & 41 & 72 & 113 & 177 & 37 & 75 & 118 & 163 & 194 \\
+		\bottomrule
+	\end{tabular}
+
+	\vspace{\floatsep}
+
+	\begin{tabular}{rl|cccc|cccc}
+		\toprule
+		&& \multicolumn{4}{c|}{Radau} & \multicolumn{4}{c}{Lobatto} \\
+		& \multicolumn{1}{r|}{Order} & 3 & 5 & 7 & 9 & 2 & 4 & 6 & 8\\
+		\midrule
+		\eqref{eq:vsf-system-1} & Prec.\ applications & 81 & 123 & 165 & 206 & 91 & 130 & 173 & 220 \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+To assess the accuracy of IRK methods applied to this problem, we consider the two-dimensional incompressible Taylor--Green vortex problem.
 As in the previous case, the domain is taken to be the periodic square $[0,2\pi]^2$.
 The initial conditions are given by
 \[
@@ -2500,12 +2538,15 @@ fast and effective block preconditioning techniques for the linearized systems,
 guaranteeing $\mathcal{O}(1)$ conditioning and only requiring standard preconditioners
 as would be used for backward Euler. The new methods are shown to achieve fast,
 high-order accuracy on multiple different compressible and incompressible Navier
-Stokes and Euler problems. In addition, using low-order Gauss integration schemes
-with the new method also typically requires less preconditioner applications than
-needed by standard DIRK schemes to achieve the same accuracy, demonstrating that
+Stokes and Euler problems. Using low-order Gauss integration schemes
+with the new method consistently requires about half the preconditioner applications as
+required by standard SDIRK schemes to achieve the same accuracy, demonstrating that
 the new method can not only offer very high-order accuracy (along with other benefits
 obtained by using fully implicit Runge-Kutta), but also improve upon state-of-the-art
-low-order integration.
+low-order integration. Moreover, for the incompressible Navier Stokes double shear
+layer problem in vorticity-streamfunction form, once can apply 7th to 10th order Gauss
+or RadauIIA integration for a comparable number of preconditioner applications as
+standard 4th-order SDIRK. 
 
 % % ------------------------------------------------------------------------------------- %
 % % ------------------------------------------------------------------------------------- %
