@@ -105,7 +105,7 @@ weak dependence on the number of stages or integration accuracy. The new
 methods are applied to multiple examples of the compressible Euler and Navier
 Stokes equations, and the incompressible Euler and Navier Stokes equations
 in the vorticity-streamfunction formulation. Up to 10th order accuracy is
-demonstrated using Gauss integration, while in many cases 4th-order Gauss integration
+demonstrated using Gauss integration, while in all cases 4th-order Gauss integration
 requires roughly half the number of preconditioner applications as required
 by standard SDIRK methods.
 \end{abstract}
@@ -2356,7 +2356,8 @@ Reynolds number, showing similar results as in \Cref{tab:dsl-iters}, for the
 preconditioning in \eqref{eq:vsf-system-2} with Reynolds number 25,000. As
 before, Gauss methods require roughly half the preconditioner applications as
 required by equal order SDIRK methods, while 4th-order SDIRK requires almost as many
-preconditioner applications as 10th-order Gauss.
+preconditioner applications as 10th-order Gauss, and more than 8th-order Gauss and
+7th-order RadauIIA.
 
 \begin{table}[h!]
 	\centering
@@ -2384,6 +2385,54 @@ preconditioner applications as 10th-order Gauss.
 	\end{tabular}
 \end{table}
 
+To assess the accuracy of IRK methods applied to this problem, we consider the
+integration of the double shear layer problem over a longer time interval of
+$[0,10]$. We choose a Reynolds number of 100, and compute a reference solution
+by applying explicit 6th-order SDIRK integration with a small time step of
+$\delta t = 10^{-4}$. We then apply IRK methods with large time steps of
+$\delta t \in\{0.4,0.2,0.1\}$ and observe the orders of convergence in
+\Cref{tab:tgv-errors}. As a consequence of the nonlinear solver tolerance
+of $10^{-11}$, the observed order of convergence is reduced for the highest
+order methods and the refinement $\delta t =0.2 \mapsto \delta t=0.1$.
+Nevertheless, we observe that each of the methods indeed yield high-order
+accuracy using very large time steps, in most cases just under their formal
+order of accuracy. Moreover, the leading error constants also appear to be
+small, given we can obtain accuracy on the order of $10^{-9}-10^{-10}$ with
+a step size of $\delta t = 0.2$. Similar results have been observed on the
+Taylor Green vortex problem; here we use the double shear layer problem to
+demonstrate high-order accuracy on a problem with more interesting long-term
+dynamics.
+
+\begin{table}[h!]
+	\centering
+	\caption{Error and convergence rates for double shear layer problem with Re$=10$.}
+	\label{tab:tgv-errors}
+	\begin{tabular}{r|cccccc}
+		\toprule
+		& \multicolumn{2}{c}{Gauss 4} & \multicolumn{2}{c}{Gauss 6} & \multicolumn{2}{c}{Gauss 8}\\
+		$\delta t$ & Error & Rate & Error & Rate & Error & Rate\\
+		\midrule
+		0.4 & $1.98\times 10^{-3}$ & --- & $1.59\times 10^{-4}$ & --- & $4.13\times 10^{-5}$ & --- \\
+		0.2 & $1.30\times 10^{-4}$ & 3.93 & $9.08\times 10^{-7}$ & 7.45 & $1.04\times 10^{-8}$ & 11.95 \\
+		0.1 & $8.15\times 10^{-6}$ & 3.99 & $9.29\times 10^{-9}$ & 6.61 & $1.05\times 10^{-10}$ & 6.63 \\
+		\midrule
+		& \multicolumn{2}{c}{Radau 5} & \multicolumn{2}{c}{Radau 7} & \multicolumn{2}{c}{Radau 9}\\
+		\midrule
+		0.4 & $2.37\times 10^{-4}$ & --- & $3.96\times 10^{-6}$ & --- & $6.21\times 10^{-8}$ & --- \\
+		0.2 & $8.35\times 10^{-6}$ & 4.83 & $3.54\times 10^{-8}$ & 6.81 & $1.42\times 10^{-10}$ & 8.77  \\
+		0.1 & $2.71\times 10^{-7}$ & 4.94 & $2.93\times 10^{-10}$ & 6.91 & $3.64\times 10^{-11}$ & 1.96 \\
+		\midrule
+		& \multicolumn{2}{c}{Lobatto 4} & \multicolumn{2}{c}{Lobatto 6} & \multicolumn{2}{c}{Lobatto 8}\\
+		\midrule
+		0.4 & $2.42\times 10^{-3}$ & --- & $3.93\times 10^{-5}$ & --- & $6.15\times 10^{-7}$ & --- \\
+		0.2 & $1.78\times 10^{-4}$ & 3.76 & $7.23\times 10^{-7}$ & 5.77 & $2.86\times 10^{-9}$ & 7.75 \\
+		0.1 & $1.18\times 10^{-5}$ & 3.92 & $1.19\times 10^{-8}$ & 5.91 & $3.62\times 10^{-11}$ & 6.30 \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+%
+\begin{comment}
 To assess the accuracy of IRK methods applied to this problem, we consider the two-dimensional incompressible Taylor--Green vortex problem.
 As in the previous case, the domain is taken to be the periodic square $[0,2\pi]^2$.
 The initial conditions are given by
@@ -2425,6 +2474,9 @@ As a consequence of the nonlinear solver tolerance, the observed order of conver
 		\bottomrule
 	\end{tabular}
 \end{table}
+\end{comment}
+%
+
 
 % \subsection{(Incompressible) Kelvin-Helmholtz instability}\label{sec:numerics:khi}
 % Define $\mathbf{v}$ as a curl, such that $\nabla \cdot\mathbf{v}w =
@@ -2547,7 +2599,7 @@ required by standard SDIRK schemes to achieve the same accuracy, demonstrating t
 the new method can not only offer very high-order accuracy (along with other benefits
 obtained by using fully implicit Runge-Kutta), but also improve upon state-of-the-art
 low-order integration. Moreover, for the incompressible Navier Stokes double shear
-layer problem in vorticity-streamfunction form, once can apply 7th to 10th order Gauss
+layer problem in vorticity-streamfunction form, one can apply 7th to 10th order Gauss
 or RadauIIA integration for a comparable number of preconditioner applications as
 standard 4th-order SDIRK.
 
