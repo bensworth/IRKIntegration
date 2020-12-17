@@ -38,6 +38,8 @@
 \newcommand{\tcp}{\textcolor{purple}}
 \newcommand{\todo}[1]{\textcolor{red}{[TODO\@: #1]}}
 
+\newcommand{\OK}[1]{\textcolor{blue}{[OK: #1]}}
+
 \newcommand{\mdet}{\operatorname{det}}
 \newcommand{\madj}{\operatorname{adj}}
 \DeclareMathOperator{\cL}{\widehat{\mathcal{L}}}
@@ -48,7 +50,7 @@
 
 \newcommand{\TheTitle}{Fast parallel solution of fully implicit Runge-Kutta and discontinuous
 	Galerkin in time for numerical PDEs, Part II: nonlinearities and DAEs}
-\newcommand{\TheAuthors}{B.S. Southworth, O. Krzysik, and W. Pazner}
+\newcommand{\TheAuthors}{B.S. Southworth, O.A. Krzysik, and W. Pazner}
 \headers{Parallel solution of fully implicit Runge-Kutta and DG in time II}{\TheAuthors}
 \title{{\TheTitle}\thanks{BSS was supported by Lawrence Livermore National
       Laboratory under contract B639443, and as a Nicholas C. Metropolis Fellow
@@ -60,9 +62,9 @@
     U.S.A. (\url{southworth@lanl.gov}),
     \url{http://orcid.org/0000-0002-0283-4928}}
     \and
-    Oliver Krzysik
-  	\thanks{School of Mathematical Sciences, Monash University,
-  	Australia (\url{oliver.krzysik@monash.edu})}
+    Oliver A. Krzysik\thanks{School of Mathematics, Monash University,
+  	Australia (\url{oliver.krzysik@monash.edu}),
+  	\url{https://orcid.org/0000-0001-7880-6512}}
   	\and
   	Will Pazner\thanks{Center for Applied Scientific Computing,
   	Lawrence Livermore National Laboratory,
@@ -101,7 +103,12 @@ set of block $2\times 2$ systems. Under quite general assumptions on the
 spatial discretization, it is proven that the right combination of
 backward-Euler-type preconditioners in a $2\times 2$ block preconditioner yields
 a preconditioned operator with conditioning $\sim\mathcal{O}(1)$, with only
-weak dependence on the number of stages or integration accuracy. The new
+weak dependence on the number of stages or integration accuracy. 
+%
+\OK{I find the phrasing ``the right combination of backward-Euler-type preconditioners...'' a bit confusing. I know what you mean, but I'm not sure that someone who hasn't yet read the paper will. Maybe you can just say something like ``Under quite general assumptions on the
+spatial discretization, it is proven that the preconditioned operator has a condition number of $\sim\mathcal{O}(1)$, ...''} 
+%
+The new
 methods are applied to multiple examples of the compressible Euler and Navier
 Stokes equations, and the incompressible Euler and Navier Stokes equations
 in the vorticity-streamfunction formulation. Up to 10th order accuracy is
@@ -130,7 +137,11 @@ differential equations (ODEs) in time,
 %
 where $M$ is a mass matrix and $\mathcal{N}:\mathbb{R}^{N}\mapsto\mathbb{R}^{N}$ is a discrete,
 time-dependent, nonlinear operator depending on $t$ and $\mathbf{u}$ (including potential
-forcing terms). Note, PDEs with an algebraic constraint, for example, the divergence-free
+forcing terms).
+%
+\OK{Shouldn't it be ``$\mathcal{N}:\mathbb{R}^{N} \times \mathbb{R}_+ \mapsto\mathbb{R}^{N}$''?}
+%
+Note, PDEs with an algebraic constraint, for example, the divergence-free
 constraint in Navier Stokes, instead yield a system of differential algebraic equations
 (DAEs). DAEs require separate treatment and are addressed in \Cref{sec:dae}.
 Now, consider time propagation of \eqref{eq:problem} using an $s$-stage
@@ -179,6 +190,9 @@ corresponding to the $i$th stage vector, $\mathcal{N}_i:= \mathcal{N}\left(\math
 \delta t\sum_{j=1}^s a_{ij}\mathbf{k}_j, t_n+\delta tc_i\right)$ (the main
 point being that the spatially linearized operators, $\mathcal{L}_i$, should
 be fixed for a given block row of the full linearized system, as in \eqref{eq:k0}).
+%
+\OK{What are the $\bm{f}_i$ terms on the RHS of the system?}
+%
 Moving forward, we let $\mathcal{L}$ refer to a general, spatially linearized
 operator when the stage index is not relevant.
 
@@ -190,10 +204,17 @@ solution techniques to solve \eqref{eq:k0} are not a viable option, and fast, pa
 iterative methods must be used. However, IRK methods are rarely employed in practice due
 to the difficulties of solving \eqref{eq:k0}. Even for relatively simple
 parabolic PDEs where $-\mathcal{L}$ is symmetric positive definite (SPD), \eqref{eq:k0}
-instead yields a large nonsymmetric system with significant block coupling. For
+instead yields a large nonsymmetric system with significant block coupling. 
+%
+\OK{I don't think you need ``instead'' here? And I think ``yields'' $\to$ ``is''}
+%
+For
 nonsymmetric systems $\mathcal{L}$ that already have variable coupling, traditional
 iterative methods are even less likely to yield acceptable performance in solving
 \eqref{eq:k0}.
+%
+\OK{``systems ${\cal L}$'' $\to$ ``matrices ${\cal L}$''. What do  you mean by ``variable coupling''?}
+%
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -250,6 +271,9 @@ the fully coupled $s\times s$ system in \eqref{eq:k0}. Moreover, unlike many
 of the simplified Newton approaches seen previously in the literature, the
 new approach can yield convergence comparable to true Newton iterations, as
 demonstrated numerically in \Cref{sec:numerics}.
+%
+\OK{Where do you show the Newton convergence rate in \Cref{sec:numerics}, or at least show it's faster to simple Newton?}
+%
 
 Although the linear IRK preconditioning developed in \cite{irk1} takes
 advantage of certain properties that are not available in the nonlinear
@@ -265,6 +289,9 @@ from \Cref{sec:intro:stab}, and the block preconditioning only requires
 an effective preconditioner for systems along the lines of
 $\eta M - \delta t\mathcal{L}$, exactly as would be used for, e.g.,
 SDIRK methods.
+%
+\OK{``for, e.g., SDIRK methods'' $\to$ ``e.g., for SDIRK methods''. The first one reads like ``for for example''}
+%
 
 Numerical results for nonlinear problems are then provided in
 \Cref{sec:numerics}, \todo{including ...}
@@ -524,6 +551,9 @@ for $i=1,...,s$. This is not necessary, but simplifies the derivations. Note,
 such a scaling is not used when considering DAEs in \Cref{sec:dae}.
 Additionally, let $\zeta_{\pm} := \eta \pm \mathrm{i}\beta$ denote an
 eigenvalue of $A_0^{-1}$, where, under \Cref{ass:eig}, $\eta > 0$.
+%
+\OK{For $\beta \neq 0$, this would be an eigenvalue pair rather than ``an eigenvalue''. Also, why now $\zeta$ rather than $\lambda$ as in the first paper?}
+%
 
 % In \todo{cite}, an IRK preconditioning method is developed that can be applied on the
 % solution level, rather than solving for all stages and updating the solution
@@ -565,7 +595,7 @@ Now, let $A_0^{-1} = Q_0R_0Q_0^T$ be the real Schur decomposition of $A_0^{-1}$,
 $Q_0$ is real-valued and orthogonal, and $R_0$ is a block
 upper triangular matrix, where each block corresponds to an eigenvalue (pair) of
 $A_0^{-1}$. Real-valued eigenvalues have block size one, and complex eigenvalues
-$\eta\pm i\beta$ are in $2\times 2$ blocks,
+$\eta\pm \mathrm{i} \beta$ are in $2\times 2$ blocks,
 $\begin{bmatrix} \eta & \phi \\-\beta^2/\phi & \eta\end{bmatrix}$, for some
 constant $\phi$.
 Pulling out a $Q_0\otimes I$ and $Q_0^T\otimes I$ from the left and right of
@@ -580,7 +610,11 @@ The left-most matrix is now block upper triangular, which can be solved
 using block backward substitution, and requires inverting each diagonal block.
 Diagonal blocks corresponding to real-valued eigenvalues $\eta$ take the form
 $(\eta I - \widehat{\mathcal{L}})$, and are amenable to standard preconditioning
-techniques as used for, e.g., backward Euler. $2\times 2$ diagonal blocks
+techniques as used for, e.g., backward Euler.
+%
+\OK{``for, e.g.,'' $\to$ ``e.g., for ''}
+%
+While $2\times 2$ diagonal blocks
 corresponding to complex eigenvalues take the form
 %
 \begin{align}\label{eq:block}
@@ -597,6 +631,9 @@ conditioning of the preconditioned operator.
 It should be pointed out that a real Schur decomposition is by no means
 unique to Runge-Kutta literature, most notably used in the RADAU code
 by Hairer and Wanner \cite{hairer99}.
+%
+\OK{By ``unique'' do you mean you were not the first to consider it for IRK? Because saying it's ``... by no means unique to IRK literature...'' makes it sound like it has applications in areas of maths other than IRK.}
+%
 The key contribution here for the simplified Newton setting is proving a
 robust and general way to precondition the resulting operators in the
 context of numerical PDEs (see \Cref{sec:theory}). Moreover, the real
@@ -739,7 +776,12 @@ techniques similar to the simplified Newton setting in \Cref{sec:nonlinear:simp}
 (ii) yield nonlinear  convergence close to a true Newton or Picard iteration. In principle,
 these approximations can also be iterated to convergence in the linear sense, yielding
 a precise Newton or Picard iteration, but here we opt to resolve the approximations
-(i.e., converge) in the nonlinear iteration. Similar to inexact Newton methods,
+(i.e., converge) in the nonlinear iteration.
+%
+\OK{I don't understand what the ``but here we opt to resolve the approximations
+(i.e., converge) in the nonlinear iteration'' part of this sentence.}
+% 
+Similar to inexact Newton methods,
 such an approach is often more efficient in practice than computing, e.g., an exact
 Jacobian.
 
@@ -754,6 +796,10 @@ Jacobian.
 % that result from solving directly for $\mathbf{k}^{k+1}$ rather than a correction,
 % and approximating $\mathcal{G}$ would result in convergence to a different problem.
 
+%
+\OK{In the following I've changed the $\bm{c}$'s to $\bm{d}$'s so they're not confused with the IRK nodes. I also changed the transpose symbol $\top$ to $T$'s so they're consistent with  what you have elsewhere. And I removed the prime symbol from $\bm{{\cal L}}$ since we use primes elsewhere to denote derivatives.}
+%
+
 To develop effective approximations, we are particularly interested in the operator
 %
 \begin{align}\label{eq:Q0approx}
@@ -761,31 +807,42 @@ To develop effective approximations, we are particularly interested in the opera
 	\widehat{\mathcal{L}}_1  & \\ & \ddots \\ && \widehat{\mathcal{L}}_s\end{bmatrix}
 	(Q_0\otimes I)
 = \begin{bmatrix}
-	\bm{c}^\top_{1,1} \bm{{\cal L}}' & \cdots & \bm{c}^\top_{1,s} \bm{{\cal L}}' \\
+	\bm{d}^T_{1,1} \bm{{\cal L}} & \cdots & \bm{d}^T_{1,s} \bm{{\cal L}} \\
 	\vdots & & \vdots \\
-	\bm{c}^\top_{s,1} \bm{{\cal L}}' & \cdots & \bm{c}^\top_{s,s} \bm{{\cal L}}'
+	\bm{d}^T_{s,1} \bm{{\cal L}} & \cdots & \bm{d}^T_{s,s} \bm{{\cal L}}
 	\end{bmatrix},
 \end{align}
 %
-where $\bm{c}^\top_{k,\ell} = \Big((Q_0^\top)_{k ,1} (Q_0)_{1, \ell},
-\ldots, (Q_0^\top)_{k, s} (Q_0)_{s, \ell} \Big) \in \mathbb{R}^s$ is a scalar row
-vector, $\bm{{\cal L}}' = (\widehat{\mathcal{L}}_1; \ldots; \widehat{\mathcal{L}}_s)$
+where $\bm{d}^T_{k,\ell} = \Big((Q_0^T)_{k ,1} (Q_0)_{1, \ell},
+\ldots, (Q_0^T)_{k, s} (Q_0)_{s, \ell} \Big) \in \mathbb{R}^s$ is a scalar row
+vector, $\bm{{\cal L}} = (\widehat{\mathcal{L}}_1; \ldots; \widehat{\mathcal{L}}_s)$
 is a block column vector of the linearized operators, and
 %
 \begin{align*}
-\bm{c}^\top_{k,\ell} \bm{{\cal L}}' = \sum \limits_{i = 1}^s (\bm{c}_{k, \ell})_i
+\bm{d}^T_{k,\ell} \bm{{\cal L}} = \sum \limits_{i = 1}^s (d_{k, \ell})_i
 	\widehat{\mathcal{L}}_i.
 \end{align*}
 %
 For $\widehat{\mathcal{L}}_i = \widehat{\mathcal{L}}_j$, \eqref{eq:Q0approx}
 is block diagonal, given by $I\otimes\widehat{\mathcal{L}}$. For
 $\widehat{\mathcal{L}}_i \neq \widehat{\mathcal{L}}_j$, note that
-$\sum_{i=1}^s (\bm{c}_{k, \ell})_i = 1$, while for off-diagonal blocks
-$\sum_{i=1}^s (\bm{c}_{k, \ell})_i = 0$.
+$\sum_{i=1}^s (\bm{d}_{k, \ell})_i = 1$, while for off-diagonal blocks
+$\sum_{i=1}^s (\bm{d}_{k, \ell})_i = 0$.
+
+%
+\OK{
+I think the above 2 sentences should be changed something like: ``
+Note that the vector $\bm{d}_{k, \ell}$ represents the element-wise product between the $k$th row of $Q_0^T$ and the $\ell$th column of $Q_0$. By the orthogonality of $Q_0$, we have $\sum_{i = 1}^s (d_{k, \ell})_i = \delta_{k,\ell}$, where $\delta_{k,\ell}$ is the Kronecker delta. Thus, when $\widehat{\mathcal{L}}_i = \widehat{\mathcal{L}}_j$, \eqref{eq:Q0approx}
+is block diagonal, given by $I\otimes\widehat{\mathcal{L}}$.''}
+%
+
 Due to the off-diagonal zero sums, here we claim that \eqref{eq:Q0approx}
-can be well-approximated by some block-diagonal or block upper triangular
-approximation, which can then be easily inverted using block backward
+can be well-approximated by some block-diagonal matrix or block upper triangular
+matrix, which can then be easily inverted using block backward
 substitution.
+%
+\OK{This sentence is not quite right. We wouldn't invert the approximation of \eqref{eq:Q0approx}, we'd invert the approximation to \eqref{eq:keq4}}
+%
 
 As an example, consider \eqref{eq:Q0approx} for the two-stage Gauss and
 RadauIIA methods in bracket notation, where, e.g., $\{a_1,a_2,a_3\}\mapsto
@@ -798,7 +855,7 @@ a_1\widehat{\mathcal{L}}_1 + a_2\widehat{\mathcal{L}}_2 + a_3\widehat{\mathcal{L
 	 \{0,0\} & \{0,1\} \\
 	\end{bmatrix},
 	\hspace{3ex}
-\textnormal{RadauIIA(2):} \hspace{1ex}
+\textnormal{Radau\, IIA(2):} \hspace{1ex}
 	\begin{bmatrix}
 	\{0.985,0.014\} & \{0.121,-0.121\}\\
 	\{0.121,-0.121\} & \{0.014,0.985\}\\
@@ -808,24 +865,36 @@ a_1\widehat{\mathcal{L}}_1 + a_2\widehat{\mathcal{L}}_2 + a_3\widehat{\mathcal{L
 Recall in the matrices above, the constants in diagonal brackets always sum to
 one and off-diagonal sum to zero, wherein if $\widehat{\mathcal{L}}_i = \widehat{\mathcal{L}}_j$
 for all $i,j$, each of the operators is the identity.
+%
+\OK{It's a bit repetitive to recall what was stated only a couple of sentences ago. Also, not sure what you mean by ``each of the operators is the identity'', are you stating again that the entries sum to 1?}
+%
 
 Note that there is no approximation in two-stage Gauss, that is, it is
 straightforward to apply a true Newton or Picard iteration to two-stage Gauss
 using analogous block-preconditioning techniques as used for simplified Newton.
+%
+\OK{Maybe this sentence should be ``Note that no approximation is required for two-stage Gauss because the operator \eqref{eq:Q0approx} is already block diagonal.''}
+%
 For two-stage RadauIIA, we see that the diagonal blocks are almost
 defined by the (linearized) operator evaluated at a single time step, which
 provides a natural and simple approximation. The off-diagonal blocks are
 simply a measure of commutation, $0.121(\widehat{\mathcal{L}}_1 - \widehat{\mathcal{L}}_2)$.
 Such entries could be included in the preconditioning for the upper
-triangular portion of the matrix (adding a few additional mat-vecs and
-memory usage), or simply ignored under the assumption that $\widehat{\mathcal{L}}_1 -
-\widehat{\mathcal{L}}_2$ is ``small'' in some sense. Even for reasonably stiff
+triangular portion of the matrix (adding a few additional matrix-vector products and some memory usage), or simply ignored under the assumption that $\widehat{\mathcal{L}}_1 -
+\widehat{\mathcal{L}}_2$ is ``small'' in some sense. 
+%
+\OK{
+Shouldn't this be that ``or simply ignored altogether under the assumption that $0.121(\widehat{\mathcal{L}}_1 -
+\widehat{\mathcal{L}}_2$) is ``small'' relative to the diagonal blocks in some sense.''
+}
+%
+Even for reasonably stiff
 problems, the operator often does not change substantially between
 two stages -- if it did, e.g., due to a shockwave, the larger time step
 may not be small enough to accurately resolve the nonlinear behavior in
 the first place. Similar structure as discussed for the two-stage methods
 holds for other methods as well. For example, the coefficients for four-stage
-Gauss are given by:
+Gauss are given by: \OK{The following numbers are approximate, yes (and ditto for Radau above)? You should mention this.}
 %
 \begin{align*}
 \textnormal{Gauss(4):}& \hspace{1ex}
@@ -854,12 +923,20 @@ or off-diagonal blocks is a natural choice of preconditioning.
 Motivated by the above discussion, we construct {block upper triangular}
 $\widetilde{P} \approx \widehat{P}$ as Newton-like methods (or more
 generally some fixed-point iteration as in \eqref{eq:non_rich}) which has
-a (block) sparsity pattern contained within that of $R_0 \otimes I$. Recall
+a (block) sparsity pattern contained within that of $R_0 \otimes I$. 
+%
+\OK{
+The previous sentence should be something like: ``Motivated by the above discussion, we consider Newton-like methods (or more
+generally some fixed-point iteration as in \eqref{eq:non_rich}) which use approximate Jacobians having
+a (block) sparsity pattern contained within that of $R_0 \otimes I$. That is, we replace the $\widehat{P}$ operator \eqref{eq:Q0approx} in the true Jacobian \eqref{eq:keq4} with a block upper triangular approximation $\widetilde{P} \approx \widehat{P}$.''
+}
+%
+Recall
 by constructing $\widetilde{P}$ to be block upper triangular, we can then
 invert the resulting operator
 %
 \begin{align}
-R_0 \otimes M - \delta t \widehat{P} \approx R_0 \otimes I -  \delta t \widetilde{P}
+R_0 \otimes I -  \widetilde{P} \approx R_0 \otimes I -\widehat{P}
 \end{align}
 %
 via block backward substitution, preconditioning each $1\times 1$
@@ -877,12 +954,12 @@ simplified Newton method by evaluating $\mathcal{L}$ at the same time point for
 all stages.
 
 \item \underline{Newton-Like(1):} Truncate $\widehat{P}$ to be block diagonal and
-lump the coefficients of $\bm{c}_{ii}$ to the largest one so that each diagonal
-block of $\widehat{P}$ contains only one matrix from $\bm{{\cal L}}'$.
+lump the coefficients of $\bm{d}_{ii}$ to the largest one so that each diagonal
+block of $\widehat{P}$ contains only one matrix from $\bm{{\cal L}}$.
 
 \item \underline{Newton-Like(2):} Truncate $\widehat{P}$ to be block diagonal
 (can include the off-diagonal entries in $2 \times 2$ diagonal blocks, or not)
-\todo{How is this implemented?}
+\todo{How is this implemented?} \OK{Do you want me to write here how it's implemented?}
 
 \item \underline{Newton-Like(3):} Truncate $\widehat{P}$ to be block upper triangular.
 This option adds a number of matrix-vector products and requires storing $\mathcal{L}_i$
@@ -891,6 +968,7 @@ Picard iteration.
 
 \end{enumerate}
 
+\OK{Do you want to keep this list here like this? It doesn't really look like you make any reference to it in  the numerical results?}
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -904,6 +982,14 @@ solving $2\times 2$ block systems along the lines of
 \begin{bmatrix} \eta I - \widehat{\mathcal{L}}_1 & \phi I\\
 -\frac{\beta^2}{\phi} I & \eta I - \widehat{\mathcal{L}}_2\end{bmatrix},
 \end{align}
+%
+\OK{This is not quite true though... The systems generally look like
+\begin{align}
+\begin{bmatrix} \eta I - \bm{d}_{i,i}^T \bm{{\cal L}} & \phi I - \bm{d}_{i,i+1}^T \bm{{\cal L}}\\
+-\frac{\beta^2}{\phi} I - \bm{d}_{i+1,i}^T \bm{{\cal L}} & \eta I -  \bm{d}_{i+1,i+1}^T \bm{{\cal L}}\end{bmatrix}.
+\end{align}
+We only end up with the first system you have written if we lump the smaller entries on the diagonal blocks to the biggest, and if we truncate the off diagonal blocks. That is, your 2x2 system above only covers the simplified Newton and Newton-Like(1) algs.
+}
 %
 for some $\eta > 0, \phi \neq 0$, and where it is assumed that
 $W(\widehat{\mathcal{L}}_i) \leq 0$ for $i=1,2$ (\Cref{ass:fov}). In some
@@ -954,7 +1040,7 @@ the tight bounds derived for $\widehat{\mathcal{L}}_1 = \widehat{\mathcal{L}}_2$
 and remains $\mathcal{O}(1)$ for IRK schemes with $\mathcal{O}(1)$ stages.
 
 
-In practice, we typically do not want to apply $(\eta I - \widehat{\mathcal{L}})^{-1}$
+In practice, we typically do not want to apply $(\eta I - \widehat{\mathcal{L}}_1)^{-1}$
 or $\widehat{S}_\gamma^{-1}$ exactly for each iteration of the preconditioner
 \eqref{eq:Lprec}. It is well-known in the block-preconditioning community
 that a few iterations of an effective preconditioner, such as multigrid,
@@ -963,8 +1049,8 @@ yields convergence on the larger $2\times 2$ operator just as fast as if
 performing direct solves, at a fraction of the cost. Thus, in practice we
 propose a block-triangular preconditioner similar to \eqref{eq:Lprec}, but
 which only applies some approximation to the diagonal block inverses,
-$(\eta I - \widehat{\mathcal{L}})^{-1}$ and
-$\widehat{S}^{-1} := (\gamma_* I - \widehat{\mathcal{L}})^{-1}$ for a
+$(\eta I - \widehat{\mathcal{L}}_1)^{-1}$ and
+$\widehat{S}^{-1} := (\gamma_* I - \widehat{\mathcal{L}}_2)^{-1}$ for a
 specific $\gamma_*$ introduced in the following section.
 
 % ---------------------------------------------------------------------------------------------- %
@@ -1265,7 +1351,7 @@ $\gamma_* \in (0,
 number of \eqref{eq:P_gamma2} for the optimal choice of $\gamma = \gamma_*$.
 %
 Although the resulting conditioning here is slightly worse than can be achieved with the
-method designed specifically for linear PDEs, \Cref{tab:cond} shows that
+method designed specifically for linear PDEs \cite[Cor. 6]{irk1}, \Cref{tab:cond} shows that
 for up to 10th-order integration, at worst the preconditioned Schur complement
 has condition number on the order of 2--3.
 
@@ -1350,15 +1436,15 @@ Lobatto IIIC & 1.50 & 1.00 & 2.11 & 2.76 & 1.07 & 1.00 & 3.44 & 1.19 \\\hline
 \begin{remark}[Symmetric definite and skew symmetric operators]
 Using eigenvalue analyses, it is possible to derive tight upper bounds on the
 condition number of \eqref{eq:P_gamma2} for all $\gamma \in (0, \infty)$ for
-$\cL$ that is symmetric negative semi-definite (SPND) or skew symmetric (SS)
+$\cL$ that is symmetric negative semi-definite (SNSD) or skew symmetric (SS)
 $\cL$ (see \cite{exh} for related derivations).
 These tight upper bounds achieve equality for all $\gamma \in (0,
-\infty)$ as the spectrum of $\cL$ becomes dense in $[0, \infty)$ for SPND
+\infty)$ as the spectrum of $\cL$ becomes dense in $[0, \infty)$ for SNSD
 $\cL$, and dense in $(- \mathrm{i} \infty, \mathrm{i} \infty)$ for SS $\cL$. In each
 case, the tight upper bounds are minimized over all $\gamma \in (0, \infty)$
 when $\gamma = \gamma_*$, for $\gamma_*$ given by \eqref{eq:gamma*}, which is
 perhaps unsurprising given \Cref{col:cond_L1=L2}. At the minimum $\gamma =
-\gamma_*$, the tight bound for the SPND case is
+\gamma_*$, the tight bound for the SNSD case is
 \begin{align*}
 \kappa({\cal P}_{\gamma*}) \leq \frac{1}{2} \left( 1 + \sqrt{1 + \beta^2/\eta^2} \right),
 \end{align*}
@@ -1408,12 +1494,17 @@ Additionally, assume that $\langle\widehat{\mathcal{L}}_1\mathbf{w},
 denote the right-preconditioned Schur complement \eqref{eq:P_gamma}, with
 preconditioner $(\gamma I - \widehat{\mathcal{L}}_2)^{-1}$, for $\gamma \geq\eta$,
 and define $\gamma_* := \tfrac{\eta^2+\beta^2}{\eta}$ as in \eqref{eq:gamma*}.
+%
+\OK{Why do you include the part ``
+with preconditioner $(\gamma I - \widehat{\mathcal{L}}_2)^{-1}$, for $\gamma \geq\eta$,'' isn't this redundant? And why do you say $\gamma \geq \eta$ when you only have a bound for $\gamma = \gamma_*$? I know in the proof below you compute the norm of ${\cal P}_{\gamma}$ for some $\gamma \geq \eta$, but the fact that you consider this norm for some $\gamma \neq \gamma_*$ has no bearing on the claim of the theorem which is the condition number of ${\cal P}_{\gamma_*}$, so it seems unnecessary/confusing.}
+%
 Then
 \begin{align}\label{eq:gammastar_cond}
 \textnormal{cond}(\mathcal{P}_{\gamma_*}) \leq
 	2 + \frac{\beta^2}{\eta^2}.
 \end{align}
 \end{theorem}
+\OK{There's an inconsistency with notation. Previously $\kappa$ was the condition  number, and now it's just ``cond''.  Well it also changes throughout the proof too.}
 \begin{proof}
 As in \cite[Th. 5]{irk1}, the square of the condition number of ${\cal P}_{\gamma}$
 is given by
@@ -1832,12 +1923,31 @@ the form
 	= 	\begin{bmatrix} \mathbf{f}_1 \\ \mathbf{g}_1 \\
 		 \mathbf{f}_2 \\ \mathbf{g}_2 \end{bmatrix}.
 \end{align}
+
+\OK{Maybe change the super and subscripts to
+\begin{align}
+\begin{bmatrix} \eta M - \delta t\mathcal{L}_{u}^{(i)} & -\delta t\mathcal{L}_{w}^{(i)}
+		& \phi M & \mathbf{0} \\
+	-\delta t\mathcal{G}_{u}^{(i)} & -\delta t\mathcal{G}_w^{(i)}
+		& \mathbf{0} & \mathbf{0} \\
+	-\tfrac{\beta^2}{\phi}M & \mathbf{0} & \eta M - \delta t\mathcal{L}_{u}^{(i+1)} &
+		-\delta t\mathcal{L}_{w}^{(i+1)} \\
+	\mathbf{0} & \mathbf{0} & -\delta t\mathcal{G}_{u}^{(i+1)} &
+		-\delta t\mathcal{G}_w^{(i+1)} \end{bmatrix}
+	\begin{bmatrix} \mathbf{k}_{i} \\ \boldsymbol{\ell}_{i} \\
+		 \mathbf{k}_{i+1} \\ \boldsymbol{\ell}_{i+1} \end{bmatrix}
+	= 	\begin{bmatrix} \mathbf{f}_{i} \\ \mathbf{g}_{i} \\
+		 \mathbf{f}_{i+1} \\ \mathbf{g}_{i+1} \end{bmatrix}.
+\end{align}
+And ditto for the following. Otherwise it looks like you're just focusing on the first two stages rather than pairs of them.
+}
+
 %
 If we form a $2\times 2$ Schur complement by eliminating the leading
 $2\times 2$ block with $(1)$-superscripts,
 %
 \begin{align*}
-S :& = \begin{bmatrix} \eta M - \delta t\mathcal{L}_{u}^{(2)} &
+S & \coloneqq \begin{bmatrix} \eta M - \delta t\mathcal{L}_{u}^{(2)} &
 	-\delta t\mathcal{L}_{w}^{(2)} \\ -\delta t\mathcal{G}_{u}^{(2)} &
 		-\delta t\mathcal{G}_w^{(2)} \end{bmatrix}
 	+ \beta^2 \begin{bmatrix} M & \mathbf{0} \\\mathbf{0} & \mathbf{0} \end{bmatrix}
@@ -1871,7 +1981,7 @@ Picard iteration of incompressible Navier Stokes in vorticity-stream-function
 form (an index-1 DAE), where \eqref{eq:dae_block} can be reordered to be block
 triangular, and the theory and preconditioning developed in \Cref{sec:theory}
 can be applied directly to the leading $2\times 2$ block representing
-time-dependent variables ($\mathbf{k}_1$ and $\mathbf{k}_2$).
+time-dependent variables ($\mathbf{k}_1$ and $\mathbf{k}_2$). \OK{If notation changes made above, this becomes ($\mathbf{k}_{i}$ and $\mathbf{k}_{i+1}$)}
 
 % In the case that $\mathcal{G}_w^{(2)}$ is invertible (which typically occurs
 % in semi-explicit index-1 DAEs), we get the simplified form
@@ -1885,6 +1995,8 @@ time-dependent variables ($\mathbf{k}_1$ and $\mathbf{k}_2$).
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
 \section{Numerical results}\label{sec:numerics}
+
+\OK{Missing from all numerical results are discussion of which Newton-like algorithm was used. And what tolerances were used for Newton's method for the nonlinear system, and GMRES for the diagonal blocks.}
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -2004,6 +2116,7 @@ We obtain the compressible Euler equations from equations (\ref{eq:ns-1}--\ref{e
 For the viscous problems, we introduce an additional isentropic assumption of the form $p = K \rho^\gamma,$ for a given constant $K$.
 This simplification is described in \cite{Kanner2015} and results in a reduced system of equtions.
 
+\OK{Do we need to state the repeated index summation convention in the heat flux and pressure, or is this widely enough known?}
 % ------------------------------------------------------------------------------------- %
 \subsubsection{Isentropic Euler vortex}
 For a first test case, we consider the model problem of an inviscid isentropic vortex \cite{Shu1998,Wang2013}.
@@ -2028,9 +2141,17 @@ The exact solution for this problem is given analytically by
        \frac{\epsilon^2 (\gamma - 1)M^2_\infty}{8\pi^2} \exp((f(x,y,t))
        \right)^{\frac{\gamma}{\gamma-1}}.
 \end{gather}
+%
+\OK{
+Should \eqref{eq:ev-exact-2} be have a $v$ and $v_{\infty}$ rather than $u$ and $u_{\infty}$? Or maybe \eqref{eq:ev-exact-1} should have $v$'s?
+}
+%
 In the above, $f(x,y,t) = (1 - ((x-x_0) - \overline{u}t)^2 - ((y-y_0) - \overline{v}t)^2)/r_c^2$, and $M_\infty, \rho_\infty,$ and $p_\infty$ are the freestream Mach number, density, and pressure, respectively.
 The freestream velocity is given by $(\overline{u},\overline{v}) = u_\infty (\cos(\theta), \sin(\theta))$.
-The parameters for this test case are given by $\epsilon = 15$, $r_c = 1.5$, $M_0 = 0.5$, $\theta = \arctan(1/2)$.
+The parameters for this test case are given by $\epsilon = 15$, $r_c = 1.5$, $M_0 = 0.5$, $\theta = \arctan(1/2)$. 
+%
+\OK{Should this be ``$M_{\infty}$'' rather than ``$M_0$''? Do the values of the free stream parameters need to be specified?}
+%
 We discretize this problem using a high-order DG method with Roe numerical fluxes.
 The spatial domain is discretized with a structured triangular mesh with 532 elements.
 The DG finite element space is chosen to use piecewise polynomials of degree 4.
@@ -2042,7 +2163,7 @@ The expected rates of convergence are observed for Gauss, Radau, and Lobatto met
 
 \begin{table}
 	\centering
-	\caption{Error and convergence rates for Euler vortex problem}
+	\caption{Error and convergence rates for Euler vortex problem.}
 	\label{tab:ev-errors}
 	\begin{tabular}{r|cccccc}
 		\toprule
@@ -2079,7 +2200,11 @@ The Lobatto methods are significantly more expensive than the equal-order Gauss 
 
 \begin{table}
 	\centering
-	\caption{Convergence results for Euler vortex test case, showing Newton iterations required for a single time step with $\delta t = 2\times10^{-2}$, and total Krylov iterations per time step.}
+	\caption{Convergence results for Euler vortex test case, showing Newton iterations required for a single time step with $\delta t = 2\times10^{-2}$, and total Krylov iterations per time step. 
+%
+\OK{Do they show the number of Krylov iters or preconditioner applications? The table and text say preconditioner, but the label here says Krylov}
+%	
+	}
 	\label{tab:ev-solvers}
 	\begin{tabular}{r|cccc|ccccc}
 		\toprule
@@ -2106,8 +2231,8 @@ The Lobatto methods are significantly more expensive than the equal-order Gauss 
 	\end{tabular}
 \end{table}
 
-Finally, we study the effect of the choice of the coefficient $\gamma$.
-We compare the naive choice of $\gamma = \eta$ to the improved choice of $\gamma = \gamma_*$, where $\gamma_*$ is as in \Cref{th:cond_L1=L2}.
+Finally, we study the effect of the choice of the coefficient $\gamma$ appearing in the linear preconditioner \eqref{eq:Lprec}.
+We compare the naive choice of $\gamma = \eta$ to the improved choice of $\gamma = \gamma_*$, where $\gamma_*$ is as in \Cref{col:cond_L1=L2}.
 This choice is shown to be optimal in the case where $\cL_1 = \cL_2$.
 Although this assumption does not hold in this case because the equations are fully nonlinear, we still observe significantly improved iteration counts with this choice of $\gamma$, consistent
 with \Cref{th:cond}.
@@ -2234,6 +2359,7 @@ The resulting $4\times4$ block system that arises from IRK integration has the f
 	=
 	\begin{bmatrix} \mathbf{f}_1 \\ \mathbf{g}_1 \\ \mathbf{f}_2 \\ \mathbf{g}_2 \end{bmatrix}.
 \end{align}
+\OK{If updated the sub and superscript notation from the DAE section to use $i$ instead of 1, etc, needs to be updated here, and below too.}
 
 We consider two types of preconditioners for this system.
 The first is a standard block-triangular preconditioner, obtained by neglecting the term $\phi M_{\rm dg}$ term in the $(1,3)$ position, replacing the diagonal blocks by appropriate preconditioners, and using the preconditioning developed in \Cref{sec:theory}.
@@ -2299,13 +2425,21 @@ The initial condition is given by
 	\end{cases}
 \]
 This test case is well-suited for high-order methods because the solution quickly develops small-scale features, as shown in \Cref{fig:dsl}.
-We use finite element spaces with polynomial degree $p=3$, mesh spacing $h = 0.0025$, and choose a representative time step of $\delta t = 10^{-2}$. \Cref{tab:dsl-iters} shows the total number of preconditioner applications required per time step for each of the IRK methods with Reynolds number Re$=10$. Rows indicated ``Prec.\ applications'' denote the number of block triangular preconditioner applications when using the formulation of equation \eqref{eq:vsf-system-1}, where each such preconditioner application requires one AIR application and one AMG application. Rows indicated ``AIR applications'' and ``AMG applications'' denote the number of preconditioner applications when using the block forward substitution algorithm applied to the formulation given by \eqref{eq:vsf-system-2}.
+We use finite element spaces with polynomial degree $p=3$, mesh spacing $h = 0.0025$, and choose a representative time step of $\delta t = 10^{-2}$. 
+%
+\OK{In what sense is this time-step representative?}
+%
+\Cref{tab:dsl-iters} shows the total number of preconditioner applications required per time step for each of the IRK methods with Reynolds number Re  $=10$. Rows indicated ``Prec.\ applications'' denote the number of block triangular preconditioner applications when using the formulation of equation \eqref{eq:vsf-system-1}, where each such preconditioner application requires one AIR application and one AMG application. 
+%
+\OK{I'm a bit confused here. Doesn't inverting a block triangular version of \eqref{eq:vsf-system-1} require 2 AIR solves and 2 AMG solves since it has 4 diagonal blocks? So are you saying one application of preconditioner \eqref{eq:vsf-system-1} takes *2* such ``Prec.\ applications''?} 
+%
+Rows indicated ``AIR applications'' and ``AMG applications'' denote the number of preconditioner applications when using the block forward substitution algorithm applied to the formulation given by \eqref{eq:vsf-system-2}.
 In this case, because the time-dependent and algebraic blocks are solved separately, the number of AIR applications (to solve for the vorticity) and the number of AMG applications (to solve for the streamfunction) are not equal. These results were run on 288 cores on the Quartz machine at Lawrence Livermore National Laboratory.
 
 \begin{table}[h!]
 	\centering
 	\caption{Preconditioner applications for the double shear layer test case, with third-order
-	finite elements, mesh spacing $h=0.0025$, time step $\delta t = 10^{-2}$, and Re$=10$.}
+	finite elements, mesh spacing $h=0.0025$, time step $\delta t = 10^{-2}$, and Re $=10$.}
 	\label{tab:dsl-iters}
 	\begin{tabular}{rl|cccc|ccccc}
 		\toprule
@@ -2339,9 +2473,16 @@ are significantly more efficient than the corresponding equal-order SDIRK
 methods in terms of total number of preconditioner applications, while the
 \textit{10th-order} Gauss method requires approximately
 as many (in fact, slightly less) preconditioner
-applications per time step as the fourth-order SDIRK method. In all cases, the
+applications per time step as the fourth-order SDIRK method.
+%
+\OK{Why the italics?}
+%
+In all cases, the
 triangular nonlinear preconditioning \eqref{eq:vsf-system-1} requires many more iterations than the
 more general approach following the development in this paper \eqref{eq:vsf-system-2}.
+%
+\OK{I'm really confused about what the numbers mean in the table. E.g., looking at Gauss 10, the top row has 333 $\times$ 2 iterations vs. 1064 + 1204 in the bottom. So how does the top row show many more iterations than the bottom row as  you say?}
+%
 This is for two reasons, (i) the linear preconditioning ends up being more efficient
 when applied to the full system \eqref{eq:vsf-system-2}, rather than the reordered
 system in \eqref{eq:vsf-system-1}, and (ii) the triangular solve neglects off-diagonal
@@ -2352,7 +2493,11 @@ approaches.
 
 \Cref{tab:dsl-iters2} demonstrates that the proposed methods are also robust across
 Reynolds number, showing similar results as in \Cref{tab:dsl-iters}, for the
-preconditioning in \eqref{eq:vsf-system-2} with Reynolds number 25,000. As
+preconditioning in \eqref{eq:vsf-system-2} with Reynolds number 25,000. 
+%
+\OK{But the equation in the Figure says  \eqref{eq:vsf-system-1} not \eqref{eq:vsf-system-2}?}
+%
+As
 before, Gauss methods require roughly half the preconditioner applications as
 required by equal order SDIRK methods, while 4th-order SDIRK requires almost as many
 preconditioner applications as 10th-order Gauss.
@@ -2360,7 +2505,7 @@ preconditioner applications as 10th-order Gauss.
 \begin{table}[h!]
 	\centering
 	\caption{Preconditioner applications for the double shear layer test case, with third-order
-	finite elements, mesh spacing $h=0.0025$, time step $\delta t = 10^{-2}$, and Re$=$25,000.}
+	finite elements, mesh spacing $h=0.0025$, time step $\delta t = 10^{-2}$, and Re $=25,000$.}
 	\label{tab:dsl-iters2}
 	\begin{tabular}{rl|cccc|ccccc}
 		\toprule
@@ -2538,7 +2683,7 @@ solution of fully implicit Runge-Kutta methods in numerical PDEs. Multiple appro
 linearizations are developed, and linear algebra theory is derived to guarantee
 fast and effective block preconditioning techniques for the linearized systems,
 guaranteeing $\mathcal{O}(1)$ conditioning and only requiring standard preconditioners
-as would be used for backward Euler. The new methods are shown to achieve fast,
+as would be used for backward Euler time integration. The new methods are shown to achieve fast,
 high-order accuracy on multiple different compressible and incompressible Navier
 Stokes and Euler problems. Using low-order Gauss integration schemes
 with the new method consistently requires about half the preconditioner applications as
