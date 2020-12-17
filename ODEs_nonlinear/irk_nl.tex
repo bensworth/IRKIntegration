@@ -266,9 +266,10 @@ an effective preconditioner for systems along the lines of
 $\eta M - \delta t\mathcal{L}$, exactly as would be used for, e.g.,
 SDIRK methods.
 
-Numerical results for nonlinear problems are then provided in
-\Cref{sec:numerics}, \todo{including ...}
-
+Numerical results for several challenging nonlinear fluid flow problems are provided in \Cref{sec:numerics}.
+These include the compressible Euler equations, for which we solve a model isentropic vortex problem, and the compressible Navier--Stokes equations, for which we consider the wall-resolved high Reynolds number flow over a NACA airfoil.
+Additionally, we consider two test cases using the incompressible Euler and Navier--Stokes equations in vorticity-streamfunction formulation.
+After spatial discretization, this results in a system of index-1 differential algebraic equations (DAEs), illustrating the applicability of the IRK preconditioners to systems of equations with algebraic constraints.
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -2348,7 +2349,7 @@ system in \eqref{eq:vsf-system-1}, and (ii) the triangular solve neglects off-di
 coupling terms (see \Cref{sec:nonlinear:gen}) that result in a greater number of
 nonlinear iterations to converge. This again highlights the importance of the more robust
 nonlinear iteration developed in \Cref{sec:nonlinear:gen} compared with simplified
-approaches. 
+approaches.
 
 \Cref{tab:dsl-iters2} demonstrates that the proposed methods are also robust across
 Reynolds number, showing similar results as in \Cref{tab:dsl-iters}, for the
@@ -2548,7 +2549,7 @@ obtained by using fully implicit Runge-Kutta), but also improve upon state-of-th
 low-order integration. Moreover, for the incompressible Navier Stokes double shear
 layer problem in vorticity-streamfunction form, once can apply 7th to 10th order Gauss
 or RadauIIA integration for a comparable number of preconditioner applications as
-standard 4th-order SDIRK. 
+standard 4th-order SDIRK.
 
 % % ------------------------------------------------------------------------------------- %
 % % ------------------------------------------------------------------------------------- %
