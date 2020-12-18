@@ -2039,10 +2039,11 @@ This simplification is described in \cite{Kanner2015} and results in a reduced s
 \OK{Do we need to state the repeated index summation convention in the heat flux and pressure, or is this widely enough known?}
 % ------------------------------------------------------------------------------------- %
 \subsubsection{Isentropic Euler vortex}
-For a first test case, we consider the model problem of an inviscid isentropic vortex \cite{Shu1998,Wang2013}.
-The spatial domain is $\Omega = [0,20] \times [-7.5,7.5]$.
-The vortex, initially centered at $(x_0, y_0)$, is advected with the freestream velocity at an angle of $\theta$.
-The exact solution for this problem is given analytically by
+For a first test case, we consider the model problem of an inviscid isentropic
+vortex \cite{Shu1998,Wang2013}. The spatial domain is $\Omega = [0,20] \times
+[-7.5,7.5]$. The vortex, initially centered at $(x_0, y_0)$, is advected with
+the freestream velocity at an angle of $\theta$. The exact solution for this
+problem is given analytically by
 \begin{gather}
 \label{eq:ev-exact-1}
    u = u_\infty \left( \cos(\theta) - \frac{\epsilon ((y-y_0)
@@ -2109,14 +2110,23 @@ The expected rates of convergence are observed for Gauss, Radau, and Lobatto met
 	\end{tabular}
 \end{table}
 
-We next study the effectiveness of the solvers and preconditioners for the resulting algebraic systems of equations.
-We make use of an element-wise block ILU preconditioner with minimum discarded fill ordering that has been shown to be effective for convection-dominated fluid problems \cite{Persson2008}.
-In Table \ref{tab:ev-solvers}, we present the number of nonlinear iterations required to converge with a representative time step of $\delta t = 2 \times 10^{-2}$, together with the total number of preconditioner applications in one step.
-Each Krylov iteration for the SDIRK methods corresponds to a single preconditioner application.
-For the fully implicit IRK methods, one Kyrlov iteration for a $1\times1$ system corresponds to one preconditioner application, whereas for a $2\times2$ system, one Krylov iteration corresponds to two preconditioner applications.
-We note that the second- and fourth-order Gauss methods require fewer total preconditioner applications when compared with the equal-order SDIRK methods.
-Similarly, the third-order Radau IIA method requires one fewer preconditioner application when compared with the third-order SDIRK method.
-The Lobatto methods are significantly more expensive than the equal-order Gauss methods for this test case.
+We next study the effectiveness of the solvers and preconditioners for the
+resulting algebraic systems of equations. We make use of an element-wise block
+ILU preconditioner with minimum discarded fill ordering that has been shown to
+be effective for convection-dominated fluid problems \cite{Persson2008}. In
+Table \ref{tab:ev-solvers}, we present the number of nonlinear iterations
+required to converge with a representative time step of $\delta t = 2 \times
+10^{-2}$, together with the total number of preconditioner applications in one
+step. Each Krylov iteration for the SDIRK methods corresponds to a single
+preconditioner application. For the fully implicit IRK methods, one Kyrlov
+iteration for a $1\times1$ system corresponds to one preconditioner application,
+whereas for a $2\times2$ system, one Krylov iteration corresponds to two
+preconditioner applications. We note that the second- and fourth-order Gauss
+methods require fewer total preconditioner applications when compared with the
+equal-order SDIRK methods. Similarly, the third-order Radau IIA method requires
+one fewer preconditioner application when compared with the third-order SDIRK
+method. The Lobatto methods are significantly more expensive than the
+equal-order Gauss methods for this test case.
 
 \begin{table}
 	\centering
@@ -2148,11 +2158,14 @@ The Lobatto methods are significantly more expensive than the equal-order Gauss 
 	\end{tabular}
 \end{table}
 
-Finally, we study the effect of the choice of the coefficient $\gamma$ appearing in the linear preconditioner \eqref{eq:Lprec}.
-We compare the naive choice of $\gamma = \eta$ to the improved choice of $\gamma = \gamma_*$, where $\gamma_*$ is as in \Cref{col:cond_L1=L2}.
-This choice is shown to be optimal in the case where $\cL_1 = \cL_2$.
-Although this assumption does not hold in this case because the equations are fully nonlinear, we still observe significantly improved iteration counts with this choice of $\gamma$, consistent
-with \Cref{th:cond}.
+Finally, we study the effect of the choice of the coefficient $\gamma$ appearing
+in the linear preconditioner \eqref{eq:Lprec}. We compare the naive choice of
+$\gamma = \eta$ to the improved choice of $\gamma = \gamma_*$, where $\gamma_*$
+is as in \Cref{col:cond_L1=L2}. This choice is shown to be optimal in the case
+where $\cL_1 = \cL_2$. Although this assumption does not hold in this case
+because the equations are fully nonlinear, we still observe significantly
+improved iteration counts with this choice of $\gamma$, consistent with
+\Cref{th:cond}.
 {
 \renewcommand{\tabcolsep}{4pt}
 \begin{table}
@@ -2184,28 +2197,54 @@ with \Cref{th:cond}.
 	\caption{Snapshot of vorticity for Reynolds 40{,}000 flow over NACA airfoil.}
 \end{figure}
 
-As a more challenging test case, we consider the Reynolds number 40{,}000 flow over a NACA0012 airfoil.
-The angle of attack is $30^\circ$ and the farfield Mach number is $0.1$.
-The domain is discretized using a triangular mesh with 3154 elements, and the spatial discretization is a high-order discontinuous Galerkin method using compact stencils for the second order (viscous) terms with polynomial degree $p=3$ \cite{Peraire2008}.
-No-slip boundary conditions are enforced at the surface of the airfoil, and farfield boundary conditions at all other domain boundaries.
-The main challenge associated with this problem is the resolution of the thin boundary layer at the surface of the airfoil that results from the no-slip condition.
-This boundary layer is resolved using a layer of anisotropically stretched elements near the surface of the airfoil.
-These elements result in a highly restrictive CFL stability condition, motivating the use of implicit time integration for this problem.
-A time accurate time step of $\delta t = 5 \times 10^{-2}$ is chosen for this problem.
-This time step is several orders of magnitude larger than the largest stable explicit time step.
-The number of nonlinear iterations and preconditioner applications required for convergence are shown in Table \ref{tab:naca-iters}.
-As in the previous case, each Krylov iteration for the SDIRK methods corresponds to a single preconditioner application.
-For the IRK methods, one Krylov iteration for a $1\times1$ system corresponds to one preconditioner application, whereas for a $2\times2$ system, one Krylov iteration corresponds to two preconditioner applications.
-As we observed in the case of the Euler vortex, the Gauss and Radau fully implicit Runge--Kutta methods of 2, 3, and 4 converge with fewer total preconditioner applications than the equal-order SDIRK method.
+As a more challenging test case, we consider the Reynolds number 40{,}000 flow
+over a NACA0012 airfoil. The angle of attack is $30^\circ$ and the farfield Mach
+number is $0.1$. The domain is discretized using a triangular mesh with 3154
+elements, and the spatial discretization is a high-order discontinuous Galerkin
+method using compact stencils for the second order (viscous) terms with
+polynomial degree $p=3$ \cite{Peraire2008}. No-slip boundary conditions are
+enforced at the surface of the airfoil, and farfield boundary conditions at all
+other domain boundaries. The main challenge associated with this problem is the
+resolution of the thin boundary layer at the surface of the airfoil that results
+from the no-slip condition. This boundary layer is resolved using a layer of
+anisotropically stretched elements near the surface of the airfoil. These
+elements result in a highly restrictive CFL stability condition, motivating the
+use of implicit time integration for this problem. A time accurate time step of
+$\delta t = 5 \times 10^{-2}$ is chosen for this problem. This time step is
+several orders of magnitude larger than the largest stable explicit time step.
+The number of nonlinear iterations and preconditioner applications required for
+convergence are shown in Table \ref{tab:naca-iters}. As in the previous case,
+each Krylov iteration for the SDIRK methods corresponds to a single
+preconditioner application. For the IRK methods, one Krylov iteration for a
+$1\times1$ system corresponds to one preconditioner application, whereas for a
+$2\times2$ system, one Krylov iteration corresponds to two preconditioner
+applications. As we observed in the case of the Euler vortex, the Gauss and
+Radau fully implicit Runge--Kutta methods of 2, 3, and 4 converge with fewer
+total preconditioner applications than the equal-order SDIRK method.
 
-Additionally, we use this test case to compare four potential solver strategies, corresponding to those enumerated in \Cref{sec:nonlinear:gen}.
-The first solver (Solver 0) uses a quasi-Newton nonlinear iteration, where the Jacobian matrix from the first stage is used for all stages.
-This has the advantage that the number of Jacobian matrix assemblies is reduced, however, in general, the quadratic convergence of Newton's method is not maintained, typically resulting in an increased number of nonlinear iterations.
-The remaining solvers (Solvers 1, 2, and 3) use exactly computed Jacobian matrices at all temporal stages, and each solver corresponds to a different approximation $\tilde{P} \approx \widehat{P}$, as described in \Cref{sec:nonlinear:gen}.
-With increasing quality of the approximation, we expect the solver to converge more rapdily, however each iteration will generally be more expensive to compute.
-In \Cref{fig:naca-nonlin-solvers} we compare the number of nonlinear iterations, number of matrix-vector products (determined by the convergence of the Krylov solvers), number of Jacobian assemblies, and total wall-clock runtime for these solver configurations.
-From these results, we see that for this problem, the nonlinear iterations based on better approximations lead to overall faster runtimes, despite the higher per-iteration cost.
-However, we note that this performance is often problem-dependent, and for smaller time steps the simplified Newton method can be more efficient because few Jacobian assemblies are required.
+Additionally, we use this test case to compare four potential solver strategies,
+corresponding to those enumerated in \Cref{sec:nonlinear:gen}. The first solver
+(Solver 0) uses a simplified Newton nonlinear iteration, where the Jacobian matrix
+from the first stage is used for all stages. This has the advantage that the
+number of Jacobian matrix assemblies per nonlinear iteration is reduced;
+however, in general, the quadratic convergence of Newton's method is not
+maintained, typically resulting in an increased number of nonlinear iterations.
+The remaining solvers (Solvers 1, 2, and 3) use exactly computed Jacobian
+matrices at all temporal stages, and each solver corresponds to a different
+approximation $\tilde{P} \approx \widehat{P}$, as described in
+\Cref{sec:nonlinear:gen}. With increasing quality of the approximation, we
+expect the solver to converge more rapidly, however each iteration will
+generally be more expensive to compute. In \Cref{fig:naca-nonlin-solvers} we
+compare the number of nonlinear iterations, number of matrix-vector products
+(determined by the convergence of the Krylov solvers), number of Jacobian
+assemblies, and total wall-clock runtime for these solver configurations. From
+these results, we see that for this problem, the nonlinear iterations based on
+better approximations lead to overall faster runtimes, despite the higher
+per-iteration cost. However, we note that this performance is often
+problem-dependent. In particular, for smaller time steps and less stiff
+problems, the simplified Newton method can be more efficient because few Jacobian
+assemblies are required, and the increase in nonlinear iterations over
+Solvers 1, 2, and 3 is typically less significant.
 
 \begin{table}
 	\centering
