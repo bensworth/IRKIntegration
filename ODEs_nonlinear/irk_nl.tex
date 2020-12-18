@@ -2198,6 +2198,15 @@ As in the previous case, each Krylov iteration for the SDIRK methods corresponds
 For the IRK methods, one Krylov iteration for a $1\times1$ system corresponds to one preconditioner application, whereas for a $2\times2$ system, one Krylov iteration corresponds to two preconditioner applications.
 As we observed in the case of the Euler vortex, the Gauss and Radau fully implicit Runge--Kutta methods of 2, 3, and 4 converge with fewer total preconditioner applications than the equal-order SDIRK method.
 
+Additionally, we use this test case to compare four potential solver strategies, corresponding to those enumerated in \Cref{sec:nonlinear:gen}.
+The first solver (Solver 0) uses a quasi-Newton nonlinear iteration, where the Jacobian matrix from the first stage is used for all stages.
+This has the advantage that the number of Jacobian matrix assemblies is reduced, however, in general, the quadratic convergence of Newton's method is not maintained, typically resulting in an increased number of nonlinear iterations.
+The remaining solvers (Solvers 1, 2, and 3) use exactly computed Jacobian matrices at all temporal stages, and each solver corresponds to a different approximation $\tilde{P} \approx \widehat{P}$, as described in \Cref{sec:nonlinear:gen}.
+With increasing quality of the approximation, we expect the solver to converge more rapdily, however each iteration will generally be more expensive to compute.
+In \Cref{fig:naca-nonlin-solvers} we compare the number of nonlinear iterations, number of matrix-vector products (determined by the convergence of the Krylov solvers), number of Jacobian assemblies, and total wall-clock runtime for these solver configurations.
+From these results, we see that for this problem, the nonlinear iterations based on better approximations lead to overall faster runtimes, despite the higher per-iteration cost.
+However, we note that this performance is often problem-dependent, and for smaller time steps the simplified Newton method can be more efficient because few Jacobian assemblies are required.
+
 \begin{table}
 	\centering
 	\caption{Nonlinear iterations and preconditioner applications for the NACA airfoil test case, with time step $\delta t = 5 \times 10^{-2}.$}
@@ -2226,6 +2235,17 @@ As we observed in the case of the Euler vortex, the Gauss and Radau fully implic
 		\bottomrule
 	\end{tabular}
 \end{table}
+
+\begin{figure}
+	\centering
+	\includegraphics{figures/barchart/gauss4}
+
+	\vspace{\floatsep}
+
+	\includegraphics{figures/barchart/radau3}
+	\caption{Performance for four solver configurations on the NACA test case with $\delta t = 2 \times 10^{-2}.$}
+	\label{fig:naca-nonlin-solvers}
+\end{figure}
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
