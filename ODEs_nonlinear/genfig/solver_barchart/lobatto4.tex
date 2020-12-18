@@ -1,0 +1,66 @@
+\documentclass{standalone}
+\usepackage{pgfplots}
+\usepackage{pgfplotstable}
+\usepgfplotslibrary{groupplots}
+% \pgfplotsset{compat=newest}
+\pgfplotsset{compat=1.6}
+
+% Style to select only points from #1 to #2 (inclusive)
+\pgfplotsset{select coords between index/.style 2 args={
+    x filter/.code={
+        \ifnum\coordindex<#1\def\pgfmathresult{}\fi
+        \ifnum\coordindex>#2\def\pgfmathresult{}\fi
+    }
+}}
+
+\begin{document}
+
+\begin{tikzpicture}
+\begin{groupplot}[
+   ybar,
+   width=2.5in,
+   enlarge y limits={0.2,upper},
+   group style={group size=2 by 2,horizontal sep=2cm},
+   xmajorticks=false,
+   xmin=-1.5,
+   xmax=4.5,
+   ymin=0,
+   every node near coord/.append style={
+      /pgf/number format/precision=1,
+   },
+   legend columns=4,
+   legend style={/tikz/every even column/.append style={column sep=0.5cm}}]
+   ]
+
+\nextgroupplot[ylabel=Runtime (s), legend to name={CommonLegend}]
+\addplot +[select coords between index={0}{0}, nodes near coords] table[x index=0,y index=1] {data_dt_2e-2/m_34.txt};
+\addplot +[select coords between index={1}{1}, nodes near coords] table[x index=0,y index=1] {data_dt_2e-2/m_34.txt};
+\addplot +[select coords between index={2}{2}, nodes near coords] table[x index=0,y index=1] {data_dt_2e-2/m_34.txt};
+\addplot +[select coords between index={3}{3}, nodes near coords] table[x index=0,y index=1] {data_dt_2e-2/m_34.txt};
+\legend{Solver 0, Solver 1, Solver 2, Solver 3},
+
+\nextgroupplot[ylabel=Jacobian assemblies]
+\addplot +[select coords between index={0}{0}, nodes near coords] table[x index=0,y index=4] {data_dt_2e-2/m_34.txt};
+\addplot +[select coords between index={1}{1}, nodes near coords] table[x index=0,y index=4] {data_dt_2e-2/m_34.txt};
+\addplot +[select coords between index={2}{2}, nodes near coords] table[x index=0,y index=4] {data_dt_2e-2/m_34.txt};
+\addplot +[select coords between index={3}{3}, nodes near coords] table[x index=0,y index=4] {data_dt_2e-2/m_34.txt};
+
+\nextgroupplot[ylabel=Newton iterations]
+\addplot +[select coords between index={0}{0}, nodes near coords] table[x index=0,y index=2] {data_dt_2e-2/m_34.txt};
+\addplot +[select coords between index={1}{1}, nodes near coords] table[x index=0,y index=2] {data_dt_2e-2/m_34.txt};
+\addplot +[select coords between index={2}{2}, nodes near coords] table[x index=0,y index=2] {data_dt_2e-2/m_34.txt};
+\addplot +[select coords between index={3}{3}, nodes near coords] table[x index=0,y index=2] {data_dt_2e-2/m_34.txt};
+
+\nextgroupplot[ylabel=Matrix-vector products]
+\addplot +[select coords between index={0}{0}, nodes near coords] table[x index=0,y index=3] {data_dt_2e-2/m_34.txt};
+\addplot +[select coords between index={1}{1}, nodes near coords] table[x index=0,y index=3] {data_dt_2e-2/m_34.txt};
+\addplot +[select coords between index={2}{2}, nodes near coords] table[x index=0,y index=3] {data_dt_2e-2/m_34.txt};
+\addplot +[select coords between index={3}{3}, nodes near coords] table[x index=0,y index=3] {data_dt_2e-2/m_34.txt};
+
+\end{groupplot}
+
+\node (title) at ($(group c1r1.center)!0.5!(group c2r1.center)+(0,2.5cm)$) {\large Lobatto 4};
+\node (legend) at ($(group c1r2.center)!0.5!(group c2r2.center)+(0,-2.75cm)$) {\ref{CommonLegend}};
+
+\end{tikzpicture}
+\end{document}
