@@ -39,6 +39,7 @@
 \newcommand{\todo}[1]{\textcolor{red}{[TODO\@: #1]}}
 
 \newcommand{\OK}[1]{\textcolor{blue}{[OK: #1]}}
+\newcommand{\WP}[1]{\textcolor{green}{[WP: #1]}}
 
 \newcommand{\mdet}{\operatorname{det}}
 \newcommand{\madj}{\operatorname{adj}}
@@ -103,10 +104,10 @@ set of block $2\times 2$ systems. Under quite general assumptions on the
 spatial discretization, it is proven that the right combination of
 backward-Euler-type preconditioners in a $2\times 2$ block preconditioner yields
 a preconditioned operator with conditioning $\sim\mathcal{O}(1)$, with only
-weak dependence on the number of stages or integration accuracy. 
+weak dependence on the number of stages or integration accuracy.
 %
 \OK{I find the phrasing ``the right combination of backward-Euler-type preconditioners...'' a bit confusing. I know what you mean, but I'm not sure that someone who hasn't yet read the paper will. Maybe you can just say something like ``Under quite general assumptions on the
-spatial discretization, it is proven that the preconditioned operator has a condition number of $\sim\mathcal{O}(1)$, ...''} 
+spatial discretization, it is proven that the preconditioned operator has a condition number of $\sim\mathcal{O}(1)$, ...''}
 %
 The new
 methods are applied to multiple examples of the compressible Euler and Navier
@@ -1909,7 +1910,7 @@ Picard iteration of incompressible Navier Stokes in vorticity-stream-function
 form (an index-1 DAE), where \eqref{eq:dae_block} can be reordered to be block
 triangular, and the theory and preconditioning developed in \Cref{sec:theory}
 can be applied directly to the leading $2\times 2$ block representing
-time-dependent variables ($\mathbf{k}_i$ and $\mathbf{k}_{i+1}$). 
+time-dependent variables ($\mathbf{k}_i$ and $\mathbf{k}_{i+1}$).
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -2016,7 +2017,8 @@ Consider the compressible Navier--Stokes equations, given by
 	 \frac{\partial}{\partial t}(\rho E) + \frac{\partial}{\partial x_j} \left(u_j(\rho E + p) \right)
 	 	&= -\frac{\partial q_j}{\partial x_j} + \frac{\partial}{\partial x_j} (u_i \tau_{ij}),
 \end{align}
-where $\rho$ is the density, $u_i$ is the $i$th component of the velocity, and $E$ is the total energy.
+using the convention that repeated indices are implicitly summed.
+In the above, $\rho$ is the density, $u_i$ is the $i$th component of the velocity, and $E$ is the total energy.
 The viscous stress tensor and heat flux are given by
 \begin{equation}
 	\tau_{ij} = \mu\left(
@@ -2035,8 +2037,6 @@ where $\gamma = 1.4$ is the adiabatic gas constant.
 We obtain the compressible Euler equations from equations (\ref{eq:ns-1}--\ref{eq:ns-3}) by setting the viscosity coefficient $\mu = 0$.
 For the viscous problems, we introduce an additional isentropic assumption of the form $p = K \rho^\gamma,$ for a given constant $K$.
 This simplification is described in \cite{Kanner2015} and results in a reduced system of equtions.
-
-\OK{Do we need to state the repeated index summation convention in the heat flux and pressure, or is this widely enough known?}
 % ------------------------------------------------------------------------------------- %
 \subsubsection{Isentropic Euler vortex}
 For a first test case, we consider the model problem of an inviscid isentropic
@@ -2062,17 +2062,9 @@ problem is given analytically by
        \frac{\epsilon^2 (\gamma - 1)M^2_\infty}{8\pi^2} \exp((f(x,y,t))
        \right)^{\frac{\gamma}{\gamma-1}}.
 \end{gather}
-%
-\OK{
-Should \eqref{eq:ev-exact-2} be have a $v$ and $v_{\infty}$ rather than $u$ and $u_{\infty}$? Or maybe \eqref{eq:ev-exact-1} should have $v$'s?
-}
-%
 In the above, $f(x,y,t) = (1 - ((x-x_0) - \overline{u}t)^2 - ((y-y_0) - \overline{v}t)^2)/r_c^2$, and $M_\infty, \rho_\infty,$ and $p_\infty$ are the freestream Mach number, density, and pressure, respectively.
 The freestream velocity is given by $(\overline{u},\overline{v}) = u_\infty (\cos(\theta), \sin(\theta))$.
-The parameters for this test case are given by $\epsilon = 15$, $r_c = 1.5$, $M_0 = 0.5$, $\theta = \arctan(1/2)$. 
-%
-\OK{Should this be ``$M_{\infty}$'' rather than ``$M_0$''? Do the values of the free stream parameters need to be specified?}
-%
+The parameters for this test case are given by $\epsilon = 15$, $r_c = 1.5$, $M_\infty = 0.5$, $\theta = \arctan(1/2)$, $u_\infty = 1$, $\rho_\infty = 1$.
 We discretize this problem using a high-order DG method with Roe numerical fluxes.
 The spatial domain is discretized with a structured triangular mesh with 532 elements.
 The DG finite element space is chosen to use piecewise polynomials of degree 4.
@@ -2248,7 +2240,7 @@ Solvers 1, 2, and 3 is typically less significant.
 
 \begin{table}
 	\centering
-	\caption{Nonlinear iterations and preconditioner applications for the NACA airfoil test case, with time step $\delta t = 5 \times 10^{-2}.$}
+	\caption{Nonlinear iterations and preconditioner applications for the NACA airfoil test case, with time step $\delta t = 5 \times 10^{-2}$, using Newton-like Solver 3 with a relative tolerance of $10^{-9}$.}
 	\label{tab:naca-iters}
 	\begin{tabular}{r|cccc|ccccc}
 		\toprule
