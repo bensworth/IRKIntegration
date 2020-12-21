@@ -706,7 +706,7 @@ proof of \Cref{th:fov}.
 %
 
 \todo{rewrite, comment on $\beta^2/\eta^2$ and $\zeta^2/\mu^2$ being the same
-for all Gauss and RadauIIA methods.}
+for all Gauss and Radau IIA methods.}
 \Cref{cor:fov} suggests the $A_0^{-1}$ transformation is not necessary -- one
 can apply the real Schur decomposition to the traditional Kronecker product form
 \eqref{eq:kron1} and use a similar block preconditioning as introduced in
@@ -814,7 +814,7 @@ approximation to \eqref{eq:keq4}, which can be easily inverted using block backw
 substitution.
 
 As an example, consider \eqref{eq:Q0approx} for the two-stage Gauss and
-RadauIIA methods in bracket notation (to three digits of accuracy),
+Radau IIA methods in bracket notation (to three digits of accuracy),
 where, e.g., $\{a_1,a_2,a_3\}\mapsto
 a_1\widehat{\mathcal{L}}_1 + a_2\widehat{\mathcal{L}}_2 + a_3\widehat{\mathcal{L}}_3$:
 %
@@ -836,7 +836,7 @@ Note that there is no approximation in two-stage Gauss because the operator
 \eqref{eq:Q0approx} is already block diagonal, that is, it is straightforward to
 apply a true Newton or Picard iteration to two-stage Gauss using analogous
 block-preconditioning techniques as used for simplified Newton. For two-stage
-RadauIIA, we see that the diagonal blocks are almost defined by the (linearized)
+Radau IIA, we see that the diagonal blocks are almost defined by the (linearized)
 operator evaluated at a single time step, which provides a natural and simple
 approximation. The off-diagonal blocks are simply a measure of commutation,
 $0.121(\widehat{\mathcal{L}}_1 - \widehat{\mathcal{L}}_2)$. Such entries could
@@ -2452,7 +2452,7 @@ the preconditioning in \eqref{eq:vsf-system-1} with Reynolds number 25,000.  As
 before, Gauss methods require roughly half the preconditioner applications as
 required by equal order SDIRK methods, while 4th-order SDIRK requires almost as many
 preconditioner applications as 10th-order Gauss, and more than 8th-order Gauss and
-7th-order RadauIIA.
+7th-order Radau IIA.
 
 \begin{table}[h!]
 	\centering
@@ -2696,7 +2696,7 @@ the new method can not only offer very high-order accuracy (along with other ben
 obtained by using fully implicit Runge-Kutta), but also improve upon state-of-the-art
 low-order integration. Moreover, for the incompressible Navier Stokes double shear
 layer problem in vorticity-streamfunction form, one can apply 7th to 10th order Gauss
-or RadauIIA integration for a comparable number of preconditioner applications as
+or Radau IIA integration for a comparable number of preconditioner applications as
 standard 4th-order SDIRK.
 
 % % ------------------------------------------------------------------------------------- %
@@ -2747,7 +2747,7 @@ standard 4th-order SDIRK.
 
 
 % %,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-,-%
-% \subsubsection*{RadauIIA}
+% \subsubsection*{Radau IIA}
 
 % %
 % \textbf{2,-stage:}
