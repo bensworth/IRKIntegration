@@ -104,7 +104,7 @@ set of block $2\times 2$ systems. Under quite general assumptions on the spatial
 discretization, it is proven that the preconditioned operator has a condition
 number of $\sim\mathcal{O}(1)$, with only weak dependence on the number of
 stages or integration accuracy. The new methods are applied to several
-challengng fluid flow problems, including the compressible Euler and Navier
+challenging fluid flow problems, including the compressible Euler and Navier
 Stokes equations, and the vorticity-streamfunction formulation of the
 incompressible Euler and Navier Stokes equations. Up to 10th-order accuracy is
 demonstrated using Gauss integration, while in all cases 4th-order Gauss
@@ -942,7 +942,10 @@ proven equally robust on systems resulting from nonlinear method (3)
 as those resulting from methods (1) and (2) (for which the theory applies),
 indicating that \eqref{eq:block0} is a suitable proxy for \eqref{eq:block00} for
 theoretical purposes. In \eqref{eq:block0} it is assumed that
-$W(\widehat{\mathcal{L}}_i) \leq 0$ for $i=1,2$ (\Cref{ass:fov}). We will solve
+$W(\widehat{\mathcal{L}}_i) \leq 0$ for $i=1,2$ (\Cref{ass:fov}).\footnote{
+Note that for nonlinear method (2), we are taking a sum of operators that
+satisfy \Cref{ass:fov}. Due to nonnegative summation coefficients, the
+summation also satisfies \Cref{ass:fov}.} We will solve
 this system using Krylov methods with block lower-triangular preconditioners
 of the form
 %
@@ -2110,7 +2113,7 @@ required to converge with a representative time step of $\delta t = 2 \times
 step. In these tests, a relative nonlinear tolerance of $10^{-9}$ was used, and
 each linear system was solved using GMRES with a relative tolerance of
 $10^{-5}$. Each Krylov iteration for the SDIRK methods corresponds to a single
-preconditioner application. For the fully implicit IRK methods, one Kyrlov
+preconditioner application. For the fully implicit IRK methods, one Krylov
 iteration for a $1\times1$ system corresponds to one preconditioner application,
 whereas for a $2\times2$ system, one Krylov iteration corresponds to two
 preconditioner applications. We note that the second- and fourth-order Gauss
