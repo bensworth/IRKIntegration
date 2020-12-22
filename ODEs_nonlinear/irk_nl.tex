@@ -87,29 +87,29 @@
 \allowdisplaybreaks
 
 \begin{abstract}
-Fully implicit Runge-Kutta (IRK) methods have many desirable properties as time
-integration schemes in terms of accuracy and stability, but are rarely used in
-practice with numerical PDEs due to the difficulty of solving the stage equations.
-This paper introduces a theoretical and algorithmic framework for the fast,
-parallel solution of the nonlinear equations that arise from
-IRK methods applied to nonlinear numerical PDEs, including PDEs with algebraic
-constraints. This framework also naturally applies to discontinuous
-Galerkin discretizations in time. Moreover, the new method only requires
-preconditioners as would be used for backward Euler-type time stepping schemes.
+Fully implicit Runge-Kutta (IRK) methods have many desirable accuracy and
+stability properties as time integration schemes, but are rarely used in
+practice with large-scale numerical PDEs because of the difficulty of solving
+the stage equations. This paper introduces a theoretical and algorithmic
+framework for the fast, parallel solution of the nonlinear equations that arise
+from IRK methods applied to nonlinear numerical PDEs, including PDEs with
+algebraic constraints. This framework also naturally applies to discontinuous
+Galerkin discretizations in time. Moreover, the new method is built using the
+same preconditioners needed for backward Euler-type time stepping schemes.
 Several new linearizations of the nonlinear IRK equations are developed,
 offering faster and more robust convergence than the often-considered simplified
 Newton, as well as an effective preconditioner for the true Jacobian if exact
 Newton iterations are desired. Inverting these linearizations requires solving a
-set of block $2\times 2$ systems. Under quite general assumptions on the
-spatial discretization, it is proven that the preconditioned operator has a
-condition number of $\sim\mathcal{O}(1)$, with only weak dependence on the
-number of stages or integration accuracy. The new
-methods are applied to multiple examples of the compressible Euler and Navier
-Stokes equations, and the incompressible Euler and Navier Stokes equations
-in the vorticity-streamfunction formulation. Up to 10th order accuracy is
-demonstrated using Gauss integration, while in all cases 4th-order Gauss integration
-requires roughly half the number of preconditioner applications as required
-by standard SDIRK methods.
+set of block $2\times 2$ systems. Under quite general assumptions on the spatial
+discretization, it is proven that the preconditioned operator has a condition
+number of $\sim\mathcal{O}(1)$, with only weak dependence on the number of
+stages or integration accuracy. The new methods are applied to several
+challengng fluid flow problems, including the compressible Euler and Navier
+Stokes equations, and the vorticity-streamfunction formulation of the
+incompressible Euler and Navier Stokes equations. Up to 10th-order accuracy is
+demonstrated using Gauss integration, while in all cases 4th-order Gauss
+integration requires roughly half the number of preconditioner applications as
+required by standard SDIRK methods.
 \end{abstract}
 
 
@@ -150,7 +150,7 @@ Runge-Kutta scheme, characterized by the Butcher tableaux
 \end{align*}
 %
 with Runge-Kutta matrix $A_0 = (a_{ij})$, weight vector $\mathbf{b}_0^T = (b_1, \ldots, b_s)^T$,
-and quadrature nodes $\mathbf{c}_0 = (c_1, \ldots, c_s)$.
+and abscissa $\mathbf{c}_0 = (c_1, \ldots, c_s)$.
 
 Runge-Kutta methods update the solution using a sum over stage vectors,
 %
@@ -164,9 +164,9 @@ For nonlinear PDEs, $\mathcal{N}$ is linearized using, for example, a Newton or 
 Picard linearization, and each nonlinear iteration then consists of solving the
 linearized system of equations. In most cases, such a linearization
 is designed to approximate (or equal) the Jacobian of \eqref{eq:stages}. Applying
-a chain rule to \eqref{eq:stages} for the partial
+the chain rule to \eqref{eq:stages} for the partial
 $\partial(M\mathbf{k}_i-\mathcal{N}_i)/\partial\mathbf{k}_j$, we see that
-the linearized system should take the form
+the linearized system takes the form
 %
 \begin{align}\label{eq:k0}
 \left( \begin{bmatrix} M  & & \mathbf{0} \\ & \ddots \\ \mathbf{0} & & M\end{bmatrix}
@@ -176,29 +176,29 @@ the linearized system should take the form
 & = \begin{bmatrix} \mathbf{f}_1 \\ \vdots \\ \mathbf{f}_s \end{bmatrix},
 \end{align}
 %
-where $\mathcal{L}_i\in\mathbb{R}^{N\times N}$
-denotes a linearization of the nonlinear function
-corresponding to the $i$th stage vector, $\mathcal{N}_i:= \mathcal{N}\left(\mathbf{u}_n +
-\delta t\sum_{j=1}^s a_{ij}\mathbf{k}_j, t_n+\delta tc_i\right)$ (the main
-point being that the spatially linearized operators, $\mathcal{L}_i$, should
-be fixed for a given block row of the full linearized system, as in \eqref{eq:k0}),
-and $\mathbf{f}_i$ corresponds to \eqref{eq:stages} evaluated at
-the previous nonlinear iterate for $\{\mathbf{k}_i\}$.
+where $\mathcal{L}_i\in\mathbb{R}^{N\times N}$ denotes a linearization of the
+nonlinear function corresponding to the $i$th stage vector, $\mathcal{N}_i:=
+\mathcal{N}\left(\mathbf{u}_n + \delta t\sum_{j=1}^s a_{ij}\mathbf{k}_j,
+t_n+\delta tc_i\right)$ and $\mathbf{f}_i$ corresponds to \eqref{eq:stages}
+evaluated at the previous nonlinear iterate for $\{\mathbf{k}_i\}$. We emphasize
+that the spatially linearized operators, $\mathcal{L}_i$, should be fixed for a
+given block row of the full linearized system, as in \eqref{eq:k0}.
+
 Moving forward, we let $\mathcal{L}$ refer to a general, spatially linearized
 operator when the stage index is not relevant.
 
-The difficulty in fully implicit Runge-Kutta methods (which we will denote IRK) lies in
-solving the $Ns\times Ns$ block linear system in \eqref{eq:k0}. This paper focuses on the
-parallel simulation of numerical PDEs, where $N$ is typically very large
-and $\mathcal{L}$ is highly ill-conditioned. In such cases, direct
-solution techniques to solve \eqref{eq:k0} are not a viable option, and fast, parallel
-iterative methods must be used. However, IRK methods are rarely employed in practice due
-to the difficulties of solving \eqref{eq:k0}. Even for relatively simple
-parabolic PDEs where $-\mathcal{L}$ is symmetric positive definite (SPD), \eqref{eq:k0}
-is a large nonsymmetric matrix with significant block coupling. For nonsymmetric
-matrices $\mathcal{L}$ that already have inter-variable coupling resulting from
-a system of PDEs, traditional
-iterative methods are even less likely to yield acceptable performance in solving
+The difficulty in fully implicit Runge-Kutta methods (which we will denote IRK)
+lies in solving the $Ns\times Ns$ block linear system in \eqref{eq:k0}. This
+paper focuses on the parallel simulation of numerical PDEs, where $N$ is
+typically very large and $\mathcal{L}$ is highly ill-conditioned. In such cases,
+direct solution techniques to solve \eqref{eq:k0} are not a viable option, and
+fast, parallel iterative methods must be used. However, IRK methods are rarely
+employed in practice due to the difficulties of solving \eqref{eq:k0}. Even for
+relatively simple parabolic PDEs where $-\mathcal{L}$ is symmetric positive
+definite (SPD), \eqref{eq:k0} is a large nonsymmetric matrix with significant
+block coupling. For nonsymmetric matrices $\mathcal{L}$ that already have
+inter-variable coupling resulting from a system of PDEs, traditional iterative
+methods are even less likely to yield acceptable performance when solving
 \eqref{eq:k0}.
 
 % ------------------------------------------------------------------------------------- %
@@ -244,18 +244,18 @@ fixed slab-based meshes.
 % ------------------------------------------------------------------------------------- %
 \subsection{Outline}\label{sec:intro:outline}
 
-In \cite{irk1}, fast parallel preconditioning techniques are developed for
-the solution of fully implicit Runge Kutta methods and DG discretizations
-in time applied to linear numerical PDEs. This paper builds on ideas from
-\cite{irk1} to address nonlinearities and DAEs. First, new ways to pose the
-linearized problem \eqref{eq:k0} are introduced in \Cref{sec:nonlinear},
-which can be used as either a preconditioning to solve \eqref{eq:k0} exactly,
-or as a modified linearization. The new approach only requires the solution
-of a block $2\times 2$ set of equations for each pair of stages, rather than
-the fully coupled $s\times s$ system in \eqref{eq:k0}. Moreover, unlike many
-of the simplified Newton approaches seen previously in the literature, the
-new approach can yield convergence comparable to true Newton iterations (or
-be used as a very effective preconditioner of the true Jacobian).
+In \cite{irk1}, fast parallel preconditioning techniques are developed for the
+solution of fully implicit Runge Kutta methods and DG discretizations in time
+applied to linear numerical PDEs. This paper builds on ideas from \cite{irk1} to
+address nonlinearities and DAEs. First, new ways to pose the linearized problem
+\eqref{eq:k0} are introduced in \Cref{sec:nonlinear}, which can be used either
+as preconditioners for solving \eqref{eq:k0} exactly, or as a modified
+linearization. The new approach only requires the solution of a block $2\times
+2$ set of equations for each pair of stages, rather than the fully coupled
+$s\times s$ system in \eqref{eq:k0}. Moreover, unlike many of the simplified
+Newton approaches seen previously in the literature, the new approach can yield
+convergence comparable to true Newton iterations (or be used as a very effective
+preconditioner of the true Jacobian).
 
 Although the linear IRK preconditioning developed in \cite{irk1} takes
 advantage of certain properties that are not available in the nonlinear
@@ -275,13 +275,13 @@ SDIRK methods.
 Numerical results for several challenging nonlinear fluid flow problems are
 provided in \Cref{sec:numerics}. These include the compressible Euler equations,
 for which we solve a model isentropic vortex problem, and the compressible
-Navier--Stokes equations, for which we consider the wall-resolved high Reynolds
+Navier--Stokes equations, for which we consider wall-resolved high Reynolds
 number flow over a NACA airfoil. Additionally, we consider two test cases using
 the incompressible Euler and Navier--Stokes equations in
-vorticity-streamfunction formulation. After spatial discretization, this results
-in a system of index-1 differential algebraic equations (DAEs), illustrating the
-applicability of the IRK preconditioners to systems of equations with algebraic
-constraints.
+vorticity-streamfunction formulation. After spatial discretization, these
+equations result in a system of index-1 differential algebraic equations (DAEs),
+illustrating the applicability of the IRK preconditioners to systems of
+equations with algebraic constraints.
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -289,34 +289,34 @@ constraints.
 
 Aside from the difficulty of solving \eqref{eq:k0} in a fast, parallel manner,
 IRK methods have a number of desirable properties in practice. For stiff PDEs,
-the observed accuracy of Runge-Kutta methods can be limited to $\approx \min\{
-p, q+1\}$, for integration order $p$ and stage-order $q$
-\cite{hairer96,kennedy16}. For index-2 DAEs, the order of accuracy is formally
-limited to that of the stage order, $q$. Diagonally implicit Runge Kutta (DIRK)
-methods are most commonly used in practice for numerical PDEs due to ease of
-implementation, but DIRK methods have a maximum order of $p=s$ or $p=s+1$ with
-reasonable stability properties \cite[Section IV.6]{hairer96} and, moreover, are
-limited to stage-order $q=1$ \cite{kennedy16}. In contrast, IRK methods can have
-order as high as $p=2s$ for $s$ stages and stage-order $q =
-s$. Advantages of IRK methods (in a discretization sense) for
-the system of DAEs that arise in incompressible Navier Stokes can be seen in
-\cite{Sanderse.2013}. For PDEs where DIRK methods are ineffective, linear
-multistep methods, in particular BDF schemes, can offer improved accuracy and
-are often used in practice. However, A-stable implicit multistep methods can
-have at most order two, and the stability region of higher-order methods moves
-progressively farther away from the imaginary axis, which is particularly
-problematic for advection-dominated flows. Multistep methods also introduce
-their own difficulties in initializing (or restarting after discontinuities)
-with high-order accuracy, due to their multistep nature \cite[Chapter
-4]{brenan1995numerical}, whereas Runge-Kutta methods naturally start with
-high-order accuracy. Furthermore, neither linear multistep nor explicit
-Runge Kutta methods can be symplectic \cite{Hairer.2002}. Although DIRK methods
-can be symplectic, they are limited to at most 4th order and, moreover, known
-methods above second order are impractical due to negative diagonal entries
-of $A_0$ (leading to a negative shift rather than positive shift of the spatial
-discretization) \cite{kennedy16}. IRK methods are able to satisfy conditions
-for symplecticty of arbitrary order, and even moderate order symplectic
-integration requires IRK methods.
+the observed accuracy of Runge-Kutta methods can be limited to $\approx \min\{p,
+q+1\}$, for integration order $p$ and stage-order $q$ \cite{hairer96,kennedy16}.
+For index-2 DAEs, the order of accuracy is formally limited to that of the stage
+order, $q$. Diagonally implicit Runge Kutta (DIRK) methods are most commonly
+used in practice for numerical PDEs due to ease of implementation, but DIRK
+methods have a maximum order of $p=s$ or $p=s+1$ with reasonable stability
+properties \cite[Section IV.6]{hairer96} and, moreover, are limited to
+stage-order $q=1$ (or $q=2$ for ESDIRK methods with one explicit stage)
+\cite{kennedy16}. In contrast, IRK methods can have order as high as $p=2s$ for
+$s$ stages and stage-order $q = s$. Advantages of IRK methods (in a
+discretization sense) for the system of DAEs that arise in incompressible Navier
+Stokes can be seen in \cite{Sanderse.2013}. For PDEs where DIRK methods are
+ineffective, linear multistep methods, in particular BDF schemes, can offer
+improved accuracy and are often used in practice. However, A-stable implicit
+multistep methods can have at most order two, and the stability region of
+higher-order methods moves progressively farther away from the imaginary axis,
+which is particularly problematic for advection-dominated flows. Multistep
+methods also introduce their own difficulties in initializing (or restarting
+after discontinuities) with high-order accuracy, due to their multistep nature
+\cite[Chapter 4]{brenan1995numerical}, whereas Runge-Kutta methods naturally
+start with high-order accuracy. Furthermore, neither linear multistep nor
+explicit Runge Kutta methods can be symplectic \cite{Hairer.2002}. Although DIRK
+methods can be symplectic, they are limited to at most 4th order and, moreover,
+known methods above second order are impractical due to negative diagonal
+entries of $A_0$ (leading to a negative shift rather than positive shift of the
+spatial discretization) \cite{kennedy16}. IRK methods are able to satisfy
+conditions for symplecticty of arbitrary order, and even moderate-order
+symplectic integration requires IRK methods.
 
 It should be noted that IRK methods are by no means new, and many papers have
 considered the efficient implementation of IRK integration in various contexts.
@@ -330,8 +330,8 @@ a modified nonlinear iteration or time stepping scheme (see, e.g.,
 works to consider IRK methods for PDEs were the sequence of papers
 \cite{mardel07,nissen11,staff06}, which analyze block triangular and diagonal
 preconditioners for the (linear) diffusion and biodomain equations in the
-Sobolev setting, and demonstrate nice conditioning of the preconditioned
-operators. Other papers have demonstrated success with various IRK
+Sobolev setting, and demonstrate that the preconditioned operators are
+well-conditioned. Other papers have demonstrated success with various IRK
 preconditioning strategies for parabolic type problems as well
 \cite{vanlent05,chen14,exh,8jp,27n}, with the method in \cite{exh} also
 demonstrating success in practice on linear hyperbolic problems. Nevertheless,
@@ -503,7 +503,7 @@ This motivates the following assumption for the analysis done in this paper:
 %
 \begin{assumption}\label{ass:fov}
 Let $\mathcal{L}$ be a linearized spatial operator, and assume that $W(\mathcal{L}) \leq 0$
-(that is, $W(\mathcal{L})$ is a subset of the left half plane (including imaginary axis)).
+(that is, $W(\mathcal{L})$ is a subset of the closed left half plane).
 \end{assumption}
 %
 As discussed in \cite{irk1}, note that the field of values has an additional
@@ -755,8 +755,8 @@ iterated to convergence in the linear sense, yielding a precise Newton or Picard
 iteration, but here we opt to apply the approximation directly as the nonlinear
 preconditioner, resolving the error between the approximation and an exact
 Newton/Picard iteration in the outer nonlinear iteration. Similar to inexact
-Newton methods, such an approach is often more efficient in practice than
-computing, e.g., an exact Jacobian.
+Newton methods, such approaches are often more efficient in practice than the
+corresponding exact methods.
 
 % Note, it is important to express Picard and fixed-point iterations in the
 % form of a Newton-like method to use the preconditioning techniques developed
@@ -827,21 +827,21 @@ Note that there is no approximation in two-stage Gauss because the operator
 \eqref{eq:Q0approx} is already block diagonal, that is, it is straightforward to
 apply a true Newton or Picard iteration to two-stage Gauss using analogous
 block-preconditioning techniques as used for simplified Newton. For two-stage
-Radau IIA, we see that the diagonal blocks are almost defined by the (linearized)
-operator evaluated at a single time step, which provides a natural and simple
-approximation. The off-diagonal blocks are simply a measure of commutation,
-$0.121(\widehat{\mathcal{L}}_1 - \widehat{\mathcal{L}}_2)$. Such entries could
-be included in the preconditioning for the upper triangular portion of the
-matrix (adding a few additional matrix-vector products and some memory usage),
-or simply ignored altogether under the assumption that
+Radau IIA, we see that the diagonal blocks are almost defined by the
+(linearized) operator evaluated at a single time step, which provides a natural
+and simple approximation. The off-diagonal blocks are simply a measure of
+commutation, $0.121(\widehat{\mathcal{L}}_1 - \widehat{\mathcal{L}}_2)$. Such
+entries could be included in the preconditioning for the upper triangular
+portion of the matrix (adding a few additional matrix-vector products and some
+memory usage), or simply ignored altogether under the assumption that
 $0.121(\widehat{\mathcal{L}}_1 - \widehat{\mathcal{L}}_2$) is ``small'' relative
 to the diagonal blocks in some sense. Even for reasonably stiff problems, the
-operator often does not change substantially between two stages -- if it did,
-e.g., due to a shockwave, the larger time step may not be small enough to
-accurately resolve the nonlinear behavior in the first place. Similar structure
-as discussed for the two-stage methods holds for other methods as well. For
-example, the coefficients for four-stage Gauss are given by (to three digits of
-accuracy):
+operator often does not change substantially between two stages. Large changes
+in the operator between temporal stages is often an indication that the time
+step is too large to adequately resolve resolve the nonlinear behavior of the
+equations. Similar structure as discussed for the two-stage methods holds for
+other methods as well. For example, the coefficients for four-stage Gauss are
+given by (to three digits of accuracy):
 %
 \begin{align*}
 \textnormal{Gauss(4):}& \hspace{1ex}
@@ -874,18 +874,12 @@ $R_0 \otimes I$. That is, we replace the $\widehat{P}$ operator
 \eqref{eq:Q0approx} in the true Jacobian \eqref{eq:keq4} with a block upper
 triangular approximation $\widetilde{P} \approx \widehat{P}$. Recall by
 constructing $\widetilde{P}$ to be block upper triangular, we can then invert
-the resulting operator
-%
-\begin{align}
-R_0 \otimes I -  \widetilde{P} \approx R_0 \otimes I -\widehat{P}
-\end{align}
-%
-via block backward substitution, preconditioning each $1\times 1$
-or $2\times 2$ diagonal block similar to the simplified Newton setting in
-\Cref{sec:nonlinear:simp} (formal details on preconditioning are introduced
-in \Cref{sec:theory}). In addition to the simplified Newton
-method discussed in \Cref{sec:nonlinear:simp}, we propose three (successively
-more accurate) approximations to \eqref{eq:Q0approx}:
+the resulting operator $R_0 \otimes I -\widehat{P}$ via block backward
+substitution, preconditioning each $1\times 1$ or $2\times 2$ diagonal block
+similar to the simplified Newton setting in \Cref{sec:nonlinear:simp} (formal
+details on preconditioning are introduced in \Cref{sec:theory}). In addition to
+the simplified Newton method discussed in \Cref{sec:nonlinear:simp}, we propose
+three (successively more accurate) approximations to \eqref{eq:Q0approx}:
 \vspace{1ex}
 %
 \begin{enumerate}
@@ -950,7 +944,7 @@ solving $2\times 2$ block systems along the lines of
 -\frac{\beta^2}{\phi} I - \bm{d}_{i+1,i}^T \bm{{\cal L}} & \eta I -  \bm{d}_{i+1,i+1}^T \bm{{\cal L}}\end{bmatrix},
 \end{align}
 %
-with the off-diagonal blocks only including non-identity terms for 
+with the off-diagonal blocks only including non-identity terms for
 methods 2 and 3 from \Cref{sec:nonlinear:gen}. As discussed previously,
 we expect the non-identity off-diagonal terms to typically be small. This
 section consider block preconditioning of the general linear problem
@@ -963,7 +957,7 @@ $\bm{d}_{i+1,i}^T \bm{{\cal L}}$: \OK{This needs to be changed to include method
 -\frac{\beta^2}{\phi} I & \eta I - \widehat{\mathcal{L}}_2\end{bmatrix},
 \end{align}
 %
-for some $\eta > 0, \phi \neq 0$. Indeed, in 
+for some $\eta > 0, \phi \neq 0$. Indeed, in
 practice the block preconditioning methods developed in this section have
 proven equally robust on systems resulting from nonlinear methods 2 and 3
 as those resulting from method 1 (for which the theory applies), indicating
@@ -992,7 +986,7 @@ When applying GMRES to block $2\times 2$ operators preconditioned with a lower
 is exactly defined by convergence of GMRES applied to the preconditioned Schur
 complement, $\widehat{S}^{-1}S$ \cite{2x2block}. If $\widehat{S} = S$ is exact,
 exact convergence on the larger $2\times2$ system is guaranteed in two iterations
-(or one iteration with a block LDU). This section focuses on the development of
+(or one iteration with block LDU). This section focuses on the development of
 robust preconditioners for the Schur complement \eqref{eq:Schur}. As a result of
 \Cref{ass:fov}, the second term in \eqref{eq:Schur},
 $(\eta I - \widehat{\mathcal{L}}_1)^{-1}$ is nicely bounded and conditioned.
@@ -1293,7 +1287,7 @@ $\gamma_* := \textnormal{argmin}_{\gamma\geq\eta} c(\gamma) =
 % ---------------------------------------------------------------------------------------------- %
 \subsection{$\cL_1 = \cL_2$}\label{sec:theory:simp}
 
-Consider a right preconditioning of the Schur complement with preconditioner
+Consider right preconditioning the Schur complement with preconditioner
 $(\gamma I- \widehat{\mathcal{L}}_2)^{-1}$. The preconditioned Schur complement
 takes the form
 %
@@ -1335,7 +1329,7 @@ has condition number on the order of 2--3.
 \label{th:cond_L1=L2}
 Let $\cL$ be real-valued and suppose \Cref{ass:eig,ass:fov} hold,
 that is, $\eta > 0$ and $W(\cL) \leq 0$. Let $\mathcal{P}_{\delta,\gamma}$ denote
-the preconditioned operator,
+the preconditioned operator
 \begin{align} \label{eq:P_gen}
 {\cal P}_{\delta, \gamma} \coloneqq [(\eta I  - \cL)^2 + \beta^2 I]
 	(\delta I - \cL)^{-1} (\gamma I - \cL)^{-1}, \quad \delta, \gamma \in (0, \infty),
@@ -1410,9 +1404,9 @@ Lobatto IIIC & 1.50 & 1.00 & 2.11 & 2.76 & 1.07 & 1.00 & 3.44 & 1.19 \\\hline
 %
 \begin{remark}[Symmetric definite and skew symmetric operators]
 Using eigenvalue analyses, it is possible to derive tight upper bounds on the
-condition number of \eqref{eq:P_gamma2} for all $\gamma \in (0, \infty)$ for
-$\cL$ that is symmetric negative semi-definite (SNSD) or skew symmetric (SS)
-$\cL$ (see \cite{exh} for related derivations).
+condition number of \eqref{eq:P_gamma2} for all $\gamma \in (0, \infty)$ when
+$\cL$ is symmetric negative semi-definite (SNSD) or skew symmetric (SS)
+(see \cite{exh} for related derivations).
 These tight upper bounds achieve equality for all $\gamma \in (0,
 \infty)$ as the spectrum of $\cL$ becomes dense in $[0, \infty)$ for SNSD
 $\cL$, and dense in $(- \mathrm{i} \infty, \mathrm{i} \infty)$ for SS $\cL$. In each
@@ -1546,7 +1540,7 @@ letting $\mathbf{v} \mapsto (\gamma I - \widehat{\mathcal{L}}_2)\mathbf{w}$,
 %
 By \Cref{ass:eig,ass:fov}, $W(\widehat{\mathcal{L}}_2)\leq 0$ and $\eta > 0$, implying
 all terms in the numerator and denominator are nonnegative. Moreover, by assumption
-$\gamma \geq \eta$, implying all numerator terms are $\leq$ the matching
+$\gamma \geq \eta$, implying all numerator terms are bounded above by the matching
 denominator terms, which yields $\| I - (\gamma-\eta)
 (\gamma I - \widehat{\mathcal{L}}_2)^{-1}\| \leq 1$.
 Combining with \eqref{eq:Pgn} yields
@@ -1742,12 +1736,12 @@ which completes the proof.
 \section{Differential algebraic equations}\label{sec:dae}
 
 This section considers differential algebraic equations (DAEs) that result from
-the spatial discretization of a time-dependent PDE with an algebraic (non
-time-dependent) constraint. DAEs account for many interesting physical problems,
-with obvious examples including the many variations in incompressible flow that
-arise in fluid dynamics and plasma physics. Special treatment is also required
-for the time integration of DAEs, and this section discusses how to extend
-methods developed in this paper to DAEs.
+the spatial discretization of a time-dependent PDE with an algebraic
+(non-time-dependent) constraint. DAEs account for many interesting physical
+problems, with obvious examples including the many variations in incompressible
+flow that arise in fluid dynamics and plasma physics. Special treatment is also
+required for the time integration of DAEs, and this section discusses how to
+extend methods developed in this paper to DAEs.
 
 DAEs arising from numerical PDEs take the general form
 %
@@ -1845,7 +1839,7 @@ with linearized operator that depends on stages. Similar to the nonlinear ODE
 case (see \Cref{sec:intro:irk}), it is generally the case that the $2\times 2$
 linearized operator is fixed for a given stage (i.e., block row of the matrix),
 a natural result of the chain rule applied to \eqref{eq:dae_stage}. Pulling out
-an $A_0\otimes I$ as in the ODE setting yields a block linear system of the form
+$A_0\otimes I$ as in the ODE setting yields a block linear system of the form
 %
 {\small
 \begin{align}\label{eq:daestage_nonlin}
@@ -1896,7 +1890,7 @@ the form
 
 %
 If we form a $2\times 2$ Schur complement by eliminating the leading
-$2\times 2$ block with $(i)$-superscripts,
+$2\times 2$ block with $i$ superscripts,
 %
 \begin{align}\nonumber
 S \coloneqq \begin{bmatrix} \eta M - \delta t\mathcal{L}_{u}^{(i+1)} &
@@ -1942,7 +1936,8 @@ time-dependent variables ($\mathbf{k}_i$ and $\mathbf{k}_{i+1}$).
 % ------------------------------------------------------------------------------------- %
 \section{Numerical results}\label{sec:numerics}
 
-\OK{Missing from all numerical results are discussion of which Newton-like algorithm was used. And what tolerances were used for Newton's method for the nonlinear system, and GMRES for the diagonal blocks.}
+In this section, we apply the solvers and preconditioners developed above to several fluid flow problems.
+The solvers and spatial discretizations were implemented using the MFEM finite element library \cite{Anderson2020}.
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -2075,7 +2070,7 @@ problem is given analytically by
        - \overline{v} t)}{2\pi r_c}
        \exp\left( \frac{f(x,y,t)}{2} \right) \right),\\
 \label{eq:ev-exact-2}
-   u = u_\infty \left( \sin(\theta) - \frac{\epsilon ((x-x_0)
+   v = u_\infty \left( \sin(\theta) - \frac{\epsilon ((x-x_0)
        - \overline{u} t)}{2\pi r_c}
        \exp\left( \frac{f(x,y,t)}{2} \right) \right),\\
 \label{eq:ev-exact-3}
@@ -2134,7 +2129,9 @@ be effective for convection-dominated fluid problems \cite{Persson2008}. In
 Table \ref{tab:ev-solvers}, we present the number of nonlinear iterations
 required to converge with a representative time step of $\delta t = 2 \times
 10^{-2}$, together with the total number of preconditioner applications in one
-step. Each Krylov iteration for the SDIRK methods corresponds to a single
+step. In these tests, a relative nonlinear tolerance of $10^{-9}$ was used, and
+each linear system was solved using GMRES with a relative tolerance of
+$10^{-5}$. Each Krylov iteration for the SDIRK methods corresponds to a single
 preconditioner application. For the fully implicit IRK methods, one Kyrlov
 iteration for a $1\times1$ system corresponds to one preconditioner application,
 whereas for a $2\times2$ system, one Krylov iteration corresponds to two
@@ -2230,14 +2227,16 @@ use of implicit time integration for this problem. A time accurate time step of
 $\delta t = 5 \times 10^{-2}$ is chosen for this problem. This time step is
 several orders of magnitude larger than the largest stable explicit time step.
 The number of nonlinear iterations and preconditioner applications required for
-convergence are shown in Table \ref{tab:naca-iters}. As in the previous case,
-each Krylov iteration for the SDIRK methods corresponds to a single
-preconditioner application. For the IRK methods, one Krylov iteration for a
-$1\times1$ system corresponds to one preconditioner application, whereas for a
-$2\times2$ system, one Krylov iteration corresponds to two preconditioner
-applications. As we observed in the case of the Euler vortex, the Gauss and
-Radau fully implicit Runge--Kutta methods of 2, 3, and 4 converge with fewer
-total preconditioner applications than the equal-order SDIRK method.
+convergence are shown in Table \ref{tab:naca-iters}. The nonlinear tolerance was
+chosen to be $10^{-9}$, and each linear system was solved using GMRES with a
+relative tolerance of $10^{-5}$. As in the previous case, each Krylov iteration
+for the SDIRK methods corresponds to a single preconditioner application. For
+the IRK methods, one Krylov iteration for a $1\times1$ system corresponds to one
+preconditioner application, whereas for a $2\times2$ system, one Krylov
+iteration corresponds to two preconditioner applications. As we observed in the
+case of the Euler vortex, the Gauss and Radau fully implicit Runge--Kutta
+methods of 2, 3, and 4 converge with fewer total preconditioner applications
+than the equal-order SDIRK method.
 
 Additionally, we use this test case to compare four potential solver strategies,
 corresponding to those enumerated in \Cref{sec:nonlinear:gen}. The first solver
@@ -2294,11 +2293,11 @@ Solvers 1, 2, and 3 is typically less significant.
 
 \begin{figure}
 	\centering
-	\includegraphics{figures/barchart/gauss4}
+	\includegraphics[width=0.65\linewidth]{figures/barchart/gauss4}
 
 	\vspace{\floatsep}
 
-	\includegraphics{figures/barchart/radau3}
+	\includegraphics[width=0.65\linewidth]{figures/barchart/radau3}
 	\caption{Performance for four solver configurations on the NACA test case with $\delta t = 2 \times 10^{-2}.$}
 	\label{fig:naca-nonlin-solvers}
 \end{figure}
