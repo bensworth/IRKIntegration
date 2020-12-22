@@ -179,7 +179,7 @@ the linearized system takes the form
 where $\mathcal{L}_i\in\mathbb{R}^{N\times N}$ denotes a linearization of the
 nonlinear function corresponding to the $i$th stage vector, $\mathcal{N}_i:=
 \mathcal{N}\left(\mathbf{u}_n + \delta t\sum_{j=1}^s a_{ij}\mathbf{k}_j,
-t_n+\delta tc_i\right)$ and $\mathbf{f}_i$ corresponds to \eqref{eq:stages}
+t_n+\delta tc_i\right)$, and $\mathbf{f}_i$ corresponds to \eqref{eq:stages}
 evaluated at the previous nonlinear iterate for $\{\mathbf{k}_i\}$. We emphasize
 that the spatially linearized operators, $\mathcal{L}_i$, should be fixed for a
 given block row of the full linearized system, as in \eqref{eq:k0}.
@@ -886,50 +886,29 @@ three (successively more accurate) approximations to \eqref{eq:Q0approx}:
 \setlength\itemsep{0.5em}
 \item[0.] \underline{Simplified Newton:} as in \Cref{sec:nonlinear:simp}, apply a
 simplified Newton method by evaluating $\mathcal{L}$ at the same time point for
-all stages.
-
-\item \underline{Newton-Like(1):} Truncate $\widehat{P}$ to be block diagonal and
-lump the coefficients of $\bm{d}_{ii}$ to the largest one so that each diagonal
-block of $\widehat{P}$ contains only one matrix from $\bm{{\cal L}}$.
-
-\item \underline{Newton-Like(2):} Truncate $\widehat{P}$ to be block diagonal,
-but include the full linear combinations of $\bm{d}^T_{k,\ell}$.
-
-\item \underline{Newton-Like(3):} Truncate $\widehat{P}$ to be block upper triangular.
-This option adds a number of matrix-vector products and requires storing $\mathcal{L}_i$
-in memory for multiple $i$, but is also the best approximation to an exact Newton or
-Picard iteration.
-
-\end{enumerate}
-%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\OK{
-
-\begin{enumerate}
-\setlength\itemsep{0.5em}
-\item[0.] \underline{Simplified Newton:} as in \Cref{sec:nonlinear:simp}, apply a
-simplified Newton method by evaluating $\mathcal{L}$ at the same time point for
 all stages. That is, $\widetilde{P} = I \otimes \widehat{{\cal L}}_k$ for some $k$.
 
-\item \underline{Newton-Like(1):} Truncate $\widehat{P}$ \eqref{eq:Q0approx} to be block diagonal and lump the coefficients of each diagonal term $\bm{d}_{i,i}$ to the largest one so that each diagonal
-block of $\widetilde{P}$ contains only one matrix from $\bm{{\cal L}}$. That is, the $i$th diagonal block of $\widetilde{P}$ is ${\cal L}_{k}$, where $k = \arg \max \big(|(d_{i,i})_1|, \ldots, |(d_{i,i})_s| \big)$.
+\item \underline{Newton-Like(1):} Truncate $\widehat{P}$ \eqref{eq:Q0approx} to
+be block diagonal and lump the coefficients of each diagonal term $\bm{d}_{i,i}$
+to the largest one so that each diagonal block of $\widetilde{P}$ contains only
+one matrix from $\bm{{\cal L}}$. That is, the $i$th diagonal block of
+$\widetilde{P}$ is ${\cal L}_{k}$, where $k = \arg \max \big(|(d_{i,i})_1|,
+\ldots, |(d_{i,i})_s| \big)$.
 
-\item \underline{Newton-Like(2):} Truncate $\widehat{P}$ \eqref{eq:Q0approx} to be block diagonal. That is, the $i$th diagonal block of $\widetilde{P}$ is $\bm{d}^T_{i,i} \bm{{\cal L}}$.
+\item \underline{Newton-Like(2):} Truncate $\widehat{P}$ \eqref{eq:Q0approx} to
+be block diagonal. That is, the $i$th diagonal block of $\widetilde{P}$ is
+$\bm{d}^T_{i,i} \bm{{\cal L}}$.
 
-\item \underline{Newton-Like(3):} Truncate $\widehat{P}$ \eqref{eq:Q0approx} inside the block upper triangular sparsity pattern of $R_0 \otimes I$.
-This option adds a number of matrix-vector products and requires storing $\mathcal{L}_i$
-in memory for multiple $i$, but is also the best approximation to an exact Newton or
-Picard iteration. \textcolor{red}{Note that Newton-Like(2) also requires  storing $\mathcal{L}_i$
-in memory for multiple $i$ too..}
+\item \underline{Newton-Like(3):} Truncate $\widehat{P}$ \eqref{eq:Q0approx}
+inside the block upper triangular sparsity pattern of $R_0 \otimes I$. This
+option adds a number of matrix-vector products, but is also the best approximation
+to an exact Newton or Picard iteration.
 
 \end{enumerate}
-}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 Of course there are other combinations possible, including using, e.g.,
 Newton-Like(1) as a preconditioner for Newton-like(3), but we do not
 elaborate for the sake of space.
-
-
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -945,12 +924,12 @@ solving $2\times 2$ block systems along the lines of
 \end{align}
 %
 with the off-diagonal blocks only including non-identity terms for
-methods 2 and 3 from \Cref{sec:nonlinear:gen}. As discussed previously,
+method 3 from \Cref{sec:nonlinear:gen}. As discussed previously,
 we expect the non-identity off-diagonal terms to typically be small. This
 section consider block preconditioning of the general linear problem
-that arises in methods (0) and (1), or methods (2) and (3) by neglecting
+that arises in methods (0), (1), and (2), or methods (3) by neglecting
 non-identity off-diagonal coupling in \eqref{eq:block00} arising from
-$\bm{d}_{i+1,i}^T \bm{{\cal L}}$: \OK{This needs to be changed to include method (2) because it doesn't consider off-diagonal coupling.}
+$\bm{d}_{i+1,i}^T \bm{{\cal L}}$:
 %
 \begin{align}\label{eq:block0}
 \begin{bmatrix} \eta I - \widehat{\mathcal{L}}_1 & \phi I\\
@@ -959,11 +938,10 @@ $\bm{d}_{i+1,i}^T \bm{{\cal L}}$: \OK{This needs to be changed to include method
 %
 for some $\eta > 0, \phi \neq 0$. Indeed, in
 practice the block preconditioning methods developed in this section have
-proven equally robust on systems resulting from nonlinear methods 2 and 3
-as those resulting from method 1 (for which the theory applies), indicating
-that \eqref{eq:block0} is a suitable proxy for \eqref{eq:block00} for
-theoretical purposes.
-In \eqref{eq:block0} it is assumed that
+proven equally robust on systems resulting from nonlinear method (3)
+as those resulting from methods (1) and (2) (for which the theory applies),
+indicating that \eqref{eq:block0} is a suitable proxy for \eqref{eq:block00} for
+theoretical purposes. In \eqref{eq:block0} it is assumed that
 $W(\widehat{\mathcal{L}}_i) \leq 0$ for $i=1,2$ (\Cref{ass:fov}). We will solve
 this system using Krylov methods with block lower-triangular preconditioners
 of the form
@@ -2343,9 +2321,10 @@ $\psi$), and $A$ is the $H^1$-conforming diffusion operator. A Picard
 linearization of \eqref{eq:ins-system} will result in a block-triangular system
 that is of the same form as \eqref{eq:ins-system}, but using an iteratively
 lagged advection operator. We use nonlinear method (1) from
-\Cref{sec:nonlinear:gen}, where we permit differing operators on diagonal
-blocks, but ignore non-identity off-diagonal coupling. For this problem, tests
-indicated that including such coupling (methods 2 and 3) requires slightly
+\Cref{sec:nonlinear:gen}, where we lump the sum of operators on diagonal
+blocks to the dominant operator and ignore non-identity off-diagonal coupling.
+For this problem, tests indicated that including additional diagonal terms or
+off-diagonal coupling (as in methods (2) and (3)) requires slightly
 longer wall-clock times and do not offer significant reduction in nonlinear
 iterations. Then, in the notation of \Cref{sec:dae}, we have $\mathcal{L}_u^{(i)} =
 K(\psi^{(i)})$, $\mathcal{L}_w = 0$, $\mathcal{G}_u = M_{\rm mix}$, and
@@ -2427,19 +2406,35 @@ absolute tolerance $\sim\mathcal{O}(10^{-12})$.
 	\label{fig:dsl}
 \end{figure}
 
-To study the effectiveness of these preconditioners, we consider the double shear layer problem \cite{Bell1989}.
-The domain is taken to be the square $[0,2\pi] \times [0,2\pi]$, and periodic boundary conditions are enforced at the domain boundaries.
-The initial condition is given by
+To study the effectiveness of these preconditioners, we consider the double
+shear layer problem \cite{Bell1989}. The domain is taken to be the square
+$[0,2\pi] \times [0,2\pi]$, and periodic boundary conditions are enforced at the
+domain boundaries. The initial condition is given by
 \[
 	\omega(x,y,0) = \begin{cases}
 		\delta \cos(x) - \frac{1}{\rho}\operatorname{sech}^2((y-\pi/2)/\rho) \qquad & y \leq \pi, \\
 		\delta \cos(x) + \frac{1}{\rho}\operatorname{sech}^2((3\pi/2 - y) \qquad & y > \pi.
 	\end{cases}
 \]
-This test case is well-suited for high-order methods because the solution quickly develops small-scale features, as shown in \Cref{fig:dsl}.
-We use finite element spaces with polynomial degree $p=3$, mesh spacing $h = 0.0025$, and choose a time step of $\delta t = 10^{-2}$ for all RK schemes to consider scalability in integration order for fixed $\delta t$.
-\Cref{tab:dsl-iters} shows the total number of preconditioner applications required per time step with Reynolds number Re  $=10$. Rows indicated ``Prec.\ applications'' correspond to \eqref{eq:vsf-system-1}, and each preconditioner application is defined as preconditioning a $2\times 2$ block over $[\boldsymbol{\omega}_i,\boldsymbol{\psi}_i]$ with {one} AIR iteration and one AMG iteration (one for each diagonal block). The block triangular variation \eqref{eq:vsf-system-2} does a block forward solve on \eqref{eq:vsf-system-2}, and \Cref{tab:dsl-iters} presents the total number of AIR and AMG iterations required for the forward solve, summed over all nonlinear iterations.
-Note, because the time-dependent and algebraic blocks are solved separately in this case, the number of AIR iterations (to solve for the vorticity) and AMG iterations (to solve for the streamfunction) are not equal. These results were run on 288 cores on the Quartz machine at Lawrence Livermore National Laboratory.
+This test case is well-suited for high-order methods because the solution
+quickly develops small-scale features, as shown in \Cref{fig:dsl}. We use finite
+element spaces with polynomial degree $p=3$, mesh spacing $h = 0.0025$, and
+choose a time step of $\delta t = 10^{-2}$ for all RK schemes to consider
+scalability in integration order for fixed $\delta t$. \Cref{tab:dsl-iters}
+shows the total number of preconditioner applications required per time step
+with Reynolds number Re  $=10$. Rows indicated ``Prec.\ applications''
+correspond to \eqref{eq:vsf-system-1}, and each preconditioner application is
+defined as preconditioning a $2\times 2$ block over
+$[\boldsymbol{\omega}_i,\boldsymbol{\psi}_i]$ with {one} AIR iteration and one
+AMG iteration (one for each diagonal block). The block triangular variation
+\eqref{eq:vsf-system-2} does a block forward solve on \eqref{eq:vsf-system-2},
+and \Cref{tab:dsl-iters} presents the total number of AIR and AMG iterations
+required for the forward solve, summed over all nonlinear iterations. Note,
+because the time-dependent and algebraic blocks are solved separately in this
+case, the number of AIR iterations (to solve for the vorticity) and AMG
+iterations (to solve for the streamfunction) are not equal. These results were
+run on 288 cores on the Quartz machine at Lawrence Livermore National
+Laboratory.
 
 \begin{table}[h!]
 	\centering
@@ -2486,10 +2481,10 @@ is largely because the linear preconditioning ends up being more efficient
 when applied to the full system \eqref{eq:vsf-system-1}, rather than the
 reordered system in \eqref{eq:vsf-system-2}. Moreover, linear iteration
 counts are almost equal for nonlinear methods 1, 2, and 3 (results are not
-shown for sake of space) from \Cref{sec:nonlinear:gen}, indicating that=
+shown for sake of space) from \Cref{sec:nonlinear:gen}, indicating that
 linear conditioning theory developed in \Cref{sec:theory:gen} for systems
-that arise from nonlinear method 1 yields robust preconditioners for
-methods 2 and 3 as well.
+that arise from nonlinear methods (1) and (2) yields robust preconditioners for
+method (3) as well.
 
 \Cref{tab:dsl-iters2} demonstrates that the proposed methods are also robust
 across Reynolds number, showing similar results as in \Cref{tab:dsl-iters}, for
