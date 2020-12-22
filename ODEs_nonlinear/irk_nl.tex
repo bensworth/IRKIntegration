@@ -38,7 +38,7 @@
 \newcommand{\tcp}{\textcolor{purple}}
 \newcommand{\todo}[1]{\textcolor{red}{[TODO\@: #1]}}
 
-\newcommand{\OK}[1]{\textcolor{blue}{[OK: #1]}}
+\newcommand{\OK}[1]{{\color{blue}{[OK: #1]}}}
 \newcommand{\WP}[1]{\textcolor{green}{[WP: #1]}}
 
 \newcommand{\mdet}{\operatorname{det}}
@@ -908,9 +908,34 @@ Picard iteration.
 
 \end{enumerate}
 %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\OK{
+
+\begin{enumerate}
+\setlength\itemsep{0.5em}
+\item[0.] \underline{Simplified Newton:} as in \Cref{sec:nonlinear:simp}, apply a
+simplified Newton method by evaluating $\mathcal{L}$ at the same time point for
+all stages. That is, $\widetilde{P} = I \otimes \widehat{{\cal L}}_k$ for some $k$.
+
+\item \underline{Newton-Like(1):} Truncate $\widehat{P}$ \eqref{eq:Q0approx} to be block diagonal and lump the coefficients of each diagonal term $\bm{d}_{i,i}$ to the largest one so that each diagonal
+block of $\widetilde{P}$ contains only one matrix from $\bm{{\cal L}}$. That is, the $i$th diagonal block of $\widetilde{P}$ is ${\cal L}_{k}$, where $k = \arg \max \big(|(d_{i,i})_1|, \ldots, |(d_{i,i})_s| \big)$.
+
+\item \underline{Newton-Like(2):} Truncate $\widehat{P}$ \eqref{eq:Q0approx} to be block diagonal. That is, the $i$th diagonal block of $\widetilde{P}$ is $\bm{d}^T_{i,i} \bm{{\cal L}}$.
+
+\item \underline{Newton-Like(3):} Truncate $\widehat{P}$ \eqref{eq:Q0approx} inside the block upper triangular sparsity pattern of $R_0 \otimes I$.
+This option adds a number of matrix-vector products and requires storing $\mathcal{L}_i$
+in memory for multiple $i$, but is also the best approximation to an exact Newton or
+Picard iteration. \textcolor{red}{Note that Newton-Like(2) also requires  storing $\mathcal{L}_i$
+in memory for multiple $i$ too..}
+
+\end{enumerate}
+}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 Of course there are other combinations possible, including using, e.g.,
 Newton-Like(1) as a preconditioner for Newton-like(3), but we do not
 elaborate for the sake of space.
+
+
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -931,7 +956,7 @@ we expect the non-identity off-diagonal terms to typically be small. This
 section consider block preconditioning of the general linear problem
 that arises in methods (0) and (1), or methods (2) and (3) by neglecting
 non-identity off-diagonal coupling in \eqref{eq:block00} arising from
-$\bm{d}_{i+1,i}^T \bm{{\cal L}}$:
+$\bm{d}_{i+1,i}^T \bm{{\cal L}}$: \OK{This needs to be changed to include method (2) because it doesn't consider off-diagonal coupling.}
 %
 \begin{align}\label{eq:block0}
 \begin{bmatrix} \eta I - \widehat{\mathcal{L}}_1 & \phi I\\
