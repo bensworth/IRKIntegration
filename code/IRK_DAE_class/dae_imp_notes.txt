@@ -97,26 +97,4 @@ user defined IRKOperator, we must define:
 
 
 
-KHI Model
-----------
-In the KHI model, we have a somewhat unique system where we can re order the
-4x4 system so that instead of solving for [k1,l1,k2,l2], if we solve for
-[k1,k2,l1,l2], we can solve a 2x2 system for [k1,k2] exactly as in the
-ODE case, then do a diffusion solve to get [l1,l2].
-
-Here, we need to replace the JacDiagBlockTriPrec object with a more general
-preconditioner, say JacDiagGenPrec. This is a effectively a placeholder, and we 
-construct the preconditioner by overriding the function BuildGenPreconditioner
-in IRKOperator. This function must build a preconditioner that solves the whole
-2x2 block system of the linearized DAE, rather than just one block at a time.
-
-
----> In JacDiagBlockTriPrec.Mult(), why does ImplicitMult not have an index?
-
-
-
-
-
-
-
 
