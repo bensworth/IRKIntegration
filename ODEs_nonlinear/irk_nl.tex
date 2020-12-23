@@ -887,7 +887,7 @@ $R_0 \otimes I$. That is, we replace the $\widehat{P}$ operator
 \eqref{eq:Q0approx} in the true Jacobian \eqref{eq:keq4} with a block upper
 triangular approximation $\widetilde{P} \approx \widehat{P}$. Recall by
 constructing $\widetilde{P}$ to be block upper triangular, we can then invert
-the resulting operator $R_0 \otimes I -\widehat{P}$ via block backward
+the resulting operator $R_0 \otimes I -\widetilde{P}$ via block backward
 substitution, preconditioning each $1\times 1$ or $2\times 2$ diagonal block
 similar to the simplified Newton setting in \Cref{sec:nonlinear:simp} (formal
 details on preconditioning are introduced in \Cref{sec:theory}). In addition to
@@ -901,26 +901,25 @@ three (successively more accurate) approximations to \eqref{eq:Q0approx}:
 simplified Newton method by evaluating $\mathcal{L}$ at the same time point for
 all stages. That is, $\widetilde{P} = I \otimes \widehat{{\cal L}}_k$ for some $k$.
 
-\item \underline{Newton-Like(1):} Truncate $\widehat{P}$ \eqref{eq:Q0approx} to
+\item \underline{Newton-like(1):} Truncate $\widehat{P}$ \eqref{eq:Q0approx} to
 be block diagonal and lump the coefficients of each diagonal term $\bm{d}_{i,i}$
 to the largest one so that each diagonal block of $\widetilde{P}$ contains only
 one matrix from $\bm{{\cal L}}$. That is, the $i$th diagonal block of
 $\widetilde{P}$ is ${\cal L}_{k}$, where $k = \arg \max \big(|(d_{i,i})_1|,
 \ldots, |(d_{i,i})_s| \big)$.
 
-\item \underline{Newton-Like(2):} Truncate $\widehat{P}$ \eqref{eq:Q0approx} to
+\item \underline{Newton-like(2):} Truncate $\widehat{P}$ \eqref{eq:Q0approx} to
 be block diagonal. That is, the $i$th diagonal block of $\widetilde{P}$ is
 $\bm{d}^T_{i,i} \bm{{\cal L}}$.
 
-\item \underline{Newton-Like(3):} Truncate $\widehat{P}$ \eqref{eq:Q0approx}
+\item \underline{Newton-like(3):} Truncate $\widehat{P}$ \eqref{eq:Q0approx}
 inside the block upper triangular sparsity pattern of $R_0 \otimes I$. This
 option adds a number of matrix-vector products, but is also the best approximation
 to an exact Newton or Picard iteration.
 
 \end{enumerate}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 Of course there are other combinations possible, including using, e.g.,
-Newton-Like(1) as a preconditioner for Newton-like(3), but we do not
+Newton-like(1) as a preconditioner for Newton-like(3), but we do not
 elaborate for the sake of space.
 
 % ------------------------------------------------------------------------------------- %
@@ -928,8 +927,7 @@ elaborate for the sake of space.
 % ------------------------------------------------------------------------------------- %
 \section{Linear preconditioning theory}\label{sec:theory}
 
-The methods derived in \Cref{sec:nonlinear} all depend on
-solving $2\times 2$ block systems along the lines of
+The methods derived in \Cref{sec:nonlinear} use block backward substitution which requires solving $2\times 2$ block systems along the lines of
 %
 \begin{align}\label{eq:block00}
 \begin{bmatrix} \eta I - \bm{d}_{i,i}^T \bm{{\cal L}} & \phi I - \bm{d}_{i,i+1}^T \bm{{\cal L}}\\
@@ -941,8 +939,8 @@ method 3 from \Cref{sec:nonlinear:gen}. As discussed previously,
 we expect the non-identity off-diagonal terms to typically be small. This
 section consider block preconditioning of the general linear problem
 that arises in methods (0), (1), and (2), or methods (3) by neglecting
-non-identity off-diagonal coupling in \eqref{eq:block00} arising from
-$\bm{d}_{i+1,i}^T \bm{{\cal L}}$:
+non-identity off-diagonal coupling in \eqref{eq:block00} arising from the $\bm{d}_{i,i+1}^T \bm{{\cal L}}$ and
+$\bm{d}_{i+1,i}^T \bm{{\cal L}}$ terms:
 %
 \begin{align}\label{eq:block0}
 \begin{bmatrix} \eta I - \widehat{\mathcal{L}}_1 & \phi I\\
@@ -955,9 +953,8 @@ proven equally robust on systems resulting from nonlinear method (3)
 as those resulting from methods (1) and (2) (for which the theory applies),
 indicating that \eqref{eq:block0} is a suitable proxy for \eqref{eq:block00} for
 theoretical purposes. In \eqref{eq:block0} it is assumed that
-$W(\widehat{\mathcal{L}}_i) \leq 0$ for $i=1,2$ (\Cref{ass:fov}).\footnote{
-Note that for nonlinear method (2), we are taking a sum of operators that
-satisfy \Cref{ass:fov}. Due to nonnegative summation coefficients, the
+$W(\widehat{\mathcal{L}}_i) \leq 0$ for $i=1,2$ (\Cref{ass:fov}).\footnote{Note that for nonlinear method (2), we are taking a weighted sum of operators that
+satisfy \Cref{ass:fov}. Due to the non-negativity of the weights, the
 summation also satisfies \Cref{ass:fov}.} We will solve
 this system using Krylov methods with block lower-triangular preconditioners
 of the form
@@ -2241,7 +2238,7 @@ however, in general, the quadratic convergence of Newton's method is not
 maintained, typically resulting in an increased number of nonlinear iterations.
 The remaining solvers (Solvers 1, 2, and 3) use exactly computed Jacobian
 matrices at all temporal stages, and each solver corresponds to a different
-approximation $\tilde{P} \approx \widehat{P}$, as described in
+approximation $\widetilde{P} \approx \widehat{P}$, as described in
 \Cref{sec:nonlinear:gen}. With increasing quality of the approximation, we
 expect the solver to converge more rapidly, however each iteration will
 generally be more expensive to compute. In \Cref{fig:naca-nonlin-solvers} we
