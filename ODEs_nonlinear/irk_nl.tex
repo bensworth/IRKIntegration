@@ -1,5 +1,6 @@
-\documentclass[a4paper,10pt]{article}
-% \documentclass[review]{siamart}
+% \documentclass[a4paper,10pt]{article}
+% \usepackage[margin=1.5in]{geometry}
+\documentclass[review]{siamart}
 \usepackage{url}
 \usepackage{amssymb}
 \usepackage{amsmath}
@@ -26,26 +27,28 @@
  linkcolor    = darkgreen, %Colour of internal links
  citecolor   = darkgreen %Colour of citations
 }
-\usepackage[nameinlink]{cleveref}
 \usepackage[belowskip=-5pt]{subcaption}
 \usepackage{pbox}
 
 
 % FOR SIAM
 %	--> Make sure to uncomment \headers{ . } in title
-% \newsiamremark{remark}{Remark}
-% \newsiamremark{assumption}{Assumption}
-% \crefname{assumption}{Assumption}{Assumptions}
+\usepackage[nameinlink]{cleveref}
+\newsiamremark{remark}{Remark}
+\newsiamremark{assumption}{Assumption}
+\crefname{assumption}{Assumption}{Assumptions}
 
 % FOR NO SIAM TEMPLATE
 %	--> Make sure to comment \headers{ . } in title
-\usepackage{amsthm}
-\newtheorem{lemma}{Lemma}
-\newtheorem{remark}{Remark}
-\newtheorem{assumption}{Assumption}
-\newtheorem{definition}{Definition}
-\newtheorem{theorem}{Theorem}
-\newtheorem{corollary}{Corollary}
+% \usepackage{amsthm}
+% \usepackage[nameinlink]{cleveref}
+% \newtheorem{lemma}{Lemma}
+% \newtheorem{remark}{Remark}
+% \newtheorem{assumption}{Assumption}
+% \newtheorem{definition}{Definition}
+% \newtheorem{theorem}{Theorem}
+% \newtheorem{corollary}{Corollary}
+% \crefname{assumption}{Assumption}{Assumptions}
 
 \newcommand{\tcb}{\textcolor{blue}}
 \newcommand{\tcp}{\textcolor{purple}}
@@ -65,7 +68,7 @@
 \newcommand{\TheTitle}{Fast parallel solution of fully implicit Runge-Kutta and discontinuous
 	Galerkin in time for numerical PDEs, Part II: nonlinearities and DAEs}
 \newcommand{\TheAuthors}{B.S. Southworth, O.A. Krzysik, and W. Pazner}
-% \headers{Parallel solution of fully implicit Runge-Kutta and DG in time II}{\TheAuthors}
+\headers{Parallel solution of fully implicit Runge-Kutta II}{\TheAuthors}
 \title{{\TheTitle}\thanks{BSS was supported by Lawrence Livermore National
       Laboratory under contract B639443, and as a Nicholas C. Metropolis Fellow
       under the Laboratory Directed Research and Development program of Los
@@ -151,16 +154,23 @@ in Navier Stokes, instead yield a system of differential algebraic equations
 (DAEs). DAEs require separate treatment and are addressed in \Cref{sec:dae}.
 Now, consider time propagation of \eqref{eq:problem} using an $s$-stage
 Runge-Kutta scheme, characterized by the Butcher tableaux
+$
+\begin{array}
+{c|c}
+\mathbf{c}_0 & A_0\\
+\hline
+& \mathbf{b}_0^T
+\end{array},$
 %
-\begin{align*}
-	\renewcommand\arraystretch{1.2}
-	\begin{array}
-	{c|c}
-	\mathbf{c}_0 & A_0\\
-	\hline
-	& \mathbf{b}_0^T
-	\end{array},
-\end{align*}
+% \begin{align*}
+% 	\renewcommand\arraystretch{1.2}
+% 	\begin{array}
+% 	{c|c}
+% 	\mathbf{c}_0 & A_0\\
+% 	\hline
+% 	& \mathbf{b}_0^T
+% 	\end{array},
+% \end{align*}
 %
 with Runge-Kutta matrix $A_0 = (a_{ij})$, weight vector $\mathbf{b}_0^T = (b_1, \ldots, b_s)^T$,
 and abscissa $\mathbf{c}_0 = (c_1, \ldots, c_s)$.
@@ -170,7 +180,7 @@ Runge-Kutta methods update the solution using a sum over stage vectors,
 \begin{align}\label{eq:update}
 \mathbf{u}_{n+1} & = \mathbf{u}_n + \delta t \sum_{i=1}^s b_i\mathbf{k}_i,
 	\hspace{5ex}\textnormal{where}\\
-M\mathbf{k}_i & = \mathcal{N}\left(\mathbf{u}_n + \delta t\sum_{j=1}^s a_{ij}\mathbf{k}_j, t_n+\delta tc_i\right).\label{eq:stages}
+M\mathbf{k}_i & = \mathcal{N}\bigg(\mathbf{u}_n + \delta t\sum_{j=1}^s a_{ij}\mathbf{k}_j, t_n+\delta tc_i\bigg).\label{eq:stages}
 \end{align}
 %
 For nonlinear PDEs, $\mathcal{N}$ is linearized using, for example, a Newton or a
@@ -196,7 +206,6 @@ t_n+\delta tc_i\right)$, and $\mathbf{f}_i$ corresponds to \eqref{eq:stages}
 evaluated at the previous nonlinear iterate for $\{\mathbf{k}_i\}$. We emphasize
 that the spatially linearized operators, $\mathcal{L}_i$, should be fixed for a
 given block row of the full linearized system, as in \eqref{eq:k0}.
-
 Moving forward, we let $\mathcal{L}$ refer to a general, spatially linearized
 operator when the stage index is not relevant.
 
@@ -210,8 +219,8 @@ employed in practice due to the difficulties of solving \eqref{eq:k0}. Even for
 relatively simple parabolic PDEs where $-\mathcal{L}$ is symmetric positive
 definite (SPD), \eqref{eq:k0} is a large nonsymmetric matrix with significant
 block coupling. For nonsymmetric matrices $\mathcal{L}$ that already have
-inter-variable coupling resulting from a system of PDEs, traditional iterative
-methods are even less likely to yield acceptable performance when solving
+inter-variable coupling that arise in systems of PDEs, traditional iterative
+methods are even less likely to yield acceptable performance in solving
 \eqref{eq:k0}.
 
 % ------------------------------------------------------------------------------------- %
@@ -261,7 +270,7 @@ In \cite{irk1}, fast parallel preconditioning techniques are developed for the
 solution of fully implicit Runge Kutta methods and DG discretizations in time
 applied to linear numerical PDEs. This paper builds on ideas from \cite{irk1} to
 address nonlinearities and DAEs. First, new ways to pose the linearized problem
-\eqref{eq:k0} are introduced in \Cref{sec:nonlinear}, which can be used either
+\eqref{eq:k0} are introduced in \Cref{sec:nonlinear}, which can be used
 as preconditioners for solving \eqref{eq:k0} exactly, or as a modified
 linearization. The new approach only requires the solution of a block $2\times
 2$ set of equations for each pair of stages, rather than the fully coupled
@@ -352,6 +361,19 @@ very few works have considered the true nonlinear setting for numerical PDEs
 (that is, not simplified Newton) and, to our knowledge, no works have provided
 analysis of preconditioning \eqref{eq:k0} for non-parabolic problems. This work
 addresses both of these issues.
+
+%
+\begin{remark}[Growing interest in IRK]
+While writing this paper, at least three preprints
+have been posted studying the use of IRK methods for numerical PDEs.
+Two papers develop new block preconditioning techniques for parabolic PDEs 
+\cite{jiao2020optimal,rana2020new} (\cite{jiao2020optimal} also appeals to
+the Schur decomposition as used in this paper), and one focuses on
+a numerical implementation of IRK methods with the Firedrake package
+\cite{farrell2020irksome}.
+\end{remark}
+%
+
 
 % Simplified newton scheme uses fixed Jacobian for all stages
 % Single step Newton (Cooper (83/90), Gonzales-Pinto (95/97)
@@ -540,12 +562,7 @@ complement, within the larger $2\times 2$ systems discussed in
 
 For ease of notation, in this section and \Cref{sec:theory}, we will scale
 both sides of \eqref{eq:keq} by a block diagonal operator, with diagonal
-blocks $M^{-1}$, and define
-%
-\begin{equation*}
-\widehat{\mathcal{L}}_i := \delta t M^{-1}\mathcal{L}_i,
-\end{equation*}
-%
+blocks $M^{-1}$, and define $\widehat{\mathcal{L}}_i := \delta t M^{-1}\mathcal{L}_i$,
 for $i=1,...,s$. This is not necessary, but simplifies the derivations. Note,
 such a scaling is not used when considering DAEs in \Cref{sec:dae}.
 Additionally, let $\lambda_{\pm} := \eta \pm \mathrm{i}\beta$ denote an
@@ -608,21 +625,16 @@ Diagonal blocks corresponding to real-valued eigenvalues $\eta$ take the form
 $(\eta I - \widehat{\mathcal{L}})$, and are amenable to standard preconditioning
 techniques as used, e.g., for backward Euler. While $2\times 2$ diagonal blocks
 corresponding to complex eigenvalues take the form
-%
-\begin{align}\label{eq:block}
-\begin{bmatrix} \eta I - \widehat{\mathcal{L}} & \phi I\\
--\frac{\beta^2}{\phi} I & \eta I - \widehat{\mathcal{L}}\end{bmatrix}.
-\end{align}
-%
-Effective block preconditioners for \eqref{eq:block} are developed in
+$\begin{bmatrix} \eta I - \widehat{\mathcal{L}} & \phi I\\
+-\frac{\beta^2}{\phi} I & \eta I - \widehat{\mathcal{L}}\end{bmatrix}.$
+Effective block preconditioners for such matrices are developed in
 \Cref{sec:theory}, including theory guaranteeing $\mathcal{O}(1)$
 conditioning of the preconditioned operator.
 
 %
 \begin{remark}[Real Schur decomposition]
-It should be pointed out that a real Schur decomposition is not new to
-Runge-Kutta literature, and is most notably used in the RADAU code
-by Hairer and Wanner \cite{hairer99}.
+A real Schur decomposition is not new to
+Runge-Kutta literature and is most notably used in the RADAU code \cite{hairer99}.
 The key contribution here for the simplified Newton setting is proving a
 robust and general way to precondition the resulting operators in the
 context of numerical PDEs (see \Cref{sec:theory}). Moreover, the real
@@ -853,7 +865,9 @@ operator often does not change substantially between two stages. Large changes
 in the operator between temporal stages is often an indication that the time
 step is too large to adequately resolve resolve the nonlinear behavior of the
 equations. Similar structure as discussed for the two-stage methods holds for
-other methods as well. For example, the coefficients for four-stage Gauss are
+other methods as well.
+\begin{comment}
+For example, the coefficients for four-stage Gauss are
 given by (to three digits of accuracy):
 %
 \begin{align*}
@@ -879,6 +893,7 @@ shown in bold). Moreover, not only are the off-diagonal constants
 a measure of commutivity, many of them are quite small in the first place;
 then, regardless of commutivity, ignoring such terms in the lower-triangular
 or off-diagonal blocks is a natural choice of preconditioning.
+\end{comment}
 
 Motivated by the above discussion, we consider Newton-like methods (or more
 generally some fixed-point iteration as in \eqref{eq:non_rich}) which use
@@ -896,7 +911,7 @@ three (successively more accurate) approximations to \eqref{eq:Q0approx}:
 \vspace{1ex}
 %
 \begin{enumerate}
-\setlength\itemsep{0.5em}
+\setlength\itemsep{0em}
 \item[0.] \underline{Simplified Newton:} as in \Cref{sec:nonlinear:simp}, apply a
 simplified Newton method by evaluating $\mathcal{L}$ at the same time point for
 all stages. That is, $\widetilde{P} = I \otimes \widehat{{\cal L}}_k$ for some $k$.
@@ -1286,8 +1301,8 @@ takes the form
 \mathcal{P}_\gamma &\coloneqq
 	\left[\eta I - \widehat{\mathcal{L}}_2 + \beta^2 (\eta I - \widehat{\mathcal{L}}_1)^{-1}\right]
 	(\gamma I- \widehat{\mathcal{L}}_2)^{-1} \\
-& = \left[(\eta I - \widehat{\mathcal{L}}_2)(\eta I - \widehat{\mathcal{L}}_1) + \beta^2 I\right]
-	(\eta I- \widehat{\mathcal{L}}_1)^{-1}(\gamma I- \widehat{\mathcal{L}}_2)^{-1} \nonumber\\
+% & = \left[(\eta I - \widehat{\mathcal{L}}_2)(\eta I - \widehat{\mathcal{L}}_1) + \beta^2 I\right]
+% 	(\eta I- \widehat{\mathcal{L}}_1)^{-1}(\gamma I- \widehat{\mathcal{L}}_2)^{-1} \nonumber\\
 & = \left[ (\eta^2+\beta^2) I - \eta (\widehat{\mathcal{L}}_1 + \widehat{\mathcal{L}}_2) +
 		\widehat{\mathcal{L}}_2\widehat{\mathcal{L}}_1 \right]
 		(\eta I- \widehat{\mathcal{L}}_1)^{-1}(\gamma I- \widehat{\mathcal{L}}_2)^{-1}.
@@ -1328,11 +1343,7 @@ the preconditioned operator
 in which $[(\eta I  - \cL)^2 + \beta^2 I]$ is preconditioned with $(\delta I - \cL)^{-1} (\gamma I - \cL)^{-1}$.
 %
 Let $\kappa({\cal P}_{\delta, \gamma})$ denote the two-norm condition number of ${\cal P}_{\delta,\gamma}$,
-and define $\gamma_*$ by
-\begin{align} \label{eq:gamma*_gen}
-\gamma_* \coloneqq \frac{\eta^2+\beta^2}{\delta}.
-\end{align}
-Then
+and define $\gamma_*$ by $\gamma_* \coloneqq \frac{\eta^2+\beta^2}{\delta}$. Then
 \begin{align} \label{eq:kappa_gen_gamma*_bound}
 \kappa(\mathcal{P}_{\delta, \gamma_*}) \leq \frac{1}{2 \eta} \left( \delta + \frac{\eta^2 + \beta^2}{\delta} \right).
 \end{align}
@@ -1355,7 +1366,7 @@ Furthermore, the condition number of \eqref{eq:P_gamma2} when $\gamma = \gamma_*
 \end{align}
 \end{corollary}
 \begin{proof}
-The preconditioned operator \eqref{eq:P_gamma2} is equivalent to the more general operator \eqref{eq:P_gen} analyzed in \Cref{th:cond_L1=L2} with $\delta = \eta$. Upon letting $\delta = \eta$, the value of $\gamma_*$ \eqref{eq:gamma*} follows from \eqref{eq:gamma*_gen}, and the bound on $\kappa({\cal P}_{\gamma_*})$ \eqref{eq:kappa_gamma*_L1=L2} follows from \eqref{eq:kappa_gen_gamma*_bound}.
+The preconditioned operator \eqref{eq:P_gamma2} is equivalent to the more general operator \eqref{eq:P_gen} analyzed in \Cref{th:cond_L1=L2} with $\delta = \eta$. Upon letting $\delta = \eta$, the value of $\gamma_*$ \eqref{eq:gamma*} follows by definition from \Cref{th:cond_L1=L2} and the bound on $\kappa({\cal P}_{\gamma_*})$ \eqref{eq:kappa_gamma*_L1=L2} follows from \eqref{eq:kappa_gen_gamma*_bound}.
 \end{proof}
 
 \Cref{tab:cond} provides condition number bounds from \Cref{col:cond_L1=L2} and
@@ -1479,10 +1490,11 @@ First, consider bounding $\|\mathcal{P}_\gamma\|$ for $\gamma \geq \eta$. Expand
 \eqref{eq:P_gamma},
 %
 \begin{align}\nonumber
-\|\mathcal{P}_\gamma\| & = \left\| I - (\gamma - \eta)
-	( \gamma I- \widehat{\mathcal{L}}_2)^{-1} +
-	\beta^2( \eta I- \widehat{\mathcal{L}}_1)^{-1}
-	( \gamma I -\widehat{\mathcal{L}}_2)^{-1} \right\| \\
+\|\mathcal{P}_\gamma\|
+% & = \left\| I - (\gamma - \eta)
+% 	( \gamma I- \widehat{\mathcal{L}}_2)^{-1} +
+% 	\beta^2( \eta I- \widehat{\mathcal{L}}_1)^{-1}
+% 	( \gamma I -\widehat{\mathcal{L}}_2)^{-1} \right\| \\
 % & \leq \left\| I - 2\frac{\gamma-\eta}
 % 	{\gamma}\left(I - \tfrac{1}{\gamma}\widehat{\mathcal{L}}\right)^{-1}\right\| +
 % 		\frac{\beta^2 + (\gamma-\eta)^2}{\gamma^2}\left\|
@@ -1543,14 +1555,13 @@ Combining with \eqref{eq:Pgn} yields
 
 Now consider bounding $\|\mathcal{P}_\gamma^{-1}\|$ from above. Consistent
 with \eqref{eq:kappa_def2}, we do so by considering the minimum singular value,
-$s_{\min}$,
+% $s_{\min}$,
 %
-\begin{align}\label{eq:sing_vals}
-\|\mathcal{P}_\gamma^{-1}\|
-	& = \frac{1}{s_{\min}(\mathcal{P}_\gamma)}, \hspace{5ex}\textnormal{where}\hspace{2ex}
-s_{\min}(\mathcal{P}_\gamma) =
-	\min_{\mathbf{v}\neq\mathbf{0}} \frac{\|\mathcal{P}_\gamma\mathbf{v}\|}{\|\mathbf{v}\|}.
-\end{align}
+% \begin{align}\label{eq:sing_vals}
+$\|\mathcal{P}_\gamma^{-1}\|  = \frac{1}{s_{\min}(\mathcal{P}_\gamma)}$, where
+$s_{\min}(\mathcal{P}_\gamma) = 
+\min_{\mathbf{v}\neq\mathbf{0}} \frac{\|\mathcal{P}_\gamma\mathbf{v}\|}{\|\mathbf{v}\|}.$
+% \end{align}
 %
 Letting $\mathbf{v} \mapsto (\gamma I - \widehat{\mathcal{L}}_2)
 (\eta I - \widehat{\mathcal{L}}_1)\mathbf{w}$ in the ratio $\|\mathcal{P}_\gamma\mathbf{v}\|
@@ -1577,7 +1588,7 @@ s_{\min}(\mathcal{P}_\gamma)^2
 %
 Here, we make the strategic choice of $\gamma$ such that the identity perturbation
 $(\eta^2+\beta^2 - \gamma\eta) I = \mathbf{0}$, given by $\gamma_*
-:= \tfrac{\eta^2+\beta^2}{\eta}$ \eqref{eq:gamma*_gen}. Expanding,
+:= \tfrac{\eta^2+\beta^2}{\eta}$ \eqref{eq:gamma*}. Expanding,
 %
 {\small
 \begin{align}
@@ -1707,16 +1718,15 @@ s_{\min}(\mathcal{P}_{\gamma_*})^2 &\geq 1 - \frac{\beta^2}{\eta} \cdot
 = \frac{\eta^4}{(\eta^2+\beta^2)^2}.
 \end{align}
 %
-Applying \eqref{eq:sing_vals} to \eqref{eq:smin_bound} and
-combining with \eqref{eq:Pgamma_gen} yields
+Applying $\|\mathcal{P}_\gamma^{-1}\|  = \frac{1}{s_{\min}(\mathcal{P}_\gamma)}$,
+to \eqref{eq:smin_bound} and combining with \eqref{eq:Pgamma_gen} yields
 %
 \begin{align}
 \kappa(\mathcal{P}_{\gamma_*}) = \|\mathcal{P}_{\gamma_*}\|\|\mathcal{P}_{\gamma_*}^{-1}\|
 	\leq \left(1+\frac{\eta^2}{\eta^2+\beta^2}\right)\frac{\eta^2+\beta^2}{\eta^2}
-	= 2+\frac{\beta^2}{\eta^2},
+	= 2+\frac{\beta^2}{\eta^2}.
 \end{align}
 %
-which completes the proof.
 \end{proof}
 %
 
@@ -1880,29 +1890,29 @@ the form
 \end{align}
 
 %
-If we form a $2\times 2$ Schur complement by eliminating the leading
-$2\times 2$ block with $i$ superscripts,
-%
-\begin{align}\nonumber
-S \coloneqq \begin{bmatrix} \eta M - \delta t\mathcal{L}_{u}^{(i+1)} &
-	-\delta t\mathcal{L}_{w}^{(i+1)} \\ -\delta t\mathcal{G}_{u}^{(i+1)} &
-		-\delta t\mathcal{G}_w^{(i+1)} \end{bmatrix}&
-	+ \beta^2 \begin{bmatrix} M & \mathbf{0} \\\mathbf{0} & \mathbf{0} \end{bmatrix}
-	\begin{bmatrix} \eta M - \delta t\mathcal{L}_{u}^{(i)} &
-	-\delta t\mathcal{L}_{w}^{(i)} \\ -\delta t\mathcal{G}_{u}^{(i)} &
-		-\delta t\mathcal{G}_w^{(i)} \end{bmatrix}^{-1}
-	\begin{bmatrix} M & \mathbf{0} \\\mathbf{0} & \mathbf{0} \end{bmatrix} \\
-&\hspace{-20ex}
-= \begin{bmatrix} \eta M - \delta t\mathcal{L}_{u}^{(i+1)} + \beta^2M \widehat{S}_1^{-1}M &
-	-\delta t\mathcal{L}_{w}^{(i+1)} \\ -\delta t\mathcal{G}_{u}^{(i+1)} &
-		-\delta t\mathcal{G}_w^{(i+1)} \end{bmatrix},\label{eq:dae_red}
-\end{align}
-%
-where $\widehat{S}_i$ is the (1,1) Schur complement of the leading $2\times2$
-block in \eqref{eq:dae_block}.
+% If we form a $2\times 2$ Schur complement by eliminating the leading
+% $2\times 2$ block with $i$ superscripts,
+% %
+% \begin{align}\nonumber
+% S \coloneqq \begin{bmatrix} \eta M - \delta t\mathcal{L}_{u}^{(i+1)} &
+% 	-\delta t\mathcal{L}_{w}^{(i+1)} \\ -\delta t\mathcal{G}_{u}^{(i+1)} &
+% 		-\delta t\mathcal{G}_w^{(i+1)} \end{bmatrix}&
+% 	+ \beta^2 \begin{bmatrix} M & \mathbf{0} \\\mathbf{0} & \mathbf{0} \end{bmatrix}
+% 	\begin{bmatrix} \eta M - \delta t\mathcal{L}_{u}^{(i)} &
+% 	-\delta t\mathcal{L}_{w}^{(i)} \\ -\delta t\mathcal{G}_{u}^{(i)} &
+% 		-\delta t\mathcal{G}_w^{(i)} \end{bmatrix}^{-1}
+% 	\begin{bmatrix} M & \mathbf{0} \\\mathbf{0} & \mathbf{0} \end{bmatrix} \\
+% &\hspace{-20ex}
+% = \begin{bmatrix} \eta M - \delta t\mathcal{L}_{u}^{(i+1)} + \beta^2M \widehat{S}_1^{-1}M &
+% 	-\delta t\mathcal{L}_{w}^{(i+1)} \\ -\delta t\mathcal{G}_{u}^{(i+1)} &
+% 		-\delta t\mathcal{G}_w^{(i+1)} \end{bmatrix},\label{eq:dae_red}
+% \end{align}
+% %
+% where $\widehat{S}_i$ is the (1,1) Schur complement of the leading $2\times2$
+% block in \eqref{eq:dae_block}.
 For index-1 DAEs, where the algebraic constraint can be formally eliminated from
 the problem (although it is often not practical to do so), \Cref{ass:fov}
-naturally applies to the reduced problem \eqref{eq:dae_red}. Then, the block preconditioning
+naturally applies to the reduced time-dependent problem. Then, the block preconditioning
 techniques and theory developed in \Cref{sec:theory} can be formally applied
 when the algebraic constraint is inverted to high accuracy within each
 preconditioner application. Inexact application of the constraint makes
@@ -2036,14 +2046,12 @@ The viscous stress tensor and heat flux are given by
 		\frac{\partial u_i}{\partial x_j} + \frac{\partial u_j}{\partial x_i}
 		- \frac{2}{3} \frac{\partial u_k}{\partial x_k}  \delta_{ij}
 	\right)
-	\qquad\text{and}\qquad
+	\hspace{1.5ex}\text{and}\hspace{1.5ex}
 	q_j = - \frac{\mu}{\mathrm{Pr}} \frac{\partial}{\partial x_j} \left(E + \frac{p}{\rho} - \frac{1}{2} u_k u_k \right),
 \end{equation}
 where $\mu$ is the viscosity coefficient, and $\mathrm{Pr}$ is the Prandtl number.
 We assume that the pressure $p$ is given by the equation of state
-\begin{equation} \label{eq:eos}
-    p = (\gamma - 1)\rho \left( E - \frac{1}{2} u_k u_k \right),
-\end{equation}
+$p = (\gamma - 1)\rho \left( E - \frac{1}{2} u_k u_k \right)$,
 where $\gamma = 1.4$ is the adiabatic gas constant.
 We obtain the compressible Euler equations from equations (\ref{eq:ns-1}--\ref{eq:ns-3}) by setting the viscosity coefficient $\mu = 0$.
 For the viscous problems, we introduce an additional isentropic assumption of the form $p = K \rho^\gamma,$ for a given constant $K$.
@@ -2055,25 +2063,22 @@ vortex \cite{Shu1998,Wang2013}. The spatial domain is $\Omega = [0,20] \times
 [-7.5,7.5]$. The vortex, initially centered at $(x_0, y_0)$, is advected with
 the freestream velocity at an angle of $\theta$. The exact solution for this
 problem is given analytically by
-\begin{gather}
-\label{eq:ev-exact-1}
+{\small
+\begin{align*}
    u = u_\infty \left( \cos(\theta) - \frac{\epsilon ((y-y_0)
        - \overline{v} t)}{2\pi r_c}
-       \exp\left( \frac{f(x,y,t)}{2} \right) \right),\\
-\label{eq:ev-exact-2}
+       \mathrm{e}^{\tfrac{f(x,y,t)}{2}}\right),\hspace{1ex}
+   \rho = \rho_\infty \left( 1 -
+       \frac{\epsilon^2 (\gamma - 1)M^2_\infty}{8\pi^2} \mathrm{e}^{f(x,y,t)}
+       \right)^{\frac{1}{\gamma-1}}, \\
    v = u_\infty \left( \sin(\theta) - \frac{\epsilon ((x-x_0)
        - \overline{u} t)}{2\pi r_c}
-       \exp\left( \frac{f(x,y,t)}{2} \right) \right),\\
-\label{eq:ev-exact-3}
-   \rho = \rho_\infty \left( 1 -
-       \frac{\epsilon^2 (\gamma - 1)M^2_\infty}{8\pi^2} \exp((f(x,y,t))
-       \right)^{\frac{1}{\gamma-1}}, \\
-\label{eq:ev-exact-4}
+       \mathrm{e}^{\tfrac{f(x,y,t)}{2}} \right),\hspace{1ex}
    p = p_\infty \left( 1 -
-       \frac{\epsilon^2 (\gamma - 1)M^2_\infty}{8\pi^2} \exp((f(x,y,t))
+       \frac{\epsilon^2 (\gamma - 1)M^2_\infty}{8\pi^2} \mathrm{e}^{f(x,y,t)}
        \right)^{\frac{\gamma}{\gamma-1}}.
-\end{gather}
-In the above, $f(x,y,t) = (1 - ((x-x_0) - \overline{u}t)^2 - ((y-y_0) - \overline{v}t)^2)/r_c^2$, and $M_\infty, \rho_\infty,$ and $p_\infty$ are the freestream Mach number, density, and pressure, respectively.
+\end{align*}
+}In the above, $f(x,y,t) = (1 - ((x-x_0) - \overline{u}t)^2 - ((y-y_0) - \overline{v}t)^2)/r_c^2$, and $M_\infty, \rho_\infty,$ and $p_\infty$ are the freestream Mach number, density, and pressure, respectively.
 The freestream velocity is given by $(\overline{u},\overline{v}) = u_\infty (\cos(\theta), \sin(\theta))$.
 The parameters for this test case are given by $\epsilon = 15$, $r_c = 1.5$, $M_\infty = 0.5$, $\theta = \arctan(1/2)$, $u_\infty = 1$, $\rho_\infty = 1$.
 We discretize this problem using a high-order DG method with Roe numerical fluxes.
@@ -2175,7 +2180,7 @@ improved iteration counts with this choice of $\gamma$, consistent with
 \renewcommand{\tabcolsep}{4pt}
 \begin{table}
 	\centering
-	\caption{Convergence results for Euler vortex test case. Average Krylov iterations are shown for $2 \times 2$ systems.}
+	\caption{Convergence results for Euler vortex test case. Average Krylov iterations are shown for $2 \times 2$ systems, denoted ``Kry.''.}
 	\begin{tabular}{r|cccc|cccc|cccc}
 		\toprule
 		& \multicolumn{4}{c|}{Gauss} & \multicolumn{4}{c|}{Radau} & \multicolumn{4}{c}{Lobatto}\\
@@ -2183,9 +2188,9 @@ improved iteration counts with this choice of $\gamma$, consistent with
 		\midrule
 		Newton its. & 3 & 5 & 5 & 5 & 3 & 5 & 5 & 5 & 3 & 8 & 5 & 6 \\
 		\midrule
-		\makecell[r]{Krylov its.\\($\gamma = \eta$)}
-		& 7.7 & 12.6 & 12.5 & 14.9 & 9.0 & 16.8 & 15.5 & 20.6 & 13.7 & 24.4 & 25.3 & 35.2 \\[12pt]
-		\makecell[r]{Krylov its.\\($\gamma = \gamma_*$)}
+		\makecell[r]{Kry. ($\gamma = \eta$)}
+		& 7.7 & 12.6 & 12.5 & 14.9 & 9.0 & 16.8 & 15.5 & 20.6 & 13.7 & 24.4 & 25.3 & 35.2 \\
+		\makecell[r]{Kry. ($\gamma = \gamma_*$)}
 		& 6.0 & 8.4 & 8.1 & 7.6 & 7.3 & 10.2 & 8.4 & 9.3 & 11.0 & 12.0 & 10.5 & 11.2 \\
 		\bottomrule
 	\end{tabular}
@@ -2198,8 +2203,9 @@ improved iteration counts with this choice of $\gamma$, consistent with
 \begin{figure}
 	\centering
 	\setlength{\fboxsep}{0pt}
-	\fbox{\includegraphics[width=3in]{figures/naca_vorticity}}
+	\fbox{\includegraphics[width=2in]{figures/naca_vorticity}}
 	\caption{Snapshot of vorticity for Reynolds 40{,}000 flow over NACA airfoil.}
+	\vspace{-4ex}
 \end{figure}
 
 As a more challenging test case, we consider the Reynolds number 40{,}000 flow
@@ -2284,13 +2290,13 @@ Solvers 1, 2, and 3 is typically less significant.
 
 \begin{figure}
 	\centering
-	\includegraphics[width=0.65\linewidth]{figures/barchart/gauss4}
-
-	\vspace{\floatsep}
-
-	\includegraphics[width=0.65\linewidth]{figures/barchart/radau3}
+	\includegraphics[width=0.495\linewidth]{figures/barchart/gauss4}
+	% \vspace{\floatsep}
+	\includegraphics[width=0.495\linewidth]{figures/barchart/radau3}
+	\includegraphics[width=0.45\linewidth]{figures/barchart/label}
 	\caption{Performance for four solver configurations on the NACA test case with $\delta t = 2 \times 10^{-2}.$}
 	\label{fig:naca-nonlin-solvers}
+	\vspace{-4ex}
 \end{figure}
 
 % ------------------------------------------------------------------------------------- %
@@ -2298,26 +2304,25 @@ Solvers 1, 2, and 3 is typically less significant.
 \subsection{Incompressible Euler \& Navier--Stokes in vorticity-streamfunction form}
 \label{sec:numerics:khi}
 
-As an example of an index-1 DAE, we consider the vorticity-streamfunction formulation of the 2D incompressible Euler equations \cite{Liu2000}.
-The equations are given by
+As an example of an index-1 DAE, we consider the vorticity-streamfunction formulation of the 2D incompressible Euler equations \cite{Liu2000}, given by
 \begin{align}
 	\label{eq:ins-1}
-	\frac{\partial\omega}{\partial t} + \nabla\cdot(\bm{u} \omega) &= 0, \\
-	\label{eq:ins-2}
-	\Delta \psi &= \omega,
+	\frac{\partial\omega}{\partial t} + \nabla\cdot(\bm{u} \omega) &= 0, 
+	\hspace{3ex}\textnormal{and}
+	\hspace{3ex}
+	\Delta \psi = \omega,
 \end{align}
 where the velocity $\bm u$ is defined by $\bm u = \nabla^\perp \psi$, for $\nabla^\perp = (-\partial_y, \partial_x)$.
 Here, $\omega$ is the vorticity, and $\psi$ is a scalar field known as the streamfunction, which is used to naturally enforce the divergence-free constraint on the velocity.
-Note that this formulation can be easily extended to the 2D incompressible Navier--Stokes equations with the addition of a viscosity term, replacing equation \eqref{eq:ins-1} with
-\begin{equation} \label{eq:ins-3}
-	\frac{\partial\omega}{\partial t} + \nabla\cdot(\bm{u} \omega) = \frac{1}{\rm Re} \Delta \omega,
-\end{equation}
+Note that this formulation can be easily extended to the 2D incompressible Navier--Stokes equations with the addition of a viscosity term, replacing left left-hand term of equation \eqref{eq:ins-1} with
+$\frac{\partial\omega}{\partial t} + \nabla\cdot(\bm{u} \omega) = \frac{1}{\rm Re} \Delta \omega$,
 where $\rm Re$ is the Reynolds number.
-For a fixed velocity $\bm u$, equation \eqref{eq:ins-1} is a scalar advection equation for $\omega$, which we discretize using an upwind discontinuous Galerkin method.
+For a fixed velocity $\bm u$, the left-hand term in equation \eqref{eq:ins-1} is a scalar advection equation for $\omega$, which we discretize using an upwind discontinuous Galerkin method.
 If the streamfunction $\psi$ is in $H^1$, then the velocity $\bm u = \nabla^\perp \psi$ is automatically continuous across element interfaces, and therefore the standard upwind numerical flux is well-defined.
-We therefore discretize \eqref{eq:ins-2} using a standard $H^1$-conforming finite element method.
+We therefore discretize $\Delta \psi$ using a standard $H^1$-conforming finite element method.
 Equal-order finite element spaces are chosen for $\omega$ and $\psi$.
-In the case of the Navier--Stokes equations, we discretize the viscous term on the right-hand side of \eqref{eq:ins-3} using a standard interior penalty DG method \cite{Arnold1982}.
+In the case of the Navier--Stokes equations, we discretize the viscous term added to the right-hand side,
+$\tfrac{1}{\rm Re} \Delta \omega$, using a standard interior penalty DG method \cite{Arnold1982}.
 
 After performing the discretization, this system of equations can be written as
 \begin{equation}
@@ -2369,7 +2374,7 @@ An alternative preconditioner is obtained by noticing that this system can be re
 	=
 	\begin{bmatrix} \mathbf{f}_i \\ \mathbf{f}_{i+1} \\ \mathbf{g}_i \\ \mathbf{g}_{i+1} \end{bmatrix}.
 \end{align}
-This block-triangular system can be solved using a forward-substitution algorithm, first solving the leading $2\times2$ block for the time-dependent variables, and then solving two (independent) Poisson problems for the algebraic constraints (i.e.\ the streamfunctions).
+This block-triangular system can be solved using forward-substitution, first solving the leading $2\times2$ block for the time-dependent variables, and then solving two (independent) Poisson problems for the algebraic constraints (i.e.\ the streamfunctions).
 
 Each of these approaches require preconditioning/inverting the diagonal blocks
 in \eqref{eq:vsf-system-1}/\eqref{eq:vsf-system-2}. Poisson problems are solved
@@ -2386,7 +2391,7 @@ are solved to relative residual tolerance of $10^{-9}$, typically yielding an
 absolute tolerance $\sim\mathcal{O}(10^{-12})$.
 
 \begin{figure}
-	\def\dslfigwidth{1.75in}
+	\def\dslfigwidth{1.1in}
 	\centering
 	\setlength{\fboxsep}{0pt}
 	\begin{minipage}{\dslfigwidth}
@@ -2394,29 +2399,28 @@ absolute tolerance $\sim\mathcal{O}(10^{-12})$.
 		\fbox{\includegraphics[width=0.99\linewidth]{figures/dsl_0000}}\\
 		$t=0$
 	\end{minipage}
-	\hspace{0.5in}
+	\hspace{0.1in}
 	\begin{minipage}{\dslfigwidth}
 		\centering
 		\fbox{\includegraphics[width=0.99\linewidth]{figures/dsl_0250}}\\
 		$t=5$
 	\end{minipage}
-
-	\vspace{\floatsep}
-
+	% \vspace{\floatsep}
+	\hspace{0.1in}
 	\begin{minipage}{\dslfigwidth}
 		\centering
 		\fbox{\includegraphics[width=0.99\linewidth]{figures/dsl_0500}}\\
 		$t=10$
 	\end{minipage}
-	\hspace{0.5in}
+	\hspace{0.1in}
 	\begin{minipage}{\dslfigwidth}
 		\centering
 		\fbox{\includegraphics[width=0.99\linewidth]{figures/dsl_0750}}\\
 		$t=15$
 	\end{minipage}
-
 	\caption{Time evolution of vorticity for the double shear layer problem.}
 	\label{fig:dsl}
+	\vspace{-4ex}
 \end{figure}
 
 To study the effectiveness of these preconditioners, we consider the double
@@ -2754,14 +2758,14 @@ standard 4th-order SDIRK.
 
 %------------------------------------------------------------------------------
 \section*{Acknowledgments}
-
+{\small
 This work was performed under the auspices of the U.S.\ Department of Energy by Lawrence Livermore National Laboratory under Contract DE-AC52-07NA27344 (LLNL-JRNL-817953).
 Los Alamos National Laboratory report number LA-UR-20-30412.
 This document was prepared as an account of work sponsored by an agency of the United States government.
 Neither the United States government nor Lawrence Livermore National Security, LLC, nor any of their employees makes any warranty, expressed or implied, or assumes any legal liability or responsibility for the accuracy, completeness, or usefulness of any information, apparatus, product, or process disclosed, or represents that its use would not infringe privately owned rights.
 Reference herein to any specific commercial product, process, or service by trade name, trademark, manufacturer, or otherwise does not necessarily constitute or imply its endorsement, recommendation, or favoring by the United States government or Lawrence Livermore National Security, LLC.
 The views and opinions of authors expressed herein do not necessarily state or reflect those of the United States government or Lawrence Livermore National Security, LLC, and shall not be used for advertising or product endorsement purposes.
-
+}
 
 % % ------------------------------------------------------------------------------------- %
 % % ------------------------------------------------------------------------------------- %
@@ -2843,7 +2847,7 @@ The views and opinions of authors expressed herein do not necessarily state or r
 
 % ------------------------------------------------------------------------------- %
 \bibliographystyle{siamplain}
-\bibliography{refs2.bib}
+\bibliography{refs2_nodoi.bib}
 
 
 \end{document}

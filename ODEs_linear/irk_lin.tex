@@ -1,4 +1,5 @@
 \documentclass[a4paper,10pt]{article}
+\usepackage[margin=1.5in]{geometry}
 % \documentclass[review]{siamart}
 \usepackage{url}
 \usepackage{amssymb}
@@ -43,6 +44,7 @@
 \newtheorem{definition}{Definition}
 \newtheorem{theorem}{Theorem}
 \newtheorem{corollary}{Corollary}
+\crefname{assumption}{Assumption}{Assumptions}
 
 \newcommand{\tcb}{\textcolor{blue}}
 \newcommand{\tcp}{\textcolor{purple}}
@@ -63,7 +65,7 @@
 \newcommand{\TheTitle}{Fast parallel solution of fully implicit Runge-Kutta and discontinuous
 	Galerkin in time for numerical PDEs, Part I: the linear setting}
 \newcommand{\TheAuthors}{B.S. Southworth, O.A. Krzysik, W. Pazner, and H. De Sterck}
-% \headers{Parallel solution of fully implict Runge-Kutta and DG in time I}{\TheAuthors}
+% \headers{Parallel solution of fully implicit Runge-Kutta I}{\TheAuthors}
 \title{{\TheTitle}\thanks{BSS was supported by Lawrence Livermore National 
       Laboratory under contract B639443, and as a Nicholas C. Metropolis Fellow
       under the Laboratory Directed Research and Development program of Los
@@ -363,6 +365,16 @@ very little has been done in the development and analysis of preconditioning tec
 for non-parabolic problems/non-SPD spatial operators, particularly methods that are
 amenable to combine with existing fast, parallel preconditioners. Addressing each
 of these challenges for linear PDEs is the focus of this work.
+
+%
+\begin{remark}[Growing interest in IRK]
+It is worth pointing out that while writing this paper, at least three preprints
+have been posted online studying the use of IRK methods for numerical PDEs.
+Two papers develop new block preconditioning techniques for parabolic PDEs
+\cite{jiao2020optimal,rana2020new}, and one focuses on a high-level numerical
+implementation of IRK methods with the Firedrake package \cite{farrell2020irksome}.
+\end{remark}
+%
 
 % ------------------------------------------------------------------------------------- %
 % ------------------------------------------------------------------------------------- %
@@ -1691,7 +1703,7 @@ The relative $L^2$ error, obtained by comparing against the exact solution, is s
 
 \begin{figure}[!ht]
 	\centering
-	\includegraphics{figures/high_order_diff_error_plot/ho_diff_errors}
+	\includegraphics{./figures/high_order_diff_error_plot/ho_diff_errors.pdf}
 	\caption{
 		High-order convergence in space and time for the matrix-free diffusion problem.
 		Gauss and Radau IIA methods of orders 2 through 10 are used.
@@ -1713,7 +1725,7 @@ In addition, for this test case, the total number of preconditioner applications
 
 \begin{figure}[!ht]
 	\centering
-	\includegraphics{figures/high_order_diff_iters/high_order_diff_iters}
+	\includegraphics{./figures/high_order_diff_iters/high_order_diff_iters.pdf}
 	\caption{
 		Comparison of total number of preconditioner applications with and without
 		inner iterations.
