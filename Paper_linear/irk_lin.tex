@@ -1,6 +1,6 @@
-\documentclass[a4paper,10pt]{article}
-\usepackage[margin=1.5in]{geometry}
-% \documentclass[review]{siamart}
+% \documentclass[a4paper,10pt]{article}
+% \usepackage[margin=1.5in]{geometry}
+\documentclass[review]{siamart}
 \usepackage{url}
 \usepackage{amssymb}
 \usepackage{amsmath}
@@ -31,20 +31,20 @@
 
 % FOR SIAM
 %	--> Make sure to uncomment \headers{ . } in title
-% \newsiamremark{remark}{Remark}
-% \newsiamremark{assumption}{Assumption}
-% \crefname{assumption}{Assumption}{Assumptions}
+\newsiamremark{remark}{Remark}
+\newsiamremark{assumption}{Assumption}
+\crefname{assumption}{Assumption}{Assumptions}
 
 % FOR NO SIAM TEMPLATE
 %	--> Make sure to comment \headers{ . } in title
-\usepackage{amsthm}
-\newtheorem{lemma}{Lemma}
-\newtheorem{remark}{Remark}
-\newtheorem{assumption}{Assumption}
-\newtheorem{definition}{Definition}
-\newtheorem{theorem}{Theorem}
-\newtheorem{corollary}{Corollary}
-\crefname{assumption}{Assumption}{Assumptions}
+% \usepackage{amsthm}
+% \newtheorem{lemma}{Lemma}
+% \newtheorem{remark}{Remark}
+% \newtheorem{assumption}{Assumption}
+% \newtheorem{definition}{Definition}
+% \newtheorem{theorem}{Theorem}
+% \newtheorem{corollary}{Corollary}
+% \crefname{assumption}{Assumption}{Assumptions}
 
 \newcommand{\tcb}{\textcolor{blue}}
 \newcommand{\tcp}{\textcolor{purple}}
@@ -65,7 +65,7 @@
 \newcommand{\TheTitle}{Fast parallel solution of fully implicit Runge-Kutta and discontinuous
 	Galerkin in time for numerical PDEs, Part I: the linear setting}
 \newcommand{\TheAuthors}{B.S. Southworth, O.A. Krzysik, W. Pazner, and H. De Sterck}
-% \headers{Parallel solution of fully implicit Runge-Kutta I}{\TheAuthors}
+\headers{Parallel solution of fully implicit Runge-Kutta I}{\TheAuthors}
 \title{{\TheTitle}\thanks{BSS was supported by Lawrence Livermore National 
       Laboratory under contract B639443, and as a Nicholas C. Metropolis Fellow
       under the Laboratory Directed Research and Development program of Los
