@@ -26,7 +26,7 @@ void KronTransform(const DenseMatrix &A, const BlockVector &x, BlockVector &y)
     }
 };
 
-/// Kronecker transform between two block vectors using A transpose: y <- (A^\top \otimes I)*x
+/// Kronecker transform between two block vectors using A transpose: y <- (A^T \otimes I)*x
 void KronTransformTranspose(const DenseMatrix &A, const BlockVector &x, BlockVector &y)
 {
     for (int block = 0; block < A.Width(); block++) {
@@ -39,6 +39,42 @@ void KronTransformTranspose(const DenseMatrix &A, const BlockVector &x, BlockVec
         }
         for (int i = 1; i < A.Height(); i++) {
             if (fabs(A(i,block)) > 0.) y.GetBlock(block).Add(A(i,block), x.GetBlock(i));
+        }
+    }
+};
+
+/// Kronecker transform in place: x <- (A \otimes I)*x
+void KronTransform(const DenseMatrix &A, BlockVector &x)
+{
+    BlockVector y(x);
+    for (int block = 0; block < A.Height(); block++) {
+        int j = 0;
+        if (fabs(A(block,j)) > 0.) {
+            x.GetBlock(block).Set(A(block,j), y.GetBlock(j));
+        }
+        else {
+            x.GetBlock(block) = 0.;
+        }
+        for (int j = 1; j < A.Width(); j++) {
+            if (fabs(A(block,j)) > 0.) x.GetBlock(block).Add(A(block,j), y.GetBlock(j));
+        }
+    }
+};
+
+/// Kronecker transform using A transpose in place: x <- (A^T \otimes I)*x
+void KronTransformTranspose(const DenseMatrix &A, BlockVector &x)
+{
+    BlockVector y(x);
+    for (int block = 0; block < A.Width(); block++) {
+        int i = 0;
+        if (fabs(A(i,block)) > 0.) {
+            x.GetBlock(block).Set(A(i,block), y.GetBlock(i));
+        }
+        else {
+            x.GetBlock(block) = 0.;
+        }
+        for (int i = 1; i < A.Height(); i++) {
+            if (fabs(A(i,block)) > 0.) x.GetBlock(block).Add(A(i,block), y.GetBlock(i));
         }
     }
 };
@@ -160,8 +196,7 @@ inline void IRKOperator::AddExplicitGradientsMult(double c1, const Vector &weigh
 // -------------------------------------------------------------------- //
 // -------------------------------------------------------------------- //
 
-inline void IRKStageOper::SetParameters(const Vector * u_,
-    double t_, double dt_)
+inline void IRKStageOper::SetParameters(const Vector *u_, double t_, double dt_)
 { 
     t = t_;
     dt = dt_;

@@ -22,6 +22,19 @@ class PolyIMEX : public IRK
 {
 private:
 
+    Array< Vector*> fExplicit;  // Array of vectors of size s+1
+    
+
+    BlockVector sol_imp;        // Block vector with s+1 blocks for implicit solution
+    Vector      sol_exp;        // Block vector with s+1 blocks for explicit solution
+    int exp_ind;
+    double alpha;
+
+    BlockVector rhs_imp;            // Block vector with s blocks for implicit rhs
+    
+    Vector rhs_exp;                 // Vector for explicit rhs
+    bool initialized;
+    bool linearly_imp;           // Linearly implicit
 
 public:
     PolyIMEX(IRKOperator *IRKOper_, const RKData &ButcherTableau, int IMEX_=2);

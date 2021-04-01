@@ -13,11 +13,26 @@
 using namespace mfem;
 using namespace std;
 
+
+// TODO : Check function definitions. The obvious definition to me is
+// having ExplicitMult() apply the explicit splitting, and  likewise for
+// ImplicitMult() and the implicit splitting. Right now in the code
+// though, we have ImplicitMult() applies a mass matrix and
+// ExplicitMult() applies the operator that we are solving implicitly.
+
+
+
 /// Kronecker transform between two block vectors: y <- (A \otimes I)*x
 void KronTransform(const DenseMatrix &A, const BlockVector &x, BlockVector &y);
 
+/// Kronecker transform in place: x <- (A \otimes I)*x
+void KronTransform(const DenseMatrix &A, BlockVector &x);
+
 /// Kronecker transform between two block vectors using A transpose: y <- (A^\top \otimes I)*x
 void KronTransformTranspose(const DenseMatrix &A, const BlockVector &x, BlockVector &y);
+
+/// Kronecker transform using A transpose in place: x <- (A^T \otimes I)*x
+void KronTransformTranspose(const DenseMatrix &A, BlockVector &x);
 
 
 /** Class for spatial discretizations of a PDE resulting in the time-dependent, 
@@ -69,6 +84,9 @@ public:
     /// Apply action of M*du/dt, y <- L(x,y) 
     virtual void ExplicitMult(const Vector &x, Vector &y) const = 0;
 
+    /// Apply action of explicit splitting of operator for PolyIMEX methods.
+    virtual void ExplicitSplitMult(const Vector &x, Vector &y) const;
+
     /** Apply preconditioner set with previous call to SetPreconditioner()
         If not re-implemented, this method simply generates an error. */    
     virtual void ImplicitPrec(const Vector &x, Vector &y) const;
@@ -115,7 +133,16 @@ public:
             {N'} == {N'(u + dt*x[i], this->GetTime() + dt*c[i])}, i=0,...,s-1.
         Such that they are referenceable with ExplicitGradientMult() and 
         SetPreconditioner().
-        If not re-implemented, this method simply generates an error. */
+        If not re-implemented, this method simply generates an error.'
+
+        This function is called from TriJacSolver.SetOperator, which is
+        called within each Newton iteration, with the updated nonlinear
+        iterate.
+
+        IMPT: for PolyIMEX methods, set explicit gradients 
+            {N'} == {N'(x[i], this->GetTime() + dt*c[i])}, i=0,...,s-1
+        that is, directly linearize about x rather than u+dt*x. 
+        */
     virtual void SetExplicitGradients(const Vector &u, double dt, 
                                       const BlockVector &x, const Vector &c);
 
@@ -231,13 +258,13 @@ private:
     // Jacobian solver need access
     friend class TriJacSolver;     
     
-    Array<int> &offsets;            // Offsets of operator     
+    Array<int>& offsets;            // Offsets of operator     
     
-    mutable IRKOperator * IRKOper;  // Spatial discretization
-    const RKData &Butcher;          // All RK information
+    mutable IRKOperator* IRKOper;  // Spatial discretization
+    const RKData& Butcher;          // All RK information
     
     // Parameters that operator depends on
-    const Vector * u;             // Current state.
+    const Vector* u;             // Current state.
     double t;                     // Current time of state.
     double dt;                    // Current time step
     
@@ -248,7 +275,7 @@ private:
     mutable BlockVector temp_block;
     mutable Vector temp_scalar1, temp_scalar2;    
     
-    Operator * dummy_gradient; 
+    Operator* dummy_gradient; 
     
     // Current iterate that true Jacobian would linearize with (this is passed 
     // into GetGradient())
