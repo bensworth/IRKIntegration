@@ -82,48 +82,65 @@ void KronTransformTranspose(const DenseMatrix &A, BlockVector &x)
 // -------------------------------------------------------------------- //
 // -------------------------------------------------------------------- //
 
-IRKOperator::IRKOperator(MPI_Comm comm, int n=0, double t=0.0, Type type=EXPLICIT, 
-            ExplicitGradients ex_gradients=EXACT) 
-    : TimeDependentOperator(n, t, type), 
-        m_comm(comm), m_gradients(ex_gradients), temp(n)
+IRKOperator::IRKOperator(MPI_Comm comm, bool linearly_imp, int n,
+    double t, Type type, ExplicitGradients ex_gradients) 
+    : TimeDependentOperator(n, t, type), m_comm(comm),
+    m_gradients(ex_gradients), temp(n), m_linearly_imp(linearly_imp)
 {
+    if (m_linearly_imp) m_gradients = APPROXIMATE;
+};
 
-}
-
-virtual void IRKOperator::ImplicitPrec(const Vector &x, Vector &y) const 
-{
-    mfem_error("IRKOperator::ImplicitPrec() is not overridden!");
-}
-
-virtual void IRKOperator::ImplicitPrec(int index, const Vector &x, Vector &y) const 
+void IRKOperator::ImplicitPrec(const Vector &x, Vector &y) const 
 {
     mfem_error("IRKOperator::ImplicitPrec() is not overridden!");
 }
 
-virtual void IRKOperator::ImplicitMult(const Vector &x, Vector &y) const
+void IRKOperator::ImplicitPrec(int index, const Vector &x, Vector &y) const 
 {
-    mfem_error("IRKOperator::ImplicitMult() is not overridden!");
+    mfem_error("IRKOperator::ImplicitPrec() is not overridden!");
 }
 
-virtual void IRKOperator::SetExplicitGradient(const Vector &u, double dt, 
+void IRKOperator::MassMult(const Vector &x, Vector &y) const
+{
+    mfem_error("IRKOperator::MassMult() is not overridden!");
+}
+
+void IRKOperator::SetExplicitGradient(const Vector &u, double dt, 
                                  const BlockVector &x, const Vector &c)
 {
     MFEM_ASSERT(m_gradients == ExplicitGradients::APPROXIMATE, 
                 "IRKOperator::SetExplicitGradient() applies only for \
                 ExplicitGradients::APPROXIMATE");
-    mfem_error("IRKOperator::SetExplicitGradient() is not overridden!");
+    mfem_error("IRKOperator::SetExplicitGradient() is not overridden \
+                for IRK methods!");
 }
 
-virtual void IRKOperator::ExplicitGradientMult(const Vector &x, Vector &y) const
+void IRKOperator::SetExplicitGradient(double dt, 
+                                 const BlockVector &x, const Vector &c)
+{
+    MFEM_ASSERT(m_gradients == ExplicitGradients::APPROXIMATE, 
+                "IRKOperator::SetExplicitGradient() applies only for \
+                ExplicitGradients::APPROXIMATE");
+    mfem_error("IRKOperator::SetExplicitGradient() is not overridden \
+                for PolyIMEX methods!");
+}
+
+void IRKOperator::ExplicitGradientMult(const Vector &x, Vector &y) const
 {
     MFEM_ASSERT(m_gradients == ExplicitGradients::APPROXIMATE, 
                 "IRKOperator::ExplicitGradientMult() applies only for \
                 ExplicitGradients::APPROXIMATE");
     
-    mfem_error("IRKOperator::ExplicitGradientMult() is not overridden!");
+    // For linearly implicit operators, apply linear operator directly
+    if (m_linearly_imp) {
+        this->ImplicitMult(x,y);
+    }
+    else {
+        mfem_error("IRKOperator::ExplicitGradientMult() is not overridden!");
+    }
 }
 
-virtual void IRKOperator::SetPreconditioner(int index, double dt, double gamma, int type) 
+void IRKOperator::SetPreconditioner(int index, double dt, double gamma, int type) 
 {
     MFEM_ASSERT(m_gradients == ExplicitGradients::APPROXIMATE, 
                 "IRKOperator::SetExplicitGradient() applies only for \
@@ -131,16 +148,27 @@ virtual void IRKOperator::SetPreconditioner(int index, double dt, double gamma, 
     mfem_error("IRKOperator::SetPreconditioner() is not overridden!");
 }
     
-virtual void IRKOperator::SetExplicitGradients(const Vector &u, double dt, 
+void IRKOperator::SetExplicitGradients(const Vector &u, double dt, 
                                   const BlockVector &x, const Vector &c)
 {
     MFEM_ASSERT(m_gradients == ExplicitGradients::EXACT, 
                 "IRKOperator::SetExplicitGradients() applies only for \
                 ExplicitGradients::EXACT");
-    mfem_error("IRKOperator::SetExplicitGradients() is not overridden!");
+    mfem_error("IRKOperator::SetExplicitGradients() is not overridden \
+                for IRK methods!");
 }
 
-virtual void IRKOperator::ExplicitGradientMult(int index, const Vector &x, Vector &y) const
+void IRKOperator::SetExplicitGradients(double dt, 
+                                  const BlockVector &x, const Vector &c)
+{
+    MFEM_ASSERT(m_gradients == ExplicitGradients::EXACT, 
+                "IRKOperator::SetExplicitGradients() applies only for \
+                ExplicitGradients::EXACT");
+    mfem_error("IRKOperator::SetExplicitGradients() is not overridden \
+                for PolyIMEX methods!");
+}
+
+void IRKOperator::ExplicitGradientMult(int index, const Vector &x, Vector &y) const
 {
     MFEM_ASSERT(m_gradients == ExplicitGradients::EXACT, 
                 "IRKOperator::ExplicitGradientMult() applies only for \
@@ -148,7 +176,7 @@ virtual void IRKOperator::ExplicitGradientMult(int index, const Vector &x, Vecto
     mfem_error("IRKOperator::ExplicitGradientMult() is not overridden!");
 }
 
-virtual void IRKOperator::SetPreconditioner(int index, double dt, double gamma, Vector weights) 
+void IRKOperator::SetPreconditioner(int index, double dt, double gamma, Vector weights) 
 {
     mfem_error("IRKOperator::SetPreconditioner() is not overridden!");
 }
@@ -204,7 +232,7 @@ inline void IRKStageOper::SetParameters(const Vector *u_, double t_, double dt_)
     getGradientCalls = 0; // Reset counter
 };
 
-inline virtual Operator& IRKStageOper::GetGradient(const Vector &w) const
+inline Operator& IRKStageOper::GetGradient(const Vector &w) const
 {
     // Update `current_iterate` so that its data points to the current iterate's
     current_iterate.Update(w.GetData(), offsets);
@@ -216,20 +244,20 @@ inline virtual Operator& IRKStageOper::GetGradient(const Vector &w) const
     return *dummy_gradient;
 }
 
-inline void IRKStageOper::Mult(const Vector &w_scalar, Vector &y_scalar) const
+inline void IRKStageOper::Mult(const Vector &w_vector, Vector &y_vector) const
 {
     MFEM_ASSERT(u, "IRKStageOper::Mult() Requires states to be set, see SetParameters()");
     
     // Wrap scalar Vectors with BlockVectors
-    w_block.Update(w_scalar.GetData(), offsets);
-    y_block.Update(y_scalar.GetData(), offsets);
+    w_block.Update(w_vector.GetData(), offsets);
+    y_block.Update(y_vector.GetData(), offsets);
     
     /* y <- inv(A0)*M*w */
     // MASS MATRIX
     if (IRKOper->isImplicit()) {
         // temp <- M*w
         for (int i = 0; i < Butcher.s; i++) {
-            IRKOper->ImplicitMult(w_block.GetBlock(i), temp_block.GetBlock(i));
+            IRKOper->MassMult(w_block.GetBlock(i), temp_block.GetBlock(i));
         }
         KronTransform(Butcher.invA0, temp_block, y_block); // y <- inv(A0)*temp
     // NO MASS MATRIX
@@ -240,11 +268,11 @@ inline void IRKStageOper::Mult(const Vector &w_scalar, Vector &y_scalar) const
     
     /* y <- y - N(u + dt*w) */
     for (int i = 0; i < Butcher.s; i++) {        
-        add(*u, dt, w_block.GetBlock(i), temp_scalar1); // temp1 <- u+dt*w(i)
+        add(*u, dt, w_block.GetBlock(i), temp_vector1); // temp1 <- u+dt*w(i)
         IRKOper->SetTime(t + Butcher.c0[i]*dt);
-        IRKOper->ExplicitMult(temp_scalar1, temp_scalar2); // temp2 <- N(temp1, t)
-        y_block.GetBlock(i).Add(-1., temp_scalar2);
-    } 
+        IRKOper->ImplicitMult(temp_vector1, temp_vector2); // temp2 <- N(temp1, t)
+        y_block.GetBlock(i).Add(-1., temp_vector2);
+    }
 }
 
 // -------------------------------------------------------------------- //
@@ -344,7 +372,7 @@ inline void QuasiMatrixProduct::TruncateOffDiags()
 JacDiagBlock::JacDiagBlock(const Array<int> &offsets_,
     const IRKOperator &IRKOper_, double R00_) 
     : BlockOperator(offsets_), size(1), IRKOper(IRKOper_), offsets(offsets_), 
-    dt(0.0), temp_scalar(IRKOper_.Height()), R00(R00_)
+    dt(0.0), temp_vector(IRKOper_.Height()), R00(R00_)
 {
     MFEM_ASSERT(IRKOper.GetExplicitGradientsType() ==
         IRKOperator::ExplicitGradients::APPROXIMATE,
@@ -355,7 +383,7 @@ JacDiagBlock::JacDiagBlock(const Array<int> &offsets_,
 JacDiagBlock::JacDiagBlock(const Array<int> &offsets_,
     const IRKOperator &IRKOper_, double R00_, Vector Z00_) 
     : BlockOperator(offsets_), size(1), IRKOper(IRKOper_), offsets(offsets_),
-    dt(0.0), temp_scalar(IRKOper_.Height()), R00(R00_), Z00(Z00_)
+    dt(0.0), temp_vector(IRKOper_.Height()), R00(R00_), Z00(Z00_)
 {
     MFEM_ASSERT(IRKOper.GetExplicitGradientsType() ==
         IRKOperator::ExplicitGradients::EXACT,
@@ -368,7 +396,7 @@ JacDiagBlock::JacDiagBlock(const Array<int> &offsets_,
     double R10_, double R11_)
     : BlockOperator(offsets_),
     size(2), IRKOper(IRKOper_), offsets(offsets_), dt(0.0),
-    temp_scalar(IRKOper_.Height()), R00(R00_), R01(R01_), R10(R10_), R11(R11_)
+    temp_vector(IRKOper_.Height()), R00(R00_), R01(R01_), R10(R10_), R11(R11_)
 {
     MFEM_ASSERT(IRKOper.GetExplicitGradientsType() ==
         IRKOperator::ExplicitGradients::APPROXIMATE,
@@ -381,7 +409,7 @@ JacDiagBlock::JacDiagBlock(const Array<int> &offsets_,
     double R10_, double R11_, 
     Vector Z00_, Vector Z01_, Vector Z10_, Vector Z11_) 
     : BlockOperator(offsets_), size(2), IRKOper(IRKOper_),
-    offsets(offsets_), dt(0.0), temp_scalar(IRKOper_.Height()),
+    offsets(offsets_), dt(0.0), temp_vector(IRKOper_.Height()),
     R00(R00_), R01(R01_), R10(R10_), R11(R11_), 
     Z00(Z00_), Z01(Z01_), Z10(Z10_), Z11(Z11_) 
 {
@@ -405,8 +433,8 @@ inline void JacDiagBlock::Mult(const Vector &x, Vector &y) const
             
             // MASS MATRIX    
             if (IRKOper.isImplicit()) {
-                IRKOper.ImplicitMult(x, temp_scalar);
-                y.Add(R00, temp_scalar);
+                IRKOper.MassMult(x, temp_vector);
+                y.Add(R00, temp_vector);
             // NO MASS MATRIX    
             }
             else {
@@ -433,13 +461,13 @@ inline void JacDiagBlock::Mult(const Vector &x, Vector &y) const
                 // MASS MATRIX
                 if (IRKOper.isImplicit()) {
                     // M*x(0) dependence
-                    IRKOper.ImplicitMult(x_block.GetBlock(0), temp_scalar);
-                    y_block.GetBlock(0).Add(R00, temp_scalar);
-                    y_block.GetBlock(1).Add(R10, temp_scalar);
+                    IRKOper.MassMult(x_block.GetBlock(0), temp_vector);
+                    y_block.GetBlock(0).Add(R00, temp_vector);
+                    y_block.GetBlock(1).Add(R10, temp_vector);
                     // M*x(1) dependence
-                    IRKOper.ImplicitMult(x_block.GetBlock(1), temp_scalar);
-                    y_block.GetBlock(0).Add(R01, temp_scalar);
-                    y_block.GetBlock(1).Add(R11, temp_scalar);
+                    IRKOper.MassMult(x_block.GetBlock(1), temp_vector);
+                    y_block.GetBlock(0).Add(R01, temp_vector);
+                    y_block.GetBlock(1).Add(R11, temp_vector);
                 
                 // NO MASS MATRIX    
                 }
@@ -463,8 +491,8 @@ inline void JacDiagBlock::Mult(const Vector &x, Vector &y) const
                 
                 // MASS MATRIX    
                 if (IRKOper.isImplicit()) {
-                    IRKOper.ImplicitMult(x, temp_scalar);
-                    y.Add(R00, temp_scalar);
+                    IRKOper.MassMult(x, temp_vector);
+                    y.Add(R00, temp_vector);
                 // NO MASS MATRIX    
                 }
                 else {
@@ -489,9 +517,9 @@ inline void JacDiagBlock::Mult(const Vector &x, Vector &y) const
                                                 y_block.GetBlock(0), y_block.GetBlock(1));
                 // MASS MATRIX
                 if (IRKOper.isImplicit()) {
-                    IRKOper.ImplicitMult(x_block.GetBlock(0), temp_scalar);
-                    y_block.GetBlock(0).Add(R00, temp_scalar);
-                    y_block.GetBlock(1).Add(R10, temp_scalar);
+                    IRKOper.MassMult(x_block.GetBlock(0), temp_vector);
+                    y_block.GetBlock(0).Add(R00, temp_vector);
+                    y_block.GetBlock(1).Add(R10, temp_vector);
                 // NO MASS MATRIX    
                 }
                 else {
@@ -505,9 +533,9 @@ inline void JacDiagBlock::Mult(const Vector &x, Vector &y) const
                                                 y_block.GetBlock(0), y_block.GetBlock(1));
                 // MASS MATRIX
                 if (IRKOper.isImplicit()) {
-                    IRKOper.ImplicitMult(x_block.GetBlock(1), temp_scalar);
-                    y_block.GetBlock(0).Add(R01, temp_scalar);
-                    y_block.GetBlock(1).Add(R11, temp_scalar);
+                    IRKOper.MassMult(x_block.GetBlock(1), temp_vector);
+                    y_block.GetBlock(0).Add(R01, temp_vector);
+                    y_block.GetBlock(1).Add(R11, temp_vector);
                 // NO MASS MATRIX    
                 }
                 else {
@@ -522,7 +550,7 @@ inline void JacDiagBlock::Mult(const Vector &x, Vector &y) const
 // -------------------------------------------------------------------- //
 // -------------------------------------------------------------------- //
 
-JacDiagBlockPrec::JacDiagBlockPrec(const JacDiagBlock &BlockOper_, bool identity_=false) 
+JacDiagBlockPrec::JacDiagBlockPrec(const JacDiagBlock &BlockOper_, bool identity_) 
     : Solver(BlockOper_.Height()), BlockOper(BlockOper_), 
     identity(identity_) 
 {
@@ -530,9 +558,9 @@ JacDiagBlockPrec::JacDiagBlockPrec(const JacDiagBlock &BlockOper_, bool identity
 }
     
 JacDiagBlockPrec::JacDiagBlockPrec(const JacDiagBlock &BlockOper_, double R10_, 
-    int prec00_idx_, int prec11_idx_, bool identity_=false) 
+    int prec00_idx_, int prec11_idx_, bool identity_) 
     : Solver(BlockOper_.Height()), BlockOper(BlockOper_), 
-        identity(identity_), temp_scalar(BlockOper_.Offsets()[1]),
+        identity(identity_), temp_vector(BlockOper_.Offsets()[1]),
         R10(R10_), prec00_idx(prec00_idx_), prec11_idx(prec11_idx_)  
 {
     MFEM_ASSERT(BlockOper.IRKOper.GetExplicitGradientsType() ==
@@ -542,9 +570,9 @@ JacDiagBlockPrec::JacDiagBlockPrec(const JacDiagBlock &BlockOper_, double R10_,
 }
 
 JacDiagBlockPrec::JacDiagBlockPrec(const JacDiagBlock &BlockOper_, double R10_, Vector Y10_, 
-    int prec00_idx_, int prec11_idx_, bool identity_=false) 
+    int prec00_idx_, int prec11_idx_, bool identity_) 
     : Solver(BlockOper_.Height()), BlockOper(BlockOper_), 
-        identity(identity_), temp_scalar(BlockOper_.Offsets()[1]),
+        identity(identity_), temp_vector(BlockOper_.Offsets()[1]),
         R10(R10_), Y10(Y10_), prec00_idx(prec00_idx_), prec11_idx(prec11_idx_) 
 {
     MFEM_ASSERT(BlockOper.IRKOper.GetExplicitGradientsType() ==
@@ -553,17 +581,17 @@ JacDiagBlockPrec::JacDiagBlockPrec(const JacDiagBlock &BlockOper_, double R10_, 
             with ExplicitGradients::EXACT");
 }
 
-inline void JacDiagBlockPrec::Mult(const Vector &x_scalar, Vector &y_scalar) const {
+inline void JacDiagBlockPrec::Mult(const Vector &x_vector, Vector &y_vector) const {
     // Use an identity preconditioner
     if (identity) {
-        y_scalar = x_scalar;
+        y_vector = x_vector;
         
     // Use a proper preconditioner    
     }
     else {
         // 1x1 system
         if (BlockOper.Size() == 1) {
-            BlockOper.IRKOper.ImplicitPrec(x_scalar, y_scalar);
+            BlockOper.IRKOper.ImplicitPrec(x_vector, y_vector);
         }
         
         /* 2x2 system uses 2x2 block lower triangular preconditioner,
@@ -571,8 +599,8 @@ inline void JacDiagBlockPrec::Mult(const Vector &x_scalar, Vector &y_scalar) con
             [C D][y1] = x1  =>  y1 = D^{-1}*(x1 - C*y0) */
         else if (BlockOper.Size() == 2) {
             // Wrap scalar Vectors with BlockVectors
-            x_block.Update(x_scalar.GetData(), BlockOper.Offsets());
-            y_block.Update(y_scalar.GetData(), BlockOper.Offsets());
+            x_block.Update(x_vector.GetData(), BlockOper.Offsets());
+            y_block.Update(y_vector.GetData(), BlockOper.Offsets());
             
             
             // Which system is solved depends on IRKOper::ExplicitGradients
@@ -586,17 +614,17 @@ inline void JacDiagBlockPrec::Mult(const Vector &x_scalar, Vector &y_scalar) con
                     // Form RHS of next system, temp <- x(1) - C*y(0)
                     // MASS MATRIX
                     if (BlockOper.IRKOper.isImplicit()) {
-                        BlockOper.IRKOper.ImplicitMult(y_block.GetBlock(0), temp_scalar);
-                        temp_scalar *= -R10;
-                        temp_scalar += x_block.GetBlock(1);
+                        BlockOper.IRKOper.MassMult(y_block.GetBlock(0), temp_vector);
+                        temp_vector *= -R10;
+                        temp_vector += x_block.GetBlock(1);
                     // NO MASS MATRIX    
                     }
                     else {
-                        add(x_block.GetBlock(1), -R10, y_block.GetBlock(0), temp_scalar); 
+                        add(x_block.GetBlock(1), -R10, y_block.GetBlock(0), temp_vector); 
                     }
                     
                     // Approximately invert (1,1) block
-                    BlockOper.IRKOper.ImplicitPrec(prec11_idx, temp_scalar, y_block.GetBlock(1));
+                    BlockOper.IRKOper.ImplicitPrec(prec11_idx, temp_vector, y_block.GetBlock(1));
                     break;
                 
                 
@@ -606,21 +634,21 @@ inline void JacDiagBlockPrec::Mult(const Vector &x_scalar, Vector &y_scalar) con
                     BlockOper.IRKOper.ImplicitPrec(prec00_idx, x_block.GetBlock(0), y_block.GetBlock(0));
                     
                     // Form RHS of next system, temp <- x(1) - C*y(0)
-                    temp_scalar = x_block.GetBlock(1);
+                    temp_vector = x_block.GetBlock(1);
                     // MASS MATRIX
                     if (BlockOper.IRKOper.isImplicit()) {
-                        BlockOper.IRKOper.ImplicitMult(y_block.GetBlock(0), y_block.GetBlock(1));
-                        temp_scalar.Add(-R10, y_block.GetBlock(1));
+                        BlockOper.IRKOper.MassMult(y_block.GetBlock(0), y_block.GetBlock(1));
+                        temp_vector.Add(-R10, y_block.GetBlock(1));
                     // NO MASS MATRIX    
                     }
                     else {
-                        temp_scalar.Add(-R10, y_block.GetBlock(0));
+                        temp_vector.Add(-R10, y_block.GetBlock(0));
                     }    
                     BlockOper.IRKOper.AddExplicitGradientsMult(-BlockOper.GetTimeStep(), Y10, 
-                                                                y_block.GetBlock(0), temp_scalar);
+                                                                y_block.GetBlock(0), temp_vector);
                     
                     // Approximately invert (1,1) block
-                    BlockOper.IRKOper.ImplicitPrec(prec11_idx, temp_scalar, y_block.GetBlock(1));
+                    BlockOper.IRKOper.ImplicitPrec(prec11_idx, temp_vector, y_block.GetBlock(1));
                     break;
             }
         }
@@ -631,7 +659,7 @@ inline void JacDiagBlockPrec::Mult(const Vector &x_scalar, Vector &y_scalar) con
 // -------------------------------------------------------------------- //
 
 TriJacSolver::TriJacSolver(IRKStageOper &StageOper_, int jac_update_rate_, int gamma_idx_,
-    const IRK::KrylovParams &solver_params1, const IRK::KrylovParams &solver_params2,
+    const KrylovParams &solver_params1, const KrylovParams &solver_params2,
     const QuasiMatrixProduct * Z_solver_, const QuasiMatrixProduct * Z_prec_) 
     : Solver(StageOper_.Height()),
     StageOper(StageOper_),
@@ -640,7 +668,7 @@ TriJacSolver::TriJacSolver(IRKStageOper &StageOper_, int jac_update_rate_, int g
     offsets(StageOper_.RowOffsets()),
     x_block(StageOper_.RowOffsets()), b_block(StageOper_.RowOffsets()), 
     b_block_temp(StageOper_.RowOffsets()), x_block_temp(StageOper_.RowOffsets()), 
-    temp_scalar1(StageOper_.RowOffsets()[1]), temp_scalar2(StageOper_.RowOffsets()[1]),
+    temp_vector1(StageOper_.RowOffsets()[1]), temp_vector2(StageOper_.RowOffsets()[1]),
     krylov_solver1(NULL), krylov_solver2(NULL), multiple_krylov(false),
     Z_solver(Z_solver_), Z_prec(Z_prec_)
 {
@@ -749,7 +777,7 @@ TriJacSolver::TriJacSolver(IRKStageOper &StageOper_, int jac_update_rate_, int g
     /*  Setup different solver for 2x2 blocks if needed (solving both 1x1 and 
         2x2 systems AND references to solver parameters are not identical) */
     if ((size1_solves && size2_solves) && (&solver_params1 != &solver_params2)) {
-        MFEM_ASSERT(solver_params2.solver == IRK::KrylovMethod::GMRES, 
+        MFEM_ASSERT(solver_params2.solver == KrylovMethod::GMRES, 
                         "TriJacSolver:: 2x2 systems must use GMRES.\n");
         GetKrylovSolver(krylov_solver2, solver_params2);
         multiple_krylov = true;
@@ -773,31 +801,51 @@ inline void TriJacSolver::ResetNumIterations()
     for (int i = 0; i < krylov_iters.size(); i++) krylov_iters[i] = 0; 
 }
 
-inline void TriJacSolver::SetOperator (const Operator &op)
+inline void TriJacSolver::SetOperator(const Operator &op)
 { 
-    // Update gradient(s) if: First Newton iteration, OR current iteration 
-    // is a multiple of update rate  
-    if (StageOper.GetGradientCalls() == 1 || 
-        (jac_update_rate > 0 && (StageOper.GetGradientCalls()+1) % jac_update_rate == 0))
+    // Update gradient(s) if: not linearly implicit, and either first Newton iteration,
+    // OR current iteration is a multiple of update rate  
+    if (!StageOper.IRKOper->IsLinearlyImplicit() && (
+            StageOper.GetGradientCalls() == 1 || 
+            (jac_update_rate > 0 && 
+                (StageOper.GetGradientCalls()+1) % jac_update_rate == 0) ) )
     {
-        if (kronecker_form) {
-            // Set approximate gradient Na' 
-            StageOper.IRKOper->SetExplicitGradient(*(StageOper.u), StageOper.GetTimeStep(), 
-                                    StageOper.GetCurrentIterate(), StageOper.Butcher.c0);
+        // IRK methods, where *(StageOper.u) is not null
+        if (*(StageOper.u)) {
+            if (kronecker_form) {
+                // Set approximate gradient Na' 
+                StageOper.IRKOper->SetExplicitGradient(*(StageOper.u), StageOper.GetTimeStep(), 
+                                        StageOper.GetCurrentIterate(), StageOper.Butcher.c0);
+            }
+            else {
+                // Set exact gradients {N'} 
+                StageOper.IRKOper->SetExplicitGradients(*(StageOper.u), StageOper.GetTimeStep(), 
+                                        StageOper.GetCurrentIterate(), StageOper.Butcher.c0);
+            }
         }
+        // PolyIMEX methods, *(StageOper.u) is null
         else {
-            // Set exact gradients {N'} 
-            StageOper.IRKOper->SetExplicitGradients(*(StageOper.u), StageOper.GetTimeStep(), 
-                                    StageOper.GetCurrentIterate(), StageOper.Butcher.c0);
+            if (kronecker_form) {
+                // Set approximate gradient Na' 
+                StageOper.IRKOper->SetExplicitGradient(StageOper.GetTimeStep(), 
+                                        StageOper.GetCurrentIterate(),
+                                        StageOper.Butcher.c0);
+            }
+            else {
+                // Set exact gradients {N'} 
+                StageOper.IRKOper->SetExplicitGradients(StageOper.GetTimeStep(), 
+                                        StageOper.GetCurrentIterate(),
+                                        StageOper.Butcher.c0);
+            }
         }
     }
 }
 
-inline void TriJacSolver::Mult(const Vector &b_scalar, Vector &x_scalar) const
+inline void TriJacSolver::Mult(const Vector &b_vector, Vector &x_vector) const
 {   
     // Wrap scalar Vectors into BlockVectors
-    b_block.Update(b_scalar.GetData(), offsets);
-    x_block.Update(x_scalar.GetData(), offsets);
+    b_block.Update(b_vector.GetData(), offsets);
+    x_block.Update(x_vector.GetData(), offsets);
     
     // Transform initial guess and RHS 
     KronTransformTranspose(StageOper.Butcher.Q0, x_block, x_block_temp);
@@ -811,31 +859,31 @@ inline void TriJacSolver::Mult(const Vector &b_scalar, Vector &x_scalar) const
 }
 
 inline void TriJacSolver::GetKrylovSolver(IterativeSolver * &solver,
-    const IRK::KrylovParams &params) const 
+    const KrylovParams &params) const 
 {
     switch (params.solver) {
-        case IRK::KrylovMethod::CG:
+        case KrylovMethod::CG:
             solver = new CGSolver(StageOper.IRKOper->GetComm());
             break;
-        case IRK::KrylovMethod::MINRES:
+        case KrylovMethod::MINRES:
             solver = new MINRESSolver(StageOper.IRKOper->GetComm());
             break;
-        case IRK::KrylovMethod::GMRES:
+        case KrylovMethod::GMRES:
             solver = new GMRESSolver(StageOper.IRKOper->GetComm());
             static_cast<GMRESSolver*>(solver)->SetKDim(params.kdim);
             break;
-        case IRK::KrylovMethod::BICGSTAB:
+        case KrylovMethod::BICGSTAB:
             solver = new MINRESSolver(StageOper.IRKOper->GetComm());
             break;    
-        case IRK::KrylovMethod::FGMRES:
+        case KrylovMethod::FGMRES:
             solver = new FGMRESSolver(StageOper.IRKOper->GetComm());
             static_cast<FGMRESSolver*>(solver)->SetKDim(params.kdim);
             break;
         default:
-            mfem_error("IRK::Invalid Krylov solve type.\n");   
+            mfem_error("Invalid Krylov solve type.\n");   
     }
     
-    solver->iterative_mode = false;
+    solver->iterative_mode = params.iterative_mode;
     solver->SetAbsTol(params.abstol);
     solver->SetRelTol(params.reltol);
     solver->SetMaxIter(params.maxiter);
@@ -922,12 +970,12 @@ inline void TriJacSolver::BlockBackwardSubstitution(BlockVector &z_block,
                 /// R0 component
                 // MASS MATRIX
                 if (StageOper.IRKOper->isImplicit()) {
-                    temp_scalar1.Set(-R(row,row+1), y_block.GetBlock(row+1));
+                    temp_vector1.Set(-R(row,row+1), y_block.GetBlock(row+1));
                     for (int j = row+2; j < s; j++) {
-                        temp_scalar1.Add(-R(row,j), y_block.GetBlock(j));
+                        temp_vector1.Add(-R(row,j), y_block.GetBlock(j));
                     }
-                    StageOper.IRKOper->ImplicitMult(temp_scalar1, temp_scalar2);
-                    z_block.GetBlock(row) += temp_scalar2; // Add to existing RHS
+                    StageOper.IRKOper->MassMult(temp_vector1, temp_vector2);
+                    z_block.GetBlock(row) += temp_vector2; // Add to existing RHS
                     
                 // NO MASS MATRIX    
                 }
@@ -940,7 +988,9 @@ inline void TriJacSolver::BlockBackwardSubstitution(BlockVector &z_block,
                 if (!kronecker_form) {
                     for (int j = row+1; j < s; j++) {
                         StageOper.IRKOper->AddExplicitGradientsMult(
-                                                dt, (*Z_solver)(row,j), y_block.GetBlock(j), z_block.GetBlock(row));
+                                                dt, (*Z_solver)(row,j),
+                                                y_block.GetBlock(j),
+                                                z_block.GetBlock(row));
                     }                        
                 }
             }
@@ -974,19 +1024,19 @@ inline void TriJacSolver::BlockBackwardSubstitution(BlockVector &z_block,
                 // MASS MATRIX
                 if (StageOper.IRKOper->isImplicit()) {
                     // First component
-                    temp_scalar1.Set(-R(row,row+2), y_block.GetBlock(row+2));
+                    temp_vector1.Set(-R(row,row+2), y_block.GetBlock(row+2));
                     for (int j = row+3; j < s; j++) {
-                        temp_scalar1.Add(-R(row,j), y_block.GetBlock(j));
+                        temp_vector1.Add(-R(row,j), y_block.GetBlock(j));
                     }
-                    StageOper.IRKOper->ImplicitMult(temp_scalar1, temp_scalar2);
-                    z_2block.GetBlock(0) += temp_scalar2; // Add to existing RHS
+                    StageOper.IRKOper->MassMult(temp_vector1, temp_vector2);
+                    z_2block.GetBlock(0) += temp_vector2; // Add to existing RHS
                     // Second component
-                    temp_scalar1.Set(-R(row+1,row+2), y_block.GetBlock(row+2)); 
+                    temp_vector1.Set(-R(row+1,row+2), y_block.GetBlock(row+2)); 
                     for (int j = row+3; j < s; j++) {
-                        temp_scalar1.Add(-R(row+1,j), y_block.GetBlock(j)); 
+                        temp_vector1.Add(-R(row+1,j), y_block.GetBlock(j)); 
                     }
-                    StageOper.IRKOper->ImplicitMult(temp_scalar1, temp_scalar2);
-                    z_2block.GetBlock(1) += temp_scalar2; // Add to existing RHS
+                    StageOper.IRKOper->MassMult(temp_vector1, temp_vector2);
+                    z_2block.GetBlock(1) += temp_vector2; // Add to existing RHS
                 
                 // NO MASS MATRIX    
                 }

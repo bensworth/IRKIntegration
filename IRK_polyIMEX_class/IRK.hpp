@@ -14,45 +14,6 @@
 using namespace mfem;
 using namespace std;
 
-/** Class implementing conjugate-pair preconditioned solution of fully implicit 
-    RK schemes for the nonlinear ODE system 
-        M*du/dt = N(u,t), 
-    as implemented as an IRKOperator */
-class PolyIMEX : public IRK
-{
-private:
-
-    Array< Vector*> fExplicit;  // Array of vectors of size s+1
-    
-
-    BlockVector sol_imp;        // Block vector with s+1 blocks for implicit solution
-    Vector      sol_exp;        // Block vector with s+1 blocks for explicit solution
-    int exp_ind;
-    double alpha;
-
-    BlockVector rhs_imp;            // Block vector with s blocks for implicit rhs
-    
-    Vector rhs_exp;                 // Vector for explicit rhs
-    bool initialized;
-    bool linearly_imp;           // Linearly implicit
-
-public:
-    PolyIMEX(IRKOperator *IRKOper_, const RKData &ButcherTableau, int IMEX_=2);
-    ~PolyIMEX();
- 
-    /// Call base class' init and initialize remaing things here.
-    void Init(TimeDependentOperator &F);
-
-    /// Full time stepping
-    void Run(Vector &x, double &t, double &dt, double tf);
-    
-    /** Apply RK update to take x from t to t+dt,
-        x = x + (dt*b0^\top \otimes I)*k 
-          = x + (dt*d0^\top \otimes I)*w,
-    where w = (A0 x I)k. Note, w1 = a_11 k_1 + ... + a_1s k_s. */
-    void Step(Vector &x, double &t, double &dt);
-};
-
 
 /** Class implementing conjugate-pair preconditioned solution of fully implicit 
     RK schemes for the nonlinear ODE system 
@@ -94,20 +55,6 @@ protected:
     void SetSolvers();
 
 public:
-    /// Krylov solve type for IRK systems
-    enum KrylovMethod {
-        CG = 0, MINRES = 1, GMRES = 2, BICGSTAB = 3, FGMRES = 4
-    };
-    
-    /// Parameters for Krylov solver(s)
-    struct KrylovParams {
-        double abstol = 1e-10;
-        double reltol = 1e-10;
-        int maxiter = 100;
-        int printlevel = 0;
-        int kdim = 30;
-        KrylovMethod solver = KrylovMethod::GMRES;
-    }; 
     
     /** Sparsity pattern of (Q^T \otimes I) diag(N1',...,Ns') (Q \otimes I)
         to be used in block-upper-triangular Quasi-Newton method */
@@ -174,6 +121,59 @@ public:
     inline void GetSolveStats(int &avg_newton_iter,
         vector<int> &avg_krylov_iter, vector<int> &system_size, 
         vector<double> &eig_ratio);
+};
+
+
+/** Class implementing conjugate-pair preconditioned solution of fully implicit 
+    RK schemes for the nonlinear ODE system 
+        M*du/dt = N(u,t), 
+    as implemented as an IRKOperator */
+class PolyIMEX : public IRK
+{
+private:
+
+    Array< Vector*> fExplicit;  // Array of vectors of size s+1
+    
+
+    BlockVector sol_imp;        // Block vector with s+1 blocks for implicit solution
+    Vector      sol_exp;        // Block vector with s+1 blocks for explicit solution
+    int exp_ind;
+    double alpha;
+
+    BlockVector rhs_imp;            // Block vector with s blocks for implicit rhs
+    
+    Vector rhs_exp;                 // Vector for explicit rhs
+    bool initialized;
+    bool linearly_imp;           // Linearly implicit
+
+    /** Form rhs for polyomial IMEX; include scaling by (A0 x I)^{-1}, as
+        applied to nonlinear system on right. */
+    void FormImpRHS(Vector &x_prev, double r, bool iterator);
+
+    /// Update stored explicit components for future time steps/iterations. 
+    void UpdateExplicitComponents();
+
+    /** Update solution via one implicit-explicit pass; can be used as
+        preconditioning for higher-order scheme or kernel of single time step. */
+    void Iterate(Vector &x, double r, bool iterator);
+
+public:
+    PolyIMEX(IRKOperator *IRKOper_, const RKData &ButcherTableau, int IMEX_=2);
+    ~PolyIMEX();
+ 
+    /// Call base class' init and initialize remaing things here.
+    void Init(TimeDependentOperator &F);
+
+    void SetSolvers();
+
+    /// Full time stepping
+    void Run(Vector &x, double &t, double &dt, double tf);
+    
+    /** Apply RK update to take x from t to t+dt,
+        x = x + (dt*b0^\top \otimes I)*k 
+          = x + (dt*d0^\top \otimes I)*w,
+    where w = (A0 x I)k. Note, w1 = a_11 k_1 + ... + a_1s k_s. */
+    void Step(Vector &x, double &t, double &dt);
 };
 
 

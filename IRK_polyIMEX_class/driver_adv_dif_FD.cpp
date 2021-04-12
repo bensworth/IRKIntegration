@@ -165,7 +165,7 @@ public:
     void Mult(const Vector &u, Vector &du_dt) const;
     
     /// Compute the right-hand side of the ODE system. (Some applications require this operator too)
-    void ExplicitMult(const Vector &u, Vector &du_dt) const { Mult(u, du_dt); };
+    void ImplicitMult(const Vector &u, Vector &du_dt) const { Mult(u, du_dt); };
 
     /// Precondition B*x=y <==> (\gamma*I - dt*L')*x=y 
     inline void ImplicitPrec(const Vector &x, Vector &y) const {
@@ -182,7 +182,7 @@ public:
     } 
     
     /// Apply action of identity mass matrix, y = M*x. 
-    inline void ImplicitMult(const Vector &x, Vector &y) const { y = x; };             
+    inline void MassMult(const Vector &x, Vector &y) const { y = x; };             
 
     /* ---------------------------------------------------------------------- */
     /* ---------- Virtual functions for approximate Jacobians of N  --------- */
@@ -237,7 +237,7 @@ public:
             1. ImplicitPrec(.,.) if no further calls to SetPreconditioner() are made
             2. ImplicitPrec(index,.,.) */
     void SetPreconditioner(int index, double dt, double gamma, Vector weights);
-    
+
 };
 
 

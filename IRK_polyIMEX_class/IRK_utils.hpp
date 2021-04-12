@@ -21,7 +21,6 @@ using namespace std;
 // ExplicitMult() applies the operator that we are solving implicitly.
 
 
-
 /// Kronecker transform between two block vectors: y <- (A \otimes I)*x
 void KronTransform(const DenseMatrix &A, const BlockVector &x, BlockVector &y);
 
@@ -34,6 +33,21 @@ void KronTransformTranspose(const DenseMatrix &A, const BlockVector &x, BlockVec
 /// Kronecker transform using A transpose in place: x <- (A^T \otimes I)*x
 void KronTransformTranspose(const DenseMatrix &A, BlockVector &x);
 
+/// Krylov solve type for IRK systems
+enum KrylovMethod {
+    CG = 0, MINRES = 1, GMRES = 2, BICGSTAB = 3, FGMRES = 4
+};
+
+/// Parameters for Krylov solver(s)
+struct KrylovParams {
+    double abstol = 1e-10;
+    double reltol = 1e-10;
+    int maxiter = 100;
+    int printlevel = 0;
+    int kdim = 30;
+    bool iterative_mode = false;
+    KrylovMethod solver = KrylovMethod::GMRES;
+}; 
 
 /** Class for spatial discretizations of a PDE resulting in the time-dependent, 
     nonlinear ODEs
@@ -62,18 +76,19 @@ public:
 protected:
     MPI_Comm m_comm;
     ExplicitGradients m_gradients; 
-    mutable Vector temp; // Auxillary vector
+    mutable Vector temp;    // Auxillary vector
+    bool m_linearly_imp;      // Linearly implicit (or fully linear)
     
 public:
-    IRKOperator(MPI_Comm comm, int n=0, double t=0.0, Type type=EXPLICIT, 
-                ExplicitGradients ex_gradients=EXACT) 
-        : TimeDependentOperator(n, t, type), 
-            m_comm(comm), m_gradients(ex_gradients), temp(n) {};
-    
+    IRKOperator(MPI_Comm comm, bool linearly_imp, int n=0, double t=0.0,
+        Type type=EXPLICIT, ExplicitGradients ex_gradients=EXACT);
+
     ~IRKOperator() { };
 
     /// Get MPI communicator
-    inline MPI_Comm GetComm() { return m_comm; };
+    inline MPI_Comm GetComm() { return m_comm; }
+
+    inline bool IsLinearlyImplicit() { return m_linearly_imp; }
 
     /// Get type of explicit gradients 
     inline ExplicitGradients GetExplicitGradientsType() const { return m_gradients; }
@@ -81,11 +96,14 @@ public:
     /* ---------------------------------------------------------------------- */
     /* ----------------------- Pure virtual functions ----------------------- */
     /* ---------------------------------------------------------------------- */
-    /// Apply action of M*du/dt, y <- L(x,y) 
-    virtual void ExplicitMult(const Vector &x, Vector &y) const = 0;
+    /** Apply action of implicit part of operator y <- N_I(x,y). For fully
+        implicit schemes, this just corresponds to applying the time-dependent
+        (nonlinear) operator.
+        PREVIOUSLY CALLED ExplicitMult */
+    virtual void ImplicitMult(const Vector &x, Vector &y) const = 0;
 
-    /// Apply action of explicit splitting of operator for PolyIMEX methods.
-    virtual void ExplicitSplitMult(const Vector &x, Vector &y) const;
+    /** Apply action of explicit part of operator y <- N_E(x,y) */
+    virtual void ExplicitMult(const Vector &x, Vector &y) const;
 
     /** Apply preconditioner set with previous call to SetPreconditioner()
         If not re-implemented, this method simply generates an error. */    
@@ -99,24 +117,47 @@ public:
     /* ---------------- Virtual functions for Type::IMPLICIT ---------------- */
     /* ---------------------------------------------------------------------- */
     /** Apply action mass matrix, y = M*x. 
-        If not re-implemented, this method simply generates an error. */
-    virtual void ImplicitMult(const Vector &x, Vector &y) const;
+        If not re-implemented, this method simply generates an error.
+        PREVIOUSLY CALLED ImplictMult */
+    virtual void MassMult(const Vector &x, Vector &y) const;
 
     /* ---------------------------------------------------------------------- */
     /* ------ Virtual functions for ExplicitGradients::APPROXIMATE ------ */
     /* ---------------------------------------------------------------------- */
     
-    /** Set approximate gradient Na' which is an approximation to the s explicit 
-        gradients 
+    /** -- IRK -- Set approximate gradient Na' which is an approximation
+        to the s explicit gradients 
             {N'} == {N'(u + dt*x[i], this->GetTime() + dt*c[i])}, i=0,...,s-1.
         Such that it is referenceable with ExplicitGradientMult() and 
         SetPreconditioner() 
-        If not re-implemented, this method simply generates an error. */
+        If not re-implemented, this method simply generates an error
+        for problems with nonlinear implicit component.
+
+        This function is called from TriJacSolver.SetOperator, which is
+        called within each Newton iteration, with the updated nonlinear
+        iterate. */
     virtual void SetExplicitGradient(const Vector &u, double dt, 
                                      const BlockVector &x, const Vector &c);
 
+    /** -- PolyIMEX --  Set approximate gradient Na' which is an 
+        approximation to the s explicit gradients 
+            {N'} == {N'(x[i], this->GetTime() + dt*c[i])}, i=0,...,s-1
+        Such that it is referenceable with ExplicitGradientMult() and 
+        SetPreconditioner() 
+        If not re-implemented, this method simply generates an error
+        for problems with nonlinear implicit component.
+        
+        This function is called from TriJacSolver.SetOperator, which is
+        called within each Newton iteration, with the updated nonlinear
+        iterate. */
+    virtual void SetExplicitGradient(double dt, const BlockVector &x,
+                                     const Vector &c);
+
     /** Compute action of Na' explicit gradient operator.
-        If not re-implemented, this method simply generates an error. */    
+        For problems with
+            m_linearly_imp = true,
+        this function just calls self->ImplicitMult(). Otherwise,
+        if not re-implemented, this method simply generates an error. */    
     virtual void ExplicitGradientMult(const Vector &x, Vector &y) const;
 
     /** Assemble preconditioner for gamma*M - dt*Na' that's applied by
@@ -129,25 +170,35 @@ public:
     /* --------- Virtual functions for ExplicitGradients::EXACT --------- */
     /* ---------------------------------------------------------------------- */
 
-    /** Set the explicit gradients 
+    /** -- IRK -- Set the explicit gradients 
             {N'} == {N'(u + dt*x[i], this->GetTime() + dt*c[i])}, i=0,...,s-1.
         Such that they are referenceable with ExplicitGradientMult() and 
         SetPreconditioner().
-        If not re-implemented, this method simply generates an error.'
+        If not re-implemented, this method simply generates an error
+        for problems with nonlinear implicit component.
 
         This function is called from TriJacSolver.SetOperator, which is
         called within each Newton iteration, with the updated nonlinear
-        iterate.
-
-        IMPT: for PolyIMEX methods, set explicit gradients 
-            {N'} == {N'(x[i], this->GetTime() + dt*c[i])}, i=0,...,s-1
-        that is, directly linearize about x rather than u+dt*x. 
-        */
+        iterate. */
     virtual void SetExplicitGradients(const Vector &u, double dt, 
                                       const BlockVector &x, const Vector &c);
+    
+    /** -- PolyIMEX -- Set the explicit gradients 
+            {N'} == {N'(x[i], this->GetTime() + dt*c[i])}, i=0,...,s-1
+        Such that they are referenceable with ExplicitGradientMult() and 
+        SetPreconditioner().
+        If not re-implemented, this method simply generates an error
+        for problems with nonlinear implicit component.
+
+        This function is called from TriJacSolver.SetOperator, which is
+        called within each Newton iteration, with the updated nonlinear
+        iterate. */
+    virtual void SetExplicitGradients(double dt, const BlockVector &x,
+                                      const Vector &c);
 
     /** Compute action of `index`-th explicit gradient operator.
-        If not re-implemented, this method simply generates an error. */    
+        If not re-implemented, this method simply generates an error
+        for problems with nonlinear implicit component. */    
     virtual void ExplicitGradientMult(int index, const Vector &x, Vector &y) const;
 
     /** Assemble preconditioner for matrix 
@@ -264,16 +315,16 @@ private:
     const RKData& Butcher;          // All RK information
     
     // Parameters that operator depends on
-    const Vector* u;             // Current state.
-    double t;                     // Current time of state.
-    double dt;                    // Current time step
+    const Vector* u;    // Current state; NULL for PolyIMEX methods
+    double t;           // Current time of state.
+    double dt;          // Current time step
     
-    // Wrappers for scalar vectors
+    // Wrappers for vectors
     mutable BlockVector w_block, y_block;
     
     // Auxillary vectors
     mutable BlockVector temp_block;
-    mutable Vector temp_scalar1, temp_scalar2;    
+    mutable Vector temp_vector1, temp_vector2;    
     
     Operator* dummy_gradient; 
     
@@ -292,14 +343,17 @@ public:
         u(NULL), t(0.0), dt(0.0), 
         offsets(offsets_),
         w_block(offsets_), y_block(offsets_),
-        temp_scalar1(S_->Height()), temp_scalar2(S_->Height()), 
+        temp_vector1(S_->Height()),
+        temp_vector2(S_->Height()), 
         temp_block(offsets_),
         current_iterate(),
         dummy_gradient(NULL),
         getGradientCalls(0)
     { };
     
-    inline void SetParameters(const Vector * u_, double t_, double dt_);
+    /// Set current time, time step, and solution; const Vector* u_ should
+    //  be passed as NULL for PolyIMEX methods
+    inline void SetParameters(const Vector* u_, double t_, double dt_);
 
     inline double GetTimeStep() { return dt; };
     inline double GetTime() { return t; };
@@ -317,7 +371,7 @@ public:
     inline virtual Operator &GetGradient(const Vector &w) const;
     
     /// Compute action of operator, y <- F(w)
-    inline void Mult(const Vector &w_scalar, Vector &y_scalar) const;
+    inline void Mult(const Vector &w_vector, Vector &y_vector) const;
 };
 
 
@@ -377,7 +431,7 @@ private:
     const Array<int> &offsets;  // Block offsets for operator
     const IRKOperator &IRKOper; // Class defining M, and explicit gradients
     mutable double dt;          // Current time step 
-    mutable Vector temp_scalar; // Auxillary vector
+    mutable Vector temp_vector; // Auxillary vector
     
     // Data defining 1x1 operator
     double R00;
@@ -457,7 +511,7 @@ class JacDiagBlockPrec : public Solver
 {
 private:
     const JacDiagBlock &BlockOper;
-    mutable Vector temp_scalar; // Auxillary vector
+    mutable Vector temp_vector; // Auxillary vector
     bool identity;              // Use identity preconditioner. Useful as a comparison.
     
     // Extra data required for 2x2 blocks
@@ -482,7 +536,7 @@ public:
     ~JacDiagBlockPrec() {}
 
     /// Apply action of preconditioner
-    inline void Mult(const Vector &x_scalar, Vector &y_scalar) const;
+    inline void Mult(const Vector &x_vector, Vector &y_vector) const;
     
     /// Purely virtual function we must implement but do not use.
     virtual void SetOperator(const Operator &op) {  }
@@ -545,7 +599,7 @@ private:
     // Auxillary vectors  
     mutable BlockVector x_block, b_block, b_block_temp, x_block_temp;   // s blocks
     mutable BlockVector y_2block, z_2block;                             //  2 blocks 
-    mutable Vector temp_scalar1, temp_scalar2;  
+    mutable Vector temp_vector1, temp_vector2;  
      
     // Diagonal blocks inverted during backward substitution
     Array<JacDiagBlock *> DiagBlock;
@@ -569,7 +623,7 @@ private:
     const QuasiMatrixProduct * Z_prec;      // For diagonal preconditioners
 
     /// Set up Krylov solver for inverting diagonal blocks
-    inline void GetKrylovSolver(IterativeSolver * &solver, const IRK::KrylovParams &params) const;
+    inline void GetKrylovSolver(IterativeSolver * &solver, const KrylovParams &params) const;
     
     /** Solve \tilde{J}*y = z via block backward substitution, where 
             \tilde{J} = R \otimes M - dt * \tilde{P}
@@ -583,12 +637,12 @@ public:
         solvers.
         NOTE: To use only a single solver, requires &solver_params1==&solver_params2 */
     TriJacSolver(IRKStageOper &StageOper_, int jac_update_rate_, int gamma_idx_,
-                    const IRK::KrylovParams &solver_params1, const IRK::KrylovParams &solver_params2,
+                    const KrylovParams &solver_params1, const KrylovParams &solver_params2,
                     const QuasiMatrixProduct * Z_solver_, const QuasiMatrixProduct * Z_prec_);
     
     /// Constructor for when 1x1 and 2x2 systems use same solver
     TriJacSolver(IRKStageOper &StageOper_, int jac_update_rate_, int gamma_idx_,
-                    const IRK::KrylovParams &solver_params,
+                    const KrylovParams &solver_params,
                     const QuasiMatrixProduct * Z_solver, const QuasiMatrixProduct * Z_prec)   
         : TriJacSolver(StageOper_, jac_update_rate_, gamma_idx_, solver_params, solver_params, 
         Z_solver, Z_prec) {};
@@ -611,7 +665,7 @@ public:
             \tilde{J} * x_temp = b_temp,
         i.e., \tilde{J} = R \otimes M - dt * \tilde{P}, 
         x_temp = Q^\top * x_block, b_temp = Q^\top * b_block */
-    inline void Mult(const Vector &b_scalar, Vector &x_scalar) const;
+    inline void Mult(const Vector &b_vector, Vector &x_vector) const;
 };
 
 
