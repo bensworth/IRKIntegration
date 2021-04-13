@@ -296,7 +296,7 @@ void PolyIMEX::Step(Vector &x, double &t, double &dt)
     if (!initialized) {
         // Initialize explicit components
         IRKOper_->ExplicitMult(x, expPart(0));
-        for (i=1; i<=m_Butcher.s; i++) expPart(i) = expPart(0);
+        for (int i=1; i<=m_Butcher.s; i++) expPart(i) = expPart(0);
 
         // Perform order+num_iters applications of iterator
         for (int i=0; i<(m_Butcher.order+num_iters); i++) {
@@ -386,13 +386,13 @@ void PolyIMEX::UpdateExplicitComponents()
     // Explicit stage is first, followed by implicit
     if (exp_ind == 0) {
         m_IRKOper->ExplicitMult(sol_exp, expPart(0));
-        for (i=1; i<=m_Butcher.s; i++) {
+        for (int i=1; i<=m_Butcher.s; i++) {
             m_IRKOper->ExplicitMult(sol_imp(i-1), expPart(i));
         }
     }
     // Implicit stages are first, followed by explicit
     else {
-        for (i=0; i<m_Butcher.s; i++) {
+        for (int i=0; i<m_Butcher.s; i++) {
             m_IRKOper->ExplicitMult(sol_imp(i), expPart(i));
         }
         m_IRKOper->ExplicitMult(sol_exp, expPart(s));
@@ -434,6 +434,14 @@ void PolyIMEX::Iterate(Vector &x, double r, bool iterator)
 
         // Solve for solution at implicit stages
         m_tri_jac_solver->Mult(rhs, sol_imp);
+
+
+
+
+
+
+
+
     }
     // ------------- Nonlinearly implicit IMEX ------------- //
     else {
