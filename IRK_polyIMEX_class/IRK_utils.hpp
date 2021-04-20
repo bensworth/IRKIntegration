@@ -1,5 +1,5 @@
-#ifndef IRK_H
-#define IRK_H
+#ifndef IRK_UTILS_H
+#define IRK_UTILS_H
 
 #include "HYPRE.h"
 #include "mfem.hpp"
@@ -52,9 +52,17 @@ struct KrylovParams {
 /** Class for spatial discretizations of a PDE resulting in the time-dependent, 
     nonlinear ODEs
         M*du/dt = N(u,t)    [OR du/dt = N(u,t) if the mass is the identity]
+    MFEM typically treats time integration as 
+        du/dt = F^{-1} G(u),
+    Here F represents what MFEM calls the “implicit” part, and G represents the
+    “explicit” part. I think these are largely used for PETSc integration.
+    Usually the implicit part F is just a mass matrix. 
 
-    For non-identity mass matrices, the following virtual function must be implemented:
-        ImplicitMult(x,y): y <- M*x */
+    Here, we have redefined the Mult functions to make more sense and work
+    for IMEX schemes as well. For non-identity mass matrices, the following
+    virtual function must be implemented:
+        MasstMult(x,y): y <- M*x
+    */
 class IRKOperator : public TimeDependentOperator
 {   
 public:
@@ -82,6 +90,11 @@ protected:
 public:
     IRKOperator(MPI_Comm comm, bool linearly_imp, int n=0, double t=0.0,
         Type type=EXPLICIT, ExplicitGradients ex_gradients=EXACT);
+
+    // Sets linearly implicit to false by default
+    IRKOperator(MPI_Comm comm, int n=0, double t=0.0,
+        Type type=EXPLICIT, ExplicitGradients ex_gradients=EXACT)
+        : IRKOperator(comm, false, n, t, type, ex_gradients) { };
 
     ~IRKOperator() { };
 
@@ -214,12 +227,12 @@ public:
     /* ---------------------------------------------------------------------- */
     
     /// Compute y <- y + c*<weights,{N'}>x
-    inline void AddExplicitGradientsMult(double c, const Vector &weights, 
+    void AddExplicitGradientsMult(double c, const Vector &weights, 
                                          const Vector &x, Vector &y) const;
     
     /** Compute y1 <- y1 + c1*<weights1,{N'}>x, 
                 y2 <- y2 + c2*<weights2,{N'}>x */
-    inline void AddExplicitGradientsMult(double c1, const Vector &weights1, 
+    void AddExplicitGradientsMult(double c1, const Vector &weights1, 
                                          double c2, const Vector &weights2, 
                                          const Vector &x, Vector &y1, Vector &y2) const;
 };
@@ -290,6 +303,15 @@ public:
     DenseMatrix Q0;     // Orthogonal matrix in Schur decomposition of A0^-1
     DenseMatrix R0;     // Quasi-upper triangular matrix in Schur decomposition of A0^-1
     Array<int> R0_block_sizes; // From top of block diagonal, sizes of blocks
+
+    // PolyIMEX data
+    DenseMatrix imex_rhs;
+    DenseMatrix imex_rhs_it;
+    DenseMatrix imexA0;
+    DenseMatrix imexA0_it;
+    double alpha;
+    int order;          // Order of integration
+
 };    
 
 
@@ -353,7 +375,7 @@ public:
     
     /// Set current time, time step, and solution; const Vector* u_ should
     //  be passed as NULL for PolyIMEX methods
-    inline void SetParameters(const Vector* u_, double t_, double dt_);
+    void SetParameters(const Vector* u_, double t_, double dt_);
 
     inline double GetTimeStep() { return dt; };
     inline double GetTime() { return t; };
@@ -368,10 +390,10 @@ public:
         every iteration, and the result will be passed in to its linear solver 
         via its SetOperator(). We don't need this function in its current form,
         however. */
-    inline virtual Operator &GetGradient(const Vector &w) const;
+    virtual Operator &GetGradient(const Vector &w) const;
     
     /// Compute action of operator, y <- F(w)
-    inline void Mult(const Vector &w_vector, Vector &y_vector) const;
+    void Mult(const Vector &w_vector, Vector &y_vector) const;
 };
 
 
@@ -385,16 +407,16 @@ private:
 public: 
     QuasiMatrixProduct(DenseMatrix Q);
     
-    inline void Sparsify(int sparsity);
+    void Sparsify(int sparsity);
     
-    inline void Print() const;
+    void Print() const;
     
     /** Lump elements in Vectors to the |largest| entry. Note by orthogonality 
         of Q, diagonal entries lump to 1, and off diagonal entries lump to 0 */
-    inline void Lump();
+    void Lump();
     
     /// Set all Vectors not on diagonal equal to zero
-    inline void TruncateOffDiags();
+    void TruncateOffDiags();
 };
 
 
@@ -467,7 +489,7 @@ public:
     inline const Array<int> &Offsets() const { return offsets; };
 
     /// Compute action of diagonal block    
-    inline void Mult(const Vector &x, Vector &y) const;
+    void Mult(const Vector &x, Vector &y) const;
 };
 
 
@@ -536,7 +558,7 @@ public:
     ~JacDiagBlockPrec() {}
 
     /// Apply action of preconditioner
-    inline void Mult(const Vector &x_vector, Vector &y_vector) const;
+    void Mult(const Vector &x_vector, Vector &y_vector) const;
     
     /// Purely virtual function we must implement but do not use.
     virtual void SetOperator(const Operator &op) {  }
@@ -623,13 +645,13 @@ private:
     const QuasiMatrixProduct * Z_prec;      // For diagonal preconditioners
 
     /// Set up Krylov solver for inverting diagonal blocks
-    inline void GetKrylovSolver(IterativeSolver * &solver, const KrylovParams &params) const;
+    void GetKrylovSolver(IterativeSolver * &solver, const KrylovParams &params) const;
     
     /** Solve \tilde{J}*y = z via block backward substitution, where 
             \tilde{J} = R \otimes M - dt * \tilde{P}
         NOTE: RHS vector z is not const, since its data is overridden during the 
         solve */
-    inline void BlockBackwardSubstitution(BlockVector &z_block, BlockVector &y_block) const;
+    void BlockBackwardSubstitution(BlockVector &z_block, BlockVector &y_block) const;
 
 public:
 
@@ -651,12 +673,12 @@ public:
     
     /// Functions to track solver progress
     inline vector<int> GetNumIterations() { return krylov_iters; };
-    inline void ResetNumIterations();
+    void ResetNumIterations();
 
     /** Newton method will pass the operator returned from its GetGradient() to 
         this, but we don't actually use it. Instead, we update the approximate 
         gradient Na' or the exact gradients {N'} if requested */
-    inline void SetOperator (const Operator &op);
+    void SetOperator (const Operator &op);
 
     /** Solve J*x = b for x, J=A^-1 \otimes M - dt * (Q \otimes I) * \tilde{P} * (Q^\top \otimes I)
         We first transform J*x=b into 
@@ -665,7 +687,7 @@ public:
             \tilde{J} * x_temp = b_temp,
         i.e., \tilde{J} = R \otimes M - dt * \tilde{P}, 
         x_temp = Q^\top * x_block, b_temp = Q^\top * b_block */
-    inline void Mult(const Vector &b_vector, Vector &x_vector) const;
+    void Mult(const Vector &b_vector, Vector &x_vector) const;
 };
 
 

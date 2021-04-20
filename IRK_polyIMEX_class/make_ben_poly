@@ -1,0 +1,41 @@
+# Compiler, compile options, and link options
+
+# Ben's stuff
+MFEM_DIR  = /g/g19/bs/mfem
+HYPRE_DIR = $(MFEM_DIR)/../hypre/src/hypre
+METIS_DIR = $(MFEM_DIR)/../metis/build/Linux-x86_64
+CXX      = mpicxx
+FLAGS    = -g -std=c++14 -fopenmp
+INC      = -I$(MFEM_DIR)/bens_build -I$(HYPRE_DIR)/include -I$(METIS_DIR)/include -I./src
+CXXFLAGS = $(FLAGS) $(INC)
+LDFLAGS  = -L$(MFEM_DIR)/bens_build -L$(HYPRE_DIR)/lib -L$(METIS_DIR)/libmetis
+LDLIBS   = -lmfem -lHYPRE -lmetis
+
+# Files to compile
+#	TODO : Maybe should put class files in subdirectory so can use wildcard.
+SOURCE_FILES   = $(wildcard *.cpp)
+OBJECT_FILES   = $(SOURCE_FILES:.cpp=.o)
+EXEC_FILES     = driver_adv_dif_FD
+
+$(EXEC_FILES): $(OBJECT_FILES)
+	$(CXX) $(CXXFLAGS) -o $@ $(OBJECT_FILES) $(LDFLAGS) $(LDLIBS)
+
+FDSpaceDisc.o : FDSpaceDisc.cpp FDSpaceDisc.hpp
+	$(CXX) $(CXXFLAGS) -c FDSpaceDisc.cpp $(LDFLAGS) $(LDLIBS)
+
+IRK_utils.o : IRK_utils.cpp IRK_utils.hpp
+	$(CXX) $(CXXFLAGS) -c IRK_utils.cpp $(LDFLAGS) $(LDLIBS)
+
+IRK.o : IRK.cpp IRK.hpp IRK_utils.hpp
+	$(CXX) $(CXXFLAGS) -o IRK_utils.o -c IRK.cpp $(LDFLAGS) $(LDLIBS)
+
+# Recompile executables if cpp files or object dependencies have changed
+
+
+.PHONY: clean 
+
+# Remove all object files and executables
+clean:
+	rm -f *.o $(EXEC_FILES)
+	rm -rf *.dSYM *.TVD.*breakpoints
+

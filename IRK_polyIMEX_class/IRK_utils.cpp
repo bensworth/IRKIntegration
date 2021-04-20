@@ -181,7 +181,7 @@ void IRKOperator::SetPreconditioner(int index, double dt, double gamma, Vector w
     mfem_error("IRKOperator::SetPreconditioner() is not overridden!");
 }
 
-inline void IRKOperator::AddExplicitGradientsMult(double c, const Vector &weights, 
+void IRKOperator::AddExplicitGradientsMult(double c, const Vector &weights, 
                                      const Vector &x, Vector &y) const 
 {
     MFEM_ASSERT(m_gradients == ExplicitGradients::EXACT, 
@@ -199,7 +199,7 @@ inline void IRKOperator::AddExplicitGradientsMult(double c, const Vector &weight
     }
 }
 
-inline void IRKOperator::AddExplicitGradientsMult(double c1, const Vector &weights1, 
+void IRKOperator::AddExplicitGradientsMult(double c1, const Vector &weights1, 
                                      double c2, const Vector &weights2, 
                                      const Vector &x, 
                                      Vector &y1, Vector &y2) const 
@@ -224,7 +224,7 @@ inline void IRKOperator::AddExplicitGradientsMult(double c1, const Vector &weigh
 // -------------------------------------------------------------------- //
 // -------------------------------------------------------------------- //
 
-inline void IRKStageOper::SetParameters(const Vector *u_, double t_, double dt_)
+void IRKStageOper::SetParameters(const Vector *u_, double t_, double dt_)
 { 
     t = t_;
     dt = dt_;
@@ -232,7 +232,7 @@ inline void IRKStageOper::SetParameters(const Vector *u_, double t_, double dt_)
     getGradientCalls = 0; // Reset counter
 };
 
-inline Operator& IRKStageOper::GetGradient(const Vector &w) const
+Operator& IRKStageOper::GetGradient(const Vector &w) const
 {
     // Update `current_iterate` so that its data points to the current iterate's
     current_iterate.Update(w.GetData(), offsets);
@@ -244,7 +244,7 @@ inline Operator& IRKStageOper::GetGradient(const Vector &w) const
     return *dummy_gradient;
 }
 
-inline void IRKStageOper::Mult(const Vector &w_vector, Vector &y_vector) const
+void IRKStageOper::Mult(const Vector &w_vector, Vector &y_vector) const
 {
     MFEM_ASSERT(u, "IRKStageOper::Mult() Requires states to be set, see SetParameters()");
     
@@ -294,7 +294,7 @@ QuasiMatrixProduct::QuasiMatrixProduct(DenseMatrix Q)
     }
 }
 
-inline void QuasiMatrixProduct::Sparsify(int sparsity)
+void QuasiMatrixProduct::Sparsify(int sparsity)
 {
     // Sparsify if need be
     switch (sparsity) {
@@ -309,7 +309,7 @@ inline void QuasiMatrixProduct::Sparsify(int sparsity)
     }        
 }
 
-inline void QuasiMatrixProduct::Print() const
+void QuasiMatrixProduct::Print() const
 {
     for (int row = 0; row < height; row++) {
         for (int col = 0; col < height; col++) {
@@ -319,7 +319,7 @@ inline void QuasiMatrixProduct::Print() const
     }
 }
 
-inline void QuasiMatrixProduct::Lump()
+void QuasiMatrixProduct::Lump()
 {
     for (int row = 0; row < height; row++) {
         for (int col = 0; col < height; col++) {
@@ -353,7 +353,7 @@ inline void QuasiMatrixProduct::Lump()
     }
 }
 
-inline void QuasiMatrixProduct::TruncateOffDiags()
+void QuasiMatrixProduct::TruncateOffDiags()
 {
     for (int row = 0; row < height; row++) {
         for (int col = 0; col < height; col++) {
@@ -419,7 +419,7 @@ JacDiagBlock::JacDiagBlock(const Array<int> &offsets_,
             with ExplicitGradients::EXACT");
 }
     
-inline void JacDiagBlock::Mult(const Vector &x, Vector &y) const 
+void JacDiagBlock::Mult(const Vector &x, Vector &y) const 
 {    
     MFEM_ASSERT(x.Size() == this->Height(), "JacDiagBlock::Mult() incorrect input Vector size");
     MFEM_ASSERT(y.Size() == this->Height(), "JacDiagBlock::Mult() incorrect output Vector size");
@@ -581,7 +581,7 @@ JacDiagBlockPrec::JacDiagBlockPrec(const JacDiagBlock &BlockOper_, double R10_, 
             with ExplicitGradients::EXACT");
 }
 
-inline void JacDiagBlockPrec::Mult(const Vector &x_vector, Vector &y_vector) const {
+void JacDiagBlockPrec::Mult(const Vector &x_vector, Vector &y_vector) const {
     // Use an identity preconditioner
     if (identity) {
         y_vector = x_vector;
@@ -796,12 +796,12 @@ TriJacSolver::~TriJacSolver()
     if (multiple_krylov) delete krylov_solver2;
 }
 
-inline void TriJacSolver::ResetNumIterations()
+void TriJacSolver::ResetNumIterations()
 { 
     for (int i = 0; i < krylov_iters.size(); i++) krylov_iters[i] = 0; 
 }
 
-inline void TriJacSolver::SetOperator(const Operator &op)
+void TriJacSolver::SetOperator(const Operator &op)
 { 
     // Update gradient(s) if: not linearly implicit, and either first Newton iteration,
     // OR current iteration is a multiple of update rate  
@@ -841,7 +841,7 @@ inline void TriJacSolver::SetOperator(const Operator &op)
     }
 }
 
-inline void TriJacSolver::Mult(const Vector &b_vector, Vector &x_vector) const
+void TriJacSolver::Mult(const Vector &b_vector, Vector &x_vector) const
 {   
     // Wrap scalar Vectors into BlockVectors
     b_block.Update(b_vector.GetData(), offsets);
@@ -858,7 +858,7 @@ inline void TriJacSolver::Mult(const Vector &b_vector, Vector &x_vector) const
     KronTransform(StageOper.Butcher.Q0, x_block_temp, x_block); 
 }
 
-inline void TriJacSolver::GetKrylovSolver(IterativeSolver * &solver,
+void TriJacSolver::GetKrylovSolver(IterativeSolver * &solver,
     const KrylovParams &params) const 
 {
     switch (params.solver) {
@@ -890,7 +890,7 @@ inline void TriJacSolver::GetKrylovSolver(IterativeSolver * &solver,
     solver->SetPrintLevel(params.printlevel);
 }
 
-inline void TriJacSolver::BlockBackwardSubstitution(BlockVector &z_block,
+void TriJacSolver::BlockBackwardSubstitution(BlockVector &z_block,
     BlockVector &y_block) const
 {
     if (printlevel > 0) mfem::out << "  ---Backward solve---" << '\n';

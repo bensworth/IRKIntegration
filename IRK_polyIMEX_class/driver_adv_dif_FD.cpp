@@ -282,9 +282,9 @@ int main(int argc, char *argv[])
     // Solver parameters
     AMG_params AMG;
     int use_AIR_temp = (int) AMG.use_AIR;
-    IRK::KrylovParams KRYLOV;
+    KrylovParams KRYLOV;
     int krylov_solver = static_cast<int>(KRYLOV.solver);
-    IRK::NewtonParams NEWTON;
+    NewtonParams NEWTON;
     int gradientsType = 1; // APPROXIMATE or EXACT Jacobians. 
     int newton_jacs = static_cast<int>(NEWTON.jac_solver_sparsity);
     int newton_jacp = static_cast<int>(NEWTON.jac_prec_sparsity);
@@ -335,7 +335,7 @@ int main(int argc, char *argv[])
     args.AddOption(&AMG.agg_coarsening, "-agg", "--AMG-aggressive-coarseing", "AMG: Levels of aggressive coarsening");
     
     /* Krylov parameters */
-    args.AddOption(&krylov_solver, "-ksol", "--krylov-method", "KRYLOV: Method (see IRK::KrylovMethod)");
+    args.AddOption(&krylov_solver, "-ksol", "--krylov-method", "KRYLOV: Method (see KrylovMethod)");
     args.AddOption(&KRYLOV.reltol, "-krtol", "--krylov-rel-tol", "KRYLOV: Relative stopping tolerance");
     args.AddOption(&KRYLOV.abstol, "-katol", "--krylov-abs-tol", "KRYLOV: Absolute stopping tolerance");
     args.AddOption(&KRYLOV.maxiter, "-kmaxit", "--krylov-max-iterations", "KRYLOV: Maximum iterations");
@@ -348,9 +348,9 @@ int main(int argc, char *argv[])
     args.AddOption(&NEWTON.abstol, "-natol", "--newton-abs-tol", "NEWTON: Absolute stopping tolerance");
     args.AddOption(&NEWTON.maxiter, "-nmaxit", "--newton-max-iterations", "NEWTON: Maximum iterations");
     args.AddOption(&NEWTON.printlevel, "-np", "--newton-print", "NEWTON: Print level");
-    args.AddOption(&NEWTON.jac_update_rate, "-jacu", "--newton-jac-update-rate", "NEWTON: Rate that Jacobian is updated (see IRK::NewtonParams)");
-    args.AddOption(&newton_jacs, "-jacs", "--newton-jac-solver-sparsity", "NEWTON: Jacobian solver sparsity (see IRK::NewtonParams)");
-    args.AddOption(&newton_jacp, "-jacp", "--newton-jac-prec-sparsity", "NEWTON: Jacobian preconditioner sparsity (see IRK::NewtonParams)");
+    args.AddOption(&NEWTON.jac_update_rate, "-jacu", "--newton-jac-update-rate", "NEWTON: Rate that Jacobian is updated (see NewtonParams)");
+    args.AddOption(&newton_jacs, "-jacs", "--newton-jac-solver-sparsity", "NEWTON: Jacobian solver sparsity (see NewtonParams)");
+    args.AddOption(&newton_jacp, "-jacp", "--newton-jac-prec-sparsity", "NEWTON: Jacobian preconditioner sparsity (see NewtonParams)");
     args.AddOption(&NEWTON.gamma_idx, "-gamma", "--newton-prec-constant", "NEWTON: Constant used to precondition Schur complement");
     
     /* --- Text output of solution etc --- */              
@@ -364,9 +364,9 @@ int main(int argc, char *argv[])
     // Set final forms of remaing params
     advection_bias = static_cast<FDBias>(advection_bias_temp);
     AMG.use_AIR = (bool) use_AIR_temp;
-    KRYLOV.solver = static_cast<IRK::KrylovMethod>(krylov_solver);
-    NEWTON.jac_solver_sparsity = static_cast<IRK::JacSparsity>(newton_jacs);
-    NEWTON.jac_prec_sparsity = static_cast<IRK::JacSparsity>(newton_jacp);
+    KRYLOV.solver = static_cast<KrylovMethod>(krylov_solver);
+    NEWTON.jac_solver_sparsity = static_cast<JacSparsity>(newton_jacs);
+    NEWTON.jac_prec_sparsity = static_cast<JacSparsity>(newton_jacp);
     std::vector<int> np = {};
     if (npx != -1) {
         if (dim >= 1) np.push_back(npx);

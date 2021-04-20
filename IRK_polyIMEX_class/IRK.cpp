@@ -1,4 +1,3 @@
-#include "IRK_utils.hpp"
 #include "IRK.hpp"
 #include <iostream>
 #include <fstream>
@@ -8,7 +7,8 @@
 
 
 IRK::IRK(IRKOperator *IRKOper_, const RKData &ButcherTableau)
-    : m_IRKOper(IRKOper_), m_Butcher(ButcherTableau)
+    : m_IRKOper(IRKOper_),
+    m_Butcher(ButcherTableau),
     m_stageOper(NULL),
     m_newton_solver(NULL),
     m_tri_jac_solver(NULL),
@@ -211,7 +211,10 @@ void IRK::Run(Vector &x, double &t, double &dt, double tf)
 
 PolyIMEX::PolyIMEX(IRKOperator *IRKOper_, const RKData &ButcherTableau,
     bool linearly_imp_, int num_iters_)
-    : initialized(false), linearly_imp(linearly_imp_)
+    : IRK(IRKOper_, ButcherTableau), 
+    initialized(false),
+    linearly_imp(linearly_imp_), 
+    num_iters(num_iters_)
 {
     // TODO : Initialize block vectors, arrays, etc.
     
@@ -223,12 +226,11 @@ PolyIMEX::PolyIMEX(IRKOperator *IRKOper_, const RKData &ButcherTableau,
     }
 
     // Check if explicit stage is first or last
-    int& s = m_Butcher.s;
     if (std::abs(m_Butcher.imexA0(0,0)) < 1e-15) {
         exp_ind = 0;
     }
-    else if (std::abs(m_Butcher.imexA0(s,s)) < 1e-15) {
-        exp_ind = s;
+    else if (std::abs(m_Butcher.imexA0(m_Butcher.s,m_Butcher.s)) < 1e-15) {
+        exp_ind = m_Butcher.s;
     }
     else {
         mfem_error("Current implementation requires either first or last stage be explicit.\n");
@@ -295,8 +297,8 @@ void PolyIMEX::Step(Vector &x, double &t, double &dt)
     // times.
     if (!initialized) {
         // Initialize explicit components
-        IRKOper_->ExplicitMult(x, expPart(0));
-        for (int i=1; i<=m_Butcher.s; i++) expPart(i) = expPart(0);
+        m_IRKOper->ExplicitMult(x, exp_part.GetBlock(0));
+        for (int i=1; i<=m_Butcher.s; i++) exp_part.GetBlock(i) = exp_part.GetBlock(0);
 
         // Perform order+num_iters applications of iterator
         for (int i=0; i<(m_Butcher.order+num_iters); i++) {
@@ -323,7 +325,7 @@ void PolyIMEX::Step(Vector &x, double &t, double &dt)
 void PolyIMEX::FormImpRHS(Vector &x_prev, double r, bool iterator)
 {
     // Coefficients to form right-hand side for iterator or propagator
-    DenseMatrix *coeffs;
+    const DenseMatrix *coeffs;
     if (iterator) {
         coeffs = &(m_Butcher.imex_rhs_it);
     }
@@ -342,7 +344,7 @@ void PolyIMEX::FormImpRHS(Vector &x_prev, double r, bool iterator)
         rhs.GetBlock(i) = x_prev;
         for (int j=0; j<(m_Butcher.s+1); j++) {
             if (std::abs((*coeffs)(i,j)) > 1e-15) { 
-                rhs.GetBlock(i) += r * (*coeffs)(i,j) * expPart(j);
+                rhs.GetBlock(i).Add(r * (*coeffs)(i,j), exp_part.GetBlock(j));
             }
         }
     }
@@ -370,7 +372,7 @@ void PolyIMEX::FormImpRHS(Vector &x_prev, double r, bool iterator)
             m_IRKOper->ImplicitMult(sol_exp, temp);
             for (int i=1; i<(m_Butcher.s+1); i++) {
                 if (std::abs((*coeffs)(i,0)) > 1e-15) {
-                    rhs.GetBlock(i-1) += r * (*coeffs)(i,0) * temp;
+                    rhs.GetBlock(i-1).Add(r * (*coeffs)(i,0), temp);
                 }
             }
         }
@@ -385,17 +387,17 @@ void PolyIMEX::UpdateExplicitComponents()
 {
     // Explicit stage is first, followed by implicit
     if (exp_ind == 0) {
-        m_IRKOper->ExplicitMult(sol_exp, expPart(0));
+        m_IRKOper->ExplicitMult(sol_exp, exp_part.GetBlock(0));
         for (int i=1; i<=m_Butcher.s; i++) {
-            m_IRKOper->ExplicitMult(sol_imp(i-1), expPart(i));
+            m_IRKOper->ExplicitMult(sol_imp.GetBlock(i-1), exp_part.GetBlock(i));
         }
     }
     // Implicit stages are first, followed by explicit
     else {
         for (int i=0; i<m_Butcher.s; i++) {
-            m_IRKOper->ExplicitMult(sol_imp(i), expPart(i));
+            m_IRKOper->ExplicitMult(sol_imp.GetBlock(i), exp_part.GetBlock(i));
         }
-        m_IRKOper->ExplicitMult(sol_exp, expPart(s));
+        m_IRKOper->ExplicitMult(sol_exp, exp_part.GetBlock(m_Butcher.s));
     } 
 }
 
@@ -410,17 +412,18 @@ void PolyIMEX::Iterate(Vector &x, double r, bool iterator)
         if (iterator) {
             for (int j=0; j<=m_Butcher.s; j++) {
                 if (std::abs(m_Butcher.imex_rhs_it(0,j)) > 1e-15) { 
-                    sol_exp += r * (m_Butcher.imex_rhs_it(0,j)) *  expPart(j);
+                    sol_exp.Add(r * (m_Butcher.imex_rhs_it(0,j)), exp_part.GetBlock(j));
                 }
             }
         }
         else {
-            coeffs = &(m_Butcher.imex_rhs);
+            const DenseMatrix* coeffs = &(m_Butcher.imex_rhs);
             for (int j=0; j<=m_Butcher.s; j++) {
                 if (std::abs(m_Butcher.imex_rhs(0,j)) > 1e-15) { 
-                    sol_exp += r * (m_Butcher.imex_rhs(0,j)) *  expPart(j);
+                    sol_exp.Add(r * (m_Butcher.imex_rhs(0,j)), exp_part.GetBlock(j));
                 }
             }
+            coeffs = NULL;
         }
     }
 
@@ -468,7 +471,11 @@ void PolyIMEX::Iterate(Vector &x, double r, bool iterator)
         
         // Check for convergence 
         if (!m_newton_solver->GetConverged()) {
+            #if 0
             string msg = "IRK::Step() Newton solver at t=" + to_string(t) + " not converged\n";
+            #else
+            string msg = "IRK::Step() Newton solver not converged\n";
+            #endif
             mfem_error(msg.c_str());
         }
     }
@@ -483,32 +490,33 @@ void PolyIMEX::Iterate(Vector &x, double r, bool iterator)
         // Updates from previous implicit and explicit steps
         if (iterator) { // Compute for iterator
             for (int j=0; j<=m_Butcher.s; j++) {  // explicit
-                if (std::abs(m_Butcher.imex_rhs_it(s,j)) > 1e-15) { 
-                    sol_exp += r * (m_Butcher.imex_rhs_it(s,j)) *  expPart(j);
+                if (std::abs(m_Butcher.imex_rhs_it(m_Butcher.s,j)) > 1e-15) { 
+                    sol_exp.Add(r * (m_Butcher.imex_rhs_it(m_Butcher.s,j)), exp_part.GetBlock(j));
                 }
             }
             for (int j=0; j<m_Butcher.s; j++) { // implicit
-                if (std::abs(m_Butcher.imexA0_it(s,j)) > 1e-15) {
+                if (std::abs(m_Butcher.imexA0_it(m_Butcher.s,j)) > 1e-15) {
                     Vector temp;
                     m_IRKOper->ImplicitMult(sol_imp.GetBlock(j), temp);
-                    sol_exp += r * (m_Butcher.imexA0_it(s,j)) *  temp;
+                    sol_exp.Add(r * (m_Butcher.imexA0_it(m_Butcher.s,j)), temp);
                 }
             }
         }
         else { // Compute for propagator
-            coeffs = &(m_Butcher.imex_rhs);
+            const DenseMatrix* coeffs = &(m_Butcher.imex_rhs);
             for (int j=0; j<=m_Butcher.s; j++) { // explicit
-                if (std::abs(m_Butcher.imex_rhs(s,j)) > 1e-15) { 
-                    sol_exp += r * (m_Butcher.imex_rhs(s,j)) *  expPart(j);
+                if (std::abs(m_Butcher.imex_rhs(m_Butcher.s,j)) > 1e-15) { 
+                    sol_exp.Add(r * (m_Butcher.imex_rhs(m_Butcher.s,j)), exp_part.GetBlock(j));
                 }
             }
             for (int j=0; j<m_Butcher.s; j++) { // implicit
-                if (std::abs(m_Butcher.imexA0(s,j)) > 1e-15) {
+                if (std::abs(m_Butcher.imexA0(m_Butcher.s,j)) > 1e-15) {
                     Vector temp;
                     m_IRKOper->ImplicitMult(sol_imp.GetBlock(j), temp);
-                    sol_exp += r * (m_Butcher.imexA0(s,j)) *  temp;
+                    sol_exp.Add(r * (m_Butcher.imexA0(m_Butcher.s,j)), temp);
                 }
             }
+            coeffs = NULL;
         }
         x = sol_exp;
     }

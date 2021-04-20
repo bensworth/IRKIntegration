@@ -1,0 +1,52 @@
+# Compiler, compile options, and link options
+
+# Ben's stuff
+MFEM_DIR  = /g/g19/bs/mfem
+HYPRE_DIR = $(MFEM_DIR)/../hypre/src/hypre
+METIS_DIR = $(MFEM_DIR)/../metis/build/Linux-x86_64
+CXX      = mpicxx
+FLAGS    = -g -std=c++14 -fopenmp
+INC      = -I$(MFEM_DIR)/bens_build -I$(HYPRE_DIR)/include -I$(METIS_DIR)/include -I./src
+CXXFLAGS = $(FLAGS) $(INC)
+LDFLAGS  = -L$(MFEM_DIR)/bens_build -L$(HYPRE_DIR)/lib -L$(METIS_DIR)/libmetis
+LDLIBS   = -lmfem -lHYPRE -lmetis
+
+# Final binary file
+BIN     = driver_adv_dif_FD
+
+# Put all auto generated stuff to this build dir
+BUILD_DIR = ./
+
+# List of all .cpp source files.
+CPP = $(wildcard *.cpp)
+
+# All .o files go to build dir.
+OBJ = $(CPP:%.cpp=$(BUILD_DIR)/%.o)
+
+# Gcc/Clang will create these .d files containing dependencies.
+DEP = $(OBJ:%.o=%.d)
+
+# Default target named after the binary.
+$(BIN) : $(BUILD_DIR)/$(BIN)
+
+# Actual target of the binary - depends on all .o files.
+$(BUILD_DIR)/$(BIN) : $(OBJ)
+	# Just link all the object files.
+	$(CXX) $(CXX_FLAGS) $^ -o $@ $(LDFLAGS) $(LDLIBS)
+
+# Include all .d files
+-include $(DEP)
+
+# Build target for every single object file.
+# The potential dependency on header files is covered
+# by calling `-include $(DEP)`.
+$(BUILD_DIR)/%.o : %.cpp
+	mkdir -p $(@D)
+	# The -MMD flags additionaly creates a .d file with
+	# the same name as the .o file.
+	$(CXX) $(CXX_FLAGS) -MMD -c $< -o $@ $(LDFLAGS) $(LDLIBS)
+
+.PHONY : clean
+clean :
+	# This should remove all generated files.
+	-rm $(BUILD_DIR)/$(BIN) $(OBJ) $(DEP)

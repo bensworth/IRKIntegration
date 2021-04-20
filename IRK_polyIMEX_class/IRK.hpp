@@ -14,6 +14,30 @@
 using namespace mfem;
 using namespace std;
 
+/** Sparsity pattern of (Q^T \otimes I) diag(N1',...,Ns') (Q \otimes I)
+    to be used in block-upper-triangular Quasi-Newton method */
+enum JacSparsity {
+    LUMPED = 0, DIAGONAL = 1, DENSE = 2
+};
+
+/// Parameters for Newton solver
+struct NewtonParams {
+    double reltol = 1e-6;
+    double abstol = 1e-6;
+    int maxiter = 10;
+    int printlevel = 2; 
+    
+    // How frequently to we update the Jacobian matrix?
+    // <=0 - First iteration only
+    // 1 - Every iteration
+    // x > 1 - Every x iterations
+    int jac_update_rate = 0;  
+    
+    JacSparsity jac_solver_sparsity = JacSparsity::DENSE;
+    JacSparsity jac_prec_sparsity  = JacSparsity::DIAGONAL;
+    
+    int gamma_idx = 0; // Constant used when preconditioning (2,2) block [0==eta, 1==eta+beta^2/eta].
+}; 
 
 /** Class implementing conjugate-pair preconditioned solution of fully implicit 
     RK schemes for the nonlinear ODE system 
@@ -55,31 +79,6 @@ protected:
     void SetSolvers();
 
 public:
-    
-    /** Sparsity pattern of (Q^T \otimes I) diag(N1',...,Ns') (Q \otimes I)
-        to be used in block-upper-triangular Quasi-Newton method */
-    enum JacSparsity {
-        LUMPED = 0, DIAGONAL = 1, DENSE = 2
-    };
-    
-    /// Parameters for Newton solver
-    struct NewtonParams {
-        double reltol = 1e-6;
-        double abstol = 1e-6;
-        int maxiter = 10;
-        int printlevel = 2; 
-        
-        // How frequently to we update the Jacobian matrix?
-        // <=0 - First iteration only
-        // 1 - Every iteration
-        // x > 1 - Every x iterations
-        int jac_update_rate = 0;  
-        
-        JacSparsity jac_solver_sparsity = JacSparsity::DENSE;
-        JacSparsity jac_prec_sparsity  = JacSparsity::DIAGONAL;
-        
-        int gamma_idx = 0; // Constant used when preconditioning (2,2) block [0==eta, 1==eta+beta^2/eta].
-    }; 
 
     /// Constructor
     IRK(IRKOperator *IRKOper_, const RKData &ButcherTableau);
@@ -115,12 +114,12 @@ public:
     /** Set parameters for Krylov solver, if different solver to be used to 1x1 
         and 2x2 systems */
     // TODO: Really should check these structs are not equal by value here...
-    inline void SetKrylovParams(KrylovParams params1, KrylovParams params2);
+    void SetKrylovParams(KrylovParams params1, KrylovParams params2);
 
     /// Get statistics about solution of nonlinear and linear systems
-    inline void GetSolveStats(int &avg_newton_iter,
+    void GetSolveStats(int &avg_newton_iter,
         vector<int> &avg_krylov_iter, vector<int> &system_size, 
-        vector<double> &eig_ratio);
+        vector<double> &eig_ratio) const;
 };
 
 
@@ -131,14 +130,12 @@ public:
 class PolyIMEX : public IRK
 {
 private:
-
-    Array< Vector*> fExplicit;  // Array of vectors of size s+1
-    
-
     BlockVector sol_imp;        // Block vector with s+1 blocks for implicit solution
-    Vector      sol_exp;        // Block vector with s+1 blocks for explicit solution
+    BlockVector exp_part;       // Block vector with s+1 blocks for explicit part of solution
+    BlockVector rhs;            // Block vector with s blocks for implicit right-hand side
+    Vector      sol_exp;        // Vector for explicit solution
     int exp_ind;
-    double alpha;
+    int num_iters;
 
     BlockVector rhs_imp;            // Block vector with s blocks for implicit rhs
     
@@ -158,7 +155,8 @@ private:
     void Iterate(Vector &x, double r, bool iterator);
 
 public:
-    PolyIMEX(IRKOperator *IRKOper_, const RKData &ButcherTableau, int IMEX_=2);
+    PolyIMEX(IRKOperator *IRKOper_, const RKData &ButcherTableau,
+        bool linearly_imp_, int num_iters_=1);
     ~PolyIMEX();
  
     /// Call base class' init and initialize remaing things here.
