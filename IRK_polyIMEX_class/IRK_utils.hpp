@@ -104,7 +104,7 @@ public:
     inline bool IsLinearlyImplicit() { return m_linearly_imp; }
 
     /// Get type of explicit gradients 
-    inline ExplicitGradients GetExplicitGradientsType() const { return m_gradients; }
+    ExplicitGradients GetExplicitGradientsType() const { return m_gradients; }
 
     /* ---------------------------------------------------------------------- */
     /* ----------------------- Pure virtual functions ----------------------- */

@@ -122,7 +122,6 @@ public:
         vector<double> &eig_ratio) const;
 };
 
-
 /** Class implementing conjugate-pair preconditioned solution of fully implicit 
     RK schemes for the nonlinear ODE system 
         M*du/dt = N(u,t), 
@@ -157,7 +156,7 @@ private:
 public:
     PolyIMEX(IRKOperator *IRKOper_, const RKData &ButcherTableau,
         bool linearly_imp_, int num_iters_=1);
-    ~PolyIMEX();
+    ~PolyIMEX() { };
  
     /// Call base class' init and initialize remaing things here.
     void Init(TimeDependentOperator &F);
@@ -165,7 +164,7 @@ public:
     void SetSolvers();
 
     /// Full time stepping
-    void Run(Vector &x, double &t, double &dt, double tf);
+    // void Run(Vector &x, double &t, double &dt, double tf);
     
     /** Apply RK update to take x from t to t+dt,
         x = x + (dt*b0^\top \otimes I)*k 
@@ -173,7 +172,5 @@ public:
     where w = (A0 x I)k. Note, w1 = a_11 k_1 + ... + a_1s k_s. */
     void Step(Vector &x, double &t, double &dt);
 };
-
-
 
 #endif

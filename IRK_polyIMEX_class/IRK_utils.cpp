@@ -105,6 +105,11 @@ void IRKOperator::MassMult(const Vector &x, Vector &y) const
     mfem_error("IRKOperator::MassMult() is not overridden!");
 }
 
+void IRKOperator::ExplicitMult(const Vector &x, Vector &y) const
+{
+    mfem_error("IRKOperator::ExplicitMult() is not overridden!");
+}
+
 void IRKOperator::SetExplicitGradient(const Vector &u, double dt, 
                                  const BlockVector &x, const Vector &c)
 {

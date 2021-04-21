@@ -168,21 +168,21 @@ public:
     void ImplicitMult(const Vector &u, Vector &du_dt) const { Mult(u, du_dt); };
 
     /// Precondition B*x=y <==> (\gamma*I - dt*L')*x=y 
-    inline void ImplicitPrec(const Vector &x, Vector &y) const {
+    void ImplicitPrec(const Vector &x, Vector &y) const {
         MFEM_ASSERT(B_prec[B_hash.at(B_index)], 
             "AdvDif::ImplicitPrec() Must first set system! See SetPreconditioner()");
         B_prec[B_hash.at(B_index)]->Mult(x, y);
     }  
     
     /// Precondition B*x=y with given index
-    inline void ImplicitPrec(int index, const Vector &x, Vector &y) const {
+    void ImplicitPrec(int index, const Vector &x, Vector &y) const {
         MFEM_ASSERT(B_prec[B_hash.at(index)], 
             "AdvDif::ImplicitPrec() Must first set system! See SetPreconditioner()");
         B_prec[B_hash.at(index)]->Mult(x, y);
     } 
     
     /// Apply action of identity mass matrix, y = M*x. 
-    inline void MassMult(const Vector &x, Vector &y) const { y = x; };             
+    void MassMult(const Vector &x, Vector &y) const { y = x; };             
 
     /* ---------------------------------------------------------------------- */
     /* ---------- Virtual functions for approximate Jacobians of N  --------- */
@@ -200,7 +200,7 @@ public:
 
 
     /// Compute y <- Gradient*x                         
-    inline void ExplicitGradientMult(const Vector &x, Vector &y) const 
+    void ExplicitGradientMult(const Vector &x, Vector &y) const 
     {  
         MFEM_ASSERT(Gradient, "AdvDif::ExplicitGradientMult() Gradient not set");
         Gradient->Mult(x, y);
@@ -224,7 +224,7 @@ public:
                               const BlockVector &x, const Vector &c);
 
     /// Compute action of `index`-th gradient operator above
-    inline void ExplicitGradientMult(int index, const Vector &x, Vector &y) const { 
+    void ExplicitGradientMult(int index, const Vector &x, Vector &y) const { 
         MFEM_ASSERT(Gradients.Size() > 0, 
             "AdvDif::ExplicitGradientMult() Gradients not yet set!");
         MFEM_ASSERT(index < Gradients.Size(), 

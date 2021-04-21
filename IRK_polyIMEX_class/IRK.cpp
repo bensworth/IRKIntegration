@@ -111,7 +111,7 @@ void IRK::SetSolvers()
     m_newton_solver->SetSolver(*m_tri_jac_solver);
 }
 
-inline void IRK::SetKrylovParams(KrylovParams params1, KrylovParams params2)
+void IRK::SetKrylovParams(KrylovParams params1, KrylovParams params2)
 { 
     MFEM_ASSERT(!m_solversInit, "IRK::SetKrylovParams:: Can only be called before IRK::Run()");
     m_krylov_params  = params1;
@@ -119,7 +119,7 @@ inline void IRK::SetKrylovParams(KrylovParams params1, KrylovParams params2)
     m_krylov2 = true; // Using two Krylov solvers
 }
 
-inline void IRK::GetSolveStats(int &avg_newton_iter, 
+void IRK::GetSolveStats(int &avg_newton_iter, 
                             vector<int> &avg_krylov_iter, 
                             vector<int> &system_size, 
                             vector<double> &eig_ratio) const
@@ -208,7 +208,6 @@ void IRK::Run(Vector &x, double &t, double &dt, double tf)
     }
 }
 
-
 PolyIMEX::PolyIMEX(IRKOperator *IRKOper_, const RKData &ButcherTableau,
     bool linearly_imp_, int num_iters_)
     : IRK(IRKOper_, ButcherTableau), 
@@ -236,6 +235,14 @@ PolyIMEX::PolyIMEX(IRKOperator *IRKOper_, const RKData &ButcherTableau,
         mfem_error("Current implementation requires either first or last stage be explicit.\n");
     }
 }
+
+void PolyIMEX::Init(TimeDependentOperator &F)
+{
+
+
+
+}
+
 
 void PolyIMEX::SetSolvers()
 {    
@@ -525,8 +532,6 @@ void PolyIMEX::Iterate(Vector &x, double r, bool iterator)
     // explicit components for future time steps/iterations. 
     UpdateExplicitComponents();
 }
-
-
 
 
 
