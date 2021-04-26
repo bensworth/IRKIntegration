@@ -460,7 +460,7 @@ int run_adv_diff(int argc, char *argv[])
    static const double sigma = -1.0;
 
    // const char *mesh_file = MFEM_DIR + "data/inline-quad.mesh";
-   const char *mesh_file = "/Users/southworth/Software/mfem/data/inline-quad.mesh";
+   const char *mesh_file = "/g/g19/bs/mfem/data/inline-quad.mesh";
    int ser_ref_levels = 3;
    int par_ref_levels = 2;
    int order = 1;
@@ -552,7 +552,7 @@ int run_adv_diff(int argc, char *argv[])
    if (compute_err)
    {
       double err = u.ComputeL2Error(ic_coeff);
-        if (myid == 0) std::cout << "t = " << 0 << ", l2-error = " << err << ", norm = " << u.Norml2() << "\n";
+        if (myid == 0) std::cout << "t = " << 0 << ", error = " << err << ", norm = " << u.Norml2() << "\n";
    }
 
    ParaViewDataCollection dc("DGAdvDiff", &mesh);
@@ -607,7 +607,6 @@ int run_adv_diff(int argc, char *argv[])
    // TODO : not getting accurate solutions here
    else
    {
-      std::cout << "BE prec\n";
       // std::unique_ptr<ODESolver> ode(new RK4Solver);
       // ode.reset(new SDIRK33Solver);
       evol = new FE_Evolution(dg);
@@ -679,7 +678,7 @@ int run_adv_diff(int argc, char *argv[])
       u_ex_coeff.SetTime(t);
 
       double err = u_gf.ComputeL2Error(u_ex_coeff);
-      if (myid == 0) std::cout << "t-final = " << t << "\nl2-error = " << err << "\nruntime = " << timer.RealTime() << "\n\n";
+      if (myid == 0) std::cout << "t-final " << t << "\nl2 " << err << "\nruntime " << timer.RealTime() << "\n\n";
    }
 
    // if (evol) delete evol;
