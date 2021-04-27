@@ -45,6 +45,14 @@ double BC_fn(const Vector &xvec, double t)
    return sin(2.0*M_PI*(x-t))*sin(2.0*M_PI*(y-t));
 }
 
+void du_fn(const Vector &xvec, double t, Vector &du)
+{
+   double x = xvec[0];
+   double y = xvec[1];
+   du[0] = 2*M_PI*cos(2*M_PI*(x-t))*sin(2*M_PI*(y-t));
+   du[1] = 2*M_PI*cos(2*M_PI*(y-t))*sin(2*M_PI*(x-t));
+}
+
 
 class DGMassMatrix
 {
@@ -169,7 +177,7 @@ public:
       else {
          AMG_solver = new HypreBoomerAMG(B);
       }
-      AMG_solver->SetMaxLevels(50); 
+      AMG_solver->SetMaxLevels(50);
       AMG_solver->SetAdvectiveOptions(1.5, "", "FA");
       AMG_solver->SetStrongThresholdR(0.01);
       AMG_solver->SetStrengthThresh(0.1);
@@ -186,7 +194,7 @@ public:
          GMRES_solver->SetTol(0);
          GMRES_solver->SetPreconditioner(*AMG_solver);
       }
-   } 
+   }
    void Mult(const Vector &x, Vector &y) const
    {
       y = 0.0;
@@ -459,8 +467,7 @@ int run_adv_diff(int argc, char *argv[])
 
    static const double sigma = -1.0;
 
-   // const char *mesh_file = MFEM_DIR + "data/inline-quad.mesh";
-   const char *mesh_file = "/g/g19/bs/mfem/data/inline-quad.mesh";
+   const char *mesh_file = MFEM_SOURCE_DIR "/data/inline-quad.mesh";
    int ser_ref_levels = 3;
    int par_ref_levels = 2;
    int order = 1;
@@ -673,12 +680,21 @@ int run_adv_diff(int argc, char *argv[])
    // Compute error to exact solution
    if (compute_err)
    {
-      ParGridFunction u_gf(&fes, u);         
+      ParGridFunction u_gf(&fes, u);
       FunctionCoefficient u_ex_coeff(BC_fn);
+      VectorFunctionCoefficient du_ex_coeff(dim, du_fn);
       u_ex_coeff.SetTime(t);
+      du_ex_coeff.SetTime(t);
 
-      double err = u_gf.ComputeL2Error(u_ex_coeff);
-      if (myid == 0) std::cout << "t-final " << t << "\nl2 " << err << "\nruntime " << timer.RealTime() << "\n\n";
+      double l2_err = u_gf.ComputeL2Error(u_ex_coeff);
+      double h1_err = u_gf.ComputeH1Error(&u_ex_coeff, &du_ex_coeff);
+      if (myid == 0)
+      {
+         std::cout << "t-final " << t << "\n"
+                   << "l2 " << l2_err << "\n"
+                   << "h1 " << h1_err << "\n"
+                   << "runtime " << timer.RealTime() << "\n\n";
+      }
    }
 
    // if (evol) delete evol;
@@ -691,7 +707,6 @@ int main(int argc, char **argv)
 {
    MPI_Init(&argc, &argv);
    int retval = run_adv_diff(argc, argv);
-   MPI_Barrier(MPI_COMM_WORLD);
    MPI_Finalize();
    return retval;
 }
