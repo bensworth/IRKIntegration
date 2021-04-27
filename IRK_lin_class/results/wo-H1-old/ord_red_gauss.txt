@@ -1,0 +1,70 @@
+Gauss 4
+dt 0.1
+time 120.953
+l2 0.0102911
+
+Gauss 4
+dt 0.05
+time 190.111
+l2 0.000984971
+
+Gauss 4
+dt 0.025
+time 337.055
+l2 7.06253e-05
+
+Gauss 4
+dt 0.0125
+time 572.346
+l2 5.79824e-06
+
+Gauss 4
+dt 0.00625
+time 1052.45
+l2 4.02101e-07
+
+Gauss 6
+dt 0.1
+time 147.209
+l2 0.000582507
+
+Gauss 6
+dt 0.05
+time 240.71
+l2 2.38181e-05
+
+Gauss 6
+dt 0.025
+time 497.484
+l2 8.05107e-07
+
+Gauss 8
+dt 0.1
+time 230.38
+l2 3.13406e-05
+
+Gauss 8
+dt 0.05
+time 400.474
+l2 6.09639e-07
+
+Gauss 8
+dt 0.025
+time 739.41
+l2 1.20998e-08
+
+Gauss 8
+dt 0.0125
+time 1285.35
+l2 2.15002e-10
+
+Gauss 6
+dt 0.0125
+time 801.126
+l2 2.5772e-08
+
+Gauss 6
+dt 0.00625
+time 1457.54
+l2 8.32394e-10
+

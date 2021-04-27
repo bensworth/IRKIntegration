@@ -1,0 +1,50 @@
+L-SDIRK 3
+dt 0.1
+time 91.2904
+l2 0.0627618
+
+L-SDIRK 3
+dt 0.05
+time 165.653
+l2 0.0103981
+
+L-SDIRK 3
+dt 0.025
+time 305.059
+l2 0.0014453
+
+L-SDIRK 3
+dt 0.0125
+time 698.923
+l2 0.000187778
+
+L-SDIRK 3
+dt 0.00625
+time 1182.92
+l2 2.38909e-05
+
+L-SDIRK 4
+dt 0.1
+time 140.639
+l2 0.00525005
+
+L-SDIRK 4
+dt 0.05
+time 256.598
+l2 0.00055443
+
+L-SDIRK 4
+dt 0.025
+time 592.121
+l2 7.63118e-05
+
+L-SDIRK 4
+dt 0.0125
+time 1004
+l2 1.18248e-05
+
+L-SDIRK 4
+dt 0.00625
+time 1892.92
+l2 1.8193e-06
+

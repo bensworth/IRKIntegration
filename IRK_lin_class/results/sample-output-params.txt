@@ -1,41 +1,92 @@
 Options used:
    --mesh /g/g19/bs/mfem/data/inline-quad.mesh
    --refine 4
-   --refine 2
+   --refine 1
    --order 4
    --kappa 25
    --epsilon 0.0001
-   --time-step 0.1
+   --time-step 0.025
    --final-time 2
-   --irk 14
+   --irk 18
    --use-air 1
    --no-visualization
    --use-gmres 0
    --mag-prec 1
-dt = 0.1, hmin = 0.00390625, hmax = 0.00390625
-time order = 4, space order = 4
-time acc. = 0.0001, space acc. = 2.32831e-10
-t = 0, error = 1.00734e-13, norm = 131.835
-eta = 3, beta = 1.73205, gamma = 3.4641
-Number of unknowns/proc: 23200
-Total number of unknowns: 1638400
+dt = 0.025, hmin = 0.0078125, hmax = 0.0078125
+time order = 8, space order = 4
+time acc. = 1.52588e-13, space acc. = 3.72529e-09
+t = 0, error = 3.22211e-12, norm = 65.9117
+eta = 4.20758, beta = 5.31484, gamma = 6.77873
+eta = 5.79242, beta = 1.73447, gamma = 6.04653
+Number of unknowns/proc: 5800
+Total number of unknowns: 409600
+t = 0.400
+t = 0.425
+t = 0.450
+t = 0.475
 t = 0.500
+t = 0.525
+t = 0.550
+t = 0.575
 t = 0.600
+t = 0.625
+t = 0.650
+t = 0.675
 t = 0.700
+t = 0.725
+t = 0.750
+t = 0.775
 t = 0.800
+t = 0.825
+t = 0.850
+t = 0.875
 t = 0.900
+t = 0.925
+t = 0.950
+t = 0.975
 t = 1.000
+t = 1.025
+t = 1.050
+t = 1.075
 t = 1.100
+t = 1.125
+t = 1.150
+t = 1.175
 t = 1.200
+t = 1.225
+t = 1.250
+t = 1.275
 t = 1.300
+t = 1.325
+t = 1.350
+t = 1.375
 t = 1.400
+t = 1.425
+t = 1.450
+t = 1.475
 t = 1.500
+t = 1.525
+t = 1.550
+t = 1.575
 t = 1.600
+t = 1.625
+t = 1.650
+t = 1.675
 t = 1.700
+t = 1.725
+t = 1.750
+t = 1.775
 t = 1.800
+t = 1.825
+t = 1.850
+t = 1.875
 t = 1.900
+t = 1.925
+t = 1.950
+t = 1.975
 t = 2.000
 t-final 2
-l2 0.0102911
-runtime 120.102
+l2 9.30355e-09
+h1 1.40062e-05
+runtime 141.366
 
