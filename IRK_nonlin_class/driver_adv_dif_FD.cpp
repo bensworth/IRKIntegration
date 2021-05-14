@@ -9,6 +9,9 @@ using namespace std;
 
 #define PI 3.14159265358979323846
 
+// make -f make_oliver 
+// make clean -f make_oliver
+
 // TODO: Segfault associated w/ freeing HypreBoomerAMG... Currently not being
 // deleted... See associated `TODO` comment...
 
@@ -75,18 +78,30 @@ double PDESolution(const Vector &x, double t);
 
 
 struct AMG_params {
+    // AIR parameters
     bool use_AIR = false; 
-    double distance = 1.5;
+    int distance = 15;
     string prerelax = "";
     string postrelax = "FFC";
     double strength_tolC = 0.1;
     double strength_tolR = 0.01;
     double filter_tolR = 0.0;
-    int interp_type = 100;
-    int relax_type = 0;
     double filterA_tol = 0.e-4;
-    int coarsening = 6;
-    int agg_coarsening = 0; // Number of levels of aggressive coarsening
+    // Maybe these interp. and relax are better for AIR than those below for standard AMG?
+    //int interp_type = 100; 
+    //int relax_type = 0;
+    
+    // AMG coarsening options:
+    int coarsen_type = 6;   // 10 = HMIS, 8 = PMIS, 6 = Falgout, 0 = CLJP
+    int agg_levels   = 0;    // number of aggressive coarsening levels
+    double theta     = 0.25; // strength threshold: 0.25, 0.5, 0.8
+
+    // AMG interpolation options:
+    int interp_type  = 0;    // 6 = extended+i, 0 = classical
+
+    // AMG relaxation options:
+    int relax_type   = 8;    // 8 = l1-GS, 6 = symm. GS, 3 = GS, 18 = l1-Jacobi
+    
     int printlevel = 0;
 };
 
@@ -332,7 +347,7 @@ int main(int argc, char *argv[])
     /* AMG parameters */
     args.AddOption(&use_AIR_temp, "-air", "--AMG-use-air", "AMG: 0=standard (default), 1=AIR");
     args.AddOption(&AMG.printlevel, "-ap", "--AMG-print", "AMG: Print level");
-    args.AddOption(&AMG.agg_coarsening, "-agg", "--AMG-aggressive-coarseing", "AMG: Levels of aggressive coarsening");
+    args.AddOption(&AMG.agg_levels, "-ag", "--AMG-aggressive-coarseing", "AMG: Levels of aggressive coarsening");
     
     /* Krylov parameters */
     args.AddOption(&krylov_solver, "-ksol", "--krylov-method", "KRYLOV: Method (see IRK::KrylovMethod)");
@@ -422,12 +437,12 @@ int main(int argc, char *argv[])
     RKData ButcherTableau(static_cast<RKData::Type>(RK_ID)); 
     IRK MyIRK(&SpaceDisc, ButcherTableau);        
 
-    // Initialize IRK time-stepping solver
-    MyIRK.Init(SpaceDisc);
-    
     // Set solver settings 
     MyIRK.SetKrylovParams(KRYLOV);
     MyIRK.SetNewtonParams(NEWTON);
+
+    // Initialize IRK time-stepping solver
+    MyIRK.Init(SpaceDisc);
     
     
     // Time step 
@@ -559,6 +574,7 @@ double Source(const Vector &x, double t) {
     switch (example) {
         // Source is chosen for manufactured solution
         case 1:
+        {
             switch (fluxID) {
                 // Linear advection flux
                 case 0:
@@ -611,6 +627,32 @@ double Source(const Vector &x, double t) {
                             return 0.0;
                     }
             }
+        }
+        // Manufacture solution of Burgers equation that doesn't depend on diffusion    
+        
+        /* Here's the MATHEMATICA code to compute the source term 
+            u[x_, y_, t_] := Sin[\[Pi]/2 (x - 1 - Subscript[\[Alpha], 1] t)]^4 Sin[\[Pi]/ 2 (y - 1 - Subscript[\[Alpha], 2] t)]^4 
+            Subscript[s, nonlinear] := 
+                    Simplify[D[u[x, y, t], t]  + 
+                   Subscript[\[Alpha], 1] D[u[x, y, t]^2, x] + 
+                   Subscript[\[Alpha], 2] D[u[x, y, t]^2, y] - 
+                   Subscript[\[Mu], 1] D[u[x, y, t], {x, 2}] - 
+                   Subscript[\[Mu], 2] D[u[x, y, t], {y, 2}]] 
+        */
+        case 3:  
+        {  
+            if (fluxID != 1) cout <<  "PDESolution only implemented for NONLINEAR example " << example << "\n";
+            if (x.Size() != 2) cout <<  "PDESolution only implemented for 2D in space " << example << "\n";
+        
+            double u = 0.5*PI*(x(0)-alpha(0)*t-1.);
+            double v = 0.5*PI*(x(1)-alpha(1)*t-1.);
+            
+            return PI*pow(sin(u)*sin(v), 2.)*(
+                    alpha(0)*sin(2.*u)*pow(sin(v), 2.)*(-1. + 2.*pow(sin(u)*sin(v), 4.))
+                +   alpha(1)*sin(2.*v)*pow(sin(u), 2.)*(-1. + 2.*pow(sin(u)*sin(v), 4.))
+                -   PI*mu(0)*(1. + 2.*cos(2*u))*pow(sin(v), 2.)
+                -   PI*mu(1)*(1. + 2.*cos(2*v))*pow(sin(u), 2.));
+        }
         // Default source is 0
         default:
             return 0.0;
@@ -661,6 +703,15 @@ double PDESolution(const Vector &x, double t)
                 default:
                     return 0.0;
             }
+        // Manufacture solution of Burgers equation that doesn't depend on diffusion
+        case 3: 
+        {   
+            if (fluxID != 1) cout <<  "PDESolution only implemented for NONLINEAR example " << example << "\n";
+            if (x.Size() != 2) cout <<  "PDESolution only implemented for 2D in space " << example << "\n";
+        
+            return pow(sin(PI/2.*(x(0)-1-alpha(0)*t)) * sin(PI/2.*(x(1)-1-alpha(1)*t)), 4.);
+            
+        }    
         default:
             cout <<  "PDESolution:: not implemented for example " << example << "\n";
             return 0.0;
@@ -919,13 +970,13 @@ void AdvDif::SetPreconditioner(int index, double dt, double gamma, int type) {
             amg_solver->SetStrengthThresh(AMG.strength_tolC);
             amg_solver->SetInterpolation(AMG.interp_type);
             amg_solver->SetRelaxType(AMG.relax_type);
-            amg_solver->SetCoarsening(AMG.coarsening);
+            amg_solver->SetCoarsening(AMG.coarsen_type);
             // TODO - this option not there
             // amg_solver->            AMG.filterA_tol,                                      
         } else {
             amg_solver->SetInterpolation(0);
-            amg_solver->SetCoarsening(AMG.coarsening);
-            amg_solver->SetAggressiveCoarsening(AMG.agg_coarsening); 
+            amg_solver->SetCoarsening(AMG.coarsen_type);
+            amg_solver->SetAggressiveCoarsening(AMG.agg_levels); 
         }  
         
         // Store pointers for AMG solver and matrix in Arrays
@@ -1015,13 +1066,13 @@ void AdvDif::SetPreconditioner(int index, double dt, double gamma, Vector weight
             amg_solver->SetStrengthThresh(AMG.strength_tolC);
             amg_solver->SetInterpolation(AMG.interp_type);
             amg_solver->SetRelaxType(AMG.relax_type);
-            amg_solver->SetCoarsening(AMG.coarsening);
+            amg_solver->SetCoarsening(AMG.coarsen_type);
             // TODO - this option not there
             // amg_solver->            AMG.filterA_tol,                                    
         } else {
             amg_solver->SetInterpolation(0);
-            amg_solver->SetCoarsening(AMG.coarsening);
-            amg_solver->SetAggressiveCoarsening(AMG.agg_coarsening); 
+            amg_solver->SetCoarsening(AMG.coarsen_type);
+            amg_solver->SetAggressiveCoarsening(AMG.agg_levels); 
         }  
 
         // Store pointers for AMG solver and matrix in Arrays
@@ -1039,7 +1090,7 @@ bool AdvDif::GetError(int save, const char * out, double t, const Vector &u, dou
     
     bool soln_implemented = false;
     Vector * u_exact = NULL;
-    if (example == 1 || (example == 2 && fluxID == 0)) {
+    if (example == 1 || (example == 2 && fluxID == 0) || (example == 3 && fluxID == 1)) {
         if (myid == 0) std::cout << "PDE solution IS implemented for this example." << '\n';
         soln_implemented = true;
         Mesh.EvalFunction(&PDESolution, t, u_exact); 
