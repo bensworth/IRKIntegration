@@ -313,17 +313,11 @@ public:
     // Standard data required by all solvers
     int s;              // Number of stages
     int s_eff;          // Number of eigenvalues of A0 once complex conjugates have been combined
-    DenseMatrix A0;     // The Butcher matrix
+    DenseMatrix A0;     // The Butcher matrix (includes explicit stage for PolyIMEX)
     DenseMatrix invA0;  // Inverse of Buthcher matrix
     Vector b0;          // Butcher tableau weights
     Vector c0;          // Butcher tableau nodes
-    Vector z0;          // Butcher tableau nodes for PolyIMEX
     Vector d0;          // inv(A0^\top)*b0
-    
-    // Associated data required by LINEAR solver
-    Vector zeta;        // REAL eigenvalues of inv(A0)
-    Vector beta;        // IMAGINARY parts of complex pairs of eigenvalues of inv(A0)
-    Vector eta;         // REAL parts of complex pairs of eigenvalues of inv(A0)
     
     // Associated data required by NONLINEAR solver
     DenseMatrix Q0;     // Orthogonal matrix in Schur decomposition of A0^-1
@@ -331,7 +325,8 @@ public:
     Array<int> R0_block_sizes; // From top of block diagonal, sizes of blocks
 
     // PolyIMEX data
-    DenseMatrix A0_it;
+    Vector z0;          // Quadrature nodes for PolyIMEX
+    // DenseMatrix A0_it;           // *--- IF A0_it != A0 ---*
     DenseMatrix expA0;
     DenseMatrix expA0_it;
     double alpha;

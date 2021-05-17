@@ -379,7 +379,8 @@ void PolyIMEX::FormImpRHS(Vector &x_prev, const double &t,
     if (exp_ind == 0) {
         bool need_update = false;
         if (iterator) {
-            coeffs = &(m_Butcher.A0_it);
+            // coeffs = &(m_Butcher.A0_it);     // *--- IF A0_it != A0 ---*
+            coeffs = &(m_Butcher.A0);
         }
         else {
             coeffs = &(m_Butcher.A0);
@@ -543,11 +544,13 @@ void PolyIMEX::Iterate(Vector &x, const double &t, const double &r, bool iterato
                 }
             }
             for (int j=0; j<m_Butcher.s; j++) { // implicit
-                if (std::abs(m_Butcher.A0_it(m_Butcher.s,j)) > 1e-15) {
+                // if (std::abs(m_Butcher.A0_it(m_Butcher.s,j)) > 1e-15) {      // *--- IF A0_it != A0 ---*
+                if (std::abs(m_Butcher.A0(m_Butcher.s,j)) > 1e-15) { 
                     m_IRKOper->SetTime(t + m_Butcher.z0(j)*r);
                     m_IRKOper->ImplicitMult(sol_imp.GetBlock(j), temp);
                     m_IRKOper->AddImplicitForcing(temp, t, r, m_Butcher.z0(j));
-                    temp.Add(r * (m_Butcher.A0_it(m_Butcher.s,j)), temp);
+                    // temp.Add(r * (m_Butcher.A0_it(m_Butcher.s,j)), temp);    // *--- IF A0_it != A0 ---*
+                    temp.Add(r * (m_Butcher.A0(m_Butcher.s,j)), temp);
                 }
             }
         }

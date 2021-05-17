@@ -931,7 +931,7 @@ void TriJacSolver::BlockBackwardSubstitution(BlockVector &z_block,
     // Short hands
     int s = StageOper.Butcher.s; 
     int s_eff = StageOper.Butcher.s_eff; 
-    DenseMatrix &R = StageOper.Butcher.R0;
+    const DenseMatrix &R = StageOper.Butcher.R0;
     Array<int> size = StageOper.Butcher.R0_block_sizes;
     bool krylov_converged;
     
@@ -1128,7 +1128,7 @@ void RKData::SizeData()
     invA0.SetSize(s);
     if (is_imex) {
         A0.SetSize(s+1);
-        A0_it.SetSize(s+1);
+        // A0_it.SetSize(s+1);      // *--- IF A0_it != A0 ---*
         expA0.SetSize(s+1);
         expA0_it.SetSize(s+1);
         z0.SetSize(s+1);
@@ -1145,9 +1145,6 @@ void RKData::SizeData()
     // s_eff := n(cc_eig_pairs) + n(r_eigs)
     // ==>  n(cc_eig_pairs) = s - s_eff
     // ==>  n(r_eigs) = 2*s_eff - s    
-    zeta.SetSize(2*s_eff-s);
-    beta.SetSize(s-s_eff);
-    eta.SetSize(s-s_eff);
     Q0.SetSize(s);  
     R0.SetSize(s);  
     R0_block_sizes.SetSize(s_eff);
@@ -1168,8 +1165,8 @@ void RKData::SetDummyData(double beta_on_eta, double eta_)
     double phi = 1.0; // Some non-zero constant...
     double a = eta_;
     double b = phi;
-    double c = -beta_on_eta*eta(0)*beta_on_eta*eta(0)/phi;
-    double d = eta(0);
+    double c = -beta_on_eta*eta_*beta_on_eta*eta_/phi;
+    double d = eta_;
     
     /* --- inv(A) --- */
     invA0(0, 0) = a;
@@ -2600,34 +2597,60 @@ void RKData::SetData() {
         // 2-stage 3rd-order Radau IIA
         case Type::IMEXRadauIIA3:
             is_imex = true;
-            s = 2;
-            s_eff = 1;
+            s = 2 ;
+            s_eff = 1 ;
             SizeData();
             /* --- A --- */
-            A0(0, 0) = +0.416666666666667;
-            A0(0, 1) = -0.083333333333333;
-            A0(1, 0) = +0.750000000000000;
-            A0(1, 1) = +0.250000000000000;
+            A0( 0 , 0 ) = 0.0 ;
+            A0( 0 , 1 ) = 0.0 ;
+            A0( 0 , 2 ) = 0.0 ;
+            A0( 1 , 0 ) = 0.0 ;
+            A0( 1 , 1 ) = 0.8333333333333334 ;
+            A0( 1 , 2 ) = -0.16666666666666666 ;
+            A0( 2 , 0 ) = 0.0 ;
+            A0( 2 , 1 ) = 1.5 ;
+            A0( 2 , 2 ) = 0.5 ;
+            /* --- exp A --- */
+            expA0( 0 , 0 ) = 0.0 ;
+            expA0( 0 , 1 ) = 0.0 ;
+            expA0( 0 , 2 ) = 0.0 ;
+            expA0( 1 , 0 ) = 0.2962962962962963 ;
+            expA0( 1 , 1 ) = -0.6111111111111112 ;
+            expA0( 1 , 2 ) = 0.9814814814814815 ;
+            expA0( 2 , 0 ) = 4.0 ;
+            expA0( 2 , 1 ) = -7.5 ;
+            expA0( 2 , 2 ) = 5.5 ;
+            /* --- expA_it --- */
+            expA0_it( 0 , 0 ) = 0.0 ;
+            expA0_it( 0 , 1 ) = 0.0 ;
+            expA0_it( 0 , 2 ) = 0.0 ;
+            expA0_it( 1 , 0 ) = 0.2962962962962963 ;
+            expA0_it( 1 , 1 ) = 0.3888888888888889 ;
+            expA0_it( 1 , 2 ) = -0.018518518518518517 ;
+            expA0_it( 2 , 0 ) = 0.0 ;
+            expA0_it( 2 , 1 ) = 1.5 ;
+            expA0_it( 2 , 2 ) = 0.5 ;
             /* --- inv(A) --- */
-            invA0(0, 0) = +1.500000000000000;
-            invA0(0, 1) = +0.500000000000000;
-            invA0(1, 0) = -4.500000000000000;
-            invA0(1, 1) = +2.500000000000000;
-            /* --- c --- */
-            c0(0) = +0.333333333333333;
-            c0(1) = +1.000000000000000;
+            invA0( 0 , 0 ) = 0.75 ;
+            invA0( 0 , 1 ) = 0.24999999999999992 ;
+            invA0( 1 , 0 ) = -2.25 ;
+            invA0( 1 , 1 ) = 1.2500000000000002 ;
             /* --- Q --- */
-            Q0(0, 0) = +0.992507556682903;
-            Q0(0, 1) = +0.122183263695704;
-            Q0(1, 0) = -0.122183263695704;
-            Q0(1, 1) = +0.992507556682903;
+            Q0( 0 , 0 ) = 0.992507556682903 ;
+            Q0( 0 , 1 ) = 0.12218326369570452 ;
+            Q0( 1 , 0 ) = -0.12218326369570452 ;
+            Q0( 1 , 1 ) = 0.992507556682903 ;
             /* --- R --- */
-            R0(0, 0) = +2.000000000000000;
-            R0(0, 1) = +0.438447187191170;
-            R0(1, 0) = -4.561552812808831;
-            R0(1, 1) = +2.000000000000000;
+            R0( 0 , 0 ) = 1.0 ;
+            R0( 0 , 1 ) = 0.2192235935955848 ;
+            R0( 1 , 0 ) = -2.2807764064044154 ;
+            R0( 1 , 1 ) = 1.0 ;
+            /* --- z --- */
+            z0( 0 ) = -1.0 ;
+            z0( 1 ) = -0.3333333333333333 ;
+            z0( 2 ) = 1.0 ;
             /* --- R block sizes --- */
-            R0_block_sizes[0] = 2;
+            R0_block_sizes[ 0 ] = 2.0 ;
             break;
 
         default:

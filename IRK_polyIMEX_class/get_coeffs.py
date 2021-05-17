@@ -5,6 +5,7 @@ import pdb
 
 
 exp_first = True
+z0 = np.array([-1,-1./3., 1])
 A0 = np.array( [[0.0, 0.0, 0.0],[0.0, 5.0/6.0, -1.0/6.0],[0.0, 1.5, 0.5]] )
 expA0 = np.array( [[0.0, 0.0, 0.0],[8.0/27.0, -11.0/18.0, 53.0/54.0], [4.0, -15.0/2.0, 11.0/2.0]] )
 expA0it = np.array( [[0.0, 0.0, 0.0],[8.0/27.0, 7.0/18.0, -1.0/54.0], [0.0, 3.0/2.0, 1.0/2.0]] )
@@ -15,35 +16,8 @@ else:
 	A0it_imp = A0it[0:-1,:][:,0:-1]
 
 A0inv = inv(A0_imp)
-# A0itinv = inv(A0it_imp)
 R0,Q0 = schur(A0inv)
-# R0it,Q0it = schur(A0itinv)
 s = A0.shape[0]
-
-print("/* --- A --- */")
-for i in range(0,s):
-	for j in range(0,s):
-		print( "A0(",i,",",j,") =",A0[i,j],";" )
-print("/* --- exp A --- */")
-for i in range(0,s):
-	for j in range(0,s):
-		print( "expA0(",i,",",j,") =",expA0[i,j],";" )
-print("/* --- expA_it --- */")
-for i in range(0,s):
-	for j in range(0,s):
-		print( "expA0_it(",i,",",j,") =",expA0it[i,j],";" )
-print("/* --- inv(A) --- */")
-for i in range(0,s-1):
-	for j in range(0,s-1):
-		print( "invA0(",i,",",j,") =",A0inv[i,j],";" )
-print("/* --- Q --- */")
-for i in range(0,s-1):
-	for j in range(0,s-1):
-		print( "Q0(",i,",",j,") =",Q0[i,j],";" )
-print("/* --- R --- */")
-for i in range(0,s-1):
-	for j in range(0,s-1):
-		print( "R0(",i,",",j,") =",R0[i,j],";" )
 
 # Get indices of 1x1 and 2x2 diagonal blocks in R
 test = np.empty_like(R0)
@@ -51,9 +25,9 @@ test[:] = R0
 test[np.where(test != 0)]=1
 s0 = int(np.ceil((s-1)/2))
 if np.abs((s-1) % 2)<1e-12:
-	bsize = 2*np.ones((s0,1))
+	bsize = 2*np.ones((s0,))
 else:
-	bsize = np.zeros((s0,1))
+	bsize = np.zeros((s0,))
 	ind = 0
 	i=0
 	pdb.set_trace()
@@ -84,6 +58,38 @@ else:
 			ind += 1
 			i += 1
 			continue
+
+print("is_imex = true;")
+print("s =",s-1,";")
+print("s_eff =",s0,";")
+print("SizeData();")
+print("/* --- A --- */")
+for i in range(0,s):
+	for j in range(0,s):
+		print( "A0(",i,",",j,") =",A0[i,j],";" )
+print("/* --- exp A --- */")
+for i in range(0,s):
+	for j in range(0,s):
+		print( "expA0(",i,",",j,") =",expA0[i,j],";" )
+print("/* --- expA_it --- */")
+for i in range(0,s):
+	for j in range(0,s):
+		print( "expA0_it(",i,",",j,") =",expA0it[i,j],";" )
+print("/* --- inv(A) --- */")
+for i in range(0,s-1):
+	for j in range(0,s-1):
+		print( "invA0(",i,",",j,") =",A0inv[i,j],";" )
+print("/* --- Q --- */")
+for i in range(0,s-1):
+	for j in range(0,s-1):
+		print( "Q0(",i,",",j,") =",Q0[i,j],";" )
+print("/* --- R --- */")
+for i in range(0,s-1):
+	for j in range(0,s-1):
+		print( "R0(",i,",",j,") =",R0[i,j],";" )
+print("/* --- z --- */")
+for i in range(0,s):
+	print( "z0(",i,") =",z0[i],";" )
 print("/* --- R block sizes --- */")
 for i in range(0,s0):
 	print( "R0_block_sizes[",i,"] =",bsize[i],";" )
