@@ -227,7 +227,8 @@ struct DGAdvDiff : IRKOperator
    mutable ParLinearForm b_imp;
    mutable ParLinearForm b_exp;
    DGMassMatrix mass;
-   std::map<std::pair<double,double>,BackwardEulerPreconditioner*> prec;
+   std::map<int, BackwardEulerPreconditioner*> prec;
+   std::map<std::pair<double,double>, int> prec_index;
    BackwardEulerPreconditioner *current_prec;
    HypreParMatrix *A_imp, *M_mat, *A_exp;
    int use_AIR;
@@ -236,7 +237,7 @@ struct DGAdvDiff : IRKOperator
 public:
    DGAdvDiff(ParFiniteElementSpace &fes_, int use_AIR_= 1,
       bool use_gmres_ = false, bool imp_forcing_=true)
-      : IRKOperator(fes_.GetComm(), fes_.GetTrueVSize(), 0.0, IMPLICIT),
+      : IRKOperator(fes_.GetComm(), true, fes_.GetTrueVSize(), 0.0, IMPLICIT),
         fes(fes_),
         v_coeff(fes.GetMesh()->Dimension(), v_fn),
         diff_coeff(-eps),
@@ -339,12 +340,26 @@ public:
       mass.Mult(x, y);
    }
 
+   // Apply action of the mass matrix
+   virtual void MassInv(const Vector &x, Vector &y) const override
+   {
+      mass.Solve(x, y);
+   }
+
    /// Precondition B*x=y <==> (\gamma*I - dt*L)*x=y
    inline void ImplicitPrec(const Vector &x, Vector &y) const override
    {
       MFEM_VERIFY(current_prec != NULL, "Must call SetSystem before ImplicitPrec");
       HYPRE_ClearAllErrors();
       current_prec->Mult(x, y);
+   }
+
+   /// Precondition B*x=y <==> (\gamma*I - dt*L)*x=y
+   inline void ImplicitPrec(int index, const Vector &x, Vector &y) const override
+   {
+      MFEM_VERIFY(current_prec != NULL, "Must call SetSystem before ImplicitPrec");
+      HYPRE_ClearAllErrors();
+      prec.at(index)->Mult(x, y);
    }
 
    /** Ensures that this->ImplicitPrec() preconditions (\gamma*M - dt*L)
@@ -356,18 +371,19 @@ public:
    virtual void SetPreconditioner(int index, double dt, double gamma, int type) override
    {
       std::pair<double,double> key = std::make_pair(dt, gamma);
-      bool key_exists = prec.find(key) != prec.end();
+      bool key_exists = prec_index.find(key) != prec_index.end();
       if (!key_exists)
       {
+         prec_index[key] = index;
          if (use_AIR > 0) {
-            prec[key] = new BackwardEulerPreconditioner(fes, gamma, *M_mat, dt,
+            prec[index] = new BackwardEulerPreconditioner(fes, gamma, *M_mat, dt,
                                                         *A_imp, use_AIR, use_gmres);
          }
          else {
-            prec[key] = new BackwardEulerPreconditioner(fes, gamma, *M_mat, dt, *A_imp);
+            prec[index] = new BackwardEulerPreconditioner(fes, gamma, *M_mat, dt, *A_imp);
          }
       }
-      current_prec = prec[key];
+      current_prec = prec[index];
    }
 
    ~DGAdvDiff()
@@ -459,11 +475,11 @@ int run_adv_diff(int argc, char *argv[])
 
    // const char *mesh_file = MFEM_DIR + "data/inline-quad.mesh";
    const char *mesh_file = "/Users/southworth/Software/mfem/data/inline-quad.mesh";
-   int ser_ref_levels = 3;
-   int par_ref_levels = 2;
+   int ser_ref_levels = 1;
+   int par_ref_levels = 0;
    int order = 1;
    double kappa = -1.0;
-   double dt = 1e-3;
+   double dt = 1e-2;
    double tf = 0.1;
    int use_irk = 123;
    int use_AIR = 0;
@@ -577,12 +593,16 @@ int run_adv_diff(int argc, char *argv[])
    DGAdvDiff dg(fes, use_AIR, temp_dg);
    FE_Evolution *evol = NULL;
    IRK *irk = NULL;
+   RKData* coeffs = NULL;
    std::unique_ptr<ODESolver> ode;
 
    if (use_irk > 3)
    {
-      RKData::Type irk_type = static_cast<RKData::Type>(use_irk); // RKData::LSDIRK3;
-      // RKData::Type irk_type = RKData::LSDIRK1;
+      coeffs = new RKData(static_cast<RKData::Type>(use_irk));
+
+      // for (int i=0; i<coeffs
+
+
       // Can adjust rel tol, abs tol, maxiter, kdim, etc.
       KrylovParams krylov_params;
       krylov_params.printlevel = 0;
@@ -595,7 +615,7 @@ int run_adv_diff(int argc, char *argv[])
       else krylov_params.solver = KrylovMethod::GMRES;
 
       // Build IRK object using spatial discretization
-      irk = new PolyIMEX(&dg, irk_type, true, iters);
+      irk = new PolyIMEX(&dg, *coeffs, true, iters);
       // Set GMRES settings
       irk->SetKrylovParams(krylov_params);
       // Initialize solver
@@ -662,6 +682,7 @@ int run_adv_diff(int argc, char *argv[])
 
    // if (evol) delete evol;
    // if (irk) delete irk;
+   // if (coeffs) delete coeffs;
 
    return 0;
 }

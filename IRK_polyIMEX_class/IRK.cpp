@@ -232,7 +232,7 @@ PolyIMEX::PolyIMEX(IRKOperator *IRKOper_, const RKData &ButcherTableau,
     }
 
     // Setup block sizes for s+1 vectors
-    m_stageOffsets2.SetSize(m_Butcher.s + 1); 
+    m_stageOffsets2.SetSize(m_Butcher.s + 2); 
     for (int i = 0; i <= (m_Butcher.s+1); i++) {
         m_stageOffsets2[i] = i*m_IRKOper->Height();
     }
@@ -253,18 +253,6 @@ void PolyIMEX::SetSolvers()
 {   
     if (m_solversInit) return;
     m_solversInit = true;
-    
-    // Setup Newton solver for nonlinear implicit splitting; here (unlike
-    // IRK), we want to use previous solution as initial guess, so we set
-    // iterative_mode = true;
-    if (!linearly_imp) {
-        m_newton_solver = new NewtonSolver(m_comm);
-        m_newton_solver->iterative_mode = true;
-        m_newton_solver->SetMaxIter(m_newton_params.maxiter);
-        m_newton_solver->SetRelTol(m_newton_params.reltol);
-        m_newton_solver->SetPrintLevel(m_newton_params.printlevel);    
-        if (m_newton_params.printlevel == 2) m_newton_solver->SetPrintLevel(-1);
-    }
 
     // Set sparsity patterns for Jacobian and its preconditioner if using a 
     // non-Kronecker-product Jacobian
@@ -291,7 +279,19 @@ void PolyIMEX::SetSolvers()
                                 gamma_idx, m_krylov_params, m_jac_solverSparsity,
                                 m_jac_precSparsity);
     }
-    m_newton_solver->SetSolver(*m_tri_jac_solver);
+
+    // Setup Newton solver for nonlinear implicit splitting; here (unlike
+    // IRK), we want to use previous solution as initial guess, so we set
+    // iterative_mode = true;
+    if (!linearly_imp) {
+        m_newton_solver = new NewtonSolver(m_comm);
+        m_newton_solver->iterative_mode = true;
+        m_newton_solver->SetMaxIter(m_newton_params.maxiter);
+        m_newton_solver->SetRelTol(m_newton_params.reltol);
+        m_newton_solver->SetPrintLevel(m_newton_params.printlevel);    
+        if (m_newton_params.printlevel == 2) m_newton_solver->SetPrintLevel(-1);
+        m_newton_solver->SetSolver(*m_tri_jac_solver);
+    }
 }
 
 
