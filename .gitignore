@@ -22,6 +22,7 @@ mg_irk.pdf
 *.o
 driver
 driver_adv_dif_FD
+imex-dg-adv-diff
 irk_lin.pdf
 code/FDadv_dif/convergence/tex/results.pdf
 code/FD_utils/**/*.pdf

@@ -1,3 +1,10 @@
+# TODO : right now only works with one driver file in the makefile at a time;
+# Need to figure out how to have funcitoning makefile for multiple drivers..
+# Problem is executable needs to be in the list of source files, probably to
+# have it in the list of object files, but cannot have multiple executables
+# in the object files as they interdepend
+
+
 # Compiler, compile options, and link options
 
 # Ben's stuff
@@ -12,10 +19,13 @@ LDFLAGS  = -L$(MFEM_DIR)/bens_build -L$(HYPRE_DIR)/lib -L$(METIS_DIR)/libmetis
 LDLIBS   = -lmfem -lHYPRE -lmetis
 
 # Files to compile
-SOURCE_FILES   = $(wildcard *.cpp)
-# SOURCE_FILES   = FDSpaceDisc.cpp IRK_utils.cpp IRK.cpp
+# SOURCE_FILES   = $(wildcard *.cpp)
+SOURCE_FILES   = FDSpaceDisc.cpp IRK_utils.cpp IRK.cpp imex-dg-adv-diff.cpp
+EXEC_FILES     = imex-dg-adv-diff 
+# SOURCE_FILES   = FDSpaceDisc.cpp IRK_utils.cpp IRK.cpp driver_adv_dif_FD.cpp
+# EXEC_FILES     = driver_adv_dif_FD
 OBJECT_FILES   = $(SOURCE_FILES:.cpp=.o)
-EXEC_FILES     = driver_adv_dif_FD
+
 
 $(EXEC_FILES): $(OBJECT_FILES)
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJECT_FILES) $(LDFLAGS) $(LDLIBS)

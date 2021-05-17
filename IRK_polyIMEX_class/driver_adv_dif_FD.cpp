@@ -351,7 +351,6 @@ int main(int argc, char *argv[])
     args.AddOption(&NEWTON.jac_update_rate, "-jacu", "--newton-jac-update-rate", "NEWTON: Rate that Jacobian is updated (see NewtonParams)");
     args.AddOption(&newton_jacs, "-jacs", "--newton-jac-solver-sparsity", "NEWTON: Jacobian solver sparsity (see NewtonParams)");
     args.AddOption(&newton_jacp, "-jacp", "--newton-jac-prec-sparsity", "NEWTON: Jacobian preconditioner sparsity (see NewtonParams)");
-    args.AddOption(&NEWTON.gamma_idx, "-gamma", "--newton-prec-constant", "NEWTON: Constant used to precondition Schur complement");
     
     /* --- Text output of solution etc --- */              
     args.AddOption(&out, "-out", "--out-directory", "Name of output file."); 
@@ -497,7 +496,6 @@ int main(int argc, char *argv[])
             solinfo.Print("nrtol", NEWTON.reltol);
             solinfo.Print("natol", NEWTON.abstol);
             solinfo.Print("newton_iters", avg_newton_iter);
-            solinfo.Print("gamma", NEWTON.gamma_idx);
             
             solinfo.Print("krtol", KRYLOV.reltol);
             solinfo.Print("katol", KRYLOV.abstol);

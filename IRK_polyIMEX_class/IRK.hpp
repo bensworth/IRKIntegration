@@ -32,11 +32,8 @@ struct NewtonParams {
     // 1 - Every iteration
     // x > 1 - Every x iterations
     int jac_update_rate = 0;  
-    
     JacSparsity jac_solver_sparsity = JacSparsity::DENSE;
     JacSparsity jac_prec_sparsity  = JacSparsity::DIAGONAL;
-    
-    int gamma_idx = 0; // Constant used when preconditioning (2,2) block [0==eta, 1==eta+beta^2/eta].
 }; 
 
 /** Class implementing conjugate-pair preconditioned solution of fully implicit 
@@ -53,11 +50,12 @@ protected:
     const RKData &m_Butcher;    // Runge-Kutta Butcher tableau and associated data
 
     IRKOperator * m_IRKOper;    // Spatial discretization. 
-    BlockVector m_w;            // The stage vectors
+    BlockVector sol_imp;        // Block vector with s blocks for implicit solve of stages
     Array<int> m_stageOffsets;  // Offsets 
     IRKStageOper * m_stageOper; // Operator encoding stages, F(w) = 0
     
     // Nonlinear and linear solvers for computing stage vectors
+    int gamma_idx;                  // (2,2) preconditioning constant, [0==eta, 1==eta+beta^2/eta].
     bool m_solversInit;             // Have the solvers been initialized?
     NewtonSolver * m_newton_solver; // Nonlinear solver for inverting F
     TriJacSolver * m_tri_jac_solver;// Linear solver for inverting (approximate) Jacobian
@@ -120,6 +118,9 @@ public:
     void GetSolveStats(int &avg_newton_iter,
         vector<int> &avg_krylov_iter, vector<int> &system_size, 
         vector<double> &eig_ratio) const;
+
+    // (2,2) preconditioning constant, [0==eta, 1==eta+beta^2/eta]
+    void SetGammaID(int gamma_idx_) {gamma_idx = gamma_idx_; }
 };
 
 /** Class implementing conjugate-pair preconditioned solution of fully implicit 
@@ -129,7 +130,7 @@ public:
 class PolyIMEX : public IRK
 {
 private:
-    BlockVector sol_imp;        // Block vector with s+1 blocks for implicit solution
+    Array<int> m_stageOffsets2; // Offsets for s+1 block vectors
     BlockVector exp_part;       // Block vector with s+1 blocks for explicit part of solution
     BlockVector rhs;            // Block vector with s blocks for implicit right-hand side
     Vector      sol_exp;        // Vector for explicit solution
@@ -144,14 +145,15 @@ private:
 
     /** Form rhs for polyomial IMEX; include scaling by (A0 x I)^{-1}, as
         applied to nonlinear system on right. */
-    void FormImpRHS(Vector &x_prev, double r, bool iterator);
+    void FormImpRHS(Vector &x_prev, const double &t,
+        const double &r, bool iterator);
 
     /// Update stored explicit components for future time steps/iterations. 
-    void UpdateExplicitComponents();
+    void UpdateExplicitComponents(const double &t, const double &r);
 
     /** Update solution via one implicit-explicit pass; can be used as
         preconditioning for higher-order scheme or kernel of single time step. */
-    void Iterate(Vector &x, double r, bool iterator);
+    void Iterate(Vector &x, const double &t, const double &r, bool iterator);
 
 public:
     PolyIMEX(IRKOperator *IRKOper_, const RKData &ButcherTableau,

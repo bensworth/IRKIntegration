@@ -105,6 +105,11 @@ void IRKOperator::MassMult(const Vector &x, Vector &y) const
     mfem_error("IRKOperator::MassMult() is not overridden!");
 }
 
+void IRKOperator::MassInv(const Vector &x, Vector &y) const
+{
+    mfem_error("IRKOperator::MassInv() is not overridden!");
+}
+
 void IRKOperator::ExplicitMult(const Vector &x, Vector &y) const
 {
     mfem_error("IRKOperator::ExplicitMult() is not overridden!");
@@ -120,8 +125,8 @@ void IRKOperator::SetExplicitGradient(const Vector &u, double dt,
                 for IRK methods!");
 }
 
-void IRKOperator::SetExplicitGradient(double dt, 
-                                 const BlockVector &x, const Vector &c)
+void IRKOperator::SetExplicitGradient(double r, 
+                                 const BlockVector &x, const Vector &z)
 {
     MFEM_ASSERT(m_gradients == ExplicitGradients::APPROXIMATE, 
                 "IRKOperator::SetExplicitGradient() applies only for \
@@ -163,8 +168,8 @@ void IRKOperator::SetExplicitGradients(const Vector &u, double dt,
                 for IRK methods!");
 }
 
-void IRKOperator::SetExplicitGradients(double dt, 
-                                  const BlockVector &x, const Vector &c)
+void IRKOperator::SetExplicitGradients(double r, 
+                                  const BlockVector &x, const Vector &z)
 {
     MFEM_ASSERT(m_gradients == ExplicitGradients::EXACT, 
                 "IRKOperator::SetExplicitGradients() applies only for \
@@ -237,6 +242,14 @@ void IRKStageOper::SetParameters(const Vector *u_, double t_, double dt_)
     getGradientCalls = 0; // Reset counter
 };
 
+void IRKStageOper::SetParameters(double t_, double dt_)
+{ 
+    t = t_;
+    dt = dt_;
+    u = NULL;
+    getGradientCalls = 0; // Reset counter
+};
+
 Operator& IRKStageOper::GetGradient(const Vector &w) const
 {
     // Update `current_iterate` so that its data points to the current iterate's
@@ -251,8 +264,10 @@ Operator& IRKStageOper::GetGradient(const Vector &w) const
 
 void IRKStageOper::Mult(const Vector &w_vector, Vector &y_vector) const
 {
-    MFEM_ASSERT(u, "IRKStageOper::Mult() Requires states to be set, see SetParameters()");
-    
+    if (!Butcher.IsIMEX()) {
+        MFEM_ASSERT(u, "IRKStageOper::Mult() Requires states to be set, see SetParameters()");
+    }
+
     // Wrap scalar Vectors with BlockVectors
     w_block.Update(w_vector.GetData(), offsets);
     y_block.Update(y_vector.GetData(), offsets);
@@ -271,12 +286,22 @@ void IRKStageOper::Mult(const Vector &w_vector, Vector &y_vector) const
         KronTransform(Butcher.invA0, w_block, y_block); // y <- inv(A0)*w
     }
     
-    /* y <- y - N(u + dt*w) */
-    for (int i = 0; i < Butcher.s; i++) {        
-        add(*u, dt, w_block.GetBlock(i), temp_vector1); // temp1 <- u+dt*w(i)
-        IRKOper->SetTime(t + Butcher.c0[i]*dt);
-        IRKOper->ImplicitMult(temp_vector1, temp_vector2); // temp2 <- N(temp1, t)
-        y_block.GetBlock(i).Add(-1., temp_vector2);
+    /* y <- y - N(u + dt*w), where w = (A0 x I)k, for stage vectors k */
+    for (int i = 0; i < Butcher.s; i++) { 
+        // If u is defined in class, apply operator at u + dt*w (IRK) 
+        if (u) {
+            add(*u, dt, w_block.GetBlock(i), temp_vector1); // temp1 <- u+dt*w(i)
+            IRKOper->SetTime(t + Butcher.c0[i]*dt);
+            IRKOper->ImplicitMult(temp_vector1, temp_vector2); // temp2 <- N(temp1, t)
+            y_block.GetBlock(i).Add(-1., temp_vector2);
+        }
+        // If u is not defined in class, apply operator to w (PolyIMEX) 
+        else{
+            IRKOper->SetTime(t + Butcher.z0[i]*dt);     // TODO : what is correct time??
+            IRKOper->ImplicitMult(w_block.GetBlock(i), temp_vector2); // temp2 <- N(temp1, t)
+            y_block.GetBlock(i).Add(-1., temp_vector2);
+
+        }
     }
 }
 
@@ -419,7 +444,7 @@ JacDiagBlock::JacDiagBlock(const Array<int> &offsets_,
     Z00(Z00_), Z01(Z01_), Z10(Z10_), Z11(Z11_) 
 {
     MFEM_ASSERT(IRKOper.GetExplicitGradientsType() ==
-        RKOperator::ExplicitGradients::EXACT,
+        IRKOperator::ExplicitGradients::EXACT,
             "JacDiagBlock:: This constructor is for IRKOperator's \
             with ExplicitGradients::EXACT");
 }
@@ -834,13 +859,13 @@ void TriJacSolver::SetOperator(const Operator &op)
                 // Set approximate gradient Na' 
                 StageOper.IRKOper->SetExplicitGradient(StageOper.GetTimeStep(), 
                                         StageOper.GetCurrentIterate(),
-                                        StageOper.Butcher.c0);
+                                        StageOper.Butcher.z0);
             }
             else {
                 // Set exact gradients {N'} 
                 StageOper.IRKOper->SetExplicitGradients(StageOper.GetTimeStep(), 
                                         StageOper.GetCurrentIterate(),
-                                        StageOper.Butcher.c0);
+                                        StageOper.Butcher.z0);
             }
         }
     }
@@ -867,6 +892,9 @@ void TriJacSolver::GetKrylovSolver(IterativeSolver * &solver,
     const KrylovParams &params) const 
 {
     switch (params.solver) {
+        case KrylovMethod::FP:
+            solver = new SLISolver(StageOper.IRKOper->GetComm());
+            break;
         case KrylovMethod::CG:
             solver = new CGSolver(StageOper.IRKOper->GetComm());
             break;
@@ -903,7 +931,7 @@ void TriJacSolver::BlockBackwardSubstitution(BlockVector &z_block,
     // Short hands
     int s = StageOper.Butcher.s; 
     int s_eff = StageOper.Butcher.s_eff; 
-    DenseMatrix R = StageOper.Butcher.R0;
+    DenseMatrix &R = StageOper.Butcher.R0;
     Array<int> size = StageOper.Butcher.R0_block_sizes;
     bool krylov_converged;
     
@@ -1094,15 +1122,24 @@ void TriJacSolver::BlockBackwardSubstitution(BlockVector &z_block,
 // -------------------------------------------------------------------- //
 
 /// Set dimensions of data structures 
-void RKData::SizeData() {
-    
+void RKData::SizeData()
+{
     // Basic `Butcher Tableau` data
-    A0.SetSize(s);
     invA0.SetSize(s);
-    b0.SetSize(s);
-    c0.SetSize(s);
-    d0.SetSize(s); 
-    
+    if (is_imex) {
+        A0.SetSize(s+1);
+        A0_it.SetSize(s+1);
+        expA0.SetSize(s+1);
+        expA0_it.SetSize(s+1);
+        z0.SetSize(s+1);
+    }
+    else {
+        A0.SetSize(s);
+        c0.SetSize(s);
+        b0.SetSize(s);
+        d0.SetSize(s);
+    }
+  
     // NOTE:
     //     s := 2*n(cc_eig_pairs) + n(r_eigs)
     // s_eff := n(cc_eig_pairs) + n(r_eigs)
@@ -1113,28 +1150,25 @@ void RKData::SizeData() {
     eta.SetSize(s-s_eff);
     Q0.SetSize(s);  
     R0.SetSize(s);  
-    R0_block_sizes.SetSize(s_eff); 
+    R0_block_sizes.SetSize(s_eff);
 }
 
 
 /** Set dummy 2x2 RK data that has the specified value of beta_on_eta == beta/eta
     and real part of eigenvalue equal to eta_ */
-void RKData::SetDummyData(double beta_on_eta, double eta_) {
+void RKData::SetDummyData(double beta_on_eta, double eta_)
+{
     s = 2;      // 2 stages
     s_eff = 1;  // Have one 2x2 system
     
     SizeData();
-    /* --- eta --- */
-    eta(0) = eta_; // 
-    /* --- beta --- */
-    beta(0) = beta_on_eta*eta(0);
     /* --- R block sizes --- */
     R0_block_sizes[0] = 2;
     
     double phi = 1.0; // Some non-zero constant...
-    double a = eta(0);
+    double a = eta_;
     double b = phi;
-    double c = -beta(0)*beta(0)/phi;
+    double c = -beta_on_eta*eta(0)*beta_on_eta*eta(0)/phi;
     double d = eta(0);
     
     /* --- inv(A) --- */
@@ -1183,6 +1217,7 @@ void RKData::SetData() {
     switch(ID) {
         // 2-stage 3rd-order A-stable SDIRK
         case Type::ASDIRK3:
+            is_imex = false;
             s = 2;
             s_eff = 2;
             SizeData();
@@ -1205,11 +1240,6 @@ void RKData::SetData() {
             /* --- d --- */
             d0(0) = +1.098076211353316;
             d0(1) = +0.633974596215561;
-            /* --- zeta --- */
-            zeta(0) = +1.267949192431123;
-            zeta(1) = +1.267949192431123;
-            /* --- eta --- */
-            /* --- beta --- */
             /* --- Q --- */
             Q0(0, 0) = +0.000000000000000;
             Q0(0, 1) = +1.000000000000000;
@@ -1226,6 +1256,7 @@ void RKData::SetData() {
             
         // 3-stage 4th-order A-stable SDIRK
         case Type::ASDIRK4:
+            is_imex = false;
             s = 3;
             s_eff = 3;
             SizeData();
@@ -1261,12 +1292,6 @@ void RKData::SetData() {
             d0(0) = +0.445622407287714;
             d0(1) = +1.064177772475912;
             d0(2) = +0.120614758428183;
-            /* --- zeta --- */
-            zeta(0) = +0.935822227524088;
-            zeta(1) = +0.935822227524088;
-            zeta(2) = +0.935822227524088;
-            /* --- eta --- */
-            /* --- beta --- */
             /* --- Q --- */
             Q0(0, 0) = +0.000000000000000;
             Q0(0, 1) = +0.000000000000000;
@@ -1295,6 +1320,7 @@ void RKData::SetData() {
 
         // 1-stage 1st-order L-stable SDIRK
         case Type::LSDIRK1:
+            is_imex = false;
             s = 1;
             s_eff = 1;
             SizeData();
@@ -1308,10 +1334,6 @@ void RKData::SetData() {
             c0(0) = +1.000000000000000;
             /* --- d --- */
             d0(0) = +1.000000000000000;
-            /* --- zeta --- */
-            zeta(0) = +1.000000000000000;
-            /* --- eta --- */
-            /* --- beta --- */
             /* --- Q --- */
             Q0(0, 0) = -1.000000000000000;
             /* --- R --- */
@@ -1322,6 +1344,7 @@ void RKData::SetData() {
 
         // 2-stage 2nd-order L-stable SDIRK
         case Type::LSDIRK2:
+            is_imex = false;
             s = 2;
             s_eff = 2;
             SizeData();
@@ -1344,11 +1367,6 @@ void RKData::SetData() {
             /* --- d --- */
             d0(0) = -0.707106781186546;
             d0(1) = +1.707106781186547;
-            /* --- zeta --- */
-            zeta(0) = +3.414213562373094;
-            zeta(1) = +3.414213562373094;
-            /* --- eta --- */
-            /* --- beta --- */
             /* --- Q --- */
             Q0(0, 0) = +0.000000000000000;
             Q0(0, 1) = +1.000000000000000;
@@ -1366,6 +1384,7 @@ void RKData::SetData() {
 
         // 3-stage 3rd-order L-stable SDIRK
         case Type::LSDIRK3:
+            is_imex = false;
             s = 3;
             s_eff = 3;
             SizeData();
@@ -1401,12 +1420,6 @@ void RKData::SetData() {
             d0(0) = +0.000000000000000;
             d0(1) = +0.000000000000000;
             d0(2) = +1.000000000000000;
-            /* --- zeta --- */
-            zeta(0) = +2.294280360279042;
-            zeta(1) = +2.294280360279042;
-            zeta(2) = +2.294280360279042;
-            /* --- eta --- */
-            /* --- beta --- */
             /* --- Q --- */
             Q0(0, 0) = +0.000000000000000;
             Q0(0, 1) = +0.000000000000000;
@@ -1435,6 +1448,7 @@ void RKData::SetData() {
 
         // 5-stage 4th-order L-stable SDIRK
         case Type::LSDIRK4:
+            is_imex = false;
             s = 5;
             s_eff = 5;
             SizeData();
@@ -1508,14 +1522,6 @@ void RKData::SetData() {
             d0(2) = +0.000000000000000;
             d0(3) = +0.000000000000000;
             d0(4) = +1.000000000000000;
-            /* --- zeta --- */
-            zeta(0) = +4.000000000000000;
-            zeta(1) = +4.000000000000000;
-            zeta(2) = +4.000000000000000;
-            zeta(3) = +4.000000000000000;
-            zeta(4) = +4.000000000000000;
-            /* --- eta --- */
-            /* --- beta --- */
             /* --- Q --- */
             Q0(0, 0) = +0.000000000000000;
             Q0(0, 1) = +0.000000000000000;
@@ -1578,6 +1584,7 @@ void RKData::SetData() {
 
         // 1-stage 2nd-order Gauss--Legendre
         case Type::Gauss2:
+            is_imex = false;
             s = 1;
             s_eff = 1;
             SizeData();
@@ -1591,10 +1598,6 @@ void RKData::SetData() {
             c0(0) = +0.500000000000000;
             /* --- d --- */
             d0(0) = +2.000000000000000;
-            /* --- zeta --- */
-            zeta(0) = +2.000000000000000;
-            /* --- eta --- */
-            /* --- beta --- */
             /* --- Q --- */
             Q0(0, 0) = +1.000000000000000;
             /* --- R --- */
@@ -1605,6 +1608,7 @@ void RKData::SetData() {
 
         // 2-stage 4th-order Gauss--Legendre
         case Type::Gauss4:
+            is_imex = false;
             s = 2;
             s_eff = 1;
             SizeData();
@@ -1627,11 +1631,6 @@ void RKData::SetData() {
             /* --- d --- */
             d0(0) = -1.732050807568877;
             d0(1) = +1.732050807568877;
-            /* --- zeta --- */
-            /* --- eta --- */
-            eta(0) = +3.000000000000000;
-            /* --- beta --- */
-            beta(0) = +1.732050807568877;
             /* --- Q --- */
             Q0(0, 0) = +1.000000000000000;
             Q0(0, 1) = +0.000000000000000;
@@ -1648,6 +1647,7 @@ void RKData::SetData() {
 
         // 3-stage 6th-order Gauss--Legendre
         case Type::Gauss6:
+            is_imex = false;
             s = 3;
             s_eff = 2;
             SizeData();
@@ -1683,12 +1683,6 @@ void RKData::SetData() {
             d0(0) = +1.666666666666668;
             d0(1) = -1.333333333333334;
             d0(2) = +1.666666666666667;
-            /* --- zeta --- */
-            zeta(0) = +4.644370709252176;
-            /* --- eta --- */
-            eta(0) = +3.677814645373911;
-            /* --- beta --- */
-            beta(0) = +3.508761919567443;
             /* --- Q --- */
             Q0(0, 0) = -0.083238672942822;
             Q0(0, 1) = -0.181066379097451;
@@ -1716,6 +1710,7 @@ void RKData::SetData() {
 
         // 4-stage 8th-order Gauss--Legendre
         case Type::Gauss8:
+            is_imex = false;
             s = 4;
             s_eff = 2;
             SizeData();
@@ -1768,13 +1763,6 @@ void RKData::SetData() {
             d0(1) = +1.214393969798579;
             d0(2) = -1.214393969798578;
             d0(3) = +1.640705321739257;
-            /* --- zeta --- */
-            /* --- eta --- */
-            eta(0) = +4.207578794359268;
-            eta(1) = +5.792421205640723;
-            /* --- beta --- */
-            beta(0) = +5.314836083713508;
-            beta(1) = +1.734468257869062;
             /* --- Q --- */
             Q0(0, 0) = +0.048240345831208;
             Q0(0, 1) = +0.022512328854129;
@@ -1816,6 +1804,7 @@ void RKData::SetData() {
 
         // 5-stage 10th-order Gauss--Legendre
         case Type::Gauss10:
+            is_imex = false;
             s = 5;
             s_eff = 3;
             SizeData();
@@ -1889,14 +1878,6 @@ void RKData::SetData() {
             d0(2) = +1.066666666666666;
             d0(3) = -1.161100044223459;
             d0(4) = +1.627766710890126;
-            /* --- zeta --- */
-            zeta(0) = +7.293477190659350;
-            /* --- eta --- */
-            eta(0) = +4.649348606363301;
-            eta(1) = +6.703912798307031;
-            /* --- beta --- */
-            beta(0) = +7.142045840675963;
-            beta(1) = +3.485322832366363;
             /* --- Q --- */
             Q0(0, 0) = +0.052286373550732;
             Q0(0, 1) = +0.017761459146135;
@@ -1957,6 +1938,7 @@ void RKData::SetData() {
 
         // 2-stage 3rd-order Radau IIA
         case Type::RadauIIA3:
+            is_imex = false;
             s = 2;
             s_eff = 1;
             SizeData();
@@ -1979,11 +1961,6 @@ void RKData::SetData() {
             /* --- d --- */
             d0(0) = -0.000000000000000;
             d0(1) = +1.000000000000000;
-            /* --- zeta --- */
-            /* --- eta --- */
-            eta(0) = +2.000000000000000;
-            /* --- beta --- */
-            beta(0) = +1.414213562373095;
             /* --- Q --- */
             Q0(0, 0) = +0.992507556682903;
             Q0(0, 1) = +0.122183263695704;
@@ -2000,6 +1977,7 @@ void RKData::SetData() {
 
         // 3-stage 5th-order Radau IIA
         case Type::RadauIIA5:
+            is_imex = false;
             s = 3;
             s_eff = 2;
             SizeData();
@@ -2035,12 +2013,6 @@ void RKData::SetData() {
             d0(0) = +0.000000000000000;
             d0(1) = +0.000000000000000;
             d0(2) = +1.000000000000000;
-            /* --- zeta --- */
-            zeta(0) = +3.637834252744495;
-            /* --- eta --- */
-            eta(0) = +2.681082873627751;
-            /* --- beta --- */
-            beta(0) = +3.050430199247411;
             /* --- Q --- */
             Q0(0, 0) = +0.138665108751908;
             Q0(0, 1) = +0.046278149309489;
@@ -2068,6 +2040,7 @@ void RKData::SetData() {
 
         // 4-stage 7th-order Radau IIA
         case Type::RadauIIA7:
+            is_imex = false;
             s = 4;
             s_eff = 2;
             SizeData();
@@ -2120,13 +2093,6 @@ void RKData::SetData() {
             d0(1) = +0.000000000000000;
             d0(2) = -0.000000000000000;
             d0(3) = +1.000000000000000;
-            /* --- zeta --- */
-            /* --- eta --- */
-            eta(0) = +3.212806896871531;
-            eta(1) = +4.787193103128468;
-            /* --- beta --- */
-            beta(0) = +4.773087433276639;
-            beta(1) = +1.567476416895209;
             /* --- Q --- */
             Q0(0, 0) = +0.054570292994775;
             Q0(0, 1) = +0.125683294495023;
@@ -2168,6 +2134,7 @@ void RKData::SetData() {
 
         // 5-stage 9th-order Radau IIA
         case Type::RadauIIA9:
+            is_imex = false;
             s = 5;
             s_eff = 3;
             SizeData();
@@ -2241,14 +2208,6 @@ void RKData::SetData() {
             d0(2) = +0.000000000000000;
             d0(3) = +0.000000000000000;
             d0(4) = +1.000000000000000;
-            /* --- zeta --- */
-            zeta(0) = +6.286704751729317;
-            /* --- eta --- */
-            eta(0) = +3.655694325463577;
-            eta(1) = +5.700953298671759;
-            /* --- beta --- */
-            beta(0) = +6.543736899360073;
-            beta(1) = +3.210265600308560;
             /* --- Q --- */
             Q0(0, 0) = +0.104376011865108;
             Q0(0, 1) = +0.002753215699337;
@@ -2309,6 +2268,7 @@ void RKData::SetData() {
 
         // 2-stage 2nd-order Lobatto IIIC
         case Type::LobIIIC2:
+            is_imex = false;
             s = 2;
             s_eff = 1;
             SizeData();
@@ -2331,11 +2291,6 @@ void RKData::SetData() {
             /* --- d --- */
             d0(0) = +0.000000000000000;
             d0(1) = +1.000000000000000;
-            /* --- zeta --- */
-            /* --- eta --- */
-            eta(0) = +1.000000000000000;
-            /* --- beta --- */
-            beta(0) = +1.000000000000000;
             /* --- Q --- */
             Q0(0, 0) = +1.000000000000000;
             Q0(0, 1) = +0.000000000000000;
@@ -2352,6 +2307,7 @@ void RKData::SetData() {
 
         // 3-stage 4th-order Lobatto IIIC
         case Type::LobIIIC4:
+            is_imex = false;
             s = 3;
             s_eff = 2;
             SizeData();
@@ -2388,12 +2344,6 @@ void RKData::SetData() {
             d0(0) = +0.000000000000000;
             d0(1) = -0.000000000000000;
             d0(2) = +1.000000000000000;
-            /* --- zeta --- */
-            zeta(0) = +2.625816818958467;
-            /* --- eta --- */
-            eta(0) = +1.687091590520766;
-            /* --- beta --- */
-            beta(0) = +2.508731754924880;
             /* --- Q --- */
             Q0(0, 0) = -0.575784070910962;
             Q0(0, 1) = -0.375422043049930;
@@ -2421,6 +2371,7 @@ void RKData::SetData() {
 
         // 4-stage 6th-order Lobatto IIIC
         case Type::LobIIIC6:
+            is_imex = false;
             s = 4;
             s_eff = 2;
             SizeData();
@@ -2473,13 +2424,6 @@ void RKData::SetData() {
             d0(1) = +0.000000000000000;
             d0(2) = +0.000000000000000;
             d0(3) = +1.000000000000000;
-            /* --- zeta --- */
-            /* --- eta --- */
-            eta(0) = +3.779019967010190;
-            eta(1) = +2.220980032989806;
-            /* --- beta --- */
-            beta(0) = +1.380176524272838;
-            beta(1) = +4.160391445506934;
             /* --- Q --- */
             Q0(0, 0) = +0.106073254812433;
             Q0(0, 1) = -0.856299374198130;
@@ -2521,6 +2465,7 @@ void RKData::SetData() {
 
         // 5-stage 8th-order Lobatto IIIC
         case Type::LobIIIC8:
+            is_imex = false;
             s = 5;
             s_eff = 3;
             SizeData();
@@ -2594,14 +2539,6 @@ void RKData::SetData() {
             d0(2) = +0.000000000000000;
             d0(3) = -0.000000000000000;
             d0(4) = +1.000000000000000;
-            /* --- zeta --- */
-            zeta(0) = +5.277122810196474;
-            /* --- eta --- */
-            eta(0) = +2.664731518065850;
-            eta(1) = +4.696707076835921;
-            /* --- beta --- */
-            beta(0) = +5.884022927615487;
-            beta(1) = +2.908975454213622;
             /* --- Q --- */
             Q0(0, 0) = -0.571732147184072;
             Q0(0, 1) = -0.217020758096524;
@@ -2658,6 +2595,39 @@ void RKData::SetData() {
             R0_block_sizes[0] = 2;
             R0_block_sizes[1] = 1;
             R0_block_sizes[2] = 2;
+            break;
+
+        // 2-stage 3rd-order Radau IIA
+        case Type::IMEXRadauIIA3:
+            is_imex = true;
+            s = 2;
+            s_eff = 1;
+            SizeData();
+            /* --- A --- */
+            A0(0, 0) = +0.416666666666667;
+            A0(0, 1) = -0.083333333333333;
+            A0(1, 0) = +0.750000000000000;
+            A0(1, 1) = +0.250000000000000;
+            /* --- inv(A) --- */
+            invA0(0, 0) = +1.500000000000000;
+            invA0(0, 1) = +0.500000000000000;
+            invA0(1, 0) = -4.500000000000000;
+            invA0(1, 1) = +2.500000000000000;
+            /* --- c --- */
+            c0(0) = +0.333333333333333;
+            c0(1) = +1.000000000000000;
+            /* --- Q --- */
+            Q0(0, 0) = +0.992507556682903;
+            Q0(0, 1) = +0.122183263695704;
+            Q0(1, 0) = -0.122183263695704;
+            Q0(1, 1) = +0.992507556682903;
+            /* --- R --- */
+            R0(0, 0) = +2.000000000000000;
+            R0(0, 1) = +0.438447187191170;
+            R0(1, 0) = -4.561552812808831;
+            R0(1, 1) = +2.000000000000000;
+            /* --- R block sizes --- */
+            R0_block_sizes[0] = 2;
             break;
 
         default:

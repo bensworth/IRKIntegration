@@ -35,7 +35,7 @@ void KronTransformTranspose(const DenseMatrix &A, BlockVector &x);
 
 /// Krylov solve type for IRK systems
 enum KrylovMethod {
-    CG = 0, MINRES = 1, GMRES = 2, BICGSTAB = 3, FGMRES = 4
+    FP = -1, CG = 0, MINRES = 1, GMRES = 2, BICGSTAB = 3, FGMRES = 4
 };
 
 /// Parameters for Krylov solver(s)
@@ -126,13 +126,28 @@ public:
         If not re-implemented, this method simply generates an error. */  
     virtual void ImplicitPrec(int index, const Vector &x, Vector &y) const;
 
+    /** Add implicit forcing function to rhs,
+            rhs += r*f(t + r*z),
+        for time-dependent forcing function f.
+        If not reimplemented, rhs is not modified.
+        - Important for linearly implicit methods, where forcing function
+        cannot be included in ImplicitMult function. */
+    virtual void AddImplicitForcing(Vector &rhs, double t, double r, double z) { };
+
     /* ---------------------------------------------------------------------- */
     /* ---------------- Virtual functions for Type::IMPLICIT ---------------- */
+    /* -- Note, this weird MFEM notation IMPLICIT means has a mass matrix. -- */
     /* ---------------------------------------------------------------------- */
+
     /** Apply action mass matrix, y = M*x. 
         If not re-implemented, this method simply generates an error.
         PREVIOUSLY CALLED ImplictMult */
     virtual void MassMult(const Vector &x, Vector &y) const;
+
+    /** Apply action of inverse of mass matrix, y = M^{-1}*x. 
+        If not re-implemented, this method simply generates an error.
+        NOTE : only necessary for PolyIMEX methods. */
+    virtual void MassInv(const Vector &x, Vector &y) const;
 
     /* ---------------------------------------------------------------------- */
     /* ------ Virtual functions for ExplicitGradients::APPROXIMATE ------ */
@@ -154,7 +169,7 @@ public:
 
     /** -- PolyIMEX --  Set approximate gradient Na' which is an 
         approximation to the s explicit gradients 
-            {N'} == {N'(x[i], this->GetTime() + dt*c[i])}, i=0,...,s-1
+            {N'} == {N'(x[i], this->GetTime() + r*z[i])}, i=0,...,s-1
         Such that it is referenceable with ExplicitGradientMult() and 
         SetPreconditioner() 
         If not re-implemented, this method simply generates an error
@@ -163,8 +178,8 @@ public:
         This function is called from TriJacSolver.SetOperator, which is
         called within each Newton iteration, with the updated nonlinear
         iterate. */
-    virtual void SetExplicitGradient(double dt, const BlockVector &x,
-                                     const Vector &c);
+    virtual void SetExplicitGradient(double r, const BlockVector &x,
+                                     const Vector &z);
 
     /** Compute action of Na' explicit gradient operator.
         For problems with
@@ -197,7 +212,7 @@ public:
                                       const BlockVector &x, const Vector &c);
     
     /** -- PolyIMEX -- Set the explicit gradients 
-            {N'} == {N'(x[i], this->GetTime() + dt*c[i])}, i=0,...,s-1
+            {N'} == {N'(x[i], this->GetTime() + r*z[i])}, i=0,...,s-1
         Such that they are referenceable with ExplicitGradientMult() and 
         SetPreconditioner().
         If not re-implemented, this method simply generates an error
@@ -206,8 +221,8 @@ public:
         This function is called from TriJacSolver.SetOperator, which is
         called within each Newton iteration, with the updated nonlinear
         iterate. */
-    virtual void SetExplicitGradients(double dt, const BlockVector &x,
-                                      const Vector &c);
+    virtual void SetExplicitGradients(double r, const BlockVector &x,
+                                      const Vector &z);
 
     /** Compute action of `index`-th explicit gradient operator.
         If not re-implemented, this method simply generates an error
@@ -251,13 +266,18 @@ public:
     //  + 2 = RadauIIA
     //  + 3 = Lobatto IIIC
     //  Second digit: order of scheme
+    //  IMEX schemes have same enum structure, with addition
+    //  leading 1, e.g., 27 -> 127.
     enum Type { 
         DUMMY = -1000000000, 
         ASDIRK3 = -13, ASDIRK4 = -14,
         LSDIRK1 = 01, LSDIRK2 = 02, LSDIRK3 = 03, LSDIRK4 = 04,
         Gauss2 = 12, Gauss4 = 14, Gauss6 = 16, Gauss8 = 18, Gauss10 = 110,
         RadauIIA3 = 23, RadauIIA5 = 25, RadauIIA7 = 27, RadauIIA9 = 29,
-        LobIIIC2 = 32, LobIIIC4 = 34, LobIIIC6 = 36, LobIIIC8 = 38
+        LobIIIC2 = 32, LobIIIC4 = 34, LobIIIC6 = 36, LobIIIC8 = 38,
+        IMEXGauss4 = 114,
+        IMEXRadauIIA3 = 123, 
+        IMEXLobIIIC2 = 132
     };  
     
 private:    
@@ -273,6 +293,11 @@ private:
     void SetDummyData(double beta_on_eta, double eta);
     
 public:
+    bool IsIMEX() const {
+        if (static_cast<int>(this->ID) > 100) return true;
+        else return false;
+    };
+
     /// Constructor for real RK schemes
     RKData(Type ID_) : ID(ID_) { SetData(); };
     
@@ -292,6 +317,7 @@ public:
     DenseMatrix invA0;  // Inverse of Buthcher matrix
     Vector b0;          // Butcher tableau weights
     Vector c0;          // Butcher tableau nodes
+    Vector z0;          // Butcher tableau nodes for PolyIMEX
     Vector d0;          // inv(A0^\top)*b0
     
     // Associated data required by LINEAR solver
@@ -305,25 +331,38 @@ public:
     Array<int> R0_block_sizes; // From top of block diagonal, sizes of blocks
 
     // PolyIMEX data
-    DenseMatrix imex_rhs;
-    DenseMatrix imex_rhs_it;
-    DenseMatrix imexA0;
-    DenseMatrix imexA0_it;
+    DenseMatrix A0_it;
+    DenseMatrix expA0;
+    DenseMatrix expA0_it;
     double alpha;
     int order;          // Order of integration
+    bool is_imex;
 
 };    
 
 
 class TriJacSolver;
-/** Operator F defining the s stage equations. They satisfy F(w) = 0, 
-    where w = (A0 \otimes I)*k, and
-        
+/** Operator F defining the s stage equations for IRK or Polynomial
+    IMEX methods.
+
+    IRK: nonlinear equations satisfy F(w) = 0, where w = (A0 \otimes I)*k, and
+
                        [ F1 ]                         [N(u+dt*w1,t+c1*dt)]
-                       [ .. ]                         [        ....      ]
         F(w;u,t,dt) =  [ .. ] = (inv(A0) \otimes M) - [        ....      ]
-                       [ .. ]                         [        ....      ]
-                       [ Fs ]                         [N(u+dt*ws,t+cs*dt)] */
+                       [ Fs ]                         [N(u+dt*ws,t+cs*dt)]
+
+    Note, this operator exactly represents the original nonlinear stage
+    equations with a change of variable; however, there is no other 
+    scaling/modification. 
+
+    PolyIMEX: nonlinear equations satisfy F(u) = 0, where
+
+                    [ F1 ]                         [N(u1,t+c1*dt)]   [g1]
+        F(u,t,dt) = [ .. ] = (inv(A0) \otimes M) - [    ....     ] - [..]
+                    [ Fs ]                         [N(us,t+cs*dt)]   [gs]
+    where {g1,...,gs} is a supplied right-hand side including forcing
+    functions and explicit solution at previous time steps.
+    */
 class IRKStageOper : public BlockOperator
 {
         
@@ -373,9 +412,11 @@ public:
         getGradientCalls(0)
     { };
     
-    /// Set current time, time step, and solution; const Vector* u_ should
-    //  be passed as NULL for PolyIMEX methods
+    /// Set current time, time step, and solution for IRK methods
     void SetParameters(const Vector* u_, double t_, double dt_);
+
+    /// Set current time and time stepfor PolyIMEX methods
+    void SetParameters(double t_, double dt_);
 
     inline double GetTimeStep() { return dt; };
     inline double GetTime() { return t; };
@@ -566,7 +607,9 @@ public:
 
 
 
-/** Jacobian is approximated to be block upper triangular. The operator
+/** Approximate Jacobian of (transformed) nonlinear stage equations in
+    IRKStageOper via real Schur decomposition and block triangular
+    approximation. The operator
         P = (Q0^\top \otimes I) * diag[N'(u+dt*w1),...,N'(u+dt*ws)] * (Q0 \otimes I)
     is approximated by the block upper triangular matrix \tilde{P}, and the 
     corresponding approximate Jacobian
