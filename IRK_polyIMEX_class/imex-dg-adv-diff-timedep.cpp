@@ -15,7 +15,7 @@ double ic_fn(const Vector &xvec)
 {
    double x = xvec[0];
    double y = xvec[1];
-   return sin(2.0*M_PI*x*(1.0-y))*sin(2.0*M_PI*(1.0-x)*y);
+   return sin(2*M_PI*x)*sin(2*M_PI*y);
 }
 
 // Velocity field [1,1] for manufactured solution
@@ -26,33 +26,22 @@ void v_fn(const Vector &xvec, Vector &v)
 }
 
 // Forcing function for u_t = e*\Delta u - [1,1]\cdot \nabla u+  f.
-// for solution u* = sin(2pix(1-y)(1+2t))sin(2piy(1-x)(1+2t))
+// For solution u* = sin(2pi(x-t))sin(2pi(y-t)),
+//    dt u* + [1,1]\cdot \nabla u* = 0
+// which leaves f = -e*\Delta u* = -e*(-8pi^2 u*) = 8pi^2*e*u*
 double force_fn(const Vector &xvec, double t)
 {
    double x = xvec[0];
    double y = xvec[1];
-   double v = -4.0*M_PI*M_PI*eps*(2.0*t + 1.0)*(2.0*t + 1.0)*(-x*x*sin(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*\
-      sin(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0)) + 2.0*x*(x - 1.0)*cos(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*\
-      cos(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0)) - (x - 1.0)*(x - 1.0)*sin(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*\
-      sin(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0))) - 4.0*M_PI*M_PI*eps*(2.0*t + 1.0)*(2.0*t + 1.0)*\
-      (-y*y*sin(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*sin(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0)) +\
-      2.0*y*(y - 1.0)*cos(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*cos(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0)) - \
-      (y - 1.0)*(y - 1.0)*sin(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*sin(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0))) + \
-      4.0*M_PI*x*(1.0 - y)*sin(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0))*cos(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0)) - \
-      2.0*M_PI*x*(2.0*t + 1.0)*sin(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0))*cos(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0)) + \
-      4.0*M_PI*y*(1.0 - x)*sin(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0))*cos(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0)) - \
-      2.0*M_PI*y*(2.0*t + 1.0)*sin(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0))*cos(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0)) + \
-      2.0*M_PI*(1.0 - x)*(2.0*t + 1.0)*sin(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0))*cos(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0)) + \
-      2.0*M_PI*(1.0 - y)*(2.0*t + 1.0)*sin(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0))*cos(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0));
-   return -v;
+   return -8*M_PI*M_PI*eps*sin(2*M_PI*(x-t))*sin(2*M_PI*(y-t));
 }
 
-// Exact solution (x,y,t)
-double sol_fn(const Vector &xvec, double t)
+// Boundary condition function (and exact solution)
+double BC_fn(const Vector &xvec, double t)
 {
    double x = xvec[0];
    double y = xvec[1];
-   return sin(2.0*M_PI*x*(1.0-y)*(1.0+2.0*t))*sin(2.0*M_PI*y*(1.0-x)*(1.0+2.0*t));
+   return sin(2.0*M_PI*(x-t))*sin(2.0*M_PI*(y-t));
 }
 
 
@@ -194,8 +183,16 @@ public:
    {
       y = 0.0;
       if (AMG_solver) {
-         if (use_gmres) GMRES_solver->Mult(x, y);
-         else AMG_solver->Mult(x, y);
+         if (blocksize > 0) {
+            HypreParVector b_s;
+            BlockInverseScale(&B, NULL, &x, &b_s, blocksize, BlockInverseScaleJob::RHS_ONLY);
+            if (use_gmres) GMRES_solver->Mult(b_s, y);
+            else AMG_solver->Mult(b_s, y);
+         }
+         else {
+            if (use_gmres) GMRES_solver->Mult(x, y);
+            else AMG_solver->Mult(x, y);
+         }
       }
       else {
          prec->Mult(x, y);
@@ -225,6 +222,7 @@ struct DGAdvDiff : IRKOperator
    ConstantCoefficient diff_coeff;
    ParBilinearForm a_imp, a_exp, m;
    mutable FunctionCoefficient forcing_coeff;
+   mutable FunctionCoefficient BC_coeff;
    mutable ParLinearForm b_imp;
    mutable ParLinearForm b_exp;
    DGMassMatrix mass;
@@ -232,11 +230,11 @@ struct DGAdvDiff : IRKOperator
    std::map<std::pair<double,double>, int> prec_index;
    BackwardEulerPreconditioner *current_prec;
    HypreParMatrix *A_imp, *M_mat, *A_exp;
-   int use_AMG;
+   int use_AIR;
    bool use_gmres, imp_forcing;
    mutable double t_exp, t_imp;
 public:
-   DGAdvDiff(ParFiniteElementSpace &fes_, int use_AMG_= 1,
+   DGAdvDiff(ParFiniteElementSpace &fes_, int use_AIR_= 1,
       bool use_gmres_ = false, bool imp_forcing_=true)
       : IRKOperator(fes_.GetComm(), true, fes_.GetTrueVSize(), 0.0, IMPLICIT),
         fes(fes_),
@@ -248,9 +246,10 @@ public:
         b_imp(&fes),
         b_exp(&fes),
         mass(fes),
-        use_AMG(use_AMG_),
+        use_AIR(use_AIR_),
         use_gmres(use_gmres_),
         forcing_coeff(force_fn),
+        BC_coeff(BC_fn),
         t_exp(-1),
         t_imp(-1),
         imp_forcing(imp_forcing_)
@@ -283,8 +282,8 @@ public:
       M_mat = m.ParallelAssemble();
 
       // BCs and forcing function
-      // b_imp.AddBdrFaceIntegrator(new DGDirichletLFIntegrator(BC_coeff, diff_coeff, sigma, kappa));
-      // b_exp.AddBdrFaceIntegrator(new BoundaryFlowIntegrator(BC_coeff,v_coeff, 1.0));
+      b_imp.AddBdrFaceIntegrator(new DGDirichletLFIntegrator(BC_coeff, diff_coeff, sigma, kappa));
+      b_exp.AddBdrFaceIntegrator(new BoundaryFlowIntegrator(BC_coeff,v_coeff, 1.0));
       if (imp_forcing) b_imp.AddDomainIntegrator(new DomainLFIntegrator(forcing_coeff));
       else b_exp.AddDomainIntegrator(new DomainLFIntegrator(forcing_coeff));
 
@@ -305,17 +304,14 @@ public:
       // Add forcing function and BCs
       // TODO : could probably check whether this time needs to be
       //    set or not, but need to coordinate between exp and imp.
-      // BC_coeff.SetTime(this->GetTime());
-      if (!imp_forcing) {
-         forcing_coeff.SetTime(this->GetTime());
-         b_exp.Assemble();
-         t_exp = this->GetTime();
-         HypreParVector *B = new HypreParVector(*A_exp);
-         B = b_exp.ParallelAssemble();
-         du_dt -= *B;
-         delete B;
-      }
-      // du_dt *= -1;
+      forcing_coeff.SetTime(this->GetTime());
+      BC_coeff.SetTime(this->GetTime());
+      b_exp.Assemble();
+      t_exp = this->GetTime();
+      HypreParVector *B = new HypreParVector(*A_exp);
+      B = b_exp.ParallelAssemble();
+      du_dt -= *B;
+      delete B;
    }
 
    void ImplicitMult(const Vector &u, Vector &du_dt) const override
@@ -326,14 +322,15 @@ public:
    void AddImplicitForcing(Vector &rhs, double t, double r, double z)
    {
       // Add forcing function and BCs
+      HypreParVector *B = new HypreParVector(*A_imp);
+      double ti = t + r*z;
       if (imp_forcing) {
-         double ti = t + r*z;
          forcing_coeff.SetTime(ti);
-         HypreParVector *B = new HypreParVector(*A_imp);
-         b_imp.Assemble();
-         B = b_imp.ParallelAssemble();
-         rhs.Add(-r, *B);
       }
+      BC_coeff.SetTime(ti);
+      b_imp.Assemble();
+      B = b_imp.ParallelAssemble();
+      rhs.Add(r, *B);
    }
 
    // Apply action of the mass matrix
@@ -377,9 +374,9 @@ public:
       if (!key_exists)
       {
          prec_index[key] = index;
-         if (use_AMG > 0) {
+         if (use_AIR > 0) {
             prec[index] = new BackwardEulerPreconditioner(fes, gamma, *M_mat, dt,
-                                                        *A_imp, use_AMG, use_gmres);
+                                                        *A_imp, use_AIR, use_gmres);
          }
          else {
             prec[index] = new BackwardEulerPreconditioner(fes, gamma, *M_mat, dt, *A_imp);
@@ -484,7 +481,8 @@ int run_adv_diff(int argc, char *argv[])
    double dt = 1e-2;
    double tf = 0.1;
    int use_irk = 123;
-   int use_AMG = 1;
+   int use_AIR = 0;
+   // bool use_ilu = true;
    int nsubiter = 1;
    bool visualization = false;
    int vis_steps = 5;
@@ -510,7 +508,7 @@ int run_adv_diff(int argc, char *argv[])
    args.AddOption(&dt, "-dt", "--time-step", "Time step.");
    args.AddOption(&tf, "-tf", "--final-time", "Final time.");
    args.AddOption(&use_irk, "-irk", "--irk", "Use IRK solver (provide id; if 0, no IRK).");
-   args.AddOption(&use_AMG, "-amg", "--use-amg", "Use AMG: > 0 implies # AMG iterations, 0 = Block ILU.");
+   args.AddOption(&use_AIR, "-amg", "--use-amg", "Use AMG: > 0 implies # AMG iterations, 0 = Block ILU.");
    args.AddOption(&visualization, "-v", "--visualization", "-nov", "--no-visualization",
                   "Use IRK solver.");
    args.AddOption(&use_gmres, "-gmres", "--use-gmres",
@@ -591,7 +589,7 @@ int run_adv_diff(int argc, char *argv[])
       temp_dg = false;
    }
    double t = 0.0;
-   DGAdvDiff dg(fes, use_AMG, temp_dg);
+   DGAdvDiff dg(fes, use_AIR, temp_dg);
    FE_Evolution *evol = NULL;
    IRK *irk = NULL;
    RKData* coeffs = NULL;
@@ -674,7 +672,7 @@ int run_adv_diff(int argc, char *argv[])
    if (compute_err)
    {
       ParGridFunction u_gf(&fes, u);         
-      FunctionCoefficient u_ex_coeff(sol_fn);
+      FunctionCoefficient u_ex_coeff(BC_fn);
       u_ex_coeff.SetTime(t);
 
       double err = u_gf.ComputeL2Error(u_ex_coeff);

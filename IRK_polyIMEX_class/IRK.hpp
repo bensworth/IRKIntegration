@@ -137,9 +137,6 @@ private:
     int exp_ind;
     int num_iters;
 
-    BlockVector rhs_imp;            // Block vector with s blocks for implicit rhs
-    
-    Vector rhs_exp;                 // Vector for explicit rhs
     bool initialized;
     bool linearly_imp;           // Linearly implicit
 

@@ -444,6 +444,7 @@ void PolyIMEX::Iterate(Vector &x, const double &t, const double &r, bool iterato
     if (exp_ind == 0) {
         Vector temp(x);
         temp = 0.0;
+        bool compute = false;
         // Updates from previous explicit steps
         //   NOTE : for initial examples, below coefficients were all zero,
         //   but they may not be in general.
@@ -451,6 +452,7 @@ void PolyIMEX::Iterate(Vector &x, const double &t, const double &r, bool iterato
             for (int j=0; j<=m_Butcher.s; j++) {
                 if (std::abs(m_Butcher.expA0_it(0,j)) > 1e-15) { 
                     temp.Add(r * (m_Butcher.expA0_it(0,j)), exp_part.GetBlock(j));
+                    compute = true;
                 }
             }
         }
@@ -458,10 +460,11 @@ void PolyIMEX::Iterate(Vector &x, const double &t, const double &r, bool iterato
             for (int j=0; j<=m_Butcher.s; j++) {
                 if (std::abs(m_Butcher.expA0(0,j)) > 1e-15) { 
                     temp.Add(r * (m_Butcher.expA0(0,j)), exp_part.GetBlock(j));
+                    compute = true;
                 }
             }
         }
-        if (m_IRKOper->isImplicit()) {
+        if (m_IRKOper->isImplicit() && compute) {
             m_IRKOper->MassInv(temp, sol_exp);
         }
         else sol_exp = temp;
