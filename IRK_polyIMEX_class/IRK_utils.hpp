@@ -266,7 +266,7 @@ public:
     //  + 2 = RadauIIA
     //  + 3 = Lobatto IIIC
     //  Second digit: order of scheme
-    //  IMEX schemes have same enum structure, with addition
+    //  IMEX schemes have same enum structure, with additional
     //  leading 1, e.g., 27 -> 127.
     enum Type { 
         DUMMY = -1000000000, 

@@ -5,6 +5,8 @@ import pdb
 
 
 exp_first = True
+alpha = 2.0
+order = 3
 z0 = np.array([-1,-1./3., 1])
 A0 = np.array( [[0.0, 0.0, 0.0],[0.0, 5.0/6.0, -1.0/6.0],[0.0, 1.5, 0.5]] )
 expA0 = np.array( [[0.0, 0.0, 0.0],[8.0/27.0, -11.0/18.0, 53.0/54.0], [4.0, -15.0/2.0, 11.0/2.0]] )
@@ -62,6 +64,8 @@ else:
 print("is_imex = true;")
 print("s =",s-1,";")
 print("s_eff =",s0,";")
+print("alpha =",alpha,";")
+print("order =",order,";")
 print("SizeData();")
 print("/* --- A --- */")
 for i in range(0,s):

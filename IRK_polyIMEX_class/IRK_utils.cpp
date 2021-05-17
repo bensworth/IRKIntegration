@@ -2599,6 +2599,8 @@ void RKData::SetData() {
             is_imex = true;
             s = 2 ;
             s_eff = 1 ;
+            alpha = 2.0 ;
+            order = 3 ;
             SizeData();
             /* --- A --- */
             A0( 0 , 0 ) = 0.0 ;

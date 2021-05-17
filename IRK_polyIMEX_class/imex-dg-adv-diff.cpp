@@ -162,17 +162,10 @@ public:
       blocksize = (order+1)*(order+1);
 
       // Build AMG solver
-      if (blocksize > 0) {
-         BlockInverseScale(&B, &B_s, NULL, NULL, blocksize, BlockInverseScaleJob::MATRIX_ONLY);
-         AMG_solver = new HypreBoomerAMG(B_s);
-      }
-      else {
-         AMG_solver = new HypreBoomerAMG(B);
-      }
+      AMG_solver = new HypreBoomerAMG(B);
       AMG_solver->SetMaxLevels(50); 
-      AMG_solver->SetAdvectiveOptions(1.5, "", "FA");
-      AMG_solver->SetStrongThresholdR(0.01);
-      AMG_solver->SetStrengthThresh(0.1);
+      AMG_solver->SetStrengthThresh(0.2);
+      AMG_solver->SetCoarsening(6);
       AMG_solver->SetRelaxType(3);
       AMG_solver->SetInterpolation(0);
       AMG_solver->SetTol(0);
@@ -472,8 +465,8 @@ int run_adv_diff(int argc, char *argv[])
    double kappa = -1.0;
    double dt = 1e-3;
    double tf = 0.1;
-   int use_irk = 16;
-   int use_AIR = 1;
+   int use_irk = 123;
+   int use_AIR = 0;
    // bool use_ilu = true;
    int nsubiter = 1;
    bool visualization = false;
@@ -482,6 +475,7 @@ int run_adv_diff(int argc, char *argv[])
    int maxiter = 500;
    int mag_prec = 1;
    bool compute_err = true;
+   int iters = 1;
 
    OptionsParser args(argc, argv);
    args.AddOption(&mesh_file, "-m", "--mesh",
@@ -498,14 +492,14 @@ int run_adv_diff(int argc, char *argv[])
    args.AddOption(&eps, "-e", "--epsilon", "Diffusion coefficient.");
    args.AddOption(&dt, "-dt", "--time-step", "Time step.");
    args.AddOption(&tf, "-tf", "--final-time", "Final time.");
-   args.AddOption(&use_irk, "-i", "--irk", "Use IRK solver (provide id; if 0, no IRK).");
-   args.AddOption(&use_AIR, "-air", "--use-air", "Use AIR: > 0 implies # AIR iterations, 0 = Block ILU.");
+   args.AddOption(&use_irk, "-irk", "--irk", "Use IRK solver (provide id; if 0, no IRK).");
+   args.AddOption(&use_AIR, "-amg", "--use-amg", "Use AMG: > 0 implies # AMG iterations, 0 = Block ILU.");
    args.AddOption(&visualization, "-v", "--visualization", "-nov", "--no-visualization",
                   "Use IRK solver.");
    args.AddOption(&use_gmres, "-gmres", "--use-gmres",
                   "-1=FGMRES/fixed-point, 0=GMRES/fixed-point, 1=FGMRES/GMRES.");
-   args.AddOption(&mag_prec, "-mag", "--mag-prec",
-                  "0 -> gamma = eta, 1 -> gamma = sqrt(eta^2+beta^2).");
+   args.AddOption(&iters, "-i", "--num-iters",
+                  "Number applications of iterator, default 1.");
    args.Parse();
    if (!args.Good())
    {
@@ -586,7 +580,6 @@ int run_adv_diff(int argc, char *argv[])
    std::unique_ptr<ODESolver> ode;
 
    if (use_irk > 3)
-   // if (use_irk > 0)
    {
       RKData::Type irk_type = static_cast<RKData::Type>(use_irk); // RKData::LSDIRK3;
       // RKData::Type irk_type = RKData::LSDIRK1;
@@ -602,40 +595,21 @@ int run_adv_diff(int argc, char *argv[])
       else krylov_params.solver = KrylovMethod::GMRES;
 
       // Build IRK object using spatial discretization
-      irk = new IRK(&dg, irk_type);
+      irk = new PolyIMEX(&dg, irk_type, true, iters);
       // Set GMRES settings
       irk->SetKrylovParams(krylov_params);
       // Initialize solver
       irk->Init(dg);
       ode.reset(irk);
    }
-   // TODO : not getting accurate solutions here
    else
    {
-      // std::unique_ptr<ODESolver> ode(new RK4Solver);
-      // ode.reset(new SDIRK33Solver);
       evol = new FE_Evolution(dg);
       evol->SetTime(t);
       switch (use_irk)
       {
          // AM methods
          case -22: ode.reset(new AM1Solver); break;
-         case -23: ode.reset(new AM2Solver); break;
-         case -24: ode.reset(new AM3Solver); break;
-         // Explicit methods
-         case -11: ode.reset(new ForwardEulerSolver); break;
-         case -12: ode.reset(new RK2Solver(1.0)); break;
-         case -13: ode.reset(new RK3SSPSolver); break;
-         case -14: ode.reset(new RK4Solver); break;
-         case -16: ode.reset(new RK6Solver); break;
-         // Implicit (L-stable) methods
-         case 1: ode.reset(new BackwardEulerSolver); break;
-         case 2: ode.reset(new SDIRK23Solver(2)); break;
-         case 3: ode.reset(new SDIRK33Solver); break;
-         // Implicit A-stable methods (not L-stable)
-         case -2: ode.reset(new ImplicitMidpointSolver); break;
-         case -3: ode.reset(new SDIRK23Solver); break;
-         case -4: ode.reset(new SDIRK34Solver); break;
          default:
             if (myid == 0) {
                cout << "Unknown ODE solver type: " << use_irk << '\n';
