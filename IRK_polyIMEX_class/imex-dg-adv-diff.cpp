@@ -173,6 +173,7 @@ public:
 
       // Build AMG solver
       AMG_solver = new HypreBoomerAMG(B);
+      // AMG_solver->SetAdvectiveOptions(1.5, "", "FA");    // DEBUG
       AMG_solver->SetMaxLevels(50); 
       AMG_solver->SetStrengthThresh(0.2);
       AMG_solver->SetCoarsening(6);
@@ -200,6 +201,15 @@ public:
       else {
          prec->Mult(x, y);
       }
+   }
+   void Solve(const Vector &x, Vector &y)
+   {
+      y = 0.0;
+      GMRES_solver = new HypreGMRES(B);
+      GMRES_solver->SetMaxIter(250);
+      GMRES_solver->SetTol(1e-12);
+      GMRES_solver->SetPreconditioner(*AMG_solver);
+      GMRES_solver->Mult(x, y);
    }
    void SetOperator(const Operator &op) { }
 
@@ -230,14 +240,14 @@ struct DGAdvDiff : IRKOperator
    DGMassMatrix mass;
    std::map<int, BackwardEulerPreconditioner*> prec;
    std::map<std::pair<double,double>, int> prec_index;
-   BackwardEulerPreconditioner *current_prec;
+   mutable BackwardEulerPreconditioner *current_prec;
    HypreParMatrix *A_imp, *M_mat, *A_exp;
    int use_AMG;
    bool use_gmres, imp_forcing;
-   mutable double t_exp, t_imp;
+   mutable double t_exp, t_imp, dt_;
 public:
    DGAdvDiff(ParFiniteElementSpace &fes_, int use_AMG_= 1,
-      bool use_gmres_ = false, bool imp_forcing_=true)
+      bool use_gmres_ = false, bool imp_forcing_=false)
       : IRKOperator(fes_.GetComm(), true, fes_.GetTrueVSize(), 0.0, IMPLICIT),
         fes(fes_),
         v_coeff(fes.GetMesh()->Dimension(), v_fn),
@@ -253,7 +263,8 @@ public:
         forcing_coeff(force_fn),
         t_exp(-1),
         t_imp(-1),
-        imp_forcing(imp_forcing_)
+        imp_forcing(imp_forcing_),
+        dt_(-1)
    {
       const int order = fes.GetOrder(0);
       const double sigma = -1.0;
@@ -276,6 +287,8 @@ public:
       a_exp.Assemble(0);
       a_exp.Finalize(0);
       A_exp = a_exp.ParallelAssemble();
+
+      // (*A_imp) += (*A_exp);   // DEBUG
 
       m.AddDomainIntegrator(new MassIntegrator);
       m.Assemble(0);
@@ -301,6 +314,7 @@ public:
    void ExplicitMult(const Vector &u, Vector &du_dt) const override
    {
       A_exp->Mult(u, du_dt);
+      // du_dt = 0.0;   // DEBUG
 
       // Add forcing function and BCs
       // TODO : could probably check whether this time needs to be
@@ -315,7 +329,6 @@ public:
          du_dt -= *B;
          delete B;
       }
-      // du_dt *= -1;
    }
 
    void ImplicitMult(const Vector &u, Vector &du_dt) const override
@@ -349,7 +362,7 @@ public:
    }
 
    /// Precondition B*x=y <==> (\gamma*I - dt*L)*x=y
-   inline void ImplicitPrec(const Vector &x, Vector &y) const override
+   void ImplicitPrec(const Vector &x, Vector &y) const override
    {
       MFEM_VERIFY(current_prec != NULL, "Must call SetSystem before ImplicitPrec");
       HYPRE_ClearAllErrors();
@@ -357,11 +370,27 @@ public:
    }
 
    /// Precondition B*x=y <==> (\gamma*I - dt*L)*x=y
-   inline void ImplicitPrec(int index, const Vector &x, Vector &y) const override
+   void ImplicitPrec(int index, const Vector &x, Vector &y) const override
    {
       MFEM_VERIFY(current_prec != NULL, "Must call SetSystem before ImplicitPrec");
       HYPRE_ClearAllErrors();
       prec.at(index)->Mult(x, y);
+   }
+
+   /// Solve M*x - dtf(x, t) = b
+   virtual void ImplicitSolve(const double dt, const Vector &x, Vector &k) override
+   {
+      if (current_prec == NULL || dt != dt_)
+      {
+         delete current_prec;
+         current_prec = new BackwardEulerPreconditioner(fes, 1.0, *M_mat, dt,
+                                                     *A_imp, use_AMG, use_gmres);
+         dt_ = dt;
+      }
+      Vector rhs(x);
+      rhs = x; // This shouldnt be necessary
+      AddImplicitForcing(rhs, this->GetTime(), dt, 0);
+      current_prec->Solve(rhs, k);
    }
 
    /** Ensures that this->ImplicitPrec() preconditions (\gamma*M - dt*L)
@@ -606,7 +635,7 @@ int run_adv_diff(int argc, char *argv[])
 
       // Can adjust rel tol, abs tol, maxiter, kdim, etc.
       KrylovParams krylov_params;
-      krylov_params.printlevel = 0;
+      krylov_params.printlevel = 1;
       krylov_params.kdim = 50;
       krylov_params.maxiter = maxiter;
       // krylov_params.abstol = 1e-12;
@@ -625,18 +654,12 @@ int run_adv_diff(int argc, char *argv[])
    }
    else
    {
-      evol = new FE_Evolution(dg);
-      evol->SetTime(t);
-      switch (use_irk)
-      {
-         // AM methods
-         case -22: ode.reset(new AM1Solver); break;
-         default:
-            if (myid == 0) {
-               cout << "Unknown ODE solver type: " << use_irk << '\n';
-            }
-      }
-      ode->Init(*evol);
+      // evol = new FE_Evolution(dg);
+      // evol->SetTime(t);
+
+      IMEXEuler *imex = new IMEXEuler(&dg);
+      imex->Init(dg);
+      ode.reset(imex);
    }
 
    double t_vis = t;

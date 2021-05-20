@@ -134,6 +134,10 @@ public:
         cannot be included in ImplicitMult function. */
     virtual void AddImplicitForcing(Vector &rhs, double t, double r, double z) { };
 
+    
+    /* Only used for standard RK IMEX schemes. */
+    virtual void ImplicitSolve(const double dt, const Vector &u, Vector &k) { };
+
     /* ---------------------------------------------------------------------- */
     /* ---------------- Virtual functions for Type::IMPLICIT ---------------- */
     /* -- Note, this weird MFEM notation IMPLICIT means has a mass matrix. -- */

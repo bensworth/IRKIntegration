@@ -36,6 +36,20 @@ struct NewtonParams {
     JacSparsity jac_prec_sparsity  = JacSparsity::DIAGONAL;
 }; 
 
+class IMEXEuler : public ODESolver
+{
+protected:
+    Vector k;
+    Vector z;
+    IRKOperator * m_IRKOper;    // Spatial discretization. 
+
+public:
+    IMEXEuler(IRKOperator *IRKOper_);
+    void Init(TimeDependentOperator &_f) override;
+
+    void Step(Vector &x, double &t, double &dt) override;
+};
+
 /** Class implementing conjugate-pair preconditioned solution of fully implicit 
     RK schemes for the nonlinear ODE system 
         M*du/dt = N(u,t), 
