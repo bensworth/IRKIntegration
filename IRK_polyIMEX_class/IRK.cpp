@@ -325,7 +325,7 @@ void PolyIMEX::SetSolvers()
     }
 }
 
-
+// TODO : should ExplicitMult include a mass matrix inverse??
 void PolyIMEX::Step(Vector &x, double &t, double &dt)
 {
     double r = dt / m_Butcher.alpha;
@@ -338,8 +338,9 @@ void PolyIMEX::Step(Vector &x, double &t, double &dt)
     // times.
     if (!initialized) {
         // Initialize explicit components
+        sol_exp = x;
         m_IRKOper->SetTime(t + m_Butcher.z0(0)*r);
-        m_IRKOper->ExplicitMult(x, exp_part.GetBlock(0));
+        m_IRKOper->ExplicitMult(sol_exp, exp_part.GetBlock(0));
         for (int i=1; i<=m_Butcher.s; i++) {
         
             // TODO : Do we need to set this or include explicit time-dependent forcing functions??
@@ -348,9 +349,9 @@ void PolyIMEX::Step(Vector &x, double &t, double &dt)
         }
 
         // Perform order+num_iters applications of iterator
-        for (int i=0; i<(m_Butcher.order+num_iters); i++) {
-        // for (int i=0; i<1; i++) {   // DEBUG
-            Iterate(x, t, r, true);        
+        // for (int i=0; i<(m_Butcher.order+num_iters); i++) {
+        for (int i=0; i<0; i++) {   // DEBUG
+            Iterate(x, t, r);        
         }
         initialized = true;
     }
@@ -360,34 +361,28 @@ void PolyIMEX::Step(Vector &x, double &t, double &dt)
     m_tri_jac_solver->ResetNumIterations();
 
     // Apply propagator
-    Iterate(x, t, r, false);
-
-    // TODO : may need to update x before propagator for some schemes, e.g., Lobatto
-    // // Update solution vector after all iterators completed
-    // if (exp_ind == 0) {
-    //     x = sol_imp.GetBlock(m_Butcher.s-1);
-    // }
-    // else {
-    //     x = sol_exp;
-    // }
+    Propagate(x, t, r);
 
     // Call to iterator after propagator applied
     for (int i=0; i<num_iters; i++) {
-        Iterate(x, t, r, true);
+        Iterate(x, t, r);
     }
 
     // Update solution vector after all iterators completed
+    // TODO : first lines = take last solution, second lines = take first
     if (exp_ind == 0) {
         x = sol_imp.GetBlock(m_Butcher.s-1);
+        // x = sol_exp;
     }
     else {
         x = sol_exp;
+        // x = sol_imp.GetBlock(0);
     }
     t += dt; // Update current time
 }
 
 
-void PolyIMEX::FormImpRHS(Vector &x_prev, const double &t,
+void PolyIMEX::FormImpRHS(const double &t,
     const double &r, bool iterator)
 {
     // Coefficients to form right-hand side for iterator or propagator
@@ -406,8 +401,18 @@ void PolyIMEX::FormImpRHS(Vector &x_prev, const double &t,
     // applied to the jth stage of the nth time step, with j=0 the
     // solution at the nth time step, j=1,...,s-1 the internal
     // stages, and j=s the (n+1)st time step.
-    Vector temp(x_prev);
-    m_IRKOper->MassMult(x_prev, temp);
+    Vector temp(m_IRKOper->Width());
+
+    // For iterator, take first solution in [y0,...,ys]
+    if (iterator) {
+        if (exp_ind == 0) m_IRKOper->MassMult(sol_exp, temp);
+        else m_IRKOper->MassMult(sol_imp.GetBlock(0), temp);
+    }
+    // For propagator, take last solution in [y0,...,ys]
+    else {
+        if (exp_ind == 0) m_IRKOper->MassMult(sol_imp.GetBlock(m_Butcher.s-1), temp);
+        else m_IRKOper->MassMult(sol_exp, temp);
+    }
     for (int i=0; i <m_Butcher.s; i++) {
         rhs.GetBlock(i) = temp;
         for (int j=0; j<=m_Butcher.s; j++) {
@@ -436,11 +441,11 @@ void PolyIMEX::FormImpRHS(Vector &x_prev, const double &t,
                 break;
             }
         }
-        // NOTE : we assume that if expliit stage has been calculated
+        // NOTE : we assume that if explicit stage has been calculated
         // already, it was done at the *first* quadrature point. 
         if (need_update) {
 
-            std::cout << "Not being called I hope\n";
+            std::cout << "I should not be called...\n";
 
             m_IRKOper->SetTime(t + m_Butcher.z0(0)*r);
             m_IRKOper->ImplicitMult(sol_exp, temp);
@@ -484,7 +489,7 @@ void PolyIMEX::UpdateExplicitComponents(const double &t, const double &r)
     } 
 }
 
-void PolyIMEX::Iterate(Vector &x, const double &t, const double &r, bool iterator)
+void PolyIMEX::Iterate(Vector &x, const double &t, const double &r)
 {
     // If explicit stage is first, solve for explicit stage, 
     // u_{n+1} = u_n + dt*M^{-1}\sum_j expA0_it(0,j) exp_part(j)
@@ -494,18 +499,9 @@ void PolyIMEX::Iterate(Vector &x, const double &t, const double &r, bool iterato
         //   NOTE : for initial examples, below coefficients were all zero,
         //   but they may not be in general.
         bool compute = false;
-        if (iterator) {
-            for (int j=0; j<=m_Butcher.s; j++) {
-                if (std::abs(m_Butcher.expA0_it(0,j)) > 1e-15) { 
-                    compute = true;
-                }
-            }
-        }
-        else {
-            for (int j=0; j<=m_Butcher.s; j++) {
-                if (std::abs(m_Butcher.expA0(0,j)) > 1e-15) { 
-                    compute = true;
-                }
+        for (int j=0; j<=m_Butcher.s; j++) {
+            if (std::abs(m_Butcher.expA0_it(0,j)) > 1e-15) { 
+                compute = true;
             }
         }
         // If nonzero coefficients were found above, sum vectors and
@@ -517,32 +513,26 @@ void PolyIMEX::Iterate(Vector &x, const double &t, const double &r, bool iterato
             // Updates from previous explicit steps
             //   NOTE : for initial examples, below coefficients were all zero,
             //   but they may not be in general.
-            if (iterator) {
-                for (int j=0; j<=m_Butcher.s; j++) {
-                    if (std::abs(m_Butcher.expA0_it(0,j)) > 1e-15) { 
-                        temp.Add(r * (m_Butcher.expA0_it(0,j)), exp_part.GetBlock(j));
-                        compute = true;
-                    }
+            for (int j=0; j<=m_Butcher.s; j++) {
+                if (std::abs(m_Butcher.expA0_it(0,j)) > 1e-15) { 
+                    temp.Add(r * (m_Butcher.expA0_it(0,j)), exp_part.GetBlock(j));
+                    compute = true;
                 }
-            }
-            else {
-                for (int j=0; j<=m_Butcher.s; j++) {
-                    if (std::abs(m_Butcher.expA0(0,j)) > 1e-15) { 
-                        temp.Add(r * (m_Butcher.expA0(0,j)), exp_part.GetBlock(j));
-                        compute = true;
-                    }
-                }
-            }            
-            m_IRKOper->MassInv(temp, sol_exp);
-            sol_exp += x;
+            }           
+            m_IRKOper->MassInv(temp, x);
+            // For iterator, add first solution in [y0,...,ys]
+            if (exp_ind == 0) sol_exp += x;
+            else add(sol_imp.GetBlock(0), x, sol_exp);
         }
         else {
-            sol_exp = x;
+            // For iterator, first solution in [y0,...,ys] (for exp_ind=0,
+            // sol_exp is unchanged)
+            if (exp_ind != 0) sol_exp = sol_imp.GetBlock(0);
         }
     }
 
     // Construct right-hand side for implicit equation 
-    FormImpRHS(x, t, r, iterator);
+    FormImpRHS(t, r, true);
 
     // Add implicit (time-dependent) forcing functions; if this is not
     // implemented by the user, rhs is not modified. Use different time
@@ -606,47 +596,27 @@ void PolyIMEX::Iterate(Vector &x, const double &t, const double &r, bool iterato
         Vector temp(x);
         temp = 0.0;
         // Updates from previous implicit and explicit steps
-        if (iterator) { // Compute for iterator
-            for (int j=0; j<=m_Butcher.s; j++) {  // explicit
-                if (std::abs(m_Butcher.expA0_it(m_Butcher.s,j)) > 1e-15) { 
-                    temp.Add(r * (m_Butcher.expA0_it(m_Butcher.s,j)), exp_part.GetBlock(j));
-                }
-            }
-            for (int j=0; j<m_Butcher.s; j++) { // implicit
-                // if (std::abs(m_Butcher.A0_it(m_Butcher.s,j)) > 1e-15) {      // *--- IF A0_it != A0 ---*
-                if (std::abs(m_Butcher.A0(m_Butcher.s,j)) > 1e-15) { 
-                    m_IRKOper->SetTime(t + m_Butcher.z0(j)*r);
-                    m_IRKOper->ImplicitMult(sol_imp.GetBlock(j), temp);
-                    m_IRKOper->AddImplicitForcing(temp, t, r, m_Butcher.z0(j));
-                    // temp.Add(r * (m_Butcher.A0_it(m_Butcher.s,j)), temp);    // *--- IF A0_it != A0 ---*
-                    temp.Add(r * (m_Butcher.A0(m_Butcher.s,j)), temp);
-
-                    // TODO : can compute this indirectly via rhs and solution
-                    // without using ImplicitMult
-
-                }
+        for (int j=0; j<=m_Butcher.s; j++) {  // explicit
+            if (std::abs(m_Butcher.expA0_it(m_Butcher.s,j)) > 1e-15) { 
+                temp.Add(r * (m_Butcher.expA0_it(m_Butcher.s,j)), exp_part.GetBlock(j));
             }
         }
-        else { // Compute for propagator
-            for (int j=0; j<=m_Butcher.s; j++) { // explicit
-                if (std::abs(m_Butcher.expA0(m_Butcher.s,j)) > 1e-15) { 
-                    temp.Add(r * (m_Butcher.expA0(m_Butcher.s,j)), exp_part.GetBlock(j));
-                }
-            }
-            for (int j=0; j<m_Butcher.s; j++) { // implicit
-                if (std::abs(m_Butcher.A0(m_Butcher.s,j)) > 1e-15) {
-                    m_IRKOper->SetTime(t + m_Butcher.z0(j)*r);
-                    m_IRKOper->ImplicitMult(sol_imp.GetBlock(j), temp);
-                    m_IRKOper->AddImplicitForcing(temp, t, r, m_Butcher.z0(j));
-                    temp.Add(r * (m_Butcher.A0(m_Butcher.s,j)), temp);
+        for (int j=0; j<m_Butcher.s; j++) { // implicit
+            // if (std::abs(m_Butcher.A0_it(m_Butcher.s,j)) > 1e-15) {      // *--- IF A0_it != A0 ---*
+            if (std::abs(m_Butcher.A0(m_Butcher.s,j)) > 1e-15) { 
+                m_IRKOper->SetTime(t + m_Butcher.z0(j)*r);
+                m_IRKOper->ImplicitMult(sol_imp.GetBlock(j), temp);
+                m_IRKOper->AddImplicitForcing(temp, t, r, m_Butcher.z0(j));
+                // temp.Add(r * (m_Butcher.A0_it(m_Butcher.s,j)), temp);    // *--- IF A0_it != A0 ---*
+                temp.Add(r * (m_Butcher.A0(m_Butcher.s,j)), temp);
 
-                    // TODO : can compute this indirectly via rhs and solution
-                    // without using ImplicitMult
+                // TODO : can compute this indirectly via rhs and solution
+                // without using ImplicitMult
 
-                }
             }
         }
         m_IRKOper->MassInv(temp, sol_exp);
+        // TODO : need to update this to not be based on x
         sol_exp += x;
     }
 
@@ -655,5 +625,137 @@ void PolyIMEX::Iterate(Vector &x, const double &t, const double &r, bool iterato
     UpdateExplicitComponents(t, r);
 }
 
+
+
+void PolyIMEX::Propagate(Vector &x, const double &t, const double &r)
+{
+    // If explicit stage is first, solve for explicit stage, 
+    // u^{n+1}_0 = u^n_s + dt*M^{-1}\sum_j expA0_it(0,j) exp_part(j)
+    if (exp_ind == 0) {
+
+        // Check for updates from previous explicit steps
+        //   NOTE : for initial examples, below coefficients were all zero,
+        //   but they may not be in general.
+        bool compute = false;
+        for (int j=0; j<=m_Butcher.s; j++) {
+            if (std::abs(m_Butcher.expA0(0,j)) > 1e-15) { 
+                compute = true;
+            }
+        }
+        // If nonzero coefficients were found above, sum vectors and
+        // solve for explicit stage
+        if (compute) {
+            std::cout << "This shouldn't be happening.\n";
+            Vector temp(x);
+            temp = 0.0;
+            // Updates from previous explicit steps
+            //   NOTE : for initial examples, below coefficients were all zero,
+            //   but they may not be in general.
+            for (int j=0; j<=m_Butcher.s; j++) {
+                if (std::abs(m_Butcher.expA0(0,j)) > 1e-15) { 
+                    temp.Add(r * (m_Butcher.expA0(0,j)), exp_part.GetBlock(j));
+                    compute = true;
+                }
+            }
+            m_IRKOper->MassInv(temp, x);
+            if (exp_ind == 0) add(sol_imp.GetBlock(m_Butcher.s-1), x, sol_exp);
+            else sol_exp += x;
+        }
+        else {
+            if (exp_ind == 0) sol_exp = sol_imp.GetBlock(m_Butcher.s-1);
+        }
+    }
+
+    // Construct right-hand side for implicit equation 
+    FormImpRHS(t, r, false);
+
+    // Add implicit (time-dependent) forcing functions; if this is not
+    // implemented by the user, rhs is not modified. Use different time
+    // points from {z} depending on whether implicit stage equations are
+    // before or after the explicit stages.
+    if (exp_ind == 0) {
+        for (int i=1; i<=m_Butcher.s; i++) {
+            m_IRKOper->AddImplicitForcing(rhs.GetBlock(i-1), t, r, m_Butcher.z0(i));
+        }
+    }
+    else {
+        for (int i=0; i<m_Butcher.s; i++) {
+            m_IRKOper->AddImplicitForcing(rhs.GetBlock(i), t, r, m_Butcher.z0(i));
+        }
+    }
+
+    // ------------- Linearly implicit IMEX ------------- //
+    if (linearly_imp) {
+        // Solve linear system for implicit stages
+        m_tri_jac_solver->Mult(rhs, sol_imp);
+
+        // TODO : add average Krylov iterations here
+
+    }
+    // ------------- Nonlinearly implicit IMEX ------------- //
+    else {
+        // Reset operator for Newton solver
+        m_newton_solver->SetOperator(*m_stageOper);
+
+        // Solve for stages
+        m_newton_solver->Mult(rhs, sol_imp);
+    
+        // Facilitate different printing from Newton solver.
+        if (m_newton_params.printlevel == 2) {
+            mfem::out   << "Newton: Number of iterations: " 
+                        << m_newton_solver->GetNumIterations() 
+                        << ", ||r|| = " << m_newton_solver->GetFinalNorm() 
+                        << '\n';
+        }
+        
+        // Add iteration counts from this solve to existing counts
+        m_avg_newton_iter += m_newton_solver->GetNumIterations();
+        vector<int> krylov_iters = m_tri_jac_solver->GetNumIterations();
+        for (int system = 0; system < m_avg_krylov_iter.size(); system++) {
+            m_avg_krylov_iter[system] += krylov_iters[system];
+        }
+        
+        // Check for convergence 
+        if (!m_newton_solver->GetConverged()) {
+            #if 0
+            string msg = "IRK::Step() Newton solver at t=" + to_string(t) + " not converged\n";
+            #else
+            string msg = "IRK::Step() Newton solver not converged\n";
+            #endif
+            mfem_error(msg.c_str());
+        }
+    }
+
+    // Compute final explicit stage and update solution
+    if (exp_ind != 0) {
+        Vector temp(x);
+        temp = 0.0;
+        // Updates from previous implicit and explicit steps
+        for (int j=0; j<=m_Butcher.s; j++) { // explicit
+            if (std::abs(m_Butcher.expA0(m_Butcher.s,j)) > 1e-15) { 
+                temp.Add(r * (m_Butcher.expA0(m_Butcher.s,j)), exp_part.GetBlock(j));
+            }
+        }
+        for (int j=0; j<m_Butcher.s; j++) { // implicit
+            if (std::abs(m_Butcher.A0(m_Butcher.s,j)) > 1e-15) {
+                m_IRKOper->SetTime(t + m_Butcher.z0(j)*r);
+                m_IRKOper->ImplicitMult(sol_imp.GetBlock(j), temp);
+                m_IRKOper->AddImplicitForcing(temp, t, r, m_Butcher.z0(j));
+                temp.Add(r * (m_Butcher.A0(m_Butcher.s,j)), temp);
+
+                // TODO : can compute this indirectly via rhs and solution
+                // without using ImplicitMult
+
+            }
+        }
+        // TODO : need to update this to not be based on x
+        m_IRKOper->MassInv(temp, sol_exp);
+        sol_exp += x;
+    }
+
+    // Once all stages have been updated, update stored
+    // explicit components for future time steps/iterations. 
+    UpdateExplicitComponents(t, r);
+}
 
 

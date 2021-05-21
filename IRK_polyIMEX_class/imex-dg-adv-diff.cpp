@@ -25,7 +25,7 @@ void v_fn(const Vector &xvec, Vector &v)
    v(1) = 1;
 }
 
-// Forcing function for u_t = e*\Delta u - [1,1]\cdot \nabla u+  f.
+// Forcing function for u_t = e*\Delta u - [1,1]\cdot \nabla u + f.
 // for solution u* = sin(2pix(1-y)(1+2t))sin(2piy(1-x)(1+2t))
 double force_fn(const Vector &xvec, double t)
 {
@@ -247,7 +247,7 @@ struct DGAdvDiff : IRKOperator
    mutable double t_exp, t_imp, dt_;
 public:
    DGAdvDiff(ParFiniteElementSpace &fes_, int use_AMG_= 1,
-      bool use_gmres_ = false, bool imp_forcing_=false)
+      bool use_gmres_ = false, bool imp_forcing_=true)
       : IRKOperator(fes_.GetComm(), true, fes_.GetTrueVSize(), 0.0, IMPLICIT),
         fes(fes_),
         v_coeff(fes.GetMesh()->Dimension(), v_fn),
@@ -288,7 +288,7 @@ public:
       a_exp.Finalize(0);
       A_exp = a_exp.ParallelAssemble();
 
-      // (*A_imp) += (*A_exp);   // DEBUG
+      (*A_imp) += (*A_exp);   // DEBUG
 
       m.AddDomainIntegrator(new MassIntegrator);
       m.Assemble(0);
@@ -313,8 +313,8 @@ public:
 
    void ExplicitMult(const Vector &u, Vector &du_dt) const override
    {
-      A_exp->Mult(u, du_dt);
-      // du_dt = 0.0;   // DEBUG
+      // A_exp->Mult(u, du_dt);
+      du_dt = 0.0;   // DEBUG
 
       // Add forcing function and BCs
       // TODO : could probably check whether this time needs to be
@@ -635,7 +635,7 @@ int run_adv_diff(int argc, char *argv[])
 
       // Can adjust rel tol, abs tol, maxiter, kdim, etc.
       KrylovParams krylov_params;
-      krylov_params.printlevel = 1;
+      krylov_params.printlevel = 2;
       krylov_params.kdim = 50;
       krylov_params.maxiter = maxiter;
       // krylov_params.abstol = 1e-12;
@@ -701,7 +701,15 @@ int run_adv_diff(int argc, char *argv[])
       u_ex_coeff.SetTime(t);
 
       double err = u_gf.ComputeL2Error(u_ex_coeff);
-      if (myid == 0) std::cout << "t-final " << t << "\nl2 " << err << "\nruntime " << timer.RealTime() << "\n\n";
+
+      u_ex_coeff.SetTime(t-dt);
+      double errm = u_gf.ComputeL2Error(u_ex_coeff);
+
+      u_ex_coeff.SetTime(t+dt);
+      double errp = u_gf.ComputeL2Error(u_ex_coeff);
+      if (myid == 0) std::cout << "t-final " << t << "\nl2(t) " << err <<
+         "\nl2(t-dt) " << errm << "\nl2(t+dt) " << errp <<
+         "\nruntime " << timer.RealTime() << "\n\n";
    }
 
    // if (evol) delete evol;

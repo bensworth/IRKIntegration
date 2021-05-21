@@ -34,7 +34,8 @@ struct NewtonParams {
     int jac_update_rate = 0;  
     JacSparsity jac_solver_sparsity = JacSparsity::DENSE;
     JacSparsity jac_prec_sparsity  = JacSparsity::DIAGONAL;
-}; 
+};
+
 
 class IMEXEuler : public ODESolver
 {
@@ -156,7 +157,7 @@ private:
 
     /** Form rhs for polyomial IMEX; include scaling by (A0 x I)^{-1}, as
         applied to nonlinear system on right. */
-    void FormImpRHS(Vector &x_prev, const double &t,
+    void FormImpRHS(const double &t,
         const double &r, bool iterator);
 
     /// Update stored explicit components for future time steps/iterations. 
@@ -164,7 +165,8 @@ private:
 
     /** Update solution via one implicit-explicit pass; can be used as
         preconditioning for higher-order scheme or kernel of single time step. */
-    void Iterate(Vector &x, const double &t, const double &r, bool iterator);
+    void Iterate(Vector &x, const double &t, const double &r);
+    void Propagate(Vector &x, const double &t, const double &r);
 
 public:
     PolyIMEX(IRKOperator *IRKOper_, const RKData &ButcherTableau,
