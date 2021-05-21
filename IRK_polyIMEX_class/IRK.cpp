@@ -379,9 +379,11 @@ void PolyIMEX::Step(Vector &x, double &t, double &dt)
     // Update solution vector after all iterators completed
     if (exp_ind == 0) {
         x = sol_imp.GetBlock(m_Butcher.s-1);
+        // x = sol_exp;
     }
     else {
         x = sol_exp;
+        // x = sol_imp.GetBlock(0);
     }
     t += dt; // Update current time
 }
