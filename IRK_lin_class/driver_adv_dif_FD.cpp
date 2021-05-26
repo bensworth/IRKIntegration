@@ -9,6 +9,9 @@ using namespace std;
 
 #define PI 3.14159265358979323846
 
+// make -f make_oliver 
+// make -f make_oliver clean
+
 
 /*  TODO: 
     -Segfault associated w/ freeing HypreBoomerAMG... Currently not being
@@ -37,13 +40,22 @@ using namespace std;
 
 // Sample runs:
 //      *** Solve 2D in space problem w/ 4th-order discretizations in space & time ***
-//      >> mpirun -np 4 ./driver_adv_dif_FD -d 2 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 -gamma 1
+//          ** Our IRK algorithm
+//          >> mpirun -np 4 ./driver_adv_dif_FD -irk 0 -d 2 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 -gamma 1
+//          ** Staff et al. algorithm
+//              ** Block diagonal preconditioning
+//              >> mpirun -np 4 ./driver_adv_dif_FD -irk 1 -d 2 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 -prec_ID 0
+//              ** Block lower triangular preconditioning
+//              >> mpirun -np 4 ./driver_adv_dif_FD -irk 1 -d 2 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 -prec_ID 1
 //      
-//      ** Diffusion-only problem using GMRES solver
-//      >> mpirun -np 4 ./driver_adv_dif_FD -d 2 -ex 1 -ax 0 -ay 0 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 -ksol 2 -gamma 1
-//      ** Diffusion-only problem using CG solver
-//      >> mpirun -np 4 ./driver_adv_dif_FD -d 2 -ex 1 -ax 0 -ay 0 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 -ksol 0 -gamma 1
+//      ** Our IRK algorithm
+//          ** Diffusion-only problem using GMRES solver
+//          >> mpirun -np 4 ./driver_adv_dif_FD -irk 0 -d 2 -ex 1 -ax 0 -ay 0 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 -ksol 2 -gamma 1
+//          ** Diffusion-only problem using CG solver
+//          >> mpirun -np 4 ./driver_adv_dif_FD -irk 0 -d 2 -ex 1 -ax 0 -ay 0 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 -ksol 0 -gamma 1
 // 
+//
+//
 //
 // Solve scalar linear advection-diffusion equation,
 //     u_t + alpha.grad(u) = div( mu \odot grad(u) ) + s(x,t),
@@ -166,6 +178,12 @@ public:
     void Mult(const Vector &u, Vector &du_dt) const;
     
     /// Compute the right-hand side of the ODE system.
+    /** Note: I don't actually need this since ExplicitMult and Mult are the same 
+        for explicitly defined time-dependent operators as I have, but have included 
+        this here for testing purposes */
+    void ExplicitMult(const Vector &u, Vector &du_dt) const { Mult(u, du_dt); };
+    
+    /// Compute the right-hand side of the ODE system without the source term
     void ApplyL(const Vector &u, Vector &du_dt) const;
     
     
@@ -227,11 +245,17 @@ int main(int argc, char *argv[])
     dim = 1; // Spatial dimension
     
     /* --- Time integration --- */
+    int IRK_ALG_ID = 0; // IRK algorithm. Ours or Staff's.
     int nt     = 10;  // Number of time steps
     double dt  = 0.0; // Time step size. dt < 0 means: dt == |dt|*dx
     double tf  = 2.0; // Final integration time
     int RK_ID  = 1;   // RK scheme (see below)
+    
+    // Parameters for our IRK alg.
     int mag_prec = 0; // Index of constant used in preconditioner (see IRK.hpp)
+    
+    // Parameters for Staff IRK alg.
+    int block_prec_ID = 0; // Block preconditioner used (see IRK.hpp)
 
     /* --- Spatial discretization --- */
     int order     = 2; // Approximation order
@@ -264,13 +288,22 @@ int main(int argc, char *argv[])
                   "Spatial dimension.");              
 
      /* Time integration */
+     args.AddOption(&IRK_ALG_ID, "-irk", "--IRK-solver-algorithm",
+                   "0 == our IRK algorithm. 1 == Staff et al. (2006) algorithm.");
     args.AddOption(&RK_ID, "-t", "--RK-method",
                   "Time discretization.");
-    args.AddOption(&mag_prec, "-gamma", "--gamma-value",
-                  "Value of gamma in preconditioner: 0, 1, 2.");              
     args.AddOption(&nt, "-nt", "--num-time-steps", "Number of time steps.");    
     args.AddOption(&tf, "-tf", "--tf", "0 <= t <= tf");
-    args.AddOption(&dt, "-dt", "--time-step-size", "t_j = j*dt. NOTE: dt<0 means dt==|dt|*dx");
+    args.AddOption(&dt, "-dt", "--time-step-size", "t_j = j*dt. NOTE: dt<0 means dt==|dt|*dx");              
+                  
+    /* Options for Staff IRK algorithm */
+    args.AddOption(&block_prec_ID, "-prec_ID", "--block-preconditioning-ID",
+                  "0 == diagonal. 1 == lower triangular.");              
+                  
+    /* Options for our IRK algorithm */
+    args.AddOption(&mag_prec, "-gamma", "--gamma-value",
+                  "Value of gamma in preconditioner: 0, 1, 2.");              
+    
 
     /* Spatial discretization */
     args.AddOption(&order, "-o", "--order",
@@ -363,21 +396,38 @@ int main(int argc, char *argv[])
     } else {
         nt = ceil(tf/dt);
     }
-    
-    
-    // Build IRK object using spatial discretization 
-    IRK MyIRK(&SpaceDisc, static_cast<RKData::Type>(RK_ID), mag_prec);        
 
-    // Set Krylov solver settings
-    MyIRK.SetKrylovParams(KRYLOV);
-
-    // Initialize IRK time-stepping solver
-    MyIRK.Init(SpaceDisc);
+    double t = 0.0; // Initial time
+    IRK * MyIRK = NULL;
+    StaffIRK * MyStaffIRK = NULL;
+    // Use our IRK algorithm
+    if (IRK_ALG_ID == 0) {
+        // Build IRK object using spatial discretization 
+        MyIRK = new IRK(&SpaceDisc, static_cast<RKData::Type>(RK_ID), mag_prec);        
+        // Set Krylov solver settings
+        MyIRK->SetKrylovParams(KRYLOV);
+        // Initialize IRK time-stepping solver
+        MyIRK->Init(SpaceDisc);
+        // Time step 
+        MyIRK->Run(*u, t, dt, tf);
+        
+    // Use the Staff IRK algorithm    
+    } else {
+        // Build IRK object using spatial discretization 
+        MyStaffIRK = new StaffIRK(&SpaceDisc, static_cast<RKData::Type>(RK_ID));        
+        // Set Krylov solver settings
+        MyStaffIRK->SetKrylovParams(KRYLOV);
+        // Initialize IRK time-stepping solver
+        MyStaffIRK->Init(SpaceDisc);
+        // Time step 
+        MyStaffIRK->Run(*u, t, dt, tf);
+    }
+    
+        
 
     
-    // Time step 
-    double t = 0.0;
-    MyIRK.Run(*u, t, dt, tf);
+        
+    //}
     
     if (fabs(t-tf)>1e-14) {
         if (myid == 0) std::cout << "WARNING: Requested tf of " << tf << " adjusted to " << t << '\n';
@@ -422,18 +472,24 @@ int main(int argc, char *argv[])
             solinfo.Print("exampleID", example); 
             
             /* Linear system/solve statistics */
-            std::vector<int> avg_krylov_iter;
-            std::vector<int> system_size;
-            std::vector<double> eig_ratio;
-            MyIRK.GetSolveStats(avg_krylov_iter, system_size, eig_ratio);
-            solinfo.Print("krtol", KRYLOV.reltol);
-            solinfo.Print("katol", KRYLOV.abstol);
-            solinfo.Print("kdim", KRYLOV.kdim);
-            solinfo.Print("nsys", avg_krylov_iter.size());
-            for (int system = 0; system < avg_krylov_iter.size(); system++) {
-                solinfo.Print("sys" + to_string(system+1) + "_iters", avg_krylov_iter[system]);
-                solinfo.Print("sys" + to_string(system+1) + "_type", system_size[system]);
-                solinfo.Print("sys" + to_string(system+1) + "_eig_ratio", eig_ratio[system]);
+            if (IRK_ALG_ID == 0) {
+                std::vector<int> avg_krylov_iter;
+                std::vector<int> system_size;
+                std::vector<double> eig_ratio;
+                MyIRK->GetSolveStats(avg_krylov_iter, system_size, eig_ratio);
+                solinfo.Print("krtol", KRYLOV.reltol);
+                solinfo.Print("katol", KRYLOV.abstol);
+                solinfo.Print("kdim", KRYLOV.kdim);
+                solinfo.Print("nsys", avg_krylov_iter.size());
+                for (int system = 0; system < avg_krylov_iter.size(); system++) {
+                    solinfo.Print("sys" + to_string(system+1) + "_iters", avg_krylov_iter[system]);
+                    solinfo.Print("sys" + to_string(system+1) + "_type", system_size[system]);
+                    solinfo.Print("sys" + to_string(system+1) + "_eig_ratio", eig_ratio[system]);
+                }
+            } else {
+                int avg_krylov_iter;
+                MyStaffIRK->GetSolveStats(avg_krylov_iter);
+                solinfo.Print("iters", avg_krylov_iter);
             }
             
             /* Parallel info */
@@ -452,6 +508,9 @@ int main(int argc, char *argv[])
             solinfo.close();
         }
     }
+    if (MyIRK) delete MyIRK;
+    if (MyStaffIRK) delete MyStaffIRK;
+    
     delete u;
 
     MPI_Finalize();
@@ -560,8 +619,8 @@ double PDESolution(const Vector &x, double t)
 AdvDif::AdvDif(FDMesh &Mesh_, Vector alpha_, Vector mu_, 
         int order, FDBias advection_bias) 
     : IRKOperator(Mesh_.GetComm(), Mesh_.GetLocalSize(), 0.0, 
-        //TimeDependentOperator::Type::IMPLICIT),
-        TimeDependentOperator::Type::EXPLICIT),
+        //TimeDependentOperator::Type::IMPLICIT), // Used for testing IRK codes where mass matrices are needed
+        TimeDependentOperator::Type::EXPLICIT), // This operator is really explicit since there's no mass matrix
         Mesh{Mesh_},
         alpha(alpha_), mu(mu_),
         dim(Mesh_.m_dim),
@@ -602,6 +661,7 @@ void AdvDif::Mult(const Vector &u, Vector &du_dt) const
     SetSource();
     du_dt += source;
 }
+
 
 /// Evaluate RHS of ODEs without source: du_dt = -A*u + D*u 
 void AdvDif::ApplyL(const Vector &u, Vector &du_dt) const

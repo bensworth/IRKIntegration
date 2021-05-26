@@ -270,6 +270,214 @@ void IRK::ConstructRHS(const Vector &x, double t, double dt, Vector &rhs) {
     }
 }
 
+
+
+
+
+//StaffIRK(IRKOperator *IRKOper_, RKData::Type RK_ID_);
+/// Constructor
+StaffIRK::StaffIRK(IRKOperator *IRKOper_, RKData::Type RK_ID_)
+        : m_IRKOper(IRKOper_), m_Butcher(RK_ID_),
+        m_krylov(NULL), m_comm{IRKOper_->GetComm()}
+{
+    // Get proc IDs
+    MPI_Comm_rank(m_comm, &m_rank);
+    MPI_Comm_size(m_comm, &m_numProcess);
+
+    // This stream will only print from process 0
+    if (m_rank > 0) mfem::out.Disable();
+
+
+    // Create object for every characteristic polynomial factor to be inverted
+    //m_CharPolyOper.SetSize(m_Butcher.s_eff);
+
+    // Initialize solver statistics the user might retrieve later
+    m_avg_iter = 0;
+    
+    // TODO
+    // 
+    // // Linear factors (degree 1)
+    // double dt_dummy = -1.0; // Use dummy dt, will be set properly before inverting factor.
+    // int count = 0;
+    // for (int i = 0; i < m_Butcher.zeta.Size(); i++) {
+    //     m_CharPolyOper[count] = new CharPolyFactor(dt_dummy, m_Butcher.zeta(i), *m_IRKOper);
+    //     m_degree[count] = 1;
+    //     count++;
+    // }
+    // // Quadratic factors (degree 2)
+    // for (int i = 0; i < m_Butcher.eta.Size(); i++) {
+    //     m_CharPolyOper[count] = new CharPolyFactor(dt_dummy, m_Butcher.eta(i), 
+    //                                 m_Butcher.beta(i), *m_IRKOper, mag_prec);
+    //     m_degree[count] = 2;
+    //     m_eig_ratio[count] = m_Butcher.beta(i)/m_Butcher.eta(i);
+    //     count++;
+    // }
+}
+
+/// Destructor
+// TODO
+StaffIRK::~StaffIRK() {
+    
+    // for (int i = 0; i < m_CharPolyOper.Size(); i++) {
+    //     delete m_CharPolyOper[i];
+    //     m_CharPolyOper[i] = NULL;
+    // }
+    // m_CharPolyOper.SetSize(0);
+
+    if (m_krylov) delete m_krylov;
+}
+
+
+
+/// Build linear solver
+void StaffIRK::SetSolver()
+{
+    if (m_krylov) return;
+
+    switch (m_krylov_params.solver) {
+        case IRK::KrylovMethod::GMRES:
+            m_krylov = new GMRESSolver(m_comm);
+            static_cast<GMRESSolver*>(m_krylov)->SetKDim(m_krylov_params.kdim);
+            break;
+        case IRK::KrylovMethod::FGMRES:
+            m_krylov = new FGMRESSolver(m_comm);
+            static_cast<FGMRESSolver*>(m_krylov)->SetKDim(m_krylov_params.kdim);
+            break;
+        default:
+            mfem_error("StaffIRK::Invalid KrylovMethod.\n");
+    }
+
+    m_krylov->SetRelTol(m_krylov_params.reltol);
+    m_krylov->SetAbsTol(m_krylov_params.abstol);
+    m_krylov->SetMaxIter(m_krylov_params.maxiter);
+    m_krylov->SetPrintLevel(m_krylov_params.printlevel);
+    m_krylov->iterative_mode = false;
+}
+
+
+/// Call base class' init and size member vectors
+// TODO: The below need to be set to F.Height()*s since they're block vectors
+void StaffIRK::Init(TimeDependentOperator &F)
+{
+    ODESolver::Init(F);
+    m_k.SetSize(F.Height(), mem_type);
+    m_rhs.SetSize(F.Height(), mem_type);
+    
+    SetSolver();
+}
+
+
+/** Apply RK update to take solution x from t to t+dt,
+        x = x + dt * sum_{i} b0(i)*k(i) */
+void StaffIRK::Step(Vector &x, double &t, double &dt)
+{
+    // Set RHS vector of block system, m_rhs_block
+    ConstructRHS(x, t, dt, m_rhs);
+
+    // Print info about system being solved
+    // if (m_krylov_params.printlevel > 0) {
+    //     mfem::out << "  System " << factor+1 << " of " << m_CharPolyOper.Size()
+    //               << " (degree=" << m_CharPolyOper[factor]->Degree() << "):  ";
+    //     if (m_krylov_params.printlevel != 2) mfem::out << '\n';
+    // }
+    // 
+    // // Ensure current factor uses correct time step
+    // m_CharPolyOper[factor]->SetTimeStep(dt);
+    // 
+    // // Set operator and preconditioner for current factor
+    // m_CharPolyPrec.SetDegree(m_CharPolyOper[factor]->Degree());
+    // m_IRKOper->SetSystem(factor, dt, m_CharPolyOper[factor]->Gamma(),
+    //                         m_CharPolyOper[factor]->Degree());
+    // m_krylov->SetPreconditioner(m_CharPolyPrec);
+    // m_krylov->SetOperator(*(m_CharPolyOper[factor]));
+    // 
+    // 
+
+
+    // TODO: Set up Krylov solver with preconditioner.
+
+    // Invert block system, m_sol_block <- F^{-1} * m_rhs_block
+    m_krylov->Mult(m_rhs, m_k);
+
+    // Check for convergence
+    if (!m_krylov->GetConverged()) {
+        string msg = "StaffIRK::Step() Krylov solver at t=" + to_string(t)
+                        + " not converged\n";
+        if (m_rank == 0) mfem_error(msg.c_str());
+    }
+
+    // Record number of iterations
+    m_avg_iter += m_krylov->GetNumIterations();
+
+
+    // Update solution vector with weighted sum of stage vectors
+    for (int i = 0; i < m_Butcher.s; i++) {
+        x.Add(dt*m_Butcher.b0(i), m_k.GetBlock(i)); // x <- x + dt*b0(i)*m_sol_block(i)
+    }
+    t += dt; // Time that current x is evaulated at
+}
+
+
+/// Time step
+void StaffIRK::Run(Vector &x, double &t, double &dt, double tf)
+{
+    // Build Krylov solver
+    if (!m_krylov) SetSolver();
+
+    /* Main time-stepping loop */
+    int step = 0;
+    int numsteps = ceil((tf-t)/dt);
+    while (t < tf) {
+        step++;
+        mfem::out << "Time-step " << step << " of " << numsteps << " (t=" << t << "-->t=" << t+dt << ")\n";
+
+        // Step from t to t+dt
+        Step(x, t, dt);
+    }
+
+    // Average out number of Krylov iters over whole of time stepping
+    m_avg_iter = round(m_avg_iter / double(numsteps));
+}
+
+
+
+/** Construct block right-hand side vector of IRK stage equations IRK solution x at time t */
+void StaffIRK::ConstructRHS(const Vector &x, double t, double dt, BlockVector &rhs) {
+    rhs = 0.0;
+    for (int i = 0; i < m_Butcher.s; i++) {
+        m_IRKOper->SetTime(t + dt*m_Butcher.c0(i));
+        // Need to compute the RHS of the ODE system. For implicitly-defined operators 
+        // this is given by ExplicitMult, and for explicitly defined operators, this is 
+        // equivalent to Mult
+        if (m_IRKOper->isImplicit()) {
+            m_IRKOper->ExplicitMult(x, rhs.GetBlock(i)); // rhs(i) <- L*x + g(t+dt*c(i))
+        } else {
+            m_IRKOper->Mult(x, rhs.GetBlock(i)); // rhs(i) <- L*x + g(t+dt*c(i))
+        }
+    }
+}
+
+
+
+
+/// Kronecker transform between two block vectors: y <- (A \otimes I)*x
+void KronTransform(const DenseMatrix &A, const BlockVector &x, BlockVector &y)
+{
+    for (int block = 0; block < A.Height(); block++) {
+        int j = 0;
+        if (fabs(A(block,j)) > 0.) {
+            y.GetBlock(block).Set(A(block,j), x.GetBlock(j));
+        } else {
+            y.GetBlock(block) = 0.;
+        }
+        for (int j = 1; j < A.Width(); j++) {
+            if (fabs(A(block,j)) > 0.) y.GetBlock(block).Add(A(block,j), x.GetBlock(j));
+        }
+    }
+};
+
+
+
 /** Set dimensions of data structures */
 void RKData::SizeData() {
 

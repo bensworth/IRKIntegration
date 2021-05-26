@@ -13,6 +13,9 @@
 using namespace mfem;
 using namespace std;
 
+/// Kronecker transform between two block vectors: y <- (A \otimes I)*x
+void KronTransform(const DenseMatrix &A, const BlockVector &x, BlockVector &y);
+
 /** Class for spatial discretizations of a PDE resulting in the
     quasi-time-dependent, linear ODEs
         M*du/dt = L*u + g(t)    [_OR_ du/dt = L*u + g(t) if no mass matrix exists]
@@ -50,8 +53,14 @@ public:
     /// Apply action of du/dt, y <- M^{-1}*[L*x + g(t)]
     virtual void Mult(const Vector &x, Vector &y) const = 0;
 
-    /// Apply action of M*du/dt, y <- [L*x + g(t)]
-    //virtual void ExplicitMult(const Vector &x, Vector &y) const = 0;
+    /** Apply action of M*du/dt, y <- [L*x + g(t)]
+        If not re-implemented, this method simply generates an error. 
+        
+        Note that this method is only required for the Staff algorithm */
+    virtual void ExplicitMult(const Vector &x, Vector &y) const
+    {
+        mfem_error("IRKOperator::ImplicitMult() is not overridden!");
+    }
 
 
     /** Apply action mass matrix, y = M*x.
@@ -407,5 +416,174 @@ public:
                                     eig_ratio =  m_eig_ratio;
                                 }
 };
+
+
+
+
+
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+/** --- The below algorithms pertain only to the implementation of the IRK 
+    algorithms from Staff et al. (2006) --- */
+////////////////////////////////////////////////////////////////////////////////
+
+
+/** Operator F defining the block-coupled s stage equations. They satisfy F*k = 0, 
+    where 
+                       [ M - a_11*dt*L ... -a_1s*dt*L ]
+                F*k =  [ ...           ...        ... ]
+                       [ M - a_s1*dt*L ... -a_ss*dt*L ]*/
+class IRKStageOper : public BlockOperator
+{
+        
+private:
+    
+    Array<int> &offsets;            // Offsets of operator     
+    
+    mutable IRKOperator * IRKOper;  // Spatial discretization
+    const RKData &Butcher;          // All RK information
+    
+    // Parameters that operator depends on
+    double dt;                      // Current time step
+    
+    // Wrappers for scalar vectors
+    mutable BlockVector k_block, y_block;
+    
+    // Auxillary vectors
+    mutable BlockVector temp_block;
+    
+public:
+    
+    IRKStageOper(IRKOperator * S_, Array<int> &offsets_, const RKData &RK_) 
+        : BlockOperator(offsets_), 
+            IRKOper(S_), Butcher(RK_), 
+            dt(0.0), 
+            offsets(offsets_),
+            k_block(offsets_), y_block(offsets_),
+            temp_block(offsets_)
+            { };
+    
+    // TODO: Change to set   time step or something
+    inline void SetParameters(double dt_) { 
+        dt = dt_;
+    };
+
+    inline double GetTimeStep() { return dt; };
+    
+    
+    /// Compute action of operator, y <- F*k
+    inline void Mult(const Vector &k_scalar, Vector &y_scalar) const
+    {
+        // Wrap scalar Vectors with BlockVectors
+        k_block.Update(k_scalar.GetData(), offsets);
+        y_block.Update(y_scalar.GetData(), offsets);
+        
+        
+        /* temp <- (I \otimes L)*k */
+        for (int i = 0; i < Butcher.s; i++) {        
+            IRKOper->ApplyL(k_block.GetBlock(i), temp_block.GetBlock(i)); // temp <- L*k
+        }
+        
+        // y <- (A0 \otimes I)(I \otimes L)*k ==  (A0 \otimes I)*temp
+        KronTransform(Butcher.A0, temp_block, y_block); 
+        
+        
+        /* y <- -dt*y + (I \otimes M)k */
+        for (int i = 0; i < Butcher.s; i++) {        
+            y_block.GetBlock(i) *= -dt;
+            // MASS MATRIX
+            if (IRKOper->isImplicit()) {
+                IRKOper->ImplicitMult(k_block.GetBlock(i), temp_block.GetBlock(0)); //  temp <- M*k  
+                y_block.GetBlock(i) += temp_block.GetBlock(0);
+            // NO MASS MATRIX    
+            } else {
+                y_block.GetBlock(i) += k_block.GetBlock(i);
+            }
+        }
+    }
+};
+
+class TriangularStagePreconditioner;
+class DiagonalStagePreconditioner;
+/** Class implementing the Staff et al. (2006) algorithm for fully implicit
+    RK schemes for the quasi-time-dependent, linear ODE system
+        M*du/dt = L*u + g(t),
+    as implemented as an IRKOperator */
+class StaffIRK : public ODESolver
+{
+public:
+    // // Krylov solve type for IRK systems
+    // enum KrylovMethod {
+    //     GMRES = 2, FGMRES = 4
+    // };
+
+    // // Parameters for Krylov solver
+    // struct KrylovParams {
+    //     double abstol = 1e-10;
+    //     double reltol = 1e-10;
+    //     int maxiter = 100;
+    //     int printlevel = 0;
+    //     int kdim = 30;
+    //     KrylovMethod solver = KrylovMethod::GMRES;
+    // };
+
+private:
+    MPI_Comm m_comm;
+    int m_numProcess;
+    int m_rank;
+
+    RKData m_Butcher;           // Runge-Kutta Butcher tableau and associated data
+
+    IRKOperator * m_IRKOper;    // Spatial discretization. 
+    BlockVector m_k;            // The stage vectors
+    BlockVector m_rhs;          // RHS of stage system
+    Array<int> m_stageOffsets;  // Offsets 
+    IRKStageOper * m_stageOper; // Operator F encoding stages, F*w = rhs
+
+    TriangularStagePreconditioner * m_tri_prec; // Block triangular preconditioner for block stage equations     
+    DiagonalStagePreconditioner * m_diag_prec;  // Block diagonal preconditioner for block stage equations
+    IterativeSolver * m_krylov;                 // Solver for inverting block stage equations
+    IRK::KrylovParams m_krylov_params;               // Parameters for above solver
+
+    /* Statistics on solution of linear systems */
+    int m_avg_iter;         // Across whole integration, avg number of Krylov iters per time step
+
+
+    /// Build linear solver
+    void SetSolver();
+
+    /** Construct right-hand side vector for IRK integration, including applying
+     the block Adjugate and Butcher inverse */
+    void ConstructRHS(const Vector &x, double t, double dt, BlockVector &rhs);
+
+public:
+    StaffIRK(IRKOperator *IRKOper_, RKData::Type RK_ID_);
+    ~StaffIRK();
+
+    void Init(TimeDependentOperator &F);
+
+    void Run(Vector &x, double &t, double &dt, double tf);
+
+    void Step(Vector &x, double &t, double &dt);
+
+    /// Set parameters for Krylov solver
+    inline void SetKrylovParams(IRK::KrylovParams params) {
+        MFEM_ASSERT(!m_krylov, "IRK::SetKrylovParams:: Can only be called before IRK::Init()");
+        m_krylov_params = params;
+    }
+
+    /// Get statistics about solution of linear systems
+    inline void GetSolveStats(int &avg_iter) const {
+                                    avg_iter  =  m_avg_iter;
+                                }
+};
+
+
+
+
+
+
 
 #endif
