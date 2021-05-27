@@ -274,11 +274,11 @@ void IRK::ConstructRHS(const Vector &x, double t, double dt, Vector &rhs) {
 
 
 
-//StaffIRK(IRKOperator *IRKOper_, RKData::Type RK_ID_);
 /// Constructor
-StaffIRK::StaffIRK(IRKOperator *IRKOper_, RKData::Type RK_ID_, 
-        PreconditionerID preconditionerID_)
-            : m_IRKOper(IRKOper_), m_Butcher(RK_ID_), m_preconditionerID(preconditionerID_),
+BlockPreconditionedIRK::BlockPreconditionedIRK(IRKOperator *IRKOper_, RKData::Type RK_ID_, 
+        BlockPreconditionerID precID_)
+            : m_IRKOper(IRKOper_), m_Butcher(RK_ID_, precID_), 
+            m_precID(precID_),
             m_krylov(NULL), m_comm{IRKOper_->GetComm()}
 {
     // Get proc IDs
@@ -287,6 +287,9 @@ StaffIRK::StaffIRK(IRKOperator *IRKOper_, RKData::Type RK_ID_,
 
     // This stream will only print from process 0
     if (m_rank > 0) mfem::out.Disable();
+
+    // Set preconditioner sparsity variable, m_BlockPreconditionerSparsity
+    SetBlockPreconditionerSparsity(); 
 
     // Setup block sizes for stage vectors
     m_stageOffsets.SetSize(m_Butcher.s + 1); 
@@ -302,37 +305,18 @@ StaffIRK::StaffIRK(IRKOperator *IRKOper_, RKData::Type RK_ID_,
     // Initialize solver statistics the user might retrieve later
     m_avg_iter = 0;
     
-    
     // Create stage operator
-    m_stageOper = new StaffStageOper(m_IRKOper, m_stageOffsets, m_Butcher);
-    
-    // Set preconditioner sparsity variable, m_preconditionerSparsity
-    SetPreconditionerSparsity(); 
-    std::cout << "PreconditionerSparsity = " << m_preconditionerSparsity << '\n';
-    
-    // Create preconditioner coefficients
-    // For Jacobi and Gauss--Seidel methods, these are just A0.
-    if (m_preconditionerID == PreconditionerID::JACOBI || 
-        m_preconditionerID == PreconditionerID::GSL || 
-        m_preconditionerID == PreconditionerID::GSU)
-    {
-        m_preconditionerCoefficients = m_Butcher.A0; 
-        
-    // For  more complicated preconditoners the coefficients are not as simple    
-    } else {
-        // TODO
-        mfem_error("StaffIRK::Other preconditioner coefficients have not been implemented.\n");
-    }
+    m_stageOper = new BlockStageOperator(m_IRKOper, m_stageOffsets, m_Butcher);
     
     // Create preconditioner
-    m_stagePreconditioner = new StaffStagePreconditioner(*m_stageOper, 
-                                                    m_preconditionerSparsity, 
-                                                    m_preconditionerCoefficients);
+    m_stagePreconditioner = new BlockStagePreconditioner(*m_stageOper, 
+                                                        m_BlockPreconditionerSparsity, 
+                                                        m_Butcher.preconditionerCoefficients);
     
 }
 
 /// Destructor
-StaffIRK::~StaffIRK() {
+BlockPreconditionedIRK::~BlockPreconditionedIRK() {
     delete m_stagePreconditioner;
     delete m_stageOper;
 
@@ -342,7 +326,7 @@ StaffIRK::~StaffIRK() {
 
 
 /// Build linear solver
-void StaffIRK::SetSolver()
+void BlockPreconditionedIRK::SetSolver()
 {
     if (m_krylov) return;
 
@@ -356,7 +340,7 @@ void StaffIRK::SetSolver()
             static_cast<FGMRESSolver*>(m_krylov)->SetKDim(m_krylov_params.kdim);
             break;
         default:
-            mfem_error("StaffIRK::Invalid KrylovMethod.\n");
+            mfem_error("BlockPreconditionedIRK::Invalid KrylovMethod.\n");
     }
 
     m_krylov->SetRelTol(m_krylov_params.reltol);
@@ -368,7 +352,7 @@ void StaffIRK::SetSolver()
 
 
 /// Call base class' init and size member vectors
-void StaffIRK::Init(TimeDependentOperator &F)
+void BlockPreconditionedIRK::Init(TimeDependentOperator &F)
 {
     ODESolver::Init(F);
     
@@ -386,7 +370,7 @@ void StaffIRK::Init(TimeDependentOperator &F)
 
 /** Apply RK update to take solution x from t to t+dt,
         x = x + dt * sum_{i} b0(i)*k(i) */
-void StaffIRK::Step(Vector &x, double &t, double &dt)
+void BlockPreconditionedIRK::Step(Vector &x, double &t, double &dt)
 {
     // Set RHS vector of block system, m_rhs_block
     ConstructRHS(x, t, dt, m_rhs);
@@ -423,7 +407,7 @@ void StaffIRK::Step(Vector &x, double &t, double &dt)
 
     // Check for convergence
     if (!m_krylov->GetConverged()) {
-        string msg = "StaffIRK::Step() Krylov solver at t=" + to_string(t)
+        string msg = "BlockPreconditionedIRK::Step() Krylov solver at t=" + to_string(t)
                         + " not converged\n";
         if (m_rank == 0) mfem_error(msg.c_str());
     }
@@ -441,7 +425,7 @@ void StaffIRK::Step(Vector &x, double &t, double &dt)
 
 
 /// Time step
-void StaffIRK::Run(Vector &x, double &t, double &dt, double tf)
+void BlockPreconditionedIRK::Run(Vector &x, double &t, double &dt, double tf)
 {
     // Build Krylov solver
     if (!m_krylov) SetSolver();
@@ -464,7 +448,7 @@ void StaffIRK::Run(Vector &x, double &t, double &dt, double tf)
 
 
 /** Construct block right-hand side vector of IRK stage equations IRK solution x at time t */
-void StaffIRK::ConstructRHS(const Vector &x, double t, double dt, BlockVector &rhs) {
+void BlockPreconditionedIRK::ConstructRHS(const Vector &x, double t, double dt, BlockVector &rhs) {
     rhs = 0.0;
     for (int i = 0; i < m_Butcher.s; i++) {
         m_IRKOper->SetTime(t + dt*m_Butcher.c0(i));
@@ -2007,6 +1991,445 @@ void RKData::SetData() {
         default:
             mfem_error("RKData:: Invalid Runge Kutta type.\n");
     }
+}
+
+
+/** Populate the preconditioner coefficients array preconditionerCoefficients 
+    that is used in block preconditioning methods */
+void RKData::SetPreconditionerCoefficients() {
+    preconditionerCoefficients.SetSize(s);
+    
+    switch (precID) {
+        // Jacobi
+        case BlockPreconditionerID::JACOBI:
+            preconditionerCoefficients = A0;
+            break;
+        // Lower triangular, Gauss--Seidel
+        case BlockPreconditionerID::GSL:
+            preconditionerCoefficients = A0;
+            break;
+        // Upper triangular, Gauss--Seidel    
+        case BlockPreconditionerID::GSU:
+            preconditionerCoefficients = A0;
+            break;
+    
+        // Optimized lower triangular from Staff et al. paper
+        case BlockPreconditionerID::STAFFOPT:
+            switch (ID) {
+                case Type::Gauss4:
+                    /* ID: Gauss4 */
+                    preconditionerCoefficients(0, 0) = +0.250000000000000;
+                    preconditionerCoefficients(0, 1) = +0.000000000000000;
+                    preconditionerCoefficients(1, 0) = +0.488313000000000;
+                    preconditionerCoefficients(1, 1) = +0.250000000000000;
+                    break;
+                    
+                case Type::Gauss6:
+                    /* ID: Gauss6 */
+                    preconditionerCoefficients(0, 0) = +0.138888000000000;
+                    preconditionerCoefficients(0, 1) = +0.000000000000000;
+                    preconditionerCoefficients(0, 2) = +0.000000000000000;
+                    preconditionerCoefficients(1, 0) = +0.224907000000000;
+                    preconditionerCoefficients(1, 1) = +0.222222000000000;
+                    preconditionerCoefficients(1, 2) = +0.000000000000000;
+                    preconditionerCoefficients(2, 0) = +0.143025000000000;
+                    preconditionerCoefficients(2, 1) = +0.387432000000000;
+                    preconditionerCoefficients(2, 2) = +0.138888000000000;
+                    break;
+                    
+                case Type::Gauss8:
+                    /* ID: Gauss8 */
+                    preconditionerCoefficients(0, 0) = +0.086963000000000;
+                    preconditionerCoefficients(0, 1) = +0.000000000000000;
+                    preconditionerCoefficients(0, 2) = +0.000000000000000;
+                    preconditionerCoefficients(0, 3) = +0.000000000000000;
+                    preconditionerCoefficients(1, 0) = +0.171390000000000;
+                    preconditionerCoefficients(1, 1) = +0.163036000000000;
+                    preconditionerCoefficients(1, 2) = +0.000000000000000;
+                    preconditionerCoefficients(1, 3) = +0.000000000000000;
+                    preconditionerCoefficients(2, 0) = +0.192773000000000;
+                    preconditionerCoefficients(2, 1) = +0.273261000000000;
+                    preconditionerCoefficients(2, 2) = +0.163036000000000;
+                    preconditionerCoefficients(2, 3) = +0.000000000000000;
+                    preconditionerCoefficients(3, 0) = +0.245927000000000;
+                    preconditionerCoefficients(3, 1) = +0.232027000000000;
+                    preconditionerCoefficients(3, 2) = +0.273809000000000;
+                    preconditionerCoefficients(3, 3) = +0.086963000000000;
+                    break;
+                    
+                case Type::Gauss10:
+                    /* ID: Gauss10 */
+                    preconditionerCoefficients(0, 0) = +0.059231000000000;
+                    preconditionerCoefficients(0, 1) = +0.000000000000000;
+                    preconditionerCoefficients(0, 2) = +0.000000000000000;
+                    preconditionerCoefficients(0, 3) = +0.000000000000000;
+                    preconditionerCoefficients(0, 4) = +0.000000000000000;
+                    preconditionerCoefficients(1, 0) = +0.094654000000000;
+                    preconditionerCoefficients(1, 1) = +0.119657000000000;
+                    preconditionerCoefficients(1, 2) = +0.000000000000000;
+                    preconditionerCoefficients(1, 3) = +0.000000000000000;
+                    preconditionerCoefficients(1, 4) = +0.000000000000000;
+                    preconditionerCoefficients(2, 0) = +0.118474000000000;
+                    preconditionerCoefficients(2, 1) = +0.226545000000000;
+                    preconditionerCoefficients(2, 2) = +0.142222000000000;
+                    preconditionerCoefficients(2, 3) = +0.000000000000000;
+                    preconditionerCoefficients(2, 4) = +0.000000000000000;
+                    preconditionerCoefficients(3, 0) = +0.156695000000000;
+                    preconditionerCoefficients(3, 1) = +0.244621000000000;
+                    preconditionerCoefficients(3, 2) = +0.242734000000000;
+                    preconditionerCoefficients(3, 3) = +0.119657000000000;
+                    preconditionerCoefficients(3, 4) = +0.000000000000000;
+                    preconditionerCoefficients(4, 0) = +0.108481000000000;
+                    preconditionerCoefficients(4, 1) = +0.287240000000000;
+                    preconditionerCoefficients(4, 2) = +0.227631000000000;
+                    preconditionerCoefficients(4, 3) = +0.206980000000000;
+                    preconditionerCoefficients(4, 4) = +0.059231000000000;
+                    break;
+                    
+                case Type::RadauIIA3:
+                    /* ID: RadauIIA3 */
+                    preconditionerCoefficients(0, 0) = +0.416666000000000;
+                    preconditionerCoefficients(0, 1) = +0.000000000000000;
+                    preconditionerCoefficients(1, 0) = +0.673076000000000;
+                    preconditionerCoefficients(1, 1) = +0.250000000000000;                
+                    break;
+                    
+                case Type::RadauIIA5:
+                    /* ID: RadauIIA5 */
+                    preconditionerCoefficients(0, 0) = +0.196815000000000;
+                    preconditionerCoefficients(0, 1) = +0.000000000000000;
+                    preconditionerCoefficients(0, 2) = +0.000000000000000;
+                    preconditionerCoefficients(1, 0) = +0.259583000000000;
+                    preconditionerCoefficients(1, 1) = +0.292073000000000;
+                    preconditionerCoefficients(1, 2) = +0.000000000000000;
+                    preconditionerCoefficients(2, 0) = +0.194743000000000;
+                    preconditionerCoefficients(2, 1) = +0.414440000000000;
+                    preconditionerCoefficients(2, 2) = +0.111111000000000;                
+                    break;
+                    
+                case Type::RadauIIA7:
+                    /* ID: RadauIIA7 */
+                    preconditionerCoefficients(0, 0) = +0.112999000000000;
+                    preconditionerCoefficients(0, 1) = +0.000000000000000;
+                    preconditionerCoefficients(0, 2) = +0.000000000000000;
+                    preconditionerCoefficients(0, 3) = +0.000000000000000;
+                    preconditionerCoefficients(1, 0) = +0.207430000000000;
+                    preconditionerCoefficients(1, 1) = +0.206892000000000;
+                    preconditionerCoefficients(1, 2) = +0.000000000000000;
+                    preconditionerCoefficients(1, 3) = +0.000000000000000;
+                    preconditionerCoefficients(2, 0) = +0.280581000000000;
+                    preconditionerCoefficients(2, 1) = +0.238590000000000;
+                    preconditionerCoefficients(2, 2) = +0.189036000000000;
+                    preconditionerCoefficients(2, 3) = +0.000000000000000;
+                    preconditionerCoefficients(3, 0) = +0.321615000000000;
+                    preconditionerCoefficients(3, 1) = +0.194202000000000;
+                    preconditionerCoefficients(3, 2) = +0.255668000000000;
+                    preconditionerCoefficients(3, 3) = +0.062500000000000;
+                    break;
+                    
+                case Type::RadauIIA9:
+                    /* ID: RadauIIA9 */
+                    preconditionerCoefficients(0, 0) = +0.072998000000000;
+                    preconditionerCoefficients(0, 1) = +0.000000000000000;
+                    preconditionerCoefficients(0, 2) = +0.000000000000000;
+                    preconditionerCoefficients(0, 3) = +0.000000000000000;
+                    preconditionerCoefficients(0, 4) = +0.000000000000000;
+                    preconditionerCoefficients(1, 0) = +0.134217000000000;
+                    preconditionerCoefficients(1, 1) = +0.146214000000000;
+                    preconditionerCoefficients(1, 2) = +0.000000000000000;
+                    preconditionerCoefficients(1, 3) = +0.000000000000000;
+                    preconditionerCoefficients(1, 4) = +0.000000000000000;
+                    preconditionerCoefficients(2, 0) = +0.166967000000000;
+                    preconditionerCoefficients(2, 1) = +0.191017000000000;
+                    preconditionerCoefficients(2, 2) = +0.167585000000000;
+                    preconditionerCoefficients(2, 3) = +0.000000000000000;
+                    preconditionerCoefficients(2, 4) = +0.000000000000000;
+                    preconditionerCoefficients(3, 0) = +0.181347000000000;
+                    preconditionerCoefficients(3, 1) = +0.188433000000000;
+                    preconditionerCoefficients(3, 2) = +0.174109000000000;
+                    preconditionerCoefficients(3, 3) = +0.128756000000000;
+                    preconditionerCoefficients(3, 4) = +0.000000000000000;
+                    preconditionerCoefficients(4, 0) = +0.168265000000000;
+                    preconditionerCoefficients(4, 1) = +0.212583000000000;
+                    preconditionerCoefficients(4, 2) = +0.132551000000000;
+                    preconditionerCoefficients(4, 3) = +0.176719000000000;
+                    preconditionerCoefficients(4, 4) = +0.040000000000000;                
+                    break;  
+                    
+                case Type::LobIIIC2:
+                    /* ID: LobIIIC2 */
+                    preconditionerCoefficients(0, 0) = +0.500000000000000;
+                    preconditionerCoefficients(0, 1) = +0.000000000000000;
+                    preconditionerCoefficients(1, 0) = +0.000000000000000;
+                    preconditionerCoefficients(1, 1) = +0.500000000000000;                
+                    break;
+                    
+                case Type::LobIIIC4:
+                    /* ID: LobIIIC4 */
+                    preconditionerCoefficients(0, 0) = +0.166666600000000;
+                    preconditionerCoefficients(0, 1) = +0.000000000000000;
+                    preconditionerCoefficients(0, 2) = +0.000000000000000;
+                    preconditionerCoefficients(1, 0) = -0.125000000000000;
+                    preconditionerCoefficients(1, 1) = +0.416666000000000;
+                    preconditionerCoefficients(1, 2) = +0.000000000000000;
+                    preconditionerCoefficients(2, 0) = -0.166666600000000;
+                    preconditionerCoefficients(2, 1) = +0.606060000000000;
+                    preconditionerCoefficients(2, 2) = +0.166666600000000;
+                    break;
+                    
+                case Type::LobIIIC6:
+                    /* ID: LobIIIC6 */
+                    preconditionerCoefficients(0, 0) = +0.083333000000000;
+                    preconditionerCoefficients(0, 1) = +0.000000000000000;
+                    preconditionerCoefficients(0, 2) = +0.000000000000000;
+                    preconditionerCoefficients(0, 3) = +0.000000000000000;
+                    preconditionerCoefficients(1, 0) = -0.031715000000000;
+                    preconditionerCoefficients(1, 1) = +0.250000000000000;
+                    preconditionerCoefficients(1, 2) = +0.000000000000000;
+                    preconditionerCoefficients(1, 3) = +0.000000000000000;
+                    preconditionerCoefficients(2, 0) = +0.070601000000000;
+                    preconditionerCoefficients(2, 1) = +0.508398000000000;
+                    preconditionerCoefficients(2, 2) = +0.250000000000000;
+                    preconditionerCoefficients(2, 3) = +0.000000000000000;
+                    preconditionerCoefficients(3, 0) = +0.132073000000000;
+                    preconditionerCoefficients(3, 1) = +0.522927000000000;
+                    preconditionerCoefficients(3, 2) = +0.483915000000000;
+                    preconditionerCoefficients(3, 3) = +0.083333000000000;                
+                    break;                      
+                    
+                default: 
+                    mfem_error("RKData:: Optimized Staff et al. coefficients not implmented for requested IRK method.\n");    
+            
+            }
+            break;
+    
+        // LD from L*D*U factorization of A0 from Rana et al. (2021)
+        case BlockPreconditionerID::RANALD:
+            switch (ID) {
+                case Type::Gauss2:
+                    /* ID: Gauss2 */
+                    preconditionerCoefficients(0, 0) = +0.500000000000000;
+                    break;
+                    
+                case Type::Gauss4:
+                    /* ID: Gauss4 */
+                    preconditionerCoefficients(0, 0) = +0.250000000000000;
+                    preconditionerCoefficients(0, 1) = +0.000000000000000;
+                    preconditionerCoefficients(1, 0) = +0.538675134594813;
+                    preconditionerCoefficients(1, 1) = +0.333333333333333;                
+                    break;
+                    
+                case Type::Gauss6:
+                    /* ID: Gauss6 */
+                    preconditionerCoefficients(0, 0) = +0.138888888888889;
+                    preconditionerCoefficients(0, 1) = +0.000000000000000;
+                    preconditionerCoefficients(0, 2) = +0.000000000000000;
+                    preconditionerCoefficients(1, 0) = +0.300263194980865;
+                    preconditionerCoefficients(1, 1) = +0.300000000000000;
+                    preconditionerCoefficients(1, 2) = +0.000000000000000;
+                    preconditionerCoefficients(2, 0) = +0.267988333762469;
+                    preconditionerCoefficients(2, 1) = +0.549838667696593;
+                    preconditionerCoefficients(2, 2) = +0.200000000000000;                
+                    break;
+                    
+                case Type::Gauss8:
+                    /* ID: Gauss8 */
+                    preconditionerCoefficients(0, 0) = +0.086963711284363;
+                    preconditionerCoefficients(0, 1) = +0.000000000000000;
+                    preconditionerCoefficients(0, 2) = +0.000000000000000;
+                    preconditionerCoefficients(0, 3) = +0.000000000000000;
+                    preconditionerCoefficients(1, 0) = +0.188118117499868;
+                    preconditionerCoefficients(1, 1) = +0.220585905691532;
+                    preconditionerCoefficients(1, 2) = +0.000000000000000;
+                    preconditionerCoefficients(1, 3) = +0.000000000000000;
+                    preconditionerCoefficients(2, 0) = +0.167191921974189;
+                    preconditionerCoefficients(2, 1) = +0.405100823155001;
+                    preconditionerCoefficients(2, 2) = +0.240125349292911;
+                    preconditionerCoefficients(2, 3) = +0.000000000000000;
+                    preconditionerCoefficients(3, 0) = +0.177482572254523;
+                    preconditionerCoefficients(3, 1) = +0.367741076177649;
+                    preconditionerCoefficients(3, 2) = +0.418923269495113;
+                    preconditionerCoefficients(3, 3) = +0.129222126427095;                
+                    break;
+                    
+                case Type::Gauss10:
+                    /* ID: Gauss10 */
+                    preconditionerCoefficients(0, 0) = +0.059231721264047;
+                    preconditionerCoefficients(0, 1) = +0.000000000000000;
+                    preconditionerCoefficients(0, 2) = +0.000000000000000;
+                    preconditionerCoefficients(0, 3) = +0.000000000000000;
+                    preconditionerCoefficients(0, 4) = +0.000000000000000;
+                    preconditionerCoefficients(1, 0) = +0.128151005670045;
+                    preconditionerCoefficients(1, 1) = +0.161998700513353;
+                    preconditionerCoefficients(1, 2) = +0.000000000000000;
+                    preconditionerCoefficients(1, 3) = +0.000000000000000;
+                    preconditionerCoefficients(1, 4) = +0.000000000000000;
+                    preconditionerCoefficients(2, 0) = +0.113776288004225;
+                    preconditionerCoefficients(2, 1) = +0.297596728428500;
+                    preconditionerCoefficients(2, 2) = +0.210511300626345;
+                    preconditionerCoefficients(2, 3) = +0.000000000000000;
+                    preconditionerCoefficients(2, 4) = +0.000000000000000;
+                    preconditionerCoefficients(3, 0) = +0.121232436926864;
+                    preconditionerCoefficients(3, 1) = +0.269051668566999;
+                    preconditionerCoefficients(3, 2) = +0.367285141140581;
+                    preconditionerCoefficients(3, 3) = +0.183082525650159;
+                    preconditionerCoefficients(3, 4) = +0.000000000000000;
+                    preconditionerCoefficients(4, 0) = +0.116875329560229;
+                    preconditionerCoefficients(4, 1) = +0.283524139643736;
+                    preconditionerCoefficients(4, 2) = +0.336638798537978;
+                    preconditionerCoefficients(4, 3) = +0.312451604256988;
+                    preconditionerCoefficients(4, 4) = +0.089419043407290;                
+                    break;   
+                    
+                case Type::RadauIIA3:
+                    /* ID: RadauIIA3 */
+                    preconditionerCoefficients(0, 0) = +0.416666666666667;
+                    preconditionerCoefficients(0, 1) = +0.000000000000000;
+                    preconditionerCoefficients(1, 0) = +0.750000000000000;
+                    preconditionerCoefficients(1, 1) = +0.400000000000000;                
+                    break;          
+                    
+                case Type::RadauIIA5:
+                    /* ID: RadauIIA5 */
+                    preconditionerCoefficients(0, 0) = +0.196815477223660;
+                    preconditionerCoefficients(0, 1) = +0.000000000000000;
+                    preconditionerCoefficients(0, 2) = +0.000000000000000;
+                    preconditionerCoefficients(1, 0) = +0.394424314739087;
+                    preconditionerCoefficients(1, 1) = +0.423408435702613;
+                    preconditionerCoefficients(1, 2) = +0.000000000000000;
+                    preconditionerCoefficients(2, 0) = +0.376403062700467;
+                    preconditionerCoefficients(2, 1) = +0.637820151279947;
+                    preconditionerCoefficients(2, 2) = +0.200000000000000;                
+                    break;          
+                    
+                case Type::RadauIIA7:
+                    /* ID: RadauIIA7 */
+                    preconditionerCoefficients(0, 0) = +0.112999479323156;
+                    preconditionerCoefficients(0, 1) = +0.000000000000000;
+                    preconditionerCoefficients(0, 2) = +0.000000000000000;
+                    preconditionerCoefficients(0, 3) = +0.000000000000000;
+                    preconditionerCoefficients(1, 0) = +0.234383995747400;
+                    preconditionerCoefficients(1, 1) = +0.290502129264584;
+                    preconditionerCoefficients(1, 2) = +0.000000000000000;
+                    preconditionerCoefficients(1, 3) = +0.000000000000000;
+                    preconditionerCoefficients(2, 0) = +0.216681784623250;
+                    preconditionerCoefficients(2, 1) = +0.483418079166185;
+                    preconditionerCoefficients(2, 2) = +0.308257660015010;
+                    preconditionerCoefficients(2, 3) = +0.000000000000000;
+                    preconditionerCoefficients(3, 0) = +0.220462211176768;
+                    preconditionerCoefficients(3, 1) = +0.466836839456465;
+                    preconditionerCoefficients(3, 2) = +0.441415881458443;
+                    preconditionerCoefficients(3, 3) = +0.117647058823529;                
+                    break;          
+                    
+                case Type::RadauIIA9:
+                    /* ID: RadauIIA9 */
+                    preconditionerCoefficients(0, 0) = +0.072998864317903;
+                    preconditionerCoefficients(0, 1) = +0.000000000000000;
+                    preconditionerCoefficients(0, 2) = +0.000000000000000;
+                    preconditionerCoefficients(0, 3) = +0.000000000000000;
+                    preconditionerCoefficients(0, 4) = +0.000000000000000;
+                    preconditionerCoefficients(1, 0) = +0.153775231479182;
+                    preconditionerCoefficients(1, 1) = +0.202533986894235;
+                    preconditionerCoefficients(1, 2) = +0.000000000000000;
+                    preconditionerCoefficients(1, 3) = +0.000000000000000;
+                    preconditionerCoefficients(1, 4) = +0.000000000000000;
+                    preconditionerCoefficients(2, 0) = +0.140063045684810;
+                    preconditionerCoefficients(2, 1) = +0.350264254965225;
+                    preconditionerCoefficients(2, 2) = +0.262818675056515;
+                    preconditionerCoefficients(2, 3) = +0.000000000000000;
+                    preconditionerCoefficients(2, 4) = +0.000000000000000;
+                    preconditionerCoefficients(3, 0) = +0.144894308109535;
+                    preconditionerCoefficients(3, 1) = +0.329566610810664;
+                    preconditionerCoefficients(3, 2) = +0.412050369120744;
+                    preconditionerCoefficients(3, 3) = +0.221269382593927;
+                    preconditionerCoefficients(3, 4) = +0.000000000000000;
+                    preconditionerCoefficients(4, 0) = +0.143713560791226;
+                    preconditionerCoefficients(4, 1) = +0.333990116629764;
+                    preconditionerCoefficients(4, 2) = +0.400036344264949;
+                    preconditionerCoefficients(4, 3) = +0.310105334482993;
+                    preconditionerCoefficients(4, 4) = +0.076923076923077;                
+                    break;                             
+                
+                case Type::LobIIIC2:
+                    /* ID: LobIIIC2 */
+                    preconditionerCoefficients(0, 0) = +0.500000000000000;
+                    preconditionerCoefficients(0, 1) = +0.000000000000000;
+                    preconditionerCoefficients(1, 0) = +0.500000000000000;
+                    preconditionerCoefficients(1, 1) = +1.000000000000000;                
+                    break;
+                    
+                case Type::LobIIIC4:
+                    /* ID: LobIIIC4 */
+                    preconditionerCoefficients(0, 0) = +0.166666666666667;
+                    preconditionerCoefficients(0, 1) = +0.000000000000000;
+                    preconditionerCoefficients(0, 2) = +0.000000000000000;
+                    preconditionerCoefficients(1, 0) = +0.166666666666667;
+                    preconditionerCoefficients(1, 1) = +0.750000000000000;
+                    preconditionerCoefficients(1, 2) = +0.000000000000000;
+                    preconditionerCoefficients(2, 0) = +0.166666666666667;
+                    preconditionerCoefficients(2, 1) = +1.000000000000000;
+                    preconditionerCoefficients(2, 2) = +0.333333333333333;
+                    break;         
+                    
+                case Type::LobIIIC6:
+                    /* ID: LobIIIC6 */
+                    preconditionerCoefficients(0, 0) = +0.083333333333333;
+                    preconditionerCoefficients(0, 1) = +0.000000000000000;
+                    preconditionerCoefficients(0, 2) = +0.000000000000000;
+                    preconditionerCoefficients(0, 3) = +0.000000000000000;
+                    preconditionerCoefficients(1, 0) = +0.083333333333333;
+                    preconditionerCoefficients(1, 1) = +0.436338998124982;
+                    preconditionerCoefficients(1, 2) = +0.000000000000000;
+                    preconditionerCoefficients(1, 3) = +0.000000000000000;
+                    preconditionerCoefficients(2, 0) = +0.083333333333333;
+                    preconditionerCoefficients(2, 1) = +0.613880262166625;
+                    preconditionerCoefficients(2, 2) = +0.458359213500126;
+                    preconditionerCoefficients(2, 3) = +0.000000000000000;
+                    preconditionerCoefficients(3, 0) = +0.083333333333333;
+                    preconditionerCoefficients(3, 1) = +0.603005664791649;
+                    preconditionerCoefficients(3, 2) = +0.618033988749895;
+                    preconditionerCoefficients(3, 3) = +0.166666666666667;                
+                    break;         
+                    
+                case Type::LobIIIC8:
+                    /* ID: LobIIIC8 */
+                    preconditionerCoefficients(0, 0) = +0.050000000000000;
+                    preconditionerCoefficients(0, 1) = +0.000000000000000;
+                    preconditionerCoefficients(0, 2) = +0.000000000000000;
+                    preconditionerCoefficients(0, 3) = +0.000000000000000;
+                    preconditionerCoefficients(0, 4) = +0.000000000000000;
+                    preconditionerCoefficients(1, 0) = +0.050000000000000;
+                    preconditionerCoefficients(1, 1) = +0.277777777777778;
+                    preconditionerCoefficients(1, 2) = +0.000000000000000;
+                    preconditionerCoefficients(1, 3) = +0.000000000000000;
+                    preconditionerCoefficients(1, 4) = +0.000000000000000;
+                    preconditionerCoefficients(2, 0) = +0.050000000000000;
+                    preconditionerCoefficients(2, 1) = +0.397975849989709;
+                    preconditionerCoefficients(2, 2) = +0.359346588560844;
+                    preconditionerCoefficients(2, 3) = +0.000000000000000;
+                    preconditionerCoefficients(2, 4) = +0.000000000000000;
+                    preconditionerCoefficients(3, 0) = +0.050000000000000;
+                    preconditionerCoefficients(3, 1) = +0.386886722895774;
+                    preconditionerCoefficients(3, 2) = +0.515915269322385;
+                    preconditionerCoefficients(3, 3) = +0.298160217888686;
+                    preconditionerCoefficients(3, 4) = +0.000000000000000;
+                    preconditionerCoefficients(4, 0) = +0.050000000000000;
+                    preconditionerCoefficients(4, 1) = +0.388888888888889;
+                    preconditionerCoefficients(4, 2) = +0.505505046330389;
+                    preconditionerCoefficients(4, 3) = +0.402904050840693;
+                    preconditionerCoefficients(4, 4) = +0.100000000000000;                
+                    break;  
+                    
+                default: 
+                    mfem_error("RKData:: Rana et al. coefficients not implmented for requested IRK method.\n");    
+                  
+            }
+            break;
+    
+        default: 
+            mfem_error("RKData:: Preconditioner coefficients ID not recognised.\n");
+        }
 }
 
 /* Given the precomputed vector m_Butcher.d0, and the matrix m_Butcher.invA0,

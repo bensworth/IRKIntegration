@@ -210,7 +210,7 @@ public:
     /** Ensures that this->ImplicitPrec() preconditions (M - dt*L)
             + index: index of system to solve, [0,s-1)
             + dt:    time step size 
-        This is required by StaffIRK */
+        This is required by BlockPreconditionedIRK */
     void SetSystem(int index, double dt) { SetSystem(index, dt, 1.0, 1); };
     
     /** Set solver parameters fot implicit time-stepping.
@@ -406,7 +406,7 @@ int main(int argc, char *argv[])
 
     double t = 0.0; // Initial time
     IRK * MyIRK = NULL;
-    StaffIRK * MyStaffIRK = NULL;
+    BlockPreconditionedIRK * MyBlockPreconditionedIRK = NULL;
     // Use our IRK algorithm
     if (IRK_ALG_ID == 0) {
         // Build IRK object using spatial discretization 
@@ -421,14 +421,14 @@ int main(int argc, char *argv[])
     // Use the Staff IRK algorithm    
     } else {
         // Build IRK object using spatial discretization 
-        MyStaffIRK = new StaffIRK(&SpaceDisc, static_cast<RKData::Type>(RK_ID), 
-                                    static_cast<StaffIRK::PreconditionerID>(staff_prec_ID));        
+        MyBlockPreconditionedIRK = new BlockPreconditionedIRK(&SpaceDisc, static_cast<RKData::Type>(RK_ID), 
+                                    static_cast<BlockPreconditionerID>(staff_prec_ID));        
         // Set Krylov solver settings
-        MyStaffIRK->SetKrylovParams(KRYLOV);
+        MyBlockPreconditionedIRK->SetKrylovParams(KRYLOV);
         // Initialize IRK time-stepping solver
-        MyStaffIRK->Init(SpaceDisc);
+        MyBlockPreconditionedIRK->Init(SpaceDisc);
         // Time step 
-        MyStaffIRK->Run(*u, t, dt, tf);
+        MyBlockPreconditionedIRK->Run(*u, t, dt, tf);
     }
     
         
@@ -497,7 +497,7 @@ int main(int argc, char *argv[])
             } else {
                 solinfo.Print("staff_prec_ID", staff_prec_ID);
                 int avg_krylov_iter;
-                MyStaffIRK->GetSolveStats(avg_krylov_iter);
+                MyBlockPreconditionedIRK->GetSolveStats(avg_krylov_iter);
                 solinfo.Print("iters", avg_krylov_iter);
             }
             
@@ -518,7 +518,7 @@ int main(int argc, char *argv[])
         }
     }
     if (MyIRK) delete MyIRK;
-    if (MyStaffIRK) delete MyStaffIRK;
+    if (MyBlockPreconditionedIRK) delete MyBlockPreconditionedIRK;
     
     delete u;
 

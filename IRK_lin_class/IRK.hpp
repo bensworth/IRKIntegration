@@ -13,6 +13,17 @@
 using namespace mfem;
 using namespace std;
 
+/// IDs of block preconditioners for stage equations
+enum class BlockPreconditionerID {
+    NONE     = -1, // Not using a block preconditioner
+    JACOBI   = 0,  // Jacobi
+    GSL      = 1,  // Gauss--Seidel LOWER
+    GSU      = 2,  // Gauss--Seidel UPPER
+    STAFFOPT = 3,  // Optimized lower triangular, from Staff et al. (2006)
+    RANALD   = 4,  // LD from LDU factorization of A0, from Rana et al. (2021)
+};
+
+
 /// Kronecker transform between two block vectors: y <- (A \otimes I)*x
 void KronTransform(const DenseMatrix &A, const BlockVector &x, BlockVector &y);
 
@@ -105,7 +116,7 @@ public:
     /** Ensures that this->ImplicitPrec() preconditions (M - dt*L)
             + index: index of system to solve, [0,s-1)
             + dt:    time step size 
-        This is required by StaffIRK */
+        This is required by BlockPreconditionedIRK */
     virtual void SetSystem(int index, double dt) = 0;
 
 
@@ -162,14 +173,28 @@ public:
 
 private:
     Type ID;
+    BlockPreconditionerID precID; // ID of block preconditoner. 
 
     /// Set data required by solvers
     void SetData();
     /// Set dimensions of data structures
     void SizeData();
-
+    /// Set preconditioner coefficients for block preconditioning methods
+    void SetPreconditionerCoefficients();
+    
 public:
-    RKData(Type ID_) : ID{ID_} { SetData(); };
+    // Constructor when not using block preconditioning
+    RKData(Type ID_) : 
+        ID{ID_}, precID(BlockPreconditionerID::NONE) { 
+            SetData(); 
+        };
+    
+    // Construction when using block preconditoning
+    RKData(Type ID_, BlockPreconditionerID precID_) : 
+        ID{ID_}, precID(precID_) { 
+            SetData(); 
+            SetPreconditionerCoefficients(); 
+        };
 
     ~RKData() {};
 
@@ -191,6 +216,9 @@ public:
     DenseMatrix Q0;     // Orthogonal matrix in Schur decomposition of A0^-1
     DenseMatrix R0;     // Quasi-upper triangular matrix in Schur decomposition of A0^-1
     Array<int> R0_block_sizes; // From top of block diagonal, sizes of blocks
+    
+    // Matrix of preconditioner coefficients for block preconditioning methods
+    DenseMatrix preconditionerCoefficients;
 };
 
 
@@ -432,22 +460,23 @@ public:
 
 
 ////////////////////////////////////////////////////////////////////////////////
-/** --- The below algorithms pertain only to the implementation of the IRK 
-    algorithms from Staff et al. (2006) --- */
+/** --- The below algorithms pertain only to the implementation of the Block 
+    preconditioned IRK algorithms such as those from Staff et al. (2006), and 
+    Rana et al. (2021) --- */
 ////////////////////////////////////////////////////////////////////////////////
 
-class StaffStagePreconditioner; // The class responsible for preconditioning this operator
-/** Operator F defining the block-coupled s stage equations. They satisfy F*k = 0, 
+class BlockStagePreconditioner; // The class responsible for preconditioning this operator
+/** Operator F defining the block-coupled s stage equations. They satisfy F*k = b, 
     where 
-                       [ M - a_11*dt*L ... -a_1s*dt*L ]
-                F*k =  [ ...           ...        ... ]
-                       [ M - a_s1*dt*L ... -a_ss*dt*L ]*/
-class StaffStageOper : public BlockOperator
+                       [ M - a_11*dt*L  ...    - a_1s*dt*L ]
+                  F =  [       ...      ...        ...     ]
+                       [   - a_s1*dt*L  ...  M - a_ss*dt*L ]*/
+class BlockStageOperator : public BlockOperator
 {
         
 private:
     // Preconditioner needs access to this class
-    friend class StaffStagePreconditioner; 
+    friend class BlockStagePreconditioner; 
     
     Array<int> &offsets;            // Offsets of operator     
     
@@ -465,7 +494,7 @@ private:
     
 public:
     
-    StaffStageOper(IRKOperator * S_, Array<int> &offsets_, const RKData &RK_) 
+    BlockStageOperator(IRKOperator * S_, Array<int> &offsets_, const RKData &RK_) 
         : BlockOperator(offsets_), 
             IRKOper(S_), Butcher(RK_), 
             dt(0.0), 
@@ -497,7 +526,6 @@ public:
         // y <- (A0 \otimes I)(I \otimes L)*k ==  (A0 \otimes I)*temp
         KronTransform(Butcher.A0, temp_block, y_block); 
         
-        
         /* y <- -dt*y + (I \otimes M)k */
         for (int i = 0; i < Butcher.s; i++) {        
             y_block.GetBlock(i) *= -dt;
@@ -514,38 +542,19 @@ public:
 };
 
 
-/** Class implementing the Staff et al. (2006) algorithm for fully implicit
-    RK schemes for the quasi-time-dependent, linear ODE system
+/** Class implementing block preconditioned IRK algorithms like those from 
+    Staff et al. (2006) and Rana et al. (2021). These algorithms are implemented 
+    for RK schemes applied to quasi-time-dependent, linear ODE system
         M*du/dt = L*u + g(t),
     as implemented as an IRKOperator */
-class StaffIRK : public ODESolver
+class BlockPreconditionedIRK : public ODESolver
 {
 public:
-    // // Krylov solve type for IRK systems
-    // enum KrylovMethod {
-    //     GMRES = 2, FGMRES = 4
-    // };
-
-    // // Parameters for Krylov solver
-    // struct KrylovParams {
-    //     double abstol = 1e-10;
-    //     double reltol = 1e-10;
-    //     int maxiter = 100;
-    //     int printlevel = 0;
-    //     int kdim = 30;
-    //     KrylovMethod solver = KrylovMethod::GMRES;
-    // };
-
-    // Block preconditioner
-    enum PreconditionerID {
-        JACOBI = 0, // Jacobi
-        GSL = 1,    // Gauss--Seidel LOWER
-        GSU = 2     // Gauss--Seidel UPPER
-    };
     
     // Block sparsity pattern of preconditioner
-    enum PreconditionerSparsity {
-        DIAGONAL = 0, 
+    enum BlockPreconditionerSparsity {
+        NONE            = -1, 
+        DIAGONAL        = 0, 
         LOWERTRIANGULAR = 1, 
         UPPERTRIANGULAR = 2
     };
@@ -561,11 +570,11 @@ private:
     BlockVector m_k;            // The stage vectors
     BlockVector m_rhs;          // RHS of stage system
     Array<int> m_stageOffsets;  // Offsets 
-    StaffStageOper * m_stageOper; // Operator F encoding stages, F*w = rhs
+    BlockStageOperator * m_stageOper; // Operator F encoding stages, F*w = rhs
 
-    StaffStagePreconditioner * m_stagePreconditioner;       // Block preconditioner for block stage equations
-    PreconditionerID m_preconditionerID;    // Sparsity pattern of block preconditioner
-    PreconditionerSparsity m_preconditionerSparsity;    // Sparsity pattern of block preconditioner
+    BlockStagePreconditioner * m_stagePreconditioner;       // Block preconditioner for block stage equations
+    BlockPreconditionerID m_precID;    // Sparsity pattern of block preconditioner
+    BlockPreconditionerSparsity m_BlockPreconditionerSparsity;    // Sparsity pattern of block preconditioner
     DenseMatrix m_preconditionerCoefficients; // Coefficients of block preconditioner
     IterativeSolver * m_krylov;         // Solver for inverting block stage equations
     IRK::KrylovParams m_krylov_params;  // Parameters for above solver
@@ -582,24 +591,28 @@ private:
     void ConstructRHS(const Vector &x, double t, double dt, BlockVector &rhs);
 
     /* Set the preconditioner sparsity variable based on the the preconditioner ID */
-    void SetPreconditionerSparsity() {
-        if (m_preconditionerID == 0) {
-            m_preconditionerSparsity = PreconditionerSparsity::DIAGONAL;
+    void SetBlockPreconditionerSparsity() {
+        if (m_precID == BlockPreconditionerID::JACOBI) {
+            m_BlockPreconditionerSparsity = BlockPreconditionerSparsity::DIAGONAL;
         } 
-        else if (m_preconditionerID == 1) 
+        else if (m_precID == BlockPreconditionerID::GSL ||
+                 m_precID == BlockPreconditionerID::STAFFOPT ||
+                 m_precID == BlockPreconditionerID::RANALD) 
         {
-            m_preconditionerSparsity = PreconditionerSparsity::LOWERTRIANGULAR;
+            m_BlockPreconditionerSparsity = BlockPreconditionerSparsity::LOWERTRIANGULAR;
         } 
-        else if (m_preconditionerID == 2) 
+        else if (m_precID == BlockPreconditionerID::GSU) 
         {
-            m_preconditionerSparsity = PreconditionerSparsity::UPPERTRIANGULAR;    
+            m_BlockPreconditionerSparsity = BlockPreconditionerSparsity::UPPERTRIANGULAR;    
+        } else {
+            mfem_error("Requested BlockPreconditionerID does not have a sparsity pattern set\n");
         }
     } 
 
 public:
-    StaffIRK(IRKOperator *IRKOper_, RKData::Type RK_ID_, 
-            StaffIRK::PreconditionerID preconditionerID_);
-    ~StaffIRK();
+    BlockPreconditionedIRK(IRKOperator *IRKOper_, RKData::Type RK_ID_, 
+            BlockPreconditionerID precID_);
+    ~BlockPreconditionedIRK();
 
     void Init(TimeDependentOperator &F);
 
@@ -627,25 +640,25 @@ public:
     
     NOTE: The matrix of preconditioner coefficients used here does not necessarily 
     share the same sparsity pattern as the true preconditioner coefficients. An 
-    additional PreconditionerSparsity variable is passed to this method indicating 
+    additional BlockPreconditionerSparsity variable is passed to this method indicating 
     whether the (true) preconditioner coefficients are diagonal, upper triangular, 
     or lower triangular, and according to this, only the necessary parts of the 
     passed preconditioner coefficients are accessed. 
     For example, for a block Jacobi method, the preconditioner coefficients might 
-    actually contain all of A0, but because the PreconditionerSparsity::DIAGONAL
+    actually contain all of A0, but because the BlockPreconditionerSparsity::DIAGONAL
     is also passed, only the diagonal of the preconditioner coefficients array is 
     accessed.
     */
-class StaffStagePreconditioner : public Solver
+class BlockStagePreconditioner : public Solver
 {
 private:
-    StaffStageOper &stageOper;
+    BlockStageOperator &stageOper;
     
     Array<int> &offsets;    // Offsets for vectors with s blocks
     
     DenseMatrix &preconditionerCoefficients;
     
-    StaffIRK::PreconditionerSparsity &preconditionerSparsity;
+    BlockPreconditionedIRK::BlockPreconditionerSparsity &BlockPreconditionerSparsity;
     
     // Auxillary vectors  
     mutable BlockVector x_block, b_block;   // s blocks
@@ -653,19 +666,19 @@ private:
 
     
 public:
-    StaffStagePreconditioner(StaffStageOper &IRKStageOper_, 
-        StaffIRK::PreconditionerSparsity &preconditionerSparsity_, 
+    BlockStagePreconditioner(BlockStageOperator &IRKStageOper_, 
+        BlockPreconditionedIRK::BlockPreconditionerSparsity &BlockPreconditionerSparsity_, 
         DenseMatrix &preconditionerCoefficients_) : 
         Solver(IRKStageOper_.Height()),
         stageOper(IRKStageOper_), 
-        preconditionerSparsity(preconditionerSparsity_),
+        BlockPreconditionerSparsity(BlockPreconditionerSparsity_),
         preconditionerCoefficients(preconditionerCoefficients_),
         offsets(IRKStageOper_.offsets),
         x_block(IRKStageOper_.offsets), b_block(IRKStageOper_.offsets),
         temp(IRKStageOper_.Height())
     { };
     
-    ~StaffStagePreconditioner() {};
+    ~BlockStagePreconditioner() {};
     
     
     /** x = inv(A)*b, where A is the inexact, block preconditioner. */
@@ -675,21 +688,21 @@ public:
         b_block.Update(b_scalar.GetData(), offsets);
         x_block.Update(x_scalar.GetData(), offsets);
         
-        switch (preconditionerSparsity) {
-            case StaffIRK::PreconditionerSparsity::DIAGONAL:
+        switch (BlockPreconditionerSparsity) {
+            case BlockPreconditionedIRK::BlockPreconditionerSparsity::DIAGONAL:
                 BlockDiagonalSubstitution(b_block, x_block);
                 break;
             
-            case StaffIRK::PreconditionerSparsity::LOWERTRIANGULAR:
+            case BlockPreconditionedIRK::BlockPreconditionerSparsity::LOWERTRIANGULAR:
                 BlockForwardSubstiution(b_block, x_block);
                 break;
                 
-            case StaffIRK::PreconditionerSparsity::UPPERTRIANGULAR:
+            case BlockPreconditionedIRK::BlockPreconditionerSparsity::UPPERTRIANGULAR:
                 BlockBackwardSubstitution(b_block, x_block);
                 break;
                 
             default:
-                mfem_error("StaffIRK:Preconditoner Sparsity must be diagonal, or triangular");
+                mfem_error("BlockPreconditionedIRK:Preconditoner Sparsity must be diagonal, or triangular");
         }
     }
     
