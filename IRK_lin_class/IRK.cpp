@@ -124,23 +124,23 @@ void IRK::SetSolver()
     if (m_krylov) return;
 
     switch (m_krylov_params.solver) {
-        case KrylovMethod::FP:
+        case IRKKrylovMethod::FP:
             m_krylov = new SLISolver(m_comm);
             break;
-        case KrylovMethod::CG:
+        case IRKKrylovMethod::CG:
             m_krylov = new CGSolver(m_comm);
             break;
-        case KrylovMethod::MINRES:
+        case IRKKrylovMethod::MINRES:
             m_krylov = new MINRESSolver(m_comm);
             break;
-        case KrylovMethod::GMRES:
+        case IRKKrylovMethod::GMRES:
             m_krylov = new GMRESSolver(m_comm);
             static_cast<GMRESSolver*>(m_krylov)->SetKDim(m_krylov_params.kdim);
             break;
-        case KrylovMethod::BICGSTAB:
+        case IRKKrylovMethod::BICGSTAB:
             m_krylov = new BiCGSTABSolver(m_comm);
             break;
-        case KrylovMethod::FGMRES:
+        case IRKKrylovMethod::FGMRES:
             m_krylov = new FGMRESSolver(m_comm);
             static_cast<FGMRESSolver*>(m_krylov)->SetKDim(m_krylov_params.kdim);
             break;
@@ -276,7 +276,7 @@ void IRK::ConstructRHS(const Vector &x, double t, double dt, Vector &rhs) {
 
 /// Constructor
 BlockPreconditionedIRK::BlockPreconditionedIRK(IRKOperator *IRKOper_, RKData::Type RK_ID_, 
-        BlockPreconditionerID precID_)
+        BlockPreconditioner precID_)
             : m_IRKOper(IRKOper_), m_Butcher(RK_ID_, precID_), 
             m_precID(precID_),
             m_krylov(NULL), m_comm{IRKOper_->GetComm()}
@@ -331,16 +331,16 @@ void BlockPreconditionedIRK::SetSolver()
     if (m_krylov) return;
 
     switch (m_krylov_params.solver) {
-        case IRK::KrylovMethod::GMRES:
+        case IRKKrylovMethod::GMRES:
             m_krylov = new GMRESSolver(m_comm);
             static_cast<GMRESSolver*>(m_krylov)->SetKDim(m_krylov_params.kdim);
             break;
-        case IRK::KrylovMethod::FGMRES:
+        case IRKKrylovMethod::FGMRES:
             m_krylov = new FGMRESSolver(m_comm);
             static_cast<FGMRESSolver*>(m_krylov)->SetKDim(m_krylov_params.kdim);
             break;
         default:
-            mfem_error("BlockPreconditionedIRK::Invalid KrylovMethod.\n");
+            mfem_error("BlockPreconditionedIRK::Invalid IRKKrylovMethod.\n");
     }
 
     m_krylov->SetRelTol(m_krylov_params.reltol);
@@ -2001,20 +2001,20 @@ void RKData::SetPreconditionerCoefficients() {
     
     switch (precID) {
         // Jacobi
-        case BlockPreconditionerID::JACOBI:
+        case BlockPreconditioner::JACOBI:
             preconditionerCoefficients = A0;
             break;
         // Lower triangular, Gauss--Seidel
-        case BlockPreconditionerID::GSL:
+        case BlockPreconditioner::GSL:
             preconditionerCoefficients = A0;
             break;
         // Upper triangular, Gauss--Seidel    
-        case BlockPreconditionerID::GSU:
+        case BlockPreconditioner::GSU:
             preconditionerCoefficients = A0;
             break;
     
         // Optimized lower triangular from Staff et al. paper
-        case BlockPreconditionerID::STAFFOPT:
+        case BlockPreconditioner::STAFFOPT:
             switch (ID) {
                 case Type::Gauss4:
                     /* ID: Gauss4 */
@@ -2204,7 +2204,7 @@ void RKData::SetPreconditionerCoefficients() {
             break;
     
         // LD from L*D*U factorization of A0 from Rana et al. (2021)
-        case BlockPreconditionerID::RANALD:
+        case BlockPreconditioner::RANALD:
             switch (ID) {
                 case Type::Gauss2:
                     /* ID: Gauss2 */

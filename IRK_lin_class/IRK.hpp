@@ -13,8 +13,29 @@
 using namespace mfem;
 using namespace std;
 
-/// IDs of block preconditioners for stage equations
-enum class BlockPreconditionerID {
+/// Krylov method used to solve linear systems in IRK algorithms
+enum class IRKKrylovMethod {
+    CG = 0, 
+    MINRES = 1, 
+    GMRES = 2, 
+    BICGSTAB = 3, 
+    FGMRES = 4, 
+    FP = 5
+};
+
+/// Parameters for Krylov solver
+struct IRKKrylovParams {
+    double abstol = 0.0;
+    double reltol = 1e-10;
+    int maxiter = 100;
+    int printlevel = 0;
+    int kdim = 30;
+    IRKKrylovMethod solver = IRKKrylovMethod::GMRES;
+};
+
+
+/// IDs of block preconditioners for IRK stage equations
+enum class BlockPreconditioner {
     NONE     = -1, // Not using a block preconditioner
     JACOBI   = 0,  // Jacobi
     GSL      = 1,  // Gauss--Seidel LOWER
@@ -26,6 +47,7 @@ enum class BlockPreconditionerID {
 
 /// Kronecker transform between two block vectors: y <- (A \otimes I)*x
 void KronTransform(const DenseMatrix &A, const BlockVector &x, BlockVector &y);
+
 
 /** Class for spatial discretizations of a PDE resulting in the
     quasi-time-dependent, linear ODEs
@@ -67,7 +89,7 @@ public:
     /** Apply action of M*du/dt, y <- [L*x + g(t)]
         If not re-implemented, this method simply generates an error. 
         
-        Note that this method is only required for the Staff algorithm */
+        Note that this method is only required for the BlockPreconditionedIRK algorithm */
     virtual void ExplicitMult(const Vector &x, Vector &y) const
     {
         mfem_error("IRKOperator::ImplicitMult() is not overridden!");
@@ -173,7 +195,7 @@ public:
 
 private:
     Type ID;
-    BlockPreconditionerID precID; // ID of block preconditoner. 
+    BlockPreconditioner precID; // ID of block preconditoner. 
 
     /// Set data required by solvers
     void SetData();
@@ -185,12 +207,12 @@ private:
 public:
     // Constructor when not using block preconditioning
     RKData(Type ID_) : 
-        ID{ID_}, precID(BlockPreconditionerID::NONE) { 
+        ID{ID_}, precID(BlockPreconditioner::NONE) { 
             SetData(); 
         };
     
     // Construction when using block preconditoning
-    RKData(Type ID_, BlockPreconditionerID precID_) : 
+    RKData(Type ID_, BlockPreconditioner precID_) : 
         ID{ID_}, precID(precID_) { 
             SetData(); 
             SetPreconditionerCoefficients(); 
@@ -369,21 +391,6 @@ public:
     as implemented as an IRKOperator */
 class IRK : public ODESolver
 {
-public:
-    // Krylov solve type for IRK systems
-    enum KrylovMethod {
-        CG = 0, MINRES = 1, GMRES = 2, BICGSTAB = 3, FGMRES = 4, FP = 5
-    };
-
-    // Parameters for Krylov solver
-    struct KrylovParams {
-        double abstol = 1e-10;
-        double reltol = 1e-10;
-        int maxiter = 100;
-        int printlevel = 0;
-        int kdim = 30;
-        KrylovMethod solver = KrylovMethod::GMRES;
-    };
 
 private:
     MPI_Comm m_comm;
@@ -400,7 +407,7 @@ private:
     Array<CharPolyFactor *> m_CharPolyOper; // Factored characteristic polynomial
     CharPolyFactorPrec  m_CharPolyPrec;     // Preconditioner for above factors
     IterativeSolver * m_krylov;             // Solver for inverting above factors
-    KrylovParams m_krylov_params;           // Parameters for above solver
+    IRKKrylovParams m_krylov_params;           // Parameters for above solver
 
     vector<Vector> m_weightedAdjCoeffs; // Vectors for the coefficients of polynomials {X_j}_{j=1}^s
     // TODO: if I use MFEM::Array<Vector> rather than std::vector<Vector> I get compiler warnings whenever I size the MFEM::Array...
@@ -438,7 +445,7 @@ public:
     void Step(Vector &x, double &t, double &dt);
 
     /// Set parameters for Krylov solver
-    inline void SetKrylovParams(KrylovParams params) {
+    inline void SetKrylovParams(IRKKrylovParams params) {
         MFEM_ASSERT(!m_krylov, "IRK::SetKrylovParams:: Can only be called before IRK::Init()");
         m_krylov_params = params;
     }
@@ -507,7 +514,7 @@ public:
     // Set time step
     inline void SetTimeStep(double dt_) { dt = dt_; };
     // Get time step
-    inline double GetTimeStep() { return dt; };
+    inline double GetTimeStep() const { return dt; };
     
     
     /// Compute action of operator, y <- F*k
@@ -573,11 +580,11 @@ private:
     BlockStageOperator * m_stageOper; // Operator F encoding stages, F*w = rhs
 
     BlockStagePreconditioner * m_stagePreconditioner;       // Block preconditioner for block stage equations
-    BlockPreconditionerID m_precID;    // Sparsity pattern of block preconditioner
+    BlockPreconditioner m_precID;    // Sparsity pattern of block preconditioner
     BlockPreconditionerSparsity m_BlockPreconditionerSparsity;    // Sparsity pattern of block preconditioner
     DenseMatrix m_preconditionerCoefficients; // Coefficients of block preconditioner
     IterativeSolver * m_krylov;         // Solver for inverting block stage equations
-    IRK::KrylovParams m_krylov_params;  // Parameters for above solver
+    IRKKrylovParams m_krylov_params;  // Parameters for above solver
 
     /* Statistics on solution of linear systems */
     int m_avg_iter;         // Across whole integration, avg number of Krylov iters per time step
@@ -592,26 +599,26 @@ private:
 
     /* Set the preconditioner sparsity variable based on the the preconditioner ID */
     void SetBlockPreconditionerSparsity() {
-        if (m_precID == BlockPreconditionerID::JACOBI) {
+        if (m_precID == BlockPreconditioner::JACOBI) {
             m_BlockPreconditionerSparsity = BlockPreconditionerSparsity::DIAGONAL;
         } 
-        else if (m_precID == BlockPreconditionerID::GSL ||
-                 m_precID == BlockPreconditionerID::STAFFOPT ||
-                 m_precID == BlockPreconditionerID::RANALD) 
+        else if (m_precID == BlockPreconditioner::GSL ||
+                 m_precID == BlockPreconditioner::STAFFOPT ||
+                 m_precID == BlockPreconditioner::RANALD) 
         {
             m_BlockPreconditionerSparsity = BlockPreconditionerSparsity::LOWERTRIANGULAR;
         } 
-        else if (m_precID == BlockPreconditionerID::GSU) 
+        else if (m_precID == BlockPreconditioner::GSU) 
         {
             m_BlockPreconditionerSparsity = BlockPreconditionerSparsity::UPPERTRIANGULAR;    
         } else {
-            mfem_error("Requested BlockPreconditionerID does not have a sparsity pattern set\n");
+            mfem_error("Requested BlockPreconditioner does not have a sparsity pattern set\n");
         }
     } 
 
 public:
     BlockPreconditionedIRK(IRKOperator *IRKOper_, RKData::Type RK_ID_, 
-            BlockPreconditionerID precID_);
+            BlockPreconditioner precID_);
     ~BlockPreconditionedIRK();
 
     void Init(TimeDependentOperator &F);
@@ -621,7 +628,7 @@ public:
     void Step(Vector &x, double &t, double &dt);
 
     /// Set parameters for Krylov solver
-    inline void SetKrylovParams(IRK::KrylovParams params) {
+    inline void SetKrylovParams(IRKKrylovParams params) {
         MFEM_ASSERT(!m_krylov, "IRK::SetKrylovParams:: Can only be called before IRK::Init()");
         m_krylov_params = params;
     }
@@ -645,7 +652,7 @@ public:
     or lower triangular, and according to this, only the necessary parts of the 
     passed preconditioner coefficients are accessed. 
     For example, for a block Jacobi method, the preconditioner coefficients might 
-    actually contain all of A0, but because the BlockPreconditionerSparsity::DIAGONAL
+    actually contain all of A0, but because BlockPreconditionerSparsity::DIAGONAL
     is also passed, only the diagonal of the preconditioner coefficients array is 
     accessed.
     */
@@ -658,7 +665,7 @@ private:
     
     DenseMatrix &preconditionerCoefficients;
     
-    BlockPreconditionedIRK::BlockPreconditionerSparsity &BlockPreconditionerSparsity;
+    BlockPreconditionedIRK::BlockPreconditionerSparsity &sparsity;
     
     // Auxillary vectors  
     mutable BlockVector x_block, b_block;   // s blocks
@@ -667,11 +674,11 @@ private:
     
 public:
     BlockStagePreconditioner(BlockStageOperator &IRKStageOper_, 
-        BlockPreconditionedIRK::BlockPreconditionerSparsity &BlockPreconditionerSparsity_, 
+        BlockPreconditionedIRK::BlockPreconditionerSparsity &sparsity_, 
         DenseMatrix &preconditionerCoefficients_) : 
         Solver(IRKStageOper_.Height()),
         stageOper(IRKStageOper_), 
-        BlockPreconditionerSparsity(BlockPreconditionerSparsity_),
+        sparsity(sparsity_),
         preconditionerCoefficients(preconditionerCoefficients_),
         offsets(IRKStageOper_.offsets),
         x_block(IRKStageOper_.offsets), b_block(IRKStageOper_.offsets),
@@ -688,7 +695,7 @@ public:
         b_block.Update(b_scalar.GetData(), offsets);
         x_block.Update(x_scalar.GetData(), offsets);
         
-        switch (BlockPreconditionerSparsity) {
+        switch (sparsity) {
             case BlockPreconditionedIRK::BlockPreconditionerSparsity::DIAGONAL:
                 BlockDiagonalSubstitution(b_block, x_block);
                 break;
@@ -721,8 +728,6 @@ private:
             stageOper.IRKOper->SetSystem(i, scaled_dt); // Ensure we precondition the correct system
             // Apply preconditioner to approximately invert diagonal block
             stageOper.IRKOper->ImplicitPrec(b_block.GetBlock(i), x_block.GetBlock(i));
-            // x_block.GetBlock(i) -= b_block.GetBlock(i);
-            // x_block.GetBlock(i).Print();
         }
     }
     

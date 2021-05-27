@@ -273,7 +273,8 @@ int main(int argc, char *argv[])
     // Solver parameters
     AMGParams AMG;
     int use_AIR_temp = (int) AMG.use_AIR;
-    IRK::KrylovParams KRYLOV;
+    //IRK::KrylovParams KRYLOV;
+    IRKKrylovParams KRYLOV;
     int krylov_solver = static_cast<int>(KRYLOV.solver);
     
     // Output paramaters
@@ -353,7 +354,8 @@ int main(int argc, char *argv[])
     // Set final forms of remaing params
     advection_bias = static_cast<FDBias>(advection_bias_temp);
     AMG.use_AIR = (bool) use_AIR_temp;
-    KRYLOV.solver = static_cast<IRK::KrylovMethod>(krylov_solver);
+    //KRYLOV.solver = static_cast<IRK::KrylovMethod>(krylov_solver);
+    KRYLOV.solver = static_cast<IRKKrylovMethod>(krylov_solver);
     std::vector<int> np = {};
     if (npx != -1) {
         if (dim >= 1) np.push_back(npx);
@@ -405,24 +407,24 @@ int main(int argc, char *argv[])
     }
 
     double t = 0.0; // Initial time
-    IRK * MyIRK = NULL;
+    IRK * MyCCIRK = NULL;
     BlockPreconditionedIRK * MyBlockPreconditionedIRK = NULL;
     // Use our IRK algorithm
     if (IRK_ALG_ID == 0) {
         // Build IRK object using spatial discretization 
-        MyIRK = new IRK(&SpaceDisc, static_cast<RKData::Type>(RK_ID), mag_prec);        
+        MyCCIRK = new IRK(&SpaceDisc, static_cast<RKData::Type>(RK_ID), mag_prec);        
         // Set Krylov solver settings
-        MyIRK->SetKrylovParams(KRYLOV);
+        MyCCIRK->SetKrylovParams(KRYLOV);
         // Initialize IRK time-stepping solver
-        MyIRK->Init(SpaceDisc);
+        MyCCIRK->Init(SpaceDisc);
         // Time step 
-        MyIRK->Run(*u, t, dt, tf);
+        MyCCIRK->Run(*u, t, dt, tf);
         
     // Use the Staff IRK algorithm    
     } else {
         // Build IRK object using spatial discretization 
         MyBlockPreconditionedIRK = new BlockPreconditionedIRK(&SpaceDisc, static_cast<RKData::Type>(RK_ID), 
-                                    static_cast<BlockPreconditionerID>(staff_prec_ID));        
+                                    static_cast<BlockPreconditioner>(staff_prec_ID));        
         // Set Krylov solver settings
         MyBlockPreconditionedIRK->SetKrylovParams(KRYLOV);
         // Initialize IRK time-stepping solver
@@ -480,14 +482,14 @@ int main(int argc, char *argv[])
             solinfo.Print("exampleID", example); 
             
             /* Linear system/solve statistics */
+            solinfo.Print("krtol", KRYLOV.reltol);
+            solinfo.Print("katol", KRYLOV.abstol);
+            solinfo.Print("kdim", KRYLOV.kdim);
             if (IRK_ALG_ID == 0) {
                 std::vector<int> avg_krylov_iter;
                 std::vector<int> system_size;
                 std::vector<double> eig_ratio;
-                MyIRK->GetSolveStats(avg_krylov_iter, system_size, eig_ratio);
-                solinfo.Print("krtol", KRYLOV.reltol);
-                solinfo.Print("katol", KRYLOV.abstol);
-                solinfo.Print("kdim", KRYLOV.kdim);
+                MyCCIRK->GetSolveStats(avg_krylov_iter, system_size, eig_ratio);
                 solinfo.Print("nsys", avg_krylov_iter.size());
                 for (int system = 0; system < avg_krylov_iter.size(); system++) {
                     solinfo.Print("sys" + to_string(system+1) + "_iters", avg_krylov_iter[system]);
@@ -517,7 +519,7 @@ int main(int argc, char *argv[])
             solinfo.close();
         }
     }
-    if (MyIRK) delete MyIRK;
+    if (MyCCIRK) delete MyCCIRK;
     if (MyBlockPreconditionedIRK) delete MyBlockPreconditionedIRK;
     
     delete u;
@@ -628,8 +630,8 @@ double PDESolution(const Vector &x, double t)
 AdvDif::AdvDif(FDMesh &Mesh_, Vector alpha_, Vector mu_, 
         int order, FDBias advection_bias) 
     : IRKOperator(Mesh_.GetComm(), Mesh_.GetLocalSize(), 0.0, 
-        //TimeDependentOperator::Type::IMPLICIT), // Used for testing IRK codes where mass matrices are needed
-        TimeDependentOperator::Type::EXPLICIT), // This operator is really explicit since there's no mass matrix
+        TimeDependentOperator::Type::IMPLICIT), // Used for testing IRK codes where mass matrices are needed
+        //TimeDependentOperator::Type::EXPLICIT), // This operator is really explicit since there's no mass matrix
         Mesh{Mesh_},
         alpha(alpha_), mu(mu_),
         dim(Mesh_.m_dim),
