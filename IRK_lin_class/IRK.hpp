@@ -98,8 +98,15 @@ public:
             + dt:    time step size
             + type:  eigenvalue type, 1 = real, 2 = complex pair
         These additional parameters are to provide ways to track when
-        (\gamma*M - dt*L) must be reconstructed or not to minimize setup. */
+        (\gamma*M - dt*L) must be reconstructed or not to minimize setup. 
+        This is required by conjugate-pair IRK */
     virtual void SetSystem(int index, double dt, double gamma, int type) = 0;
+    
+    /** Ensures that this->ImplicitPrec() preconditions (M - dt*L)
+            + index: index of system to solve, [0,s-1)
+            + dt:    time step size 
+        This is required by StaffIRK */
+    virtual void SetSystem(int index, double dt) = 0;
 
 
     /** Get y <- P(alpha*M^{-1}*L)*x for P a polynomial defined by coefficients, c:
@@ -429,16 +436,18 @@ public:
     algorithms from Staff et al. (2006) --- */
 ////////////////////////////////////////////////////////////////////////////////
 
-
+class StaffStagePreconditioner; // The class responsible for preconditioning this operator
 /** Operator F defining the block-coupled s stage equations. They satisfy F*k = 0, 
     where 
                        [ M - a_11*dt*L ... -a_1s*dt*L ]
                 F*k =  [ ...           ...        ... ]
                        [ M - a_s1*dt*L ... -a_ss*dt*L ]*/
-class IRKStageOper : public BlockOperator
+class StaffStageOper : public BlockOperator
 {
         
 private:
+    // Preconditioner needs access to this class
+    friend class StaffStagePreconditioner; 
     
     Array<int> &offsets;            // Offsets of operator     
     
@@ -456,7 +465,7 @@ private:
     
 public:
     
-    IRKStageOper(IRKOperator * S_, Array<int> &offsets_, const RKData &RK_) 
+    StaffStageOper(IRKOperator * S_, Array<int> &offsets_, const RKData &RK_) 
         : BlockOperator(offsets_), 
             IRKOper(S_), Butcher(RK_), 
             dt(0.0), 
@@ -465,11 +474,10 @@ public:
             temp_block(offsets_)
             { };
     
-    // TODO: Change to set   time step or something
-    inline void SetParameters(double dt_) { 
-        dt = dt_;
-    };
-
+    
+    // Set time step
+    inline void SetTimeStep(double dt_) { dt = dt_; };
+    // Get time step
     inline double GetTimeStep() { return dt; };
     
     
@@ -505,8 +513,7 @@ public:
     }
 };
 
-class TriangularStagePreconditioner;
-class DiagonalStagePreconditioner;
+
 /** Class implementing the Staff et al. (2006) algorithm for fully implicit
     RK schemes for the quasi-time-dependent, linear ODE system
         M*du/dt = L*u + g(t),
@@ -529,6 +536,20 @@ public:
     //     KrylovMethod solver = KrylovMethod::GMRES;
     // };
 
+    // Block preconditioner
+    enum PreconditionerID {
+        JACOBI = 0, // Jacobi
+        GSL = 1,    // Gauss--Seidel LOWER
+        GSU = 2     // Gauss--Seidel UPPER
+    };
+    
+    // Block sparsity pattern of preconditioner
+    enum PreconditionerSparsity {
+        DIAGONAL = 0, 
+        LOWERTRIANGULAR = 1, 
+        UPPERTRIANGULAR = 2
+    };
+
 private:
     MPI_Comm m_comm;
     int m_numProcess;
@@ -540,12 +561,14 @@ private:
     BlockVector m_k;            // The stage vectors
     BlockVector m_rhs;          // RHS of stage system
     Array<int> m_stageOffsets;  // Offsets 
-    IRKStageOper * m_stageOper; // Operator F encoding stages, F*w = rhs
+    StaffStageOper * m_stageOper; // Operator F encoding stages, F*w = rhs
 
-    TriangularStagePreconditioner * m_tri_prec; // Block triangular preconditioner for block stage equations     
-    DiagonalStagePreconditioner * m_diag_prec;  // Block diagonal preconditioner for block stage equations
-    IterativeSolver * m_krylov;                 // Solver for inverting block stage equations
-    IRK::KrylovParams m_krylov_params;               // Parameters for above solver
+    StaffStagePreconditioner * m_stagePreconditioner;       // Block preconditioner for block stage equations
+    PreconditionerID m_preconditionerID;    // Sparsity pattern of block preconditioner
+    PreconditionerSparsity m_preconditionerSparsity;    // Sparsity pattern of block preconditioner
+    DenseMatrix m_preconditionerCoefficients; // Coefficients of block preconditioner
+    IterativeSolver * m_krylov;         // Solver for inverting block stage equations
+    IRK::KrylovParams m_krylov_params;  // Parameters for above solver
 
     /* Statistics on solution of linear systems */
     int m_avg_iter;         // Across whole integration, avg number of Krylov iters per time step
@@ -558,8 +581,24 @@ private:
      the block Adjugate and Butcher inverse */
     void ConstructRHS(const Vector &x, double t, double dt, BlockVector &rhs);
 
+    /* Set the preconditioner sparsity variable based on the the preconditioner ID */
+    void SetPreconditionerSparsity() {
+        if (m_preconditionerID == 0) {
+            m_preconditionerSparsity = PreconditionerSparsity::DIAGONAL;
+        } 
+        else if (m_preconditionerID == 1) 
+        {
+            m_preconditionerSparsity = PreconditionerSparsity::LOWERTRIANGULAR;
+        } 
+        else if (m_preconditionerID == 2) 
+        {
+            m_preconditionerSparsity = PreconditionerSparsity::UPPERTRIANGULAR;    
+        }
+    } 
+
 public:
-    StaffIRK(IRKOperator *IRKOper_, RKData::Type RK_ID_);
+    StaffIRK(IRKOperator *IRKOper_, RKData::Type RK_ID_, 
+            StaffIRK::PreconditionerID preconditionerID_);
     ~StaffIRK();
 
     void Init(TimeDependentOperator &F);
@@ -582,6 +621,162 @@ public:
 
 
 
+/** System matrix of block stage equations is approximated to be block triangular 
+    (e.g., block Gauss--Seidel) or block diagonal (e.g., block Jacobi) 
+    
+    
+    NOTE: The matrix of preconditioner coefficients used here does not necessarily 
+    share the same sparsity pattern as the true preconditioner coefficients. An 
+    additional PreconditionerSparsity variable is passed to this method indicating 
+    whether the (true) preconditioner coefficients are diagonal, upper triangular, 
+    or lower triangular, and according to this, only the necessary parts of the 
+    passed preconditioner coefficients are accessed. 
+    For example, for a block Jacobi method, the preconditioner coefficients might 
+    actually contain all of A0, but because the PreconditionerSparsity::DIAGONAL
+    is also passed, only the diagonal of the preconditioner coefficients array is 
+    accessed.
+    */
+class StaffStagePreconditioner : public Solver
+{
+private:
+    StaffStageOper &stageOper;
+    
+    Array<int> &offsets;    // Offsets for vectors with s blocks
+    
+    DenseMatrix &preconditionerCoefficients;
+    
+    StaffIRK::PreconditionerSparsity &preconditionerSparsity;
+    
+    // Auxillary vectors  
+    mutable BlockVector x_block, b_block;   // s blocks
+    mutable Vector temp; // 1 block/scalar vector
+
+    
+public:
+    StaffStagePreconditioner(StaffStageOper &IRKStageOper_, 
+        StaffIRK::PreconditionerSparsity &preconditionerSparsity_, 
+        DenseMatrix &preconditionerCoefficients_) : 
+        Solver(IRKStageOper_.Height()),
+        stageOper(IRKStageOper_), 
+        preconditionerSparsity(preconditionerSparsity_),
+        preconditionerCoefficients(preconditionerCoefficients_),
+        offsets(IRKStageOper_.offsets),
+        x_block(IRKStageOper_.offsets), b_block(IRKStageOper_.offsets),
+        temp(IRKStageOper_.Height())
+    { };
+    
+    ~StaffStagePreconditioner() {};
+    
+    
+    /** x = inv(A)*b, where A is the inexact, block preconditioner. */
+    inline void Mult(const Vector &b_scalar, Vector &x_scalar) const
+    {
+        // Wrap scalar Vectors into BlockVectors
+        b_block.Update(b_scalar.GetData(), offsets);
+        x_block.Update(x_scalar.GetData(), offsets);
+        
+        switch (preconditionerSparsity) {
+            case StaffIRK::PreconditionerSparsity::DIAGONAL:
+                BlockDiagonalSubstitution(b_block, x_block);
+                break;
+            
+            case StaffIRK::PreconditionerSparsity::LOWERTRIANGULAR:
+                BlockForwardSubstiution(b_block, x_block);
+                break;
+                
+            case StaffIRK::PreconditionerSparsity::UPPERTRIANGULAR:
+                BlockBackwardSubstitution(b_block, x_block);
+                break;
+                
+            default:
+                mfem_error("StaffIRK:Preconditoner Sparsity must be diagonal, or triangular");
+        }
+    }
+    
+    /// Purely virtual function we must implement but do not use.
+    virtual void SetOperator(const Operator &op) {  }
+    
+private:    
+    
+    // Solve block diagonal system
+    inline void BlockDiagonalSubstitution(const BlockVector &b_block, BlockVector &x_block) const
+    {
+        // Note: These systems are decoupled; i.e. this loop could be parallelized over i
+        for (int i = 0; i < stageOper.Butcher.s; i++) {
+            // Set the scaled time-step for the diagonal block M - scaled_dt*L
+            double scaled_dt = stageOper.GetTimeStep() * preconditionerCoefficients(i,i);
+            stageOper.IRKOper->SetSystem(i, scaled_dt); // Ensure we precondition the correct system
+            // Apply preconditioner to approximately invert diagonal block
+            stageOper.IRKOper->ImplicitPrec(b_block.GetBlock(i), x_block.GetBlock(i));
+            // x_block.GetBlock(i) -= b_block.GetBlock(i);
+            // x_block.GetBlock(i).Print();
+        }
+    }
+    
+    // Solve block lower triangular system
+    inline void BlockForwardSubstiution(const BlockVector &b_block, BlockVector &x_block) const
+    {
+
+        // Solve for the ith stage vector in sequence
+        for (int i = 0; i < stageOper.Butcher.s; i++) {
+            
+            // Subtract previously computed blocks of the solution in the ith 
+            // equation to the RHS. The new RHS vector is "temp"
+            if (i > 0) {
+                temp = b_block.GetBlock(i); // temp <- b(i)
+                
+                // Subtract out jth solution component
+                for (int j = 0; j < i; j++) {
+                    stageOper.IRKOper->ApplyL(x_block.GetBlock(j), x_block.GetBlock(i)); // Use x(i) as a temp variable here.
+                    double scaled_dt = stageOper.GetTimeStep() * preconditionerCoefficients(i,j);
+                    temp.Add(scaled_dt, x_block.GetBlock(i));
+                }
+            }
+            
+            // Set the scaled time-step for the diagonal block M - scaled_dt*L
+            double scaled_dt = stageOper.GetTimeStep() * preconditionerCoefficients(i,i);
+            stageOper.IRKOper->SetSystem(i, scaled_dt); // Ensure we precondition the correct system
+            // Apply preconditioner to approximately invert diagonal block
+            if (i > 0) {
+                stageOper.IRKOper->ImplicitPrec(temp, x_block.GetBlock(i));
+            } else {
+                stageOper.IRKOper->ImplicitPrec(b_block.GetBlock(i), x_block.GetBlock(i));
+            }
+        }
+    }
+    
+    // Solve block upper triangular system
+    inline void BlockBackwardSubstitution(const BlockVector &b_block, BlockVector &x_block) const 
+    {
+        // Solve for the ith stage vector in sequence
+        for (int i = stageOper.Butcher.s-1; i >= 0; i--) {
+            
+            // Subtract previously computed blocks of the solution in the ith 
+            // equation to the RHS. The new RHS vector is "temp"
+            if (i < stageOper.Butcher.s-1) {
+                temp = b_block.GetBlock(i); // temp <- b(i)
+                
+                // Subtract out jth solution component
+                for (int j = stageOper.Butcher.s-1; j > i; j--) {
+                    stageOper.IRKOper->ApplyL(x_block.GetBlock(j), x_block.GetBlock(i)); // Use x(i) as a temp variable here.
+                    double scaled_dt = stageOper.GetTimeStep() * preconditionerCoefficients(i,j);
+                    temp.Add(scaled_dt, x_block.GetBlock(i));
+                }
+            }
+            
+            // Set the scaled time-step for the diagonal block M - scaled_dt*L
+            double scaled_dt = stageOper.GetTimeStep() * preconditionerCoefficients(i,i);
+            stageOper.IRKOper->SetSystem(stageOper.Butcher.s-1-i, scaled_dt); // Ensure we precondition the correct system
+            // Apply preconditioner to approximately invert diagonal block
+            if (i < stageOper.Butcher.s-1) {
+                stageOper.IRKOper->ImplicitPrec(temp, x_block.GetBlock(i));
+            } else {
+                stageOper.IRKOper->ImplicitPrec(b_block.GetBlock(i), x_block.GetBlock(i));
+            }
+        }
+    }
+    
+};
 
 
 

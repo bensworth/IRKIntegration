@@ -43,10 +43,10 @@ using namespace std;
 //          ** Our IRK algorithm
 //          >> mpirun -np 4 ./driver_adv_dif_FD -irk 0 -d 2 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 -gamma 1
 //          ** Staff et al. algorithm
-//              ** Block diagonal preconditioning
-//              >> mpirun -np 4 ./driver_adv_dif_FD -irk 1 -d 2 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 -prec_ID 0
-//              ** Block lower triangular preconditioning
-//              >> mpirun -np 4 ./driver_adv_dif_FD -irk 1 -d 2 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 -prec_ID 1
+//              ** Block JACOBI diagonal preconditioning
+//              >> mpirun -np 4 ./driver_adv_dif_FD -irk 1 -prec_ID 0 -d 2 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 
+//              ** Block LOWER GAUSS--SEIDEL triangular preconditioning
+//              >> mpirun -np 4 ./driver_adv_dif_FD -irk 1 -prec_ID 1 -d 2 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 
 //      
 //      ** Our IRK algorithm
 //          ** Diffusion-only problem using GMRES solver
@@ -203,8 +203,15 @@ public:
             + dt    -> time step size
             + type  -> eigenvalue type, 1 = real, 2 = complex pair
          These additional parameters are to provide ways to track when
-         (\gamma*M - dt*L) must be reconstructed or not to minimize setup. */
+         (\gamma*M - dt*L) must be reconstructed or not to minimize setup. 
+         This is required by conjugate-pair IRK */
     void SetSystem(int index, double dt, double gamma, int type);
+    
+    /** Ensures that this->ImplicitPrec() preconditions (M - dt*L)
+            + index: index of system to solve, [0,s-1)
+            + dt:    time step size 
+        This is required by StaffIRK */
+    void SetSystem(int index, double dt) { SetSystem(index, dt, 1.0, 1); };
     
     /** Set solver parameters fot implicit time-stepping.
         MUST be called before InitSolvers() */
@@ -245,7 +252,7 @@ int main(int argc, char *argv[])
     dim = 1; // Spatial dimension
     
     /* --- Time integration --- */
-    int IRK_ALG_ID = 0; // IRK algorithm. Ours or Staff's.
+    int IRK_ALG_ID = 0; // IRK algorithm. Ours (0) or Staff's (1).
     int nt     = 10;  // Number of time steps
     double dt  = 0.0; // Time step size. dt < 0 means: dt == |dt|*dx
     double tf  = 2.0; // Final integration time
@@ -255,7 +262,7 @@ int main(int argc, char *argv[])
     int mag_prec = 0; // Index of constant used in preconditioner (see IRK.hpp)
     
     // Parameters for Staff IRK alg.
-    int block_prec_ID = 0; // Block preconditioner used (see IRK.hpp)
+    int staff_prec_ID = 0; // Block preconditioner used (see IRK.hpp)
 
     /* --- Spatial discretization --- */
     int order     = 2; // Approximation order
@@ -297,8 +304,8 @@ int main(int argc, char *argv[])
     args.AddOption(&dt, "-dt", "--time-step-size", "t_j = j*dt. NOTE: dt<0 means dt==|dt|*dx");              
                   
     /* Options for Staff IRK algorithm */
-    args.AddOption(&block_prec_ID, "-prec_ID", "--block-preconditioning-ID",
-                  "0 == diagonal. 1 == lower triangular.");              
+    args.AddOption(&staff_prec_ID, "-prec_ID", "--block-preconditioning-ID",
+                  "0 == JACOBI. 1 == GSL. 2 == GSU.");              
                   
     /* Options for our IRK algorithm */
     args.AddOption(&mag_prec, "-gamma", "--gamma-value",
@@ -414,7 +421,8 @@ int main(int argc, char *argv[])
     // Use the Staff IRK algorithm    
     } else {
         // Build IRK object using spatial discretization 
-        MyStaffIRK = new StaffIRK(&SpaceDisc, static_cast<RKData::Type>(RK_ID));        
+        MyStaffIRK = new StaffIRK(&SpaceDisc, static_cast<RKData::Type>(RK_ID), 
+                                    static_cast<StaffIRK::PreconditionerID>(staff_prec_ID));        
         // Set Krylov solver settings
         MyStaffIRK->SetKrylovParams(KRYLOV);
         // Initialize IRK time-stepping solver
@@ -487,6 +495,7 @@ int main(int argc, char *argv[])
                     solinfo.Print("sys" + to_string(system+1) + "_eig_ratio", eig_ratio[system]);
                 }
             } else {
+                solinfo.Print("staff_prec_ID", staff_prec_ID);
                 int avg_krylov_iter;
                 MyStaffIRK->GetSolveStats(avg_krylov_iter);
                 solinfo.Print("iters", avg_krylov_iter);

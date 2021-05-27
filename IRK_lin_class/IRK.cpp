@@ -276,9 +276,10 @@ void IRK::ConstructRHS(const Vector &x, double t, double dt, Vector &rhs) {
 
 //StaffIRK(IRKOperator *IRKOper_, RKData::Type RK_ID_);
 /// Constructor
-StaffIRK::StaffIRK(IRKOperator *IRKOper_, RKData::Type RK_ID_)
-        : m_IRKOper(IRKOper_), m_Butcher(RK_ID_),
-        m_krylov(NULL), m_comm{IRKOper_->GetComm()}
+StaffIRK::StaffIRK(IRKOperator *IRKOper_, RKData::Type RK_ID_, 
+        PreconditionerID preconditionerID_)
+            : m_IRKOper(IRKOper_), m_Butcher(RK_ID_), m_preconditionerID(preconditionerID_),
+            m_krylov(NULL), m_comm{IRKOper_->GetComm()}
 {
     // Get proc IDs
     MPI_Comm_rank(m_comm, &m_rank);
@@ -287,6 +288,13 @@ StaffIRK::StaffIRK(IRKOperator *IRKOper_, RKData::Type RK_ID_)
     // This stream will only print from process 0
     if (m_rank > 0) mfem::out.Disable();
 
+    // Setup block sizes for stage vectors
+    m_stageOffsets.SetSize(m_Butcher.s + 1); 
+    for (int i = 0; i <= m_Butcher.s; i++) m_stageOffsets[i] = i*m_IRKOper->Height();
+    
+    // Initialize stage vectors and RHS vector
+    m_k.Update(m_stageOffsets);
+    m_rhs.Update(m_stageOffsets);
 
     // Create object for every characteristic polynomial factor to be inverted
     //m_CharPolyOper.SetSize(m_Butcher.s_eff);
@@ -294,35 +302,39 @@ StaffIRK::StaffIRK(IRKOperator *IRKOper_, RKData::Type RK_ID_)
     // Initialize solver statistics the user might retrieve later
     m_avg_iter = 0;
     
-    // TODO
-    // 
-    // // Linear factors (degree 1)
-    // double dt_dummy = -1.0; // Use dummy dt, will be set properly before inverting factor.
-    // int count = 0;
-    // for (int i = 0; i < m_Butcher.zeta.Size(); i++) {
-    //     m_CharPolyOper[count] = new CharPolyFactor(dt_dummy, m_Butcher.zeta(i), *m_IRKOper);
-    //     m_degree[count] = 1;
-    //     count++;
-    // }
-    // // Quadratic factors (degree 2)
-    // for (int i = 0; i < m_Butcher.eta.Size(); i++) {
-    //     m_CharPolyOper[count] = new CharPolyFactor(dt_dummy, m_Butcher.eta(i), 
-    //                                 m_Butcher.beta(i), *m_IRKOper, mag_prec);
-    //     m_degree[count] = 2;
-    //     m_eig_ratio[count] = m_Butcher.beta(i)/m_Butcher.eta(i);
-    //     count++;
-    // }
+    
+    // Create stage operator
+    m_stageOper = new StaffStageOper(m_IRKOper, m_stageOffsets, m_Butcher);
+    
+    // Set preconditioner sparsity variable, m_preconditionerSparsity
+    SetPreconditionerSparsity(); 
+    std::cout << "PreconditionerSparsity = " << m_preconditionerSparsity << '\n';
+    
+    // Create preconditioner coefficients
+    // For Jacobi and Gauss--Seidel methods, these are just A0.
+    if (m_preconditionerID == PreconditionerID::JACOBI || 
+        m_preconditionerID == PreconditionerID::GSL || 
+        m_preconditionerID == PreconditionerID::GSU)
+    {
+        m_preconditionerCoefficients = m_Butcher.A0; 
+        
+    // For  more complicated preconditoners the coefficients are not as simple    
+    } else {
+        // TODO
+        mfem_error("StaffIRK::Other preconditioner coefficients have not been implemented.\n");
+    }
+    
+    // Create preconditioner
+    m_stagePreconditioner = new StaffStagePreconditioner(*m_stageOper, 
+                                                    m_preconditionerSparsity, 
+                                                    m_preconditionerCoefficients);
+    
 }
 
 /// Destructor
-// TODO
 StaffIRK::~StaffIRK() {
-    
-    // for (int i = 0; i < m_CharPolyOper.Size(); i++) {
-    //     delete m_CharPolyOper[i];
-    //     m_CharPolyOper[i] = NULL;
-    // }
-    // m_CharPolyOper.SetSize(0);
+    delete m_stagePreconditioner;
+    delete m_stageOper;
 
     if (m_krylov) delete m_krylov;
 }
@@ -356,12 +368,17 @@ void StaffIRK::SetSolver()
 
 
 /// Call base class' init and size member vectors
-// TODO: The below need to be set to F.Height()*s since they're block vectors
 void StaffIRK::Init(TimeDependentOperator &F)
 {
     ODESolver::Init(F);
-    m_k.SetSize(F.Height(), mem_type);
-    m_rhs.SetSize(F.Height(), mem_type);
+    
+    // Stage vectors
+    m_k.Update(m_stageOffsets, mem_type); 
+    m_k = 0.; // Initialize to 0
+    
+    // RHS vector
+    m_rhs.Update(m_stageOffsets, mem_type); 
+    m_rhs = 0.; // Initialize to 0
     
     SetSolver();
 }
@@ -394,7 +411,12 @@ void StaffIRK::Step(Vector &x, double &t, double &dt)
     // 
 
 
-    // TODO: Set up Krylov solver with preconditioner.
+
+    // Set Krylov operator and preconditioner. 
+    m_stageOper->SetTimeStep(dt); // Set current time step
+    m_krylov->SetPreconditioner(*(m_stagePreconditioner));
+    m_krylov->SetOperator(*(m_stageOper));
+
 
     // Invert block system, m_sol_block <- F^{-1} * m_rhs_block
     m_krylov->Mult(m_rhs, m_k);
@@ -455,9 +477,8 @@ void StaffIRK::ConstructRHS(const Vector &x, double t, double dt, BlockVector &r
             m_IRKOper->Mult(x, rhs.GetBlock(i)); // rhs(i) <- L*x + g(t+dt*c(i))
         }
     }
+    //rhs.Print();
 }
-
-
 
 
 /// Kronecker transform between two block vectors: y <- (A \otimes I)*x
