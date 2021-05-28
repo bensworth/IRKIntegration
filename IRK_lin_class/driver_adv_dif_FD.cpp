@@ -40,20 +40,25 @@ using namespace std;
 
 // Sample runs:
 //      *** Solve 2D in space problem w/ 4th-order discretizations in space & time ***
-//          ** Our IRK algorithm
-//          >> mpirun -np 4 ./driver_adv_dif_FD -irk 0 -d 2 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 -gamma 1
-//          ** Staff et al. algorithm
+//          ** Our CC preconditioned IRK algorithm
+//          >> mpirun -np 4 ./driver_adv_dif_FD -irk 0 -gamma 1 -d 2 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 
+//          ** Block preconditioned algorithm
 //              ** Block JACOBI diagonal preconditioning
 //              >> mpirun -np 4 ./driver_adv_dif_FD -irk 1 -prec_ID 0 -d 2 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 
 //              ** Block LOWER GAUSS--SEIDEL triangular preconditioning
 //              >> mpirun -np 4 ./driver_adv_dif_FD -irk 1 -prec_ID 1 -d 2 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 
+//              ** Block LD preconditioning
+//              >> mpirun -np 4 ./driver_adv_dif_FD -irk 1 -prec_ID 4 -d 2 -ex 1 -ax 0.85 -ay 1 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 
 //      
 //      ** Our IRK algorithm
 //          ** Diffusion-only problem using GMRES solver
-//          >> mpirun -np 4 ./driver_adv_dif_FD -irk 0 -d 2 -ex 1 -ax 0 -ay 0 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 -ksol 2 -gamma 1
+//          >> mpirun -np 4 ./driver_adv_dif_FD -irk 0 -gamma 1 -d 2 -ex 1 -ax 0 -ay 0 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 -ksol 2
 //          ** Diffusion-only problem using CG solver
-//          >> mpirun -np 4 ./driver_adv_dif_FD -irk 0 -d 2 -ex 1 -ax 0 -ay 0 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 -ksol 0 -gamma 1
+//          >> mpirun -np 4 ./driver_adv_dif_FD -irk 0 -gamma 1 -d 2 -ex 1 -ax 0 -ay 0 -mx 0.3 -my 0.25 -l 5 -o 4 -dt -2 -t 14 -save 2 -tf 2 -krtol 1e-13 -katol 1e-13 -kp 2 -ksol 0
 // 
+//  The type of IRK algorithm is `-irk`: 0 == complex-conjugate preconditioning, and 1 == block preconditioning
+//  For block preconditioning, the preconditioner is specified by -prec_ID
+//  For complex-conjugate preconditioning, the preconditioning constant is specified by `gamma`, and 1 being the optimal choice.
 //
 //
 //
@@ -259,7 +264,7 @@ int main(int argc, char *argv[])
     int RK_ID  = 1;   // RK scheme (see below)
     
     // Parameters for our IRK alg.
-    int mag_prec = 0; // Index of constant used in preconditioner (see IRK.hpp)
+    int mag_prec = 1; // Index of constant used in preconditioner (see IRK.hpp)
     
     // Parameters for Staff IRK alg.
     int staff_prec_ID = 0; // Block preconditioner used (see IRK.hpp)
@@ -273,7 +278,6 @@ int main(int argc, char *argv[])
     // Solver parameters
     AMGParams AMG;
     int use_AIR_temp = (int) AMG.use_AIR;
-    //IRK::KrylovParams KRYLOV;
     IRKKrylovParams KRYLOV;
     int krylov_solver = static_cast<int>(KRYLOV.solver);
     
@@ -295,22 +299,22 @@ int main(int argc, char *argv[])
     args.AddOption(&dim, "-d", "--dim",
                   "Spatial dimension.");              
 
-     /* Time integration */
-     args.AddOption(&IRK_ALG_ID, "-irk", "--IRK-solver-algorithm",
-                   "0 == our IRK algorithm. 1 == Staff et al. (2006) algorithm.");
+    /* Time integration */
+    args.AddOption(&IRK_ALG_ID, "-irk", "--IRK-solver-algorithm",
+                   "0 == CC preconditioning. 1 == Block preconditioning.");
     args.AddOption(&RK_ID, "-t", "--RK-method",
                   "Time discretization.");
     args.AddOption(&nt, "-nt", "--num-time-steps", "Number of time steps.");    
     args.AddOption(&tf, "-tf", "--tf", "0 <= t <= tf");
     args.AddOption(&dt, "-dt", "--time-step-size", "t_j = j*dt. NOTE: dt<0 means dt==|dt|*dx");              
                   
-    /* Options for Staff IRK algorithm */
+    /* Options for block preconditioning IRK algorithm */
     args.AddOption(&staff_prec_ID, "-prec_ID", "--block-preconditioning-ID",
-                  "0 == JACOBI. 1 == GSL. 2 == GSU.");              
+                  "0 == JACOBI. 1 == GSL. 2 == GSU. 3 == OPT lower triangular (Staff). 4 == LD (Rana).");              
                   
     /* Options for our IRK algorithm */
     args.AddOption(&mag_prec, "-gamma", "--gamma-value",
-                  "Value of gamma in preconditioner: 0, 1, 2.");              
+                  "Value of gamma in preconditioner: 0 (eta), 1 (sqrt(eta^2+beta^2), the optimal value).");              
     
 
     /* Spatial discretization */
@@ -354,7 +358,6 @@ int main(int argc, char *argv[])
     // Set final forms of remaing params
     advection_bias = static_cast<FDBias>(advection_bias_temp);
     AMG.use_AIR = (bool) use_AIR_temp;
-    //KRYLOV.solver = static_cast<IRK::KrylovMethod>(krylov_solver);
     KRYLOV.solver = static_cast<IRKKrylovMethod>(krylov_solver);
     std::vector<int> np = {};
     if (npx != -1) {
@@ -417,10 +420,8 @@ int main(int argc, char *argv[])
         MyCCIRK->SetKrylovParams(KRYLOV);
         // Initialize IRK time-stepping solver
         MyCCIRK->Init(SpaceDisc);
-        // Time step 
-        MyCCIRK->Run(*u, t, dt, tf);
         
-    // Use the Staff IRK algorithm    
+    // Use the block preconditioned IRK algorithm    
     } else {
         // Build IRK object using spatial discretization 
         MyBlockPreconditionedIRK = new BlockPreconditionedIRK(&SpaceDisc, static_cast<RKData::Type>(RK_ID), 
@@ -429,15 +430,18 @@ int main(int argc, char *argv[])
         MyBlockPreconditionedIRK->SetKrylovParams(KRYLOV);
         // Initialize IRK time-stepping solver
         MyBlockPreconditionedIRK->Init(SpaceDisc);
-        // Time step 
-        MyBlockPreconditionedIRK->Run(*u, t, dt, tf);
     }
     
-        
-
+    // Time step and record wall-clock time to do so.
+    StopWatch timer;
+    timer.Start();
+    if (IRK_ALG_ID == 0) { 
+        MyCCIRK->Run(*u, t, dt, tf);
+    } else {
+        MyBlockPreconditionedIRK->Run(*u, t, dt, tf);
+    }
+    timer.Stop();
     
-        
-    //}
     
     if (fabs(t-tf)>1e-14) {
         if (myid == 0) std::cout << "WARNING: Requested tf of " << tf << " adjusted to " << t << '\n';
@@ -468,6 +472,9 @@ int main(int argc, char *argv[])
             solinfo.open(out);
             solinfo << scientific;
             
+            solinfo.Print("runtime", timer.RealTime());
+            solinfo.Print("IRK_alg", IRK_ALG_ID);
+            
             /* Temporal info */
             solinfo.Print("RK", RK_ID);
             solinfo.Print("dt", dt);
@@ -497,7 +504,7 @@ int main(int argc, char *argv[])
                     solinfo.Print("sys" + to_string(system+1) + "_eig_ratio", eig_ratio[system]);
                 }
             } else {
-                solinfo.Print("staff_prec_ID", staff_prec_ID);
+                solinfo.Print("block_prec_ID", staff_prec_ID);
                 int avg_krylov_iter;
                 MyBlockPreconditionedIRK->GetSolveStats(avg_krylov_iter);
                 solinfo.Print("iters", avg_krylov_iter);
@@ -630,8 +637,8 @@ double PDESolution(const Vector &x, double t)
 AdvDif::AdvDif(FDMesh &Mesh_, Vector alpha_, Vector mu_, 
         int order, FDBias advection_bias) 
     : IRKOperator(Mesh_.GetComm(), Mesh_.GetLocalSize(), 0.0, 
-        TimeDependentOperator::Type::IMPLICIT), // Used for testing IRK codes where mass matrices are needed
-        //TimeDependentOperator::Type::EXPLICIT), // This operator is really explicit since there's no mass matrix
+        //TimeDependentOperator::Type::IMPLICIT), // Used for testing IRK codes where mass matrices are needed
+        TimeDependentOperator::Type::EXPLICIT), // This operator is really explicit since there's no mass matrix
         Mesh{Mesh_},
         alpha(alpha_), mu(mu_),
         dim(Mesh_.m_dim),

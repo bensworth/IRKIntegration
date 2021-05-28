@@ -462,10 +462,6 @@ public:
 
 
 
-
-
-
-
 ////////////////////////////////////////////////////////////////////////////////
 /** --- The below algorithms pertain only to the implementation of the Block 
     preconditioned IRK algorithms such as those from Staff et al. (2006), and 

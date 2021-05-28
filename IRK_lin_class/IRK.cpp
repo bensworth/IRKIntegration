@@ -299,9 +299,6 @@ BlockPreconditionedIRK::BlockPreconditionedIRK(IRKOperator *IRKOper_, RKData::Ty
     m_k.Update(m_stageOffsets);
     m_rhs.Update(m_stageOffsets);
 
-    // Create object for every characteristic polynomial factor to be inverted
-    //m_CharPolyOper.SetSize(m_Butcher.s_eff);
-
     // Initialize solver statistics the user might retrieve later
     m_avg_iter = 0;
     
@@ -375,34 +372,13 @@ void BlockPreconditionedIRK::Step(Vector &x, double &t, double &dt)
     // Set RHS vector of block system, m_rhs_block
     ConstructRHS(x, t, dt, m_rhs);
 
-    // Print info about system being solved
-    // if (m_krylov_params.printlevel > 0) {
-    //     mfem::out << "  System " << factor+1 << " of " << m_CharPolyOper.Size()
-    //               << " (degree=" << m_CharPolyOper[factor]->Degree() << "):  ";
-    //     if (m_krylov_params.printlevel != 2) mfem::out << '\n';
-    // }
-    // 
-    // // Ensure current factor uses correct time step
-    // m_CharPolyOper[factor]->SetTimeStep(dt);
-    // 
-    // // Set operator and preconditioner for current factor
-    // m_CharPolyPrec.SetDegree(m_CharPolyOper[factor]->Degree());
-    // m_IRKOper->SetSystem(factor, dt, m_CharPolyOper[factor]->Gamma(),
-    //                         m_CharPolyOper[factor]->Degree());
-    // m_krylov->SetPreconditioner(m_CharPolyPrec);
-    // m_krylov->SetOperator(*(m_CharPolyOper[factor]));
-    // 
-    // 
-
-
-
     // Set Krylov operator and preconditioner. 
     m_stageOper->SetTimeStep(dt); // Set current time step
     m_krylov->SetPreconditioner(*(m_stagePreconditioner));
     m_krylov->SetOperator(*(m_stageOper));
 
 
-    // Invert block system, m_sol_block <- F^{-1} * m_rhs_block
+    // Invert block system, m_k <- F^{-1} * m_rhs
     m_krylov->Mult(m_rhs, m_k);
 
     // Check for convergence
@@ -461,7 +437,6 @@ void BlockPreconditionedIRK::ConstructRHS(const Vector &x, double t, double dt, 
             m_IRKOper->Mult(x, rhs.GetBlock(i)); // rhs(i) <- L*x + g(t+dt*c(i))
         }
     }
-    //rhs.Print();
 }
 
 
