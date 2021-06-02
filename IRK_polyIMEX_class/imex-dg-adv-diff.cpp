@@ -630,9 +630,6 @@ int run_adv_diff(int argc, char *argv[])
    {
       coeffs = new RKData(static_cast<RKData::Type>(use_irk));
 
-      // for (int i=0; i<coeffs
-
-
       // Can adjust rel tol, abs tol, maxiter, kdim, etc.
       KrylovParams krylov_params;
       krylov_params.printlevel = 2;

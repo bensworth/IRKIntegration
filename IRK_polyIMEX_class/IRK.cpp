@@ -330,6 +330,16 @@ void PolyIMEX::Step(Vector &x, double &t, double &dt)
 {
     double r = dt / m_Butcher.alpha;
 
+
+    sol_imp.GetBlock(m_Butcher.s-1) = x; // DEBUG
+    // TODO : with no iterator or initial iterator, must use this
+    // line to get accuracy with IRK. That is because this vector
+    // is used in FormRHS and Propagate. If I uncomment this line
+    // and add some initial iterations, it does not fix the problem.
+    // I think this is informative, although I do not know why yet.
+
+
+
     // Pass current value of r = dt/\alpha.
     m_stageOper->SetParameters(t, r); 
 
@@ -371,12 +381,12 @@ void PolyIMEX::Step(Vector &x, double &t, double &dt)
     // Update solution vector after all iterators completed
     // TODO : first lines = take last solution, second lines = take first
     if (exp_ind == 0) {
-        x = sol_imp.GetBlock(m_Butcher.s-1);
-        // x = sol_exp;
+        // x = sol_imp.GetBlock(m_Butcher.s-1);
+        x = sol_exp;
     }
     else {
-        x = sol_exp;
-        // x = sol_imp.GetBlock(0);
+        // x = sol_exp;
+        x = sol_imp.GetBlock(0);
     }
     t += dt; // Update current time
 }
