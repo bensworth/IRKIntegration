@@ -462,7 +462,8 @@ int run_adv_diff(int argc, char *argv[])
    static const double sigma = -1.0;
 
    // const char *mesh_file = MFEM_DIR + "data/inline-quad.mesh";
-   const char *mesh_file = "/g/g19/bs/mfem/data/inline-quad.mesh";
+   const char *mesh_file = "/Users/southworth/Software/mfem/data/inline-quad.mesh";
+   // const char *mesh_file = "/g/g19/bs/mfem/data/inline-quad.mesh";
    int ser_ref_levels = 3;
    int par_ref_levels = 2;
    int order = 1;
