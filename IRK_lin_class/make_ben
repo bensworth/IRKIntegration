@@ -1,9 +1,12 @@
 # Compiler, compile options, and link options
 
 # Ben's stuff
-MFEM_DIR  = /g/g19/bs/mfem
+# MFEM_DIR  = /g/g19/bs/mfem
+# HYPRE_DIR = $(MFEM_DIR)/../hypre/src/hypre
+# METIS_DIR = $(MFEM_DIR)/../metis/build/Linux-x86_64
+MFEM_DIR  = /Users/southworth/Software/mfem
 HYPRE_DIR = $(MFEM_DIR)/../hypre/src/hypre
-METIS_DIR = $(MFEM_DIR)/../metis/build/Linux-x86_64
+METIS_DIR = $(MFEM_DIR)/../metis-5.1.0/build/Darwin-x86_64
 CXX      = mpicxx
 FLAGS    = -g -std=c++14 -fopenmp
 INC      = -I$(MFEM_DIR)/bens_build -I$(HYPRE_DIR)/include -I$(METIS_DIR)/include -I./src
@@ -16,7 +19,7 @@ LDLIBS   = -lmfem -lHYPRE -lmetis
 # SOURCE_FILES  = $(wildcard *.cpp)
 SOURCE_FILES  = IRK.cpp FDSpaceDisc.cpp $(wildcard ./src/*.cpp)
 OBJECT_FILES  = $(SOURCE_FILES:.cpp=.o)
-EXEC_FILES    = driver_adv_dif_FD
+EXEC_FILES    = driver_adv_dif_FD dg_adv_diff
 
 .PHONY: all clean clean-build clean-exec
 
