@@ -20,9 +20,8 @@ IRK_alg=0 # CC preconditioned algorithm
 IRK_alg=1 # Block preconditioned algorithm
 
 gamma=1 # CC: Constant in preconditioner. 1 is optimal value
-#block_prec_ID=1 # Block preconditioner: Lower triangular Gauss--Seidel
+block_prec_ID=1 # Block preconditioner: Lower triangular Gauss--Seidel
 block_prec_ID=4 # Block preconditioner: Rana et al. (2021)
-
 
 
 # Krylov parameters
@@ -62,7 +61,7 @@ save=1 # Save only the text file output from the problem and not the solution
 #IRK=14; space=4;  
 #IRK=16; space=6; 
 #IRK=18; space=8; 
-#IRK=110; space=10; 
+IRK=110; space=10; 
 
 ### --- RadauIIA --- ###
 #IRK=23; space=4; 
@@ -74,16 +73,21 @@ save=1 # Save only the text file output from the problem and not the solution
 #IRK=32; space=2  
 #IRK=34; space=4; 
 #IRK=36; space=6; 
-IRK=38; space=8; 
+#IRK=38; space=8; 
 
 # Name of file to be output... "^REFINE^" will be replaced with the actual refinement...
 if [ $IRK_alg == 0 ]; then
-    echo "IRK=0"
-    out=$outdir/CC_IRK"$IRK"_l"$l_refine"_d"$dim"_ex"$ex"_r^REFINE^      
+    #echo "IRK=0"
+    out=$outdir/CC_IRK"$IRK"_l"$l_refine"_d"$dim"_ex"$ex"_r^REFINE^
 else 
-    echo "IRK=1"
-    out=$outdir/PREC"$block_prec_ID"_IRK"$IRK"_l"$l_refine"_d"$dim"_ex"$ex"_r^REFINE^     
+    #echo "IRK=1"
+    out=$outdir/PREC"$block_prec_ID"_IRK"$IRK"_l"$l_refine"_d"$dim"_ex"$ex"_r^REFINE^
 fi
+
+probinfo_out="$out.probinfo.out" # The probinfo struct
+command_line_out="$out.cl.out" # We'll send the command line output here
+#echo $probinfo_out
+#echo $command_line_out
 
 # Run solves at different temporal refinements...
 echo "solving..."
@@ -96,6 +100,7 @@ do
         -d $dim -ex $ex \
         -ax $ax -ay $ay -mx $mx -my $my \
         -katol $katol -krtol 1e-$reltol_refine -kmaxit $kmaxit -kdim $kdim -kp $kp \
-        -save $save -out $dir${out/^REFINE^/$reltol_refine}
-
+        -save $save -out ${probinfo_out/^REFINE^/$reltol_refine} \
+        2>&1 | tee ${command_line_out/^REFINE^/$reltol_refine} 
+        # The above will output the command line AND its contents to file
 done

@@ -64,7 +64,8 @@ if int(args["save"]):
 
 # Template for filenames
 def filenametemp(dir, reltol_refine):
-    return dir + "IRK" + args["IRK"] + "_l" + args["l_refine"] + "_d" + args["d"] + "_ex" + args["ex"] + "_r" + str(reltol_refine)
+    return dir + "IRK" + args["IRK"] + "_l" + args["l_refine"] + "_d" \
+    + args["d"] + "_ex" + args["ex"] + "_r" + str(reltol_refine) + ".probinfo.out"
 
 
 for alg_idx, alg in enumerate(args["dir"]):
