@@ -1,0 +1,1 @@
+The goal here is to make some comparisons between our complex-conjugate IRK algorithm and the block preconditioning algorithms of Staff et al. (2006) and others.

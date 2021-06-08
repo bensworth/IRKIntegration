@@ -15,31 +15,40 @@ exe=../../driver_adv_dif_FD
 
 np=4 # Number of processes
 
-# IRK alg parameters, just choose one of IRK_alg = 0 or = 1. The shell code below will fix the name of the output appropriately
-IRK_alg=0 # CC preconditioned algorithm
-IRK_alg=1 # Block preconditioned algorithm
+# Dummy values to make sure there's a value passed through command line below
+block_prec_ID=1; gamma=1
 
-gamma=1 # CC: Constant in preconditioner. 1 is optimal value
-block_prec_ID=1 # Block preconditioner: Lower triangular Gauss--Seidel
-block_prec_ID=4 # Block preconditioner: Rana et al. (2021)
+# IRK alg parameters, just choose one of IRK_alg = 0 or = 1. The shell code below will fix the name of the output appropriately
+# CC preconditioned algorithm
+IRK_alg=0; gamma=1 # Constant in preconditioner. 1 is optimal value 
+
+# Block preconditioned algorithm
+#IRK_alg=1; block_prec_ID=1 # Lower triangular Gauss--Seidel
+#IRK_alg=1; block_prec_ID=4 # Rana et al. (2021)
 
 
 # Krylov parameters
 kp=2; 
 katol=0.0;  
+krtol=1e-13; 
 kmaxit=200; kdim=30
-# reltol will go from [10^-rtol_min_refine, ..., 10^-rtol_max_refine]
-reltol_min_refine=4
-reltol_max_refine=12
 
 #Problem parameters
 outdir=data # Where the data is sent to
-dim=2  # Spatial dimension
 ax=0.85; ay=1.0; mx=0.3; my=0.25 # PDE coefficients
+
+# More advection-dominated problem. Struggle to converge...
+# outdir=data2 # Where the data is sent to
+# ax=4.25; ay=5.0; mx=0.03; my=0.025 # PDE coefficients
+
+dim=2  # Spatial dimension
 ex=1   # example problem to be solved
 tf=2   # Final integration time
 dt=-2  # Time step
-l_refine=6 # 2^l_refine DOFs in each dimension
+
+# h will go from [2^-h_min_refine, ..., 2^-h_max_refine]
+h_min_refine=3
+h_max_refine=7
 
 
 save=1 # Save only the text file output from the problem and not the solution
@@ -60,7 +69,7 @@ save=1 # Save only the text file output from the problem and not the solution
 #IRK=12; space=2;  
 #IRK=14; space=4;  
 #IRK=16; space=6; 
-#IRK=18; space=8; 
+IRK=18; space=8; 
 #IRK=110; space=10; 
 
 ### --- RadauIIA --- ###
@@ -78,10 +87,10 @@ save=1 # Save only the text file output from the problem and not the solution
 # Name of file to be output... "^REFINE^" will be replaced with the actual refinement...
 if [ $IRK_alg == 0 ]; then
     #echo "IRK=0"
-    out=$outdir/CC_IRK"$IRK"_l"$l_refine"_d"$dim"_ex"$ex"_r^REFINE^
+    out=$outdir/CC_IRK"$IRK"_h^REFINE^_d"$dim"_ex"$ex"
 else 
     #echo "IRK=1"
-    out=$outdir/PREC"$block_prec_ID"_IRK"$IRK"_l"$l_refine"_d"$dim"_ex"$ex"_r^REFINE^
+    out=$outdir/PREC"$block_prec_ID"_IRK"$IRK"_h^REFINE^_d"$dim"_ex"$ex"
 fi
 
 probinfo_out="$out.probinfo.out" # The probinfo struct
@@ -89,18 +98,20 @@ command_line_out="$out.cl.out" # We'll send the command line output here
 #echo $probinfo_out
 #echo $command_line_out
 
+#--AMG-theta 0.25 --AMG-relax 0 --AMG-use-air 1 \
+
 # Run solves at different temporal refinements...
 echo "solving..."
-for reltol_refine in `seq $reltol_min_refine $reltol_max_refine`
+for h_refine in `seq $h_min_refine $h_max_refine`
 do
     mpirun -np $np $exe \
         -irk $IRK_alg -gamma $gamma -prec_ID $block_prec_ID \
         -t $IRK -dt $dt -tf $tf \
-        -o $space -l $l_refine \
+        -o $space -l $h_refine \
         -d $dim -ex $ex \
         -ax $ax -ay $ay -mx $mx -my $my \
-        -katol $katol -krtol 1e-$reltol_refine -kmaxit $kmaxit -kdim $kdim -kp $kp \
-        -save $save -out ${probinfo_out/^REFINE^/$reltol_refine} \
-        2>&1 | tee ${command_line_out/^REFINE^/$reltol_refine} 
+        -katol $katol -krtol $krtol -kmaxit $kmaxit -kdim $kdim -kp $kp \
+        -save $save -out ${probinfo_out/^REFINE^/$h_refine} \
+        2>&1 | tee ${command_line_out/^REFINE^/$h_refine} 
         # The above will output the command line AND its contents to file
 done
