@@ -317,6 +317,11 @@ public:
       current_prec->Mult(x, y);
    }
 
+   void SetSystem(int index, double dt)
+   {
+      this->SetSystem(index, dt, 1.0, 1);
+   };
+
    /** Ensures that this->ImplicitPrec() preconditions (\gamma*M - dt*L)
            + index -> index of system to solve, [0,s_eff)
            + dt    -> time step size
@@ -437,6 +442,7 @@ int run_adv_diff(int argc, char *argv[])
    int use_gmres = false;
    int maxiter = 500;
    int mag_prec = 1;
+   int prec_id = -1;
 
    OptionsParser args(argc, argv);
    args.AddOption(&mesh_file, "-m", "--mesh",
@@ -461,6 +467,8 @@ int run_adv_diff(int argc, char *argv[])
                   "-1=FGMRES/fixed-point, 0=GMRES/fixed-point, 1=FGMRES/GMRES.");
    args.AddOption(&mag_prec, "-mag", "--mag-prec",
                   "0 -> gamma = eta, 1 -> gamma = sqrt(eta^2+beta^2).");
+   args.AddOption(&prec_id, "-prec", "--prec-id",
+                  "-1 -> comjugate-pair preconditioning, >=0 -> block preconditioning.");
    args.Parse();
    if (!args.Good())
    {
@@ -528,34 +536,42 @@ int run_adv_diff(int argc, char *argv[])
       temp_dg = false;
    }
    DGAdvDiff dg(fes, use_AIR, temp_dg);
-
    double t = 0.0;
 
    std::unique_ptr<ODESolver> ode;
+   IRK *irk = NULL;
+   BlockPreconditionedIRK *block_irk = NULL;
 
-   if (use_irk != 0)
+   IRKKrylovParams krylov_params;
+   krylov_params.printlevel = 2;
+   krylov_params.kdim = 50;
+   krylov_params.maxiter = maxiter;
+   krylov_params.reltol = 1e-12;
+   if (use_gmres==-1 || use_gmres==1) krylov_params.solver = IRKKrylovMethod::FGMRES;
+   else if(use_gmres == 2) krylov_params.solver = IRKKrylovMethod::FP;
+   else krylov_params.solver = IRKKrylovMethod::GMRES;
+
+   // Conjugate pair preconditioning
+   if (use_irk != 0 && prec_id < 0)
    {
-      RKData::Type irk_type = static_cast<RKData::Type>(use_irk); // RKData::LSDIRK3;
-      // RKData::Type irk_type = RKData::LSDIRK1;
-      // Can adjust rel tol, abs tol, maxiter, kdim, etc.
-      IRK::KrylovParams krylov_params;
-      krylov_params.printlevel = 2;
-      krylov_params.kdim = 50;
-      krylov_params.maxiter = maxiter;
-      // krylov_params.abstol = 1e-12;
-      krylov_params.reltol = 1e-12;
-      if (use_gmres==-1 || use_gmres==1) krylov_params.solver = IRK::KrylovMethod::FGMRES;
-      else if(use_gmres == 2) krylov_params.solver = IRK::KrylovMethod::FP;
-      else krylov_params.solver = IRK::KrylovMethod::GMRES;
-
       // Build IRK object using spatial discretization
-      IRK *irk = new IRK(&dg, irk_type, mag_prec);
-      // Set GMRES settings
+      irk = new IRK(&dg, static_cast<RKData::Type>(use_irk), mag_prec);
       irk->SetKrylovParams(krylov_params);
       // Initialize solver
       irk->Init(dg);
       ode.reset(irk);
    }
+   // Block preconditioning
+   else if (use_irk != 0) {
+      // Build IRK object using spatial discretization 
+      block_irk = new BlockPreconditionedIRK(&dg, static_cast<RKData::Type>(use_irk), 
+                                 static_cast<BlockPreconditioner>(prec_id));        
+      block_irk->SetKrylovParams(krylov_params);
+      // Initialize IRK time-stepping solver
+      block_irk->Init(dg);
+      ode.reset(block_irk);
+   }
+   // Standard DIRK methods
    else
    {
       // std::unique_ptr<ODESolver> ode(new RK4Solver);
@@ -577,6 +593,8 @@ int run_adv_diff(int argc, char *argv[])
    }
 
    bool done = false;
+   StopWatch timer;
+   timer.Start();
    while (!done)
    {
       double dt_real = min(dt, tf - t);
@@ -594,6 +612,8 @@ int run_adv_diff(int argc, char *argv[])
          }
       }
    }
+   timer.Stop();
+   std::cout << "runtime = " << timer.RealTime() << "\n";
 
    return 0;
 }
