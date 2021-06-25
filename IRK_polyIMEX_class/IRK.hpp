@@ -23,8 +23,8 @@ enum JacSparsity {
 /// Parameters for Newton solver
 struct NewtonParams {
     double reltol = 1e-6;
-    double abstol = 1e-4;
-    int maxiter = 10;
+    double abstol = 1e-6;
+    int maxiter = 25;
     int printlevel = -1; 
     
     // How frequently to we update the Jacobian matrix?

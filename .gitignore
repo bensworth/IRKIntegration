@@ -20,6 +20,7 @@ mg_irk.pdf
 
 *.dSYM
 *.o
+2x2-ode
 driver
 driver_adv_dif_FD
 imex-dg-adv-diff

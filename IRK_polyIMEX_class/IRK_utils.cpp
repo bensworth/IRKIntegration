@@ -140,14 +140,7 @@ void IRKOperator::ExplicitGradientMult(const Vector &x, Vector &y) const
     MFEM_ASSERT(m_gradients == ExplicitGradients::APPROXIMATE, 
                 "IRKOperator::ExplicitGradientMult() applies only for \
                 ExplicitGradients::APPROXIMATE");
-    
-    // For linearly implicit operators, apply linear operator directly
-    if (m_linearly_imp) {
-        this->ImplicitMult(x,y);
-    }
-    else {
-        mfem_error("IRKOperator::ExplicitGradientMult() is not overridden!");
-    }
+    mfem_error("IRKOperator::ExplicitGradientMult() is not overridden!");
 }
 
 void IRKOperator::SetPreconditioner(int index, double dt, double gamma, int type) 

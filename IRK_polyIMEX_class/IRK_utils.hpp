@@ -192,8 +192,9 @@ public:
     /** Compute action of Na' explicit gradient operator.
         For problems with
             m_linearly_imp = true,
-        this function just calls self->ImplicitMult(). Otherwise,
-        if not re-implemented, this method simply generates an error. */    
+        this function should be equivalent to self->ImplicitMult()
+        *without forcing functions.*
+        If not re-implemented, this method simply generates an error. */    
     virtual void ExplicitGradientMult(const Vector &x, Vector &y) const;
 
     /** Assemble preconditioner for gamma*M - dt*Na' that's applied by

@@ -72,6 +72,13 @@ public:
       Ai_inv.SetSize(2);
    }
 
+   void SetImplicit()
+   {
+      Ai += Ae;
+      Ae = 0.0;
+      imp_forcing = true;
+   }
+
    // Compute the right-hand side of the ODE system.
    // du_dt <- (L y - f)
    virtual void Mult(const Vector &u, Vector &du_dt) const override
@@ -93,8 +100,14 @@ public:
       du_dt.SetSize(u.Size());
       Ai.Mult(u, du_dt);
       if (imp_forcing) {
-         // this->AddForcing(du_dt, this->GetTime(), 1.0);
+         this->AddForcing(du_dt, this->GetTime(), 1.0);
       }
+   }
+
+   void ExplicitGradientMult(const Vector &u, Vector &du_dt) const override
+   {
+      du_dt.SetSize(u.Size());
+      Ai.Mult(u, du_dt);
    }
 
    // Apply y = (I - dt*Ai)^{-1}x
@@ -223,7 +236,6 @@ int solve_ode(int argc, char *argv[])
    double dt = 1e-2;
    double tf = 0.1;
    int use_irk = 111;
-   bool compute_err = true;
    bool imp_force = true;
    int iters = 5;
 
@@ -231,8 +243,9 @@ int solve_ode(int argc, char *argv[])
    args.AddOption(&dt, "-dt", "--time-step", "Time step.");
    args.AddOption(&tf, "-tf", "--final-time", "Final time.");
    args.AddOption(&use_irk, "-irk", "--irk", "Use IRK solver (provide id; if 0, Euler-IMEX).");
-   args.AddOption(&iters, "-i", "--num-iters",
-                  "Number applications of iterator, default 1.");
+   args.AddOption(&iters, "-i", "--num-iters", "Number applications of iterator, default 1.");
+   args.AddOption(&imp_force, "-if", "--imp-forcing","-ef", "--exp-forcing", 
+      "Implicit or explicit forcing.");
    args.Parse();
    if (!args.Good())
    {
@@ -262,6 +275,7 @@ int solve_ode(int argc, char *argv[])
       krylov_params.solver = KrylovMethod::GMRES;
 
       if (use_irk < 100) {
+         oper.SetImplicit();
          irk = new IRK(&oper, *coeffs);
       }
       else {
@@ -286,16 +300,13 @@ int solve_ode(int argc, char *argv[])
    }
 
    // Compute error to exact solution
-   if (compute_err)
-   {
-      Vector sol(2);
-      get_sol(sol, t);
-      double err = std::sqrt( (u(0)-sol(0))*(u(0)-sol(0)) + (u(1)-sol(1))*(u(1)-sol(1)) );
-      if (myid == 0) {
-         std::cout << std::setprecision(io_digits) << "u-final = (" << u(0) << ", " << u(1) << ").\n";
-         std::cout << std::setprecision(io_digits) << "exact   = (" << sol(0) << ", " << sol(1) << ").\n";
-         std::cout << std::setprecision(io_digits) << "t-final " << t << "\nl2 " << err << "\n\n";
-      }
+   Vector sol(2);
+   get_sol(sol, t);
+   double err = std::sqrt( (u(0)-sol(0))*(u(0)-sol(0)) + (u(1)-sol(1))*(u(1)-sol(1)) );
+   if (myid == 0) {
+      std::cout << std::setprecision(io_digits) << "u-final = (" << u(0) << ", " << u(1) << ").\n";
+      std::cout << std::setprecision(io_digits) << "exact   = (" << sol(0) << ", " << sol(1) << ").\n";
+      std::cout << std::setprecision(io_digits) << "t-final " << t << "\nl2 " << err << "\n\n";
    }
 
    return 0;
