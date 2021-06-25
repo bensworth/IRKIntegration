@@ -657,7 +657,7 @@ int run_adv_diff(int argc, char *argv[])
       // evol = new FE_Evolution(dg);
       // evol->SetTime(t);
 
-      IMEXEuler *imex = new IMEXEuler(&dg);
+      IMEXEuler *imex = new IMEXEuler();
       imex->Init(dg);
       ode.reset(imex);
    }

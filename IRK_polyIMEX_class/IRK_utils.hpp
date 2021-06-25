@@ -138,6 +138,10 @@ public:
     /* Only used for standard RK IMEX schemes. */
     virtual void ImplicitSolve(const double dt, const Vector &u, Vector &k) { };
 
+    /** Solve M*x - dtf(x, t) = b, where f() is the implicit part of the operator. */
+    virtual void ImplicitSolve2(const double dt, const Vector &b, Vector &x)
+    { mfem_error("IMEXTimeDependentOperator::ImplicitSolve2() is not overridden!"); };
+
     /* ---------------------------------------------------------------------- */
     /* ---------------- Virtual functions for Type::IMPLICIT ---------------- */
     /* -- Note, this weird MFEM notation IMPLICIT means has a mass matrix. -- */

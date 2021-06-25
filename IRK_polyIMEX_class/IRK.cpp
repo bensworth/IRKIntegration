@@ -6,33 +6,29 @@
 #include <cmath> 
 
 
-
-IMEXEuler::IMEXEuler(IRKOperator *IRKOper_) : m_IRKOper(IRKOper_)
+void IMEXEuler::Init(IRKOperator &_imex)
 {
-
-}
-
-void IMEXEuler::Init(TimeDependentOperator &_f)
-{
-   ODESolver::Init(_f);
-   k.SetSize(f->Width(), mem_type);
-   z.SetSize(f->Width(), mem_type);
+    ODESolver::Init(_imex);
+    imex = &_imex;
+    k.SetSize(imex->Width(), mem_type);
+    z.SetSize(imex->Width(), mem_type);
 }
 
 void IMEXEuler::Step(Vector &x, double &t, double &dt)
 {
-   //  0 | 0 0    0 | 0 0
-   //  1 | 0 1    1 | 1 0
-   // ---+-----  ---+-----
-   //    | 0 1      | 1 0
-   m_IRKOper->SetTime(t);
-   m_IRKOper->ExplicitMult(x,k);
-   k *= dt;
-   m_IRKOper->MassMult(x,z);
-   k += z;
-   m_IRKOper->SetTime(t + dt);
-   m_IRKOper->ImplicitSolve(dt, k, x);
-   t += dt;
+    //  0 | 0 0    0 | 0 0
+    //  1 | 0 1    1 | 1 0
+    // ---+-----  ---+-----
+    //    | 0 1      | 1 0
+    /* This version has no inverse in ExplicitMult */
+    imex->SetTime(t);
+    imex->ExplicitMult(x, z);
+    imex->MassInv(z, k);
+    x.Add(dt, k);
+    imex->SetTime(t + dt);
+    imex->ImplicitSolve(dt, x, z);
+    x.Add(dt, z);
+    t += dt;
 }
 
 

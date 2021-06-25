@@ -14,30 +14,35 @@ METIS_DIR = $(MFEM_DIR)/../metis-5.1.0/build/Darwin-x86_64
 CXX      = mpicxx
 FLAGS    = -g -std=c++14 -fopenmp
 INC      = -I$(MFEM_DIR)/bens_build -I$(HYPRE_DIR)/include -I$(METIS_DIR)/include -I./
-CXXFLAGS = $(FLAGS) $(INC)
 LDFLAGS  = -L$(MFEM_DIR)/bens_build -L$(HYPRE_DIR)/lib -L$(METIS_DIR)/libmetis
 LDLIBS   = -lmfem -lHYPRE -lmetis
+CXXFLAGS = $(FLAGS) $(INC) $(LDFLAGS)
 
 # Files to compile
-# SOURCE_FILES   = $(wildcard *.cpp)
-SOURCE_FILES   = FDSpaceDisc.cpp IRK_utils.cpp IRK.cpp imex-dg-adv-diff.cpp
-EXEC_FILES     = imex-dg-adv-diff 
-# SOURCE_FILES   = FDSpaceDisc.cpp IRK_utils.cpp IRK.cpp driver_adv_dif_FD.cpp
-# EXEC_FILES     = driver_adv_dif_FD
-OBJECT_FILES   = $(SOURCE_FILES:.cpp=.o)
+SRCS   = FDSpaceDisc.cpp IRK_utils.cpp IRK.cpp
+SRCS1 = imex-dg-adv-diff.cpp
+SRCS2 = 2x2-ode.cpp 
 
+OBJS  = ${SRCS:.cpp=.o}
+OBJS1 = ${SRCS1:.cpp=.o}
+EXEC1 = imex-dg-adv-diff
+OBJS2 = ${SRCS2:.cpp=.o}
+EXEC2 = 2x2-ode
 
-$(EXEC_FILES): $(OBJECT_FILES)
-	$(CXX) $(CXXFLAGS) -o $@ $(OBJECT_FILES) $(LDFLAGS) $(LDLIBS)
+all: $(EXEC1) $(EXEC2)
 
-IRK.o : IRK.cpp IRK.hpp IRK_utils.hpp
-	$(CXX) $(CXXFLAGS) -c IRK.cpp $(LDFLAGS) $(LDLIBS)
+.hpp.o:
+	$(CXX) $(CXXFLAGS) -c $<
 
-FDSpaceDisc.o : FDSpaceDisc.cpp FDSpaceDisc.hpp
-	$(CXX) $(CXXFLAGS) -c FDSpaceDisc.cpp $(LDFLAGS) $(LDLIBS)
+.cpp.o:
+	$(CXX) $(CXXFLAGS) -c $<
 
-IRK_utils.o : IRK_utils.cpp IRK_utils.hpp
-	$(CXX) $(CXXFLAGS) -c IRK_utils.cpp $(LDFLAGS) $(LDLIBS)
+$(EXEC1): $(OBJS) $(OBJS1) 
+	$(CXX) $(LDLIBS) $(OBJS) $(OBJS1) $(CXXFLAGS) -o $(EXEC1)
+
+$(EXEC2): $(OBJS) $(OBJS2) 
+	$(CXX) $(LDLIBS) $(OBJS) $(OBJS2) $(CXXFLAGS) -o $(EXEC2)
+
 
 .PHONY: clean 
 

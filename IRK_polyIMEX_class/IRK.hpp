@@ -23,9 +23,9 @@ enum JacSparsity {
 /// Parameters for Newton solver
 struct NewtonParams {
     double reltol = 1e-6;
-    double abstol = 1e-6;
+    double abstol = 1e-4;
     int maxiter = 10;
-    int printlevel = 2; 
+    int printlevel = -1; 
     
     // How frequently to we update the Jacobian matrix?
     // <=0 - First iteration only
@@ -41,14 +41,13 @@ class IMEXEuler : public ODESolver
 protected:
     Vector k;
     Vector z;
-    IRKOperator * m_IRKOper;    // Spatial discretization. 
+    IRKOperator *imex;    // Spatial discretization. 
 
 public:
-    IMEXEuler(IRKOperator *IRKOper_);
-    void Init(TimeDependentOperator &_f) override;
-
+    void Init(IRKOperator &_imex);
     void Step(Vector &x, double &t, double &dt) override;
 };
+
 
 /** Class implementing conjugate-pair preconditioned solution of fully implicit 
     RK schemes for the nonlinear ODE system 
