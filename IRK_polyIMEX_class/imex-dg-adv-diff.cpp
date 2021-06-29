@@ -1,3 +1,19 @@
+/* --------------------------------------------------------------- */
+/* --------------------------------------------------------------- */
+/* ---------------------------------------------------------------
+  DEBUGGING:
+  - Currently there is a issue with implicit forcing; IMEX Euler only
+  works with explicit forcing.
+
+
+
+   TESTS'\:
+   RK: mpirun -n 4 ./imex-dg-adv-diff -dt 0.01 -tf 2 -rs 3 -o 3 -e 10 -imex 222
+   Poly: mpirun -n 4 ./imex-dg-adv-diff -dt 0.2 -tf 2 -rs 3 -o 3 -e 10 -irk 123 -i 1
+   --------------------------------------------------------------- */
+/* --------------------------------------------------------------- */
+/* --------------------------------------------------------------- */
+
 #include "mfem.hpp"
 #include "IRK.hpp"
 
@@ -245,6 +261,7 @@ struct DGAdvDiff : IRKOperator
    int use_AMG;
    bool use_gmres, imp_forcing;
    mutable double t_exp, t_imp, dt_;
+   bool fully_implicit;
 public:
    DGAdvDiff(ParFiniteElementSpace &fes_, int use_AMG_= 1,
       bool use_gmres_ = false, bool imp_forcing_=true)
@@ -264,6 +281,7 @@ public:
         t_exp(-1),
         t_imp(-1),
         imp_forcing(imp_forcing_),
+        fully_implicit(false),
         dt_(-1)
    {
       const int order = fes.GetOrder(0);
@@ -288,8 +306,6 @@ public:
       a_exp.Finalize(0);
       A_exp = a_exp.ParallelAssemble();
 
-      (*A_imp) += (*A_exp);   // DEBUG
-
       m.AddDomainIntegrator(new MassIntegrator);
       m.Assemble(0);
       m.Finalize(0);
@@ -304,6 +320,19 @@ public:
       current_prec = nullptr;
    }
 
+   void SaveMats()
+   {
+      A_imp->Print("A_imp.mm");
+      A_exp->Print("A_exp.mm");
+   }
+
+   void SetImplicit()
+   {
+      fully_implicit = true;
+      imp_forcing = true;
+      (*A_imp) += (*A_exp);
+   }
+
    // Compute the right-hand side of the ODE system.
    // du_dt <- M^{-1} (L y - f)
    virtual void Mult(const Vector &u, Vector &du_dt) const override
@@ -313,14 +342,33 @@ public:
 
    void ExplicitMult(const Vector &u, Vector &du_dt) const override
    {
-      // A_exp->Mult(u, du_dt);
-      du_dt = 0.0;   // DEBUG
+      if (fully_implicit) {
+         du_dt = 0.0;
+      }
+      else {
+         A_exp->Mult(u, du_dt);
 
-      // Add forcing function and BCs
-      // TODO : could probably check whether this time needs to be
-      //    set or not, but need to coordinate between exp and imp.
-      // BC_coeff.SetTime(this->GetTime());
-      if (!imp_forcing) {
+         // Add forcing function and BCs
+         // TODO : could probably check whether this time needs to be
+         //    set or not, but need to coordinate between exp and imp.
+         // BC_coeff.SetTime(this->GetTime());
+         if (!imp_forcing) {
+            forcing_coeff.SetTime(this->GetTime());
+            b_exp.Assemble();
+            t_exp = this->GetTime();
+            HypreParVector *B = new HypreParVector(*A_exp);
+            B = b_exp.ParallelAssemble();
+            du_dt -= *B;
+            delete B;
+         }
+      }
+   }
+
+   void ImplicitMult(const Vector &u, Vector &du_dt) const override
+   {
+      A_imp->Mult(u, du_dt);
+
+      if (imp_forcing) {
          forcing_coeff.SetTime(this->GetTime());
          b_exp.Assemble();
          t_exp = this->GetTime();
@@ -331,10 +379,25 @@ public:
       }
    }
 
-   void ImplicitMult(const Vector &u, Vector &du_dt) const override
+   // ImplicitMult without the forcing function
+   void ExplicitGradientMult(const Vector &u, Vector &du_dt) const override
    {
       A_imp->Mult(u, du_dt);
    }
+
+
+   void AddForcing(Vector &rhs, double t, double r, double z)
+   {
+      // Add forcing function and BCs
+      double ti = t + r*z;
+      forcing_coeff.SetTime(ti);
+      HypreParVector *B = new HypreParVector(*A_imp);
+      b_imp.Assemble();
+      B = b_imp.ParallelAssemble();
+      rhs.Add(-r, *B);
+   }
+
+
 
    void AddImplicitForcing(Vector &rhs, double t, double r, double z)
    {
@@ -387,11 +450,29 @@ public:
                                                      *A_imp, use_AMG, use_gmres);
          dt_ = dt;
       }
-      Vector rhs(x);
-      rhs = x; // This shouldnt be necessary
-      AddImplicitForcing(rhs, this->GetTime(), dt, 0);
+      Vector rhs(x.Size());
+      A_imp->Mult(x, rhs);
+      // AddImplicitForcing(rhs, this->GetTime(), 1.0, 0);
       current_prec->Solve(rhs, k);
    }
+
+   /// Solve M*x - dtf(x, t) = b
+   // This is for other formulation of RK in terms of solution rather than stages
+   virtual void ImplicitSolve2(const double dt, const Vector &b, Vector &x) override
+   {
+      if (current_prec == NULL || dt != dt_)
+      {
+         delete current_prec;
+         current_prec = new BackwardEulerPreconditioner(fes, 1.0, *M_mat, dt,
+                                                     *A_imp, use_AMG, use_gmres);
+         dt_ = dt;
+      }
+      Vector rhs(b);
+      rhs = b; // This shouldnt be necessary
+      if (imp_forcing) AddForcing(rhs, this->GetTime(), dt, 0);
+      current_prec->Solve(rhs, x);
+   }
+
 
    /** Ensures that this->ImplicitPrec() preconditions (\gamma*M - dt*L)
            + index -> index of system to solve, [0,s_eff)
@@ -522,6 +603,8 @@ int run_adv_diff(int argc, char *argv[])
    int mag_prec = 1;
    bool compute_err = true;
    int iters = 1;
+   bool full_imp = false;
+   bool imp_force = true;
 
    OptionsParser args(argc, argv);
    args.AddOption(&mesh_file, "-m", "--mesh",
@@ -532,20 +615,22 @@ int run_adv_diff(int argc, char *argv[])
                   "Number of times to refine the parallel mesh uniformly.");
    args.AddOption(&order, "-o", "--order",
                   "Finite element order (polynomial degree) >= 0.");
-   args.AddOption(&kappa, "-k", "--kappa",
-                  "One of the two DG penalty parameters, should be positive."
-                  " Negative values are replaced with (order+1)^2.");
    args.AddOption(&eps, "-e", "--epsilon", "Diffusion coefficient.");
    args.AddOption(&dt, "-dt", "--time-step", "Time step.");
    args.AddOption(&tf, "-tf", "--final-time", "Final time.");
    args.AddOption(&use_irk, "-irk", "--irk", "Use IRK solver (provide id; if 0, no IRK).");
    args.AddOption(&use_AMG, "-amg", "--use-amg", "Use AMG: > 0 implies # AMG iterations, 0 = Block ILU.");
    args.AddOption(&visualization, "-v", "--visualization", "-nov", "--no-visualization",
-                  "Use IRK solver.");
+                  "Use visualization.");
    args.AddOption(&use_gmres, "-gmres", "--use-gmres",
                   "-1=FGMRES/fixed-point, 0=GMRES/fixed-point, 1=FGMRES/GMRES.");
    args.AddOption(&iters, "-i", "--num-iters",
                   "Number applications of iterator, default 1.");
+   args.AddOption(&full_imp, "-imp", "--full-imp", "-imex","--imex", \
+         "Treat ODE fully implicitly.");
+   args.AddOption(&imp_force, "-if", "--imp-forcing","-ef", "--exp-forcing", 
+      "Implicit or explicit forcing.");
+
    args.Parse();
    if (!args.Good())
    {
@@ -620,47 +705,52 @@ int run_adv_diff(int argc, char *argv[])
       temp_dg = false;
    }
    double t = 0.0;
-   DGAdvDiff dg(fes, use_AMG, temp_dg);
+   DGAdvDiff dg(fes, use_AMG, temp_dg, imp_force);
    FE_Evolution *evol = NULL;
    IRK *irk = NULL;
    RKData* coeffs = NULL;
    std::unique_ptr<ODESolver> ode;
 
+   // Fully implicit propagation
+   if (full_imp) dg.SetImplicit();
+
    if (use_irk > 3)
    {
       coeffs = new RKData(static_cast<RKData::Type>(use_irk));
-
-      // for (int i=0; i<coeffs
-
-
-      // Can adjust rel tol, abs tol, maxiter, kdim, etc.
       KrylovParams krylov_params;
       krylov_params.printlevel = 0;
       krylov_params.kdim = 50;
       krylov_params.maxiter = maxiter;
-      // krylov_params.abstol = 1e-12;
       krylov_params.reltol = 1e-12;
       if (use_gmres==-1 || use_gmres==1) krylov_params.solver = KrylovMethod::FGMRES;
       else if(use_gmres == 2) krylov_params.solver = KrylovMethod::FP;
       else krylov_params.solver = KrylovMethod::GMRES;
 
-      // Build IRK object using spatial discretization
-      irk = new PolyIMEX(&dg, *coeffs, true, iters);
-      // Set GMRES settings
+      if (use_irk < 100) {
+         dg.SetImplicit();
+         irk = new IRK(&dg, *coeffs);
+      }
+      else {
+         irk = new PolyIMEX(&dg, *coeffs, true, iters);
+      }
       irk->SetKrylovParams(krylov_params);
-      // Initialize solver
+
+      // NewtonParams NEWTON;
+      // NEWTON.printlevel = 1;
+      // NEWTON.abstol = 1e-4;
+      // irk->SetNewtonParams(NEWTON);
+
       irk->Init(dg);
       ode.reset(irk);
    }
    else
    {
-      // evol = new FE_Evolution(dg);
-      // evol->SetTime(t);
-
       IMEXEuler *imex = new IMEXEuler();
       imex->Init(dg);
       ode.reset(imex);
    }
+
+
 
    double t_vis = t;
    double vis_int = (tf-t)/double(vis_steps);
@@ -677,12 +767,11 @@ int run_adv_diff(int argc, char *argv[])
    timer.Start();
    while (!done)
    {
-      double dt_real = min(dt, tf - t);
-      ode->Step(u, t, dt_real);
+      ode->Step(u, t, dt);
       done = (t >= tf - 1e-8*dt);
       if (t - t_vis > vis_int || done)
       {
-         if (root) { printf("t = %4.3f\n", t); }
+         // if (root) { printf("t = %4.3f\n", t); }
          if (visualization) {
             t_vis = t;
             dc.SetCycle(dc.GetCycle()+1);
@@ -701,15 +790,15 @@ int run_adv_diff(int argc, char *argv[])
       u_ex_coeff.SetTime(t);
 
       double err = u_gf.ComputeL2Error(u_ex_coeff);
-
-      u_ex_coeff.SetTime(t-dt);
-      double errm = u_gf.ComputeL2Error(u_ex_coeff);
-
-      u_ex_coeff.SetTime(t+dt);
-      double errp = u_gf.ComputeL2Error(u_ex_coeff);
       if (myid == 0) std::cout << "t-final " << t << "\nl2(t) " << err <<
-         "\nl2(t-dt) " << errm << "\nl2(t+dt) " << errp <<
          "\nruntime " << timer.RealTime() << "\n\n";
+   }
+
+   if (save_files) {
+
+
+
+
    }
 
    // if (evol) delete evol;

@@ -22,14 +22,17 @@ CXXFLAGS = $(FLAGS) $(INC) $(LDFLAGS)
 SRCS   = FDSpaceDisc.cpp IRK_utils.cpp IRK.cpp
 SRCS1 = imex-dg-adv-diff.cpp
 SRCS2 = 2x2-ode.cpp 
+SRCS3 = complex-ode.cpp 
 
 OBJS  = ${SRCS:.cpp=.o}
 OBJS1 = ${SRCS1:.cpp=.o}
 EXEC1 = imex-dg-adv-diff
 OBJS2 = ${SRCS2:.cpp=.o}
 EXEC2 = 2x2-ode
+OBJS3 = ${SRCS3:.cpp=.o}
+EXEC3 = complex-ode
 
-all: $(EXEC1) $(EXEC2)
+all: $(EXEC1) $(EXEC2) $(EXEC3)
 
 .hpp.o:
 	$(CXX) $(CXXFLAGS) -c $<
@@ -42,6 +45,9 @@ $(EXEC1): $(OBJS) $(OBJS1)
 
 $(EXEC2): $(OBJS) $(OBJS2) 
 	$(CXX) $(LDLIBS) $(OBJS) $(OBJS2) $(CXXFLAGS) -o $(EXEC2)
+
+$(EXEC3): $(OBJS) $(OBJS3) 
+	$(CXX) $(LDLIBS) $(OBJS) $(OBJS3) $(CXXFLAGS) -o $(EXEC3)
 
 
 .PHONY: clean 

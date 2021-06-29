@@ -176,12 +176,10 @@ public:
       this->ImpInvMult(dt, rhs, x);
    }
 
-
    /// Precondition B*x=y <==> (\gamma*I - dt*L)*x=y
    void ImplicitPrec(const Vector &x, Vector &y) const override
    {
       MFEM_VERIFY(current_prec != NULL, "Must call SetSystem before ImplicitPrec");
-      HYPRE_ClearAllErrors();
       current_prec->Mult(x, y);
    }
 
@@ -189,7 +187,6 @@ public:
    void ImplicitPrec(int index, const Vector &x, Vector &y) const override
    {
       MFEM_VERIFY(current_prec != NULL, "Must call SetSystem before ImplicitPrec");
-      HYPRE_ClearAllErrors();
       prec.at(index)->Mult(x, y);
    }
 
@@ -298,6 +295,7 @@ int solve_ode(int argc, char *argv[])
       ode->Step(u, t, dt);
       done = (t >= tf - 1e-8*dt);
    }
+   std::cout << "\n";
 
    // Compute error to exact solution
    Vector sol(2);

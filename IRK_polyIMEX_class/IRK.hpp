@@ -111,13 +111,13 @@ public:
 
     /// Set parameters for Newton solver
     inline void SetNewtonParams(NewtonParams params) { 
-        MFEM_ASSERT(!m_solversInit, "IRK::SetNewtonParams:: Can only be called before IRK::Run()");
+        MFEM_ASSERT(!m_solversInit, "IRK::SetNewtonParams:: Can only be called before IRK::Init()");
         m_newton_params = params;
     }
 
     /// Set parameters for Krylov solver
     inline void SetKrylovParams(KrylovParams params) { 
-        MFEM_ASSERT(!m_solversInit, "IRK::SetKrylovParams:: Can only be called before IRK::Run()");
+        MFEM_ASSERT(!m_solversInit, "IRK::SetKrylovParams:: Can only be called before IRK::Init()");
         m_krylov_params = params;
         m_krylov2 = false; // Using single Krylov solver
     }

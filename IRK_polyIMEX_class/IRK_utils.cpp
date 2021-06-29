@@ -292,8 +292,7 @@ void IRKStageOper::Mult(const Vector &w_vector, Vector &y_vector) const
         else{
             IRKOper->SetTime(t + Butcher.z0[i]*dt);     // TODO : what is correct time??
             IRKOper->ImplicitMult(w_block.GetBlock(i), temp_vector2); // temp2 <- N(temp1, t)
-            y_block.GetBlock(i).Add(-1., temp_vector2);
-
+            y_block.GetBlock(i).Add(-1.*dt, temp_vector2);
         }
     }
 }
@@ -834,7 +833,7 @@ void TriJacSolver::SetOperator(const Operator &op)
                 (StageOper.GetGradientCalls()+1) % jac_update_rate == 0) ) )
     {
         // IRK methods, where *(StageOper.u) is not null
-        if (*(StageOper.u)) {
+        if (StageOper.u) {
             if (kronecker_form) {
                 // Set approximate gradient Na' 
                 StageOper.IRKOper->SetExplicitGradient(*(StageOper.u), StageOper.GetTimeStep(), 
@@ -869,14 +868,14 @@ void TriJacSolver::Mult(const Vector &b_vector, Vector &x_vector) const
     // Wrap scalar Vectors into BlockVectors
     b_block.Update(b_vector.GetData(), offsets);
     x_block.Update(x_vector.GetData(), offsets);
-    
+ 
     // Transform initial guess and RHS 
     KronTransformTranspose(StageOper.Butcher.Q0, x_block, x_block_temp);
     KronTransformTranspose(StageOper.Butcher.Q0, b_block, b_block_temp);
     
     // Solve \tilde{J}*x_block_temp=b_block_temp, 
     BlockBackwardSubstitution(b_block_temp, x_block_temp);
-    
+
     // Transform to get original x
     KronTransform(StageOper.Butcher.Q0, x_block_temp, x_block); 
 }

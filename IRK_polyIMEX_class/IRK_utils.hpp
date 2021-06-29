@@ -387,6 +387,9 @@ private:
     // Wrappers for vectors
     mutable BlockVector w_block, y_block;
     
+    // Optional right-hand side vector
+    BlockVector *rhs;
+
     // Auxillary vectors
     mutable BlockVector temp_block;
     mutable Vector temp_vector1, temp_vector2;    
@@ -413,6 +416,7 @@ public:
         temp_block(offsets_),
         current_iterate(),
         dummy_gradient(NULL),
+        rhs(NULL),
         getGradientCalls(0)
     { };
     

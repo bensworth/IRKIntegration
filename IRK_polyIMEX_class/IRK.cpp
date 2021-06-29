@@ -334,8 +334,10 @@ void PolyIMEX::Step(Vector &x, double &t, double &dt)
     // times.
     if (!initialized) {
         // Initialize explicit components
+        // - NOTE: do not need to initialize sol_imp/sol_exp here
         m_IRKOper->SetTime(t + m_Butcher.z0(0)*r);
         m_IRKOper->ExplicitMult(x, exp_part.GetBlock(0));
+
         for (int i=1; i<=m_Butcher.s; i++) {
         
             // TODO : Do we need to set this or include explicit time-dependent forcing functions??
@@ -346,9 +348,38 @@ void PolyIMEX::Step(Vector &x, double &t, double &dt)
         // Perform order+num_iters applications of iterator
         for (int i=0; i<(m_Butcher.order+num_iters); i++) {
         // for (int i=0; i<1; i++) {   // DEBUG
+
+            // // DEBUG
+            // if (exp_ind == 0) {
+            //     Vector u = sol_exp;
+            //     std::cout << std::setprecision(16) << "\tINIT: u0 = (" << u(0) << ", " << u(1) << ")\n";
+
+            //     for (int i=0; i<m_Butcher.s; i++) {
+            //         u = sol_imp.GetBlock(i);
+            //         std::cout << std::setprecision(16) << "\tINIT: u"<< i+1 << " = (" << u(0) << ", " << u(1) << ")\n";
+            //     }
+            // }
+            // // Implicit stages are first, followed by explicit
+            // else {
+            //     Vector u;
+            //     for (int i=0; i<m_Butcher.s; i++) {
+            //         u = sol_imp.GetBlock(i);
+            //         std::cout << std::setprecision(16) << "\tINIT: u"<< i << " = (" << u(0) << ", " << u(1) << ")\n";
+            //     }
+            //     u = sol_exp;
+            //     std::cout << std::setprecision(16) << "\tINIT: us-1 = (" << u(0) << ", " << u(1) << ")\n";
+            // } 
+            // for (int i=0; i<=m_Butcher.s; i++) {
+            //     Vector u = exp_part.GetBlock(i);
+            //     std::cout << std::setprecision(16) << "\tEXP("<< i << ") = (" << u(0) << ", " << u(1) << ")\n";
+            // }
+            // // DEBUG
+
             Iterate(x, t, r, true);        
+
         }
         initialized = true;
+
     }
 
     // Reset iteration counter for Jacobian solve from previous Newton iteration
@@ -382,6 +413,30 @@ void PolyIMEX::Step(Vector &x, double &t, double &dt)
         // x = sol_imp.GetBlock(0);
     }
     t += dt; // Update current time
+
+
+
+    // // DEBUG
+    // if (exp_ind == 0) {
+    //     Vector u = sol_exp;
+    //     std::cout << std::setprecision(16) << "\tu0 = (" << u(0) << ", " << u(1) << ")\n";
+
+    //     for (int i=0; i<m_Butcher.s; i++) {
+    //         u = sol_imp.GetBlock(i);
+    //         std::cout << std::setprecision(16) << "\tu"<< i << " = (" << u(0) << ", " << u(1) << ")\n";
+    //     }
+    // }
+    // // Implicit stages are first, followed by explicit
+    // else {
+    //     Vector u;
+    //     for (int i=0; i<m_Butcher.s; i++) {
+    //         u = sol_imp.GetBlock(i);
+    //         std::cout << std::setprecision(16) << "\tu"<< i << " = (" << u(0) << ", " << u(1) << ")\n";
+    //     }
+    //     u = sol_exp;
+    //     std::cout << std::setprecision(16) << "\tus-1 = (" << u(0) << ", " << u(1) << ")\n";
+    // } 
+    // // DEBUG
 }
 
 
@@ -404,13 +459,29 @@ void PolyIMEX::FormImpRHS(Vector &x_prev, const double &t,
     // applied to the jth stage of the nth time step, with j=0 the
     // solution at the nth time step, j=1,...,s-1 the internal
     // stages, and j=s the (n+1)st time step.
+    //
+    // NOTE: for exp_ind=0, we are only considering all rows
+    // except the first row of explicit coefficients, while for
+    // exp_ind=s, we are considering all but the last row.
     Vector temp(x_prev);
     m_IRKOper->MassMult(x_prev, temp);
-    for (int i=0; i <m_Butcher.s; i++) {
-        rhs.GetBlock(i) = temp;
-        for (int j=0; j<=m_Butcher.s; j++) {
-            if (std::abs((*coeffs)(i,j)) > 1e-15) { 
-                rhs.GetBlock(i).Add(r * (*coeffs)(i,j), exp_part.GetBlock(j));
+    if (exp_ind == 0) {
+        for (int i=0; i<m_Butcher.s; i++) {
+            rhs.GetBlock(i) = temp;
+            for (int j=0; j<=m_Butcher.s; j++) {
+                if (std::abs((*coeffs)(i+1,j)) > 1e-15) { 
+                    rhs.GetBlock(i).Add(r * (*coeffs)(i+1,j), exp_part.GetBlock(j));
+                }
+            }
+        }
+    }
+    else {
+        for (int i=0; i<m_Butcher.s; i++) {
+            rhs.GetBlock(i) = temp;
+            for (int j=0; j<=m_Butcher.s; j++) {
+                if (std::abs((*coeffs)(i,j)) > 1e-15) { 
+                    rhs.GetBlock(i).Add(r * (*coeffs)(i,j), exp_part.GetBlock(j));
+                }
             }
         }
     }
@@ -421,8 +492,8 @@ void PolyIMEX::FormImpRHS(Vector &x_prev, const double &t,
     if (exp_ind == 0) {
         bool need_update = false;
         if (iterator) {
-            // coeffs = &(m_Butcher.A0_it);     // *--- IF A0_it != A0 ---*
             coeffs = &(m_Butcher.A0);
+            // coeffs = &(m_Butcher.A0_it);     // *--- IF A0_it != A0 ---*
         }
         else {
             coeffs = &(m_Butcher.A0);
@@ -450,6 +521,12 @@ void PolyIMEX::FormImpRHS(Vector &x_prev, const double &t,
         }
         coeffs = NULL;
     }
+
+    // // DEBUG
+    // for (int i=0; i<m_Butcher.s; i++) {
+    //     Vector u = rhs.GetBlock(i);
+    //     std::cout << std::setprecision(16) << "\tRHS("<< i << ") = (" << u(0) << ", " << u(1) << ")\n";
+    // }
 
     // Scale by (A0 x I)^{-1}, rhs <- (A0 x I)^{-1}rhs
     KronTransform(m_Butcher.invA0, rhs);
@@ -558,8 +635,21 @@ void PolyIMEX::Iterate(Vector &x, const double &t, const double &r, bool iterato
 
     // ------------- Linearly implicit IMEX ------------- //
     if (linearly_imp) {
+
         // Solve linear system for implicit stages
         m_tri_jac_solver->Mult(rhs, sol_imp);
+
+        // // DEBUG
+        // BlockVector test(sol_imp);
+        // m_stageOper->Mult(sol_imp, test);
+        // test -= rhs;
+        // std::cout << "\t\tSystem solve error = " << test.Norml2() << "\n";
+        // // DEBUG
+        // for (int i=0; i<m_Butcher.s; i++) {
+        //     Vector u = sol_imp.GetBlock(i);
+        //     std::cout << std::setprecision(16) << "\t\tu"<< i << " = (" << u(0) << ", " << u(1) << ")\n";
+        // }
+        // // DEBUG
 
         // TODO : add average Krylov iterations here
 
