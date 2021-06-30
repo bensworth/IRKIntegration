@@ -1,15 +1,18 @@
 /* --------------------------------------------------------------- */
 /* --------------------------------------------------------------- */
 /* ---------------------------------------------------------------
-  DEBUGGING:
-  - Currently there is a issue with implicit forcing; IMEX Euler only
-  works with explicit forcing.
+  DEBUGGING/TODO:
+  - Print matrices to file for Tommaso to test RK on. Probably print
+  from other code.
+
+  - Merge IMEX codes to one framework.
 
 
 
-   TESTS'\:
-   RK: mpirun -n 4 ./imex-dg-adv-diff -dt 0.01 -tf 2 -rs 3 -o 3 -e 10 -imex 222
-   Poly: mpirun -n 4 ./imex-dg-adv-diff -dt 0.2 -tf 2 -rs 3 -o 3 -e 10 -irk 123 -i 1
+   TESTS:
+   - RK: mpirun -n 4 ./imex-dg-adv-diff -dt 0.01 -tf 2 -rs 3 -o 3 -e 10 -imex 222
+     Poly: mpirun -n 4 ./imex-dg-adv-diff -dt 0.2 -tf 2 -rs 3 -o 3 -e 10 -irk 123 -i 1
+   - 
    --------------------------------------------------------------- */
 /* --------------------------------------------------------------- */
 /* --------------------------------------------------------------- */
@@ -322,6 +325,7 @@ public:
 
    void SaveMats()
    {
+      M_mat->Print("M_mat.mm");
       A_imp->Print("A_imp.mm");
       A_exp->Print("A_exp.mm");
    }
@@ -605,6 +609,7 @@ int run_adv_diff(int argc, char *argv[])
    int iters = 1;
    bool full_imp = false;
    bool imp_force = true;
+   bool save_mats = false;
 
    OptionsParser args(argc, argv);
    args.AddOption(&mesh_file, "-m", "--mesh",
@@ -622,6 +627,8 @@ int run_adv_diff(int argc, char *argv[])
    args.AddOption(&use_AMG, "-amg", "--use-amg", "Use AMG: > 0 implies # AMG iterations, 0 = Block ILU.");
    args.AddOption(&visualization, "-v", "--visualization", "-nov", "--no-visualization",
                   "Use visualization.");
+   args.AddOption(&save_mats, "-save", "--save-mats", "-nosave", "--no-save-mats",
+                  "Save matrices to file.");
    args.AddOption(&use_gmres, "-gmres", "--use-gmres",
                   "-1=FGMRES/fixed-point, 0=GMRES/fixed-point, 1=FGMRES/GMRES.");
    args.AddOption(&iters, "-i", "--num-iters",
@@ -794,11 +801,8 @@ int run_adv_diff(int argc, char *argv[])
          "\nruntime " << timer.RealTime() << "\n\n";
    }
 
-   if (save_files) {
-
-
-
-
+   if (save_mats) {
+      dg.SaveMats();
    }
 
    // if (evol) delete evol;
