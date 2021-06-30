@@ -286,7 +286,7 @@ public:
         LobIIIC2 = 32, LobIIIC4 = 34, LobIIIC6 = 36, LobIIIC8 = 38,
         IMEXGauss4 = 114,
         IMEXRadauIIA3 = 123, IMEXRadauIIA4 = 124, IMEXRadauIIA5 = 125, 
-        IMEXRadauIIA6 = 125, 
+        IMEXRadauIIA6 = 126,
         IMEXLobIIIC2 = 132
     };  
     
