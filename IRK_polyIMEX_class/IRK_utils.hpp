@@ -449,13 +449,14 @@ public:
 
 /** Class describing the operator that's formed by taking the "quasi" product of
     an orthogonal matrix Q with itself */
-class QuasiMatrixProduct : public Array2D<Vector> {
+class QuasiMatrixProduct : public Array2D<Vector*> {
     
 private:
     int height;
 
 public: 
     QuasiMatrixProduct(DenseMatrix Q);
+    ~QuasiMatrixProduct();
     
     void Sparsify(int sparsity);
     

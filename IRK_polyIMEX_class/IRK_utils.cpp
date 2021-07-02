@@ -301,16 +301,16 @@ void IRKStageOper::Mult(const Vector &w_vector, Vector &y_vector) const
 // -------------------------------------------------------------------- //
 
 QuasiMatrixProduct::QuasiMatrixProduct(DenseMatrix Q) 
-    : Array2D<Vector>(Q.Height(), Q.Height()), height{Q.Height()} 
+    : Array2D<Vector*>(Q.Height(), Q.Height()), height{Q.Height()} 
 {
     MFEM_ASSERT(Q.Height() == Q.Width(), "QuasiMatrixProduct:: Matrix must be square");
     
     // Create Vectors of coefficients
     for (int row = 0; row < height; row++) {
         for (int col = 0; col < height; col++) {
-            (*this)(row, col) = Vector(height);
+            (*this)(row, col) = new Vector(height);
             for (int i = 0; i < height; i++) {
-                (*this)(row, col)[i] = Q(i,row)*Q(i,col); 
+                *((*this)(row, col))[i] = Q(i,row)*Q(i,col); 
             }
         }
     }
@@ -336,7 +336,7 @@ void QuasiMatrixProduct::Print() const
     for (int row = 0; row < height; row++) {
         for (int col = 0; col < height; col++) {
             mfem::out << "(" << row << "," << col << "): ";
-            (*this)(row, col).Print();
+            (*this)(row, col)->Print();
         }
     }
 }
@@ -348,28 +348,28 @@ void QuasiMatrixProduct::Lump()
             // Set all off diagonal entries to zero
             if (row != col) {
                 for (int i = 0; i < height; i++) {
-                    (*this)(row, col)[i] = 0.; 
+                    *((*this)(row, col))[i] = 0.; 
                 }
             // Handle diagonal entries    
             }
             else {
                 for (int i = 0; i < height; i++) {
-                    (*this)(row, col)[i] = fabs((*this)(row, col)[i]);
+                    *((*this)(row, col))[i] = fabs(*((*this)(row, col))[i]);
                 }
-                double current = (*this)(row, col)[0], max = current;
+                double current = *((*this)(row, col))[0], max = current;
                 int maxidx = 0;
                 for (int i = 1; i < height; i++) {
-                    current = (*this)(row, col)[i];
+                    current = *((*this)(row, col))[i];
                     if (current > max) {
-                        (*this)(row, col)[maxidx] = 0.;
+                        *((*this)(row, col))[maxidx] = 0.;
                         max = current;
                         maxidx = i;
                     }
                     else {
-                        (*this)(row, col)[i] = 0.;
+                        *((*this)(row, col))[i] = 0.;
                     }
                 }
-                (*this)(row,col)[maxidx] = 1.;
+                *((*this)(row,col))[maxidx] = 1.;
             }
         }
     }
@@ -381,10 +381,19 @@ void QuasiMatrixProduct::TruncateOffDiags()
         for (int col = 0; col < height; col++) {
             if (row != col) {
                 for (int i = 0; i < height; i++) {
-                    (*this)(row, col)[i] = 0.; 
+                    *((*this)(row, col))[i] = 0.; 
                 }
             }
         }            
+    }
+}
+
+QuasiMatrixProduct::~QuasiMatrixProduct()
+{
+    for (int row = 0; row < height; row++) {
+        for (int col = 0; col < height; col++) {
+            delete (*this)(row, col);
+        }
     }
 }
 
@@ -732,7 +741,7 @@ TriJacSolver::TriJacSolver(IRKStageOper &StageOper_, int jac_update_rate_, int g
                 DiagBlock[block] = new JacDiagBlock(offsets_1, *(StageOper.IRKOper), R00);    
             }
             else {
-                DiagBlock[block] = new JacDiagBlock(offsets_1, *(StageOper.IRKOper), R00, (*Z_solver)(row,row));    
+                DiagBlock[block] = new JacDiagBlock(offsets_1, *(StageOper.IRKOper), R00, *(*Z_solver)(row,row));    
             }
             DiagBlockPrec[block] = new JacDiagBlockPrec(*(DiagBlock[block]), identity);
             
@@ -772,13 +781,13 @@ TriJacSolver::TriJacSolver(IRKStageOper &StageOper_, int jac_update_rate_, int g
             else {
                 DiagBlock[block] = new JacDiagBlock(offsets_2, *(StageOper.IRKOper), 
                                                 R00, R01, R10, R11, 
-                                                (*Z_solver)(row,row), 
-                                                (*Z_solver)(row,row+1), 
-                                                (*Z_solver)(row+1,row), 
-                                                (*Z_solver)(row+1,row+1));
+                                                *(*Z_solver)(row,row), 
+                                                *(*Z_solver)(row,row+1), 
+                                                *(*Z_solver)(row+1,row), 
+                                                *(*Z_solver)(row+1,row+1));
                 DiagBlockPrec[block] = new JacDiagBlockPrec(*(DiagBlock[block]),
                                                 R10, 
-                                                (*Z_prec)(row+1,row), 
+                                                *(*Z_prec)(row+1,row), 
                                                 row,  // Precondition (row,row) block with IRKOper.ImplicitPrec(row,.,.)
                                                 row+1,// Precondition (row+1,row+1) block with IRKOper.ImplicitPrec(row+1,.,.)
                                                 identity);
@@ -973,12 +982,12 @@ void TriJacSolver::BlockBackwardSubstitution(BlockVector &z_block,
         }
         else {
             // Preconditioner for R(row,row)*M-dt*<Z_prec(row,row),{N'}> 
-            StageOper.IRKOper->SetPreconditioner(row, dt, R(row,row), (*Z_prec)(row,row));
+            StageOper.IRKOper->SetPreconditioner(row, dt, R(row,row), *(*Z_prec)(row,row));
 
             /* Inverting 2x2 block: Assemble a 2nd preconditioner for 
                 gamma*M-dt*<Z_prec(row+1,row+1),{N'}> */
             if (size[diagBlock] == 2) {
-                StageOper.IRKOper->SetPreconditioner(row+1, dt, gamma, (*Z_prec)(row+1,row+1));
+                StageOper.IRKOper->SetPreconditioner(row+1, dt, gamma, *(*Z_prec)(row+1,row+1));
             }
         }    
         
@@ -1013,7 +1022,7 @@ void TriJacSolver::BlockBackwardSubstitution(BlockVector &z_block,
                 if (!kronecker_form) {
                     for (int j = row+1; j < s; j++) {
                         StageOper.IRKOper->AddExplicitGradientsMult(
-                                                dt, (*Z_solver)(row,j),
+                                                dt, *(*Z_solver)(row,j),
                                                 y_block.GetBlock(j),
                                                 z_block.GetBlock(row));
                     }                        
@@ -1076,8 +1085,8 @@ void TriJacSolver::BlockBackwardSubstitution(BlockVector &z_block,
                 if (!kronecker_form) {
                     for (int j = row+2; j < s; j++) {                
                         StageOper.IRKOper->AddExplicitGradientsMult(
-                                                dt, (*Z_solver)(row,j), 
-                                                dt, (*Z_solver)(row+1,j), 
+                                                dt, *(*Z_solver)(row,j), 
+                                                dt, *(*Z_solver)(row+1,j), 
                                                 y_block.GetBlock(j), 
                                                 z_2block.GetBlock(0), z_2block.GetBlock(1));
                     }
