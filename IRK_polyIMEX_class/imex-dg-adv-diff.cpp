@@ -589,8 +589,8 @@ int run_adv_diff(int argc, char *argv[])
 
    static const double sigma = -1.0;
 
-   // const char *mesh_file = MFEM_DIR + "data/inline-quad.mesh";
-   const char *mesh_file = "/Users/southworth/Software/mfem/data/inline-quad.mesh";
+   std::string mesh_file = MFEM_SOURCE_DIR + std::string("/data/inline-quad.mesh");
+   // const char *mesh_file = "/Users/southworth/Software/mfem/data/inline-quad.mesh";
    int ser_ref_levels = 1;
    int par_ref_levels = 0;
    int order = 1;
@@ -612,8 +612,6 @@ int run_adv_diff(int argc, char *argv[])
    bool save_mats = false;
 
    OptionsParser args(argc, argv);
-   args.AddOption(&mesh_file, "-m", "--mesh",
-                  "Mesh file to use.");
    args.AddOption(&ser_ref_levels, "-rs", "--refine",
                   "Number of times to refine the serial mesh uniformly.");
    args.AddOption(&par_ref_levels, "-rp", "--refine",
@@ -650,7 +648,7 @@ int run_adv_diff(int argc, char *argv[])
    }
    if (root) { args.PrintOptions(std::cout); }
 
-   Mesh *serial_mesh = new Mesh(mesh_file, 1, 1);
+   Mesh *serial_mesh = new Mesh(mesh_file.c_str(), 1, 1);
    int dim = serial_mesh->Dimension();
    if (ser_ref_levels < 0)
    {

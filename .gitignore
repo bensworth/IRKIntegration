@@ -7,6 +7,9 @@ irk_DAE.pdf
 analysis_notes/fov.pdf
 mg_irk.pdf
 
+arm_makefile
+darwin_make
+makefile
 *.m~
 *.synctex*
 *.log
