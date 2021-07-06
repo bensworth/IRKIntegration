@@ -333,7 +333,7 @@ void IMEXRK::Init(IRKOperator &_imex)
 
 }
 
-// TODO : need to add support for ESDIRK!
+
 void IMEXRK::Step(Vector &x, double &t, double &dt)
 {
     int s = tableaux.s;
@@ -348,6 +348,8 @@ void IMEXRK::Step(Vector &x, double &t, double &dt)
     // Apply first explicit stage to ESDIRK implicit schemes
     if (tableaux.esdirk) {
         imex->ImplicitMult(x, temp);
+        // NOTE : not needed in this branch, called in ImplicitMult.
+        // imex->AddImplicitForcing(temp, t, 1, 0);
         imex->MassInv(temp, (*imp_stages[0]) );
     }
 
@@ -410,12 +412,12 @@ void IMEXRK::Step(Vector &x, double &t, double &dt)
         }
     }
 
-    if (!tableaux.stiffly_accurate || 1) {
+    if (!tableaux.stiffly_accurate) {
         // ----------------- Form solution -----------------
         // Add implicit stages to solution x; first correct stage
         // vectors that were added during the previous stage,
         // then add latest stage vector (after loop)
-        for (int j = 1; j < s; j++) {
+        for (int j = 0; j < s; j++) {
             // x += dt*(bi_{j} - Ai_{i-1,j})*k_j, j<(s-1)
             double c0 = dt * (tableaux.bi(j) - tableaux.Ai(s - 1, j));
             if (std::abs(c0) > 1e-15) {
@@ -1065,9 +1067,9 @@ void IMEXRKData::SetData()
         bi(4) = 0.5;
         //
         c0(1) = 0.5;
-        c0(1) = 2.0/3.0;
-        c0(1) = 0.5;
-        c0(1) = 1.0;
+        c0(2) = 2.0/3.0;
+        c0(3) = 0.5;
+        c0(4) = 1.0;
         break;
     }
     case Type::ARK43: {

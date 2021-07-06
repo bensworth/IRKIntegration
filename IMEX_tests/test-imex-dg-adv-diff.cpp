@@ -267,6 +267,7 @@ public:
       y = 0.0;
       GMRES_solver = new HypreGMRES(B);
       GMRES_solver->SetMaxIter(250);
+      GMRES_solver->SetKDim(10);
       GMRES_solver->SetTol(1e-12);
       GMRES_solver->SetPreconditioner(*AMG_solver);
       GMRES_solver->Mult(x, y);
@@ -483,7 +484,7 @@ public:
       }
       Vector rhs(x.Size());
       A_imp->Mult(x, rhs);
-      // AddImplicitForcing(rhs, this->GetTime(), 1.0, 0);
+      AddImplicitForcing(rhs, this->GetTime(), 1.0, 0);
       current_prec->Solve(rhs, k);
    }
 
@@ -627,8 +628,7 @@ int run_adv_diff(int argc, char *argv[])
 
    static const double sigma = -1.0;
 
-   // const char *mesh_file = MFEM_DIR + "data/inline-quad.mesh";
-   const char *mesh_file = "/Users/southworth/Software/mfem/data/inline-quad.mesh";
+   std::string mesh_file = MFEM_SOURCE_DIR + std::string("/data/inline-quad.mesh");
    int ser_ref_levels = 1;
    int par_ref_levels = 0;
    int order = 1;
@@ -640,8 +640,6 @@ int run_adv_diff(int argc, char *argv[])
    bool imp_force = true;
 
    OptionsParser args(argc, argv);
-   args.AddOption(&mesh_file, "-m", "--mesh",
-                  "Mesh file to use.");
    args.AddOption(&ser_ref_levels, "-rs", "--refine",
                   "Number of times to refine the serial mesh uniformly.");
    args.AddOption(&par_ref_levels, "-rp", "--refine",
@@ -661,8 +659,9 @@ int run_adv_diff(int argc, char *argv[])
    {
       kappa = (order+1)*(order+1);
    }
+   if (root) { args.PrintOptions(std::cout); }
 
-   Mesh *serial_mesh = new Mesh(mesh_file, 1, 1);
+   Mesh *serial_mesh = new Mesh(mesh_file.c_str(), 1, 1);
    int dim = serial_mesh->Dimension();
    if (ser_ref_levels < 0)
    {
@@ -724,8 +723,10 @@ int run_adv_diff(int argc, char *argv[])
    }
 
    // Time integration testing data
-   std::vector<int> rk_id = {111, 222, -43};
-   std::vector<bool> rk_bool = {true, true, true};
+   // std::vector<int> rk_id = {111, 222, -43};
+   // std::vector<bool> rk_bool = {true, true, true};
+   std::vector<int> rk_id = {443, -43};
+   std::vector<bool> rk_bool = {true, true};
 
    std::vector<int> bdf_id = {12, 13};
    std::vector<double> bdf_alpha = {1.0, 2.0, 3.0, 0.5, 1.0, 2.0};
@@ -736,16 +737,18 @@ int run_adv_diff(int argc, char *argv[])
    std::vector<bool> irk_bool = {true, true, true, true, true, true, true, true, true};
 
    // Loop over dt
-   std::vector<double> dt_ = {0.005, 0.01, 0.02, 0.04, 0.08, 0.16, 0.32};
+   // std::vector<double> dt_ = {0.005, 0.01, 0.02, 0.04, 0.08, 0.16, 0.32};
+   std::vector<double> dt_ = {0.01, 0.02, 0.04, 0.08, 0.16, 0.32};
+   // std::vector<double> dt_ = {0.005};
    for (int i=0; i<dt_.size(); i++) {
       double dt = dt_[i];
-      std::cout << "\n\n ---------------------- dt = " << dt << "  ---------------------- \n\n";
+      if(root) std::cout << "\n\n ---------------------- dt = " << dt << "  ---------------------- \n\n";
 
       // IMEX-RK
       for (int j=0; j<rk_id.size(); j++) {
          // Run time sinulation if previous dt did not diverge
          if (rk_bool[j]) {
-            std::cout << "\n -------- RK " << rk_id[j] << " -------- \n";
+            if (root) std::cout << "\n -------- RK " << rk_id[j] << " -------- \n";
             IMEXRKData coeffs(static_cast<IMEXRKData::Type>(rk_id[j]));
             IMEXRK imex(coeffs);
             imex.Init(dg);
@@ -757,32 +760,35 @@ int run_adv_diff(int argc, char *argv[])
          }
       }
       // IMEX BDF
-      for (int j=0; j<bdf_id.size(); j++) {
+      // for (int j=0; j<bdf_id.size(); j++) {
+      for (int j=0; j<0; j++) {
          for (int ll=0; ll<(bdf_alpha.size()/2); ll++) {
             int ind = j*(bdf_alpha.size()/2) + ll;
             // Run time sinulation if previous dt did not diverge
             if (bdf_bool[ind]) {
                double alpha = bdf_alpha[ind];
-               std::cout << "\n -------- BDF " << bdf_id[j] << "(" << alpha << ") -------- \n";
+               if (root) std::cout << "\n -------- BDF " << bdf_id[j] << "(" << alpha << ") -------- \n";
                IMEXBDF imex(static_cast<BDFData::Type>(bdf_id[j]) , alpha);
                imex.Init(dg);
                ode = &imex;
                u = 0.0;
                u.ProjectCoefficient(ic_coeff);
-               rk_bool[j] = simulate(ode, u, fes, tf, dt, myid);
+               bdf_bool[ind] = simulate(ode, u, fes, tf, dt, myid);
                dg.ClearPrec();
             }
          }
       }
 
       // Fully implicit IMEX
-      for (int j=0; j<irk_id.size(); j++) {
+      // for (int j=0; j<irk_id.size(); j++) {
+      for (int j=0; j<0; j++) {
+      // for (int j=0; j<-1; j++) {
          for (int ll=0; ll<irk_iter.size(); ll++) {
             int ind = j*irk_iter.size() + ll;
             // Run time sinulation if previous dt did not diverge
             if (irk_bool[ind]) {
                int iter = irk_iter[ll];
-               std::cout << "\n -------- IRK " << irk_id[j] << "(" << iter << ") -------- \n";
+               if (root) std::cout << "\n -------- IRK " << irk_id[j] << "(" << iter << ") -------- \n";
                RKData coeffs(static_cast<RKData::Type>(irk_id[j]));
                PolyIMEX irk(&dg, coeffs, true, iter);
                irk.SetKrylovParams(krylov_params);
@@ -790,7 +796,7 @@ int run_adv_diff(int argc, char *argv[])
                ode = &irk;
                u = 0.0;
                u.ProjectCoefficient(ic_coeff);
-               rk_bool[j] = simulate(ode, u, fes, tf, dt, myid);
+               irk_bool[ind] = simulate(ode, u, fes, tf, dt, myid);
                dg.ClearPrec();
             }
          }
