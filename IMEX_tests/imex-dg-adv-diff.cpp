@@ -91,6 +91,7 @@ bool simulate(ODESolver *ode, ParGridFunction &u,
    ParFiniteElementSpace &fes, double tf, double dt, bool myid)
 {
    bool done = false;
+   MPI_Barrier(MPI_COMM_WORLD);
    StopWatch timer;
    timer.Start();
    double t = 0;
@@ -398,7 +399,7 @@ public:
       if (imp_forcing) {
          forcing_coeff.SetTime(this->GetTime());
          b_imp.Assemble();
-         t_imp = this->GetTime();
+         t_exp = this->GetTime();
          HypreParVector *B = new HypreParVector(*A_exp);
          B = b_imp.ParallelAssemble();
          du_dt -= *B;
@@ -637,16 +638,37 @@ int run_adv_diff(int argc, char *argv[])
    int use_gmres = false;
    int maxiter = 500;
    bool imp_force = true;
+   double dt = 1e-2;
+   int imex_id = -1;
+   int irk_id = -1;
+   bool recompute_exp = false;
+   bool interpolate = false;
+   double alpha = -1;
+   int iter = 1;
 
    OptionsParser args(argc, argv);
-   args.AddOption(&ser_ref_levels, "-rs", "--refine",
+   args.AddOption(&ser_ref_levels, "-rs", "--refine-serial",
                   "Number of times to refine the serial mesh uniformly.");
-   args.AddOption(&par_ref_levels, "-rp", "--refine",
+   args.AddOption(&par_ref_levels, "-rp", "--refine-parallel",
                   "Number of times to refine the parallel mesh uniformly.");
    args.AddOption(&order, "-o", "--order",
                   "Finite element order (polynomial degree) >= 0.");
+   args.AddOption(&kappa, "-k", "--kappa",
+                  "One of the two DG penalty parameters, should be positive."
+                  " Negative values are replaced with (order+1)^2.");
    args.AddOption(&eps, "-e", "--epsilon", "Diffusion coefficient.");
+   args.AddOption(&dt, "-dt", "--time-step", "Time step.");
    args.AddOption(&tf, "-tf", "--final-time", "Final time.");
+   args.AddOption(&imex_id, "-imex", "--imex", "Use IMEX solver (provide id; if 0, Euler-IMEX).");
+   args.AddOption(&irk_id, "-irk", "--irk", "Use IMEX solver (provide id; if 0, Euler-IMEX).");
+   args.AddOption(&alpha, "-a", "--alpha", "alpha for IMEX-BDF.");
+   args.AddOption(&use_AMG, "-amg", "--use-amg", "Use AMG: > 0 implies # AMG iterations, 0 = Block ILU.");
+   args.AddOption(&recompute_exp, "-re", "--recompute","-store", "--store-explicit", 
+      "Recompute explicit component for IMEX-BDF.");
+   args.AddOption(&interpolate, "-in", "--interpolate","-noin", "--no-interpolate", 
+      "Interpolate initial guess for solver, only works for alpha BDF now.");
+   args.AddOption(&iter, "-i", "--num-iters",
+               "Number applications of iterator, default 1.");
 
    args.Parse();
    if (!args.Good())
@@ -721,83 +743,40 @@ int run_adv_diff(int argc, char *argv[])
       std::cout << "Total number of unknowns: " << fes.GlobalVSize() << std::endl;
    }
 
-   // Time integration testing data
-   // std::vector<int> rk_id = {111, 222, 443, -43};
-   // std::vector<bool> rk_bool = {true, true, true, true};
-
-   std::vector<int> bdf_id = {12, 13};
-   std::vector<double> bdf_alpha = {1.0, 2.0, 3.0, 0.5, 1.0, 2.0};
-   std::vector<bool> bdf_bool = {true, true, true, true, true, true};
-
-   std::vector<int> irk_id = {123, 124, 125};
-   std::vector<int> irk_iter = {0, 1, 2};
-   std::vector<bool> irk_bool = {true, true, true, true, true, true, true, true, true};
-
-   // Loop over dt
-   std::vector<double> dt_ = {0.005, 0.01, 0.02, 0.04, 0.08, 0.16, 0.32};
-   // std::vector<double> dt_ = {0.01, 0.02, 0.04, 0.08, 0.16, 0.32};
-   // std::vector<double> dt_ = {0.005};
-   for (int i=0; i<dt_.size(); i++) {
-      double dt = dt_[i];
-      if(root) std::cout << "\n\n ---------------------- dt = " << dt << "  ---------------------- \n\n";
-
-      // IMEX-RK
-      for (int j=0; j<rk_id.size(); j++) {
-         // Run time sinulation if previous dt did not diverge
-         if (rk_bool[j]) {
-            if (root) std::cout << "\n -------- RK " << rk_id[j] << " -------- \n";
-            IMEXRKData coeffs(static_cast<IMEXRKData::Type>(rk_id[j]));
-            IMEXRK imex(coeffs);
-            imex.Init(dg);
-            ode = &imex;
-            u = 0.0;
-            u.ProjectCoefficient(ic_coeff);
-            rk_bool[j] = simulate(ode, u, fes, tf, dt, myid);
-            dg.ClearPrec();
-         }
-      }
-      // IMEX BDF
-      // for (int j=0; j<bdf_id.size(); j++) {
-      for (int j=0; j<0; j++) {
-         for (int ll=0; ll<(bdf_alpha.size()/2); ll++) {
-            int ind = j*(bdf_alpha.size()/2) + ll;
-            // Run time sinulation if previous dt did not diverge
-            if (bdf_bool[ind]) {
-               double alpha = bdf_alpha[ind];
-               if (root) std::cout << "\n -------- BDF " << bdf_id[j] << "(" << alpha << ") -------- \n";
-               IMEXBDF imex(static_cast<BDFData::Type>(bdf_id[j]) , alpha);
-               imex.Init(dg);
-               ode = &imex;
-               u = 0.0;
-               u.ProjectCoefficient(ic_coeff);
-               bdf_bool[ind] = simulate(ode, u, fes, tf, dt, myid);
-               dg.ClearPrec();
-            }
-         }
-      }
-
-      // Fully implicit IMEX
-      // for (int j=0; j<irk_id.size(); j++) {
-      for (int j=0; j<0; j++) {
-      // for (int j=0; j<-1; j++) {
-         for (int ll=0; ll<irk_iter.size(); ll++) {
-            int ind = j*irk_iter.size() + ll;
-            // Run time sinulation if previous dt did not diverge
-            if (irk_bool[ind]) {
-               int iter = irk_iter[ll];
-               if (root) std::cout << "\n -------- IRK " << irk_id[j] << "(" << iter << ") -------- \n";
-               RKData coeffs(static_cast<RKData::Type>(irk_id[j]));
-               PolyIMEX irk(&dg, coeffs, true, iter);
-               irk.SetKrylovParams(krylov_params);
-               irk.Init(dg);
-               ode = &irk;
-               u = 0.0;
-               u.ProjectCoefficient(ic_coeff);
-               irk_bool[ind] = simulate(ode, u, fes, tf, dt, myid);
-               dg.ClearPrec();
-            }
-         }
-      }
+   if (imex_id < 1000 && (imex_id > 0 || std::abs(imex_id) > 20) ) {
+      if (root) std::cout << "\n -------- RK " << imex_id << " -------- \n";
+      IMEXRKData coeffs(static_cast<IMEXRKData::Type>(imex_id));
+      IMEXRK imex(coeffs);
+      imex.Init(dg);
+      ode = &imex;
+      u = 0.0;
+      u.ProjectCoefficient(ic_coeff);
+      simulate(ode, u, fes, tf, dt, myid);
+      dg.ClearPrec();
+   }
+   // IMEX BDF
+   else if (imex_id > 1000) {
+      if (root) std::cout << "\n -------- BDF " << imex_id << "(" << alpha << ") -------- \n";
+      IMEXBDF imex(static_cast<BDFData::Type>(imex_id) , alpha);
+      imex.Init(dg);
+      ode = &imex;
+      u = 0.0;
+      u.ProjectCoefficient(ic_coeff);
+      simulate(ode, u, fes, tf, dt, myid);
+      dg.ClearPrec();
+   }
+   // Fully implicit IMEX
+   else if (irk_id > 0) {
+      if (root) std::cout << "\n -------- IRK " << irk_id << "(" << iter << ") -------- \n";
+      RKData coeffs(static_cast<RKData::Type>(irk_id));
+      PolyIMEX irk(&dg, coeffs, true, iter);
+      irk.SetKrylovParams(krylov_params);
+      irk.Init(dg);
+      ode = &irk;
+      u = 0.0;
+      u.ProjectCoefficient(ic_coeff);
+      simulate(ode, u, fes, tf, dt, myid);
+      dg.ClearPrec();
    }
 
    return 0;

@@ -348,8 +348,6 @@ void IMEXRK::Step(Vector &x, double &t, double &dt)
     // Apply first explicit stage to ESDIRK implicit schemes
     if (tableaux.esdirk) {
         imex->ImplicitMult(x, temp);
-        // NOTE : not needed in this branch, called in ImplicitMult.
-        // imex->AddImplicitForcing(temp, t, 1, 0);
         imex->MassInv(temp, (*imp_stages[0]) );
     }
 
