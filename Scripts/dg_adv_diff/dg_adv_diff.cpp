@@ -592,11 +592,16 @@ int run_adv_diff(int argc, char *argv[])
       ode.reset(block_irk);
    }
    // ILU preconditioning
-   else if (use_irk != 0 && prec_id == 5)
+   else if (use_irk != 0 && prec_id >= 5)
    {
       RKData::Type rk_type = static_cast<RKData::Type>(use_irk);
       int block_size = fes.GetFE(0)->GetDof();
-      ode.reset(new ILU_IRK(rk_type, dg.GetM(), dg.GetA(), block_size, dt, fes.GetComm()));
+
+      ILU_IRK::Type ilu_type = ILU_IRK::Type::COUPLED;
+      if (prec_id == 6) { ilu_type = ILU_IRK::Type::UNCOUPLED; }
+      else if (prec_id == 7) { ilu_type = ILU_IRK::Type::UNCOUPLED_SHIFTED; }
+
+      ode.reset(new ILU_IRK(rk_type, dg.GetM(), dg.GetA(), block_size, dt, ilu_type));
    }
    // Standard DIRK methods
    else
