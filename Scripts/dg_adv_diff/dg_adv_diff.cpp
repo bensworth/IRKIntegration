@@ -1,5 +1,6 @@
 #include "mfem.hpp"
 #include "IRK.hpp"
+#include "irk_ilu.hpp"
 
 using namespace mfem;
 
@@ -46,12 +47,15 @@ void v_fn(const Vector &xvec, Vector &v)
 
 class DGMassMatrix
 {
+   ParBilinearForm M_blf;
+   OperatorHandle M_hypre;
+
    mutable Array<double> M, Minv;
    mutable Array<int> ipiv;
    Array<int> vec_offsets, M_offsets;
    int nel;
 public:
-   DGMassMatrix(ParFiniteElementSpace &fes)
+   DGMassMatrix(ParFiniteElementSpace &fes) : M_blf(&fes)
    {
       // Precompute local mass matrix inverses
       nel = fes.GetNE();
@@ -85,6 +89,13 @@ public:
          LUFactors lu(&Minv[offset], &ipiv[vec_offsets[i]]);
          lu.Factor(dof);
       }
+
+      // Also assemble the system as a HypreParMatrix
+      M_blf.AddDomainIntegrator(new VectorMassIntegrator);
+      M_blf.Assemble(0);
+      M_blf.Finalize(0);
+      M_hypre.SetType(Operator::Hypre_ParCSR);
+      M_blf.ParallelAssemble(M_hypre);
    }
 
    // y = Mx
@@ -116,6 +127,11 @@ public:
       x = b;
       Solve(x);
    }
+
+   HypreParMatrix &GetMatrix()
+   {
+      return *M_hypre.As<HypreParMatrix>();
+   }
 };
 
 struct BackwardEulerPreconditioner : Solver
@@ -130,7 +146,7 @@ struct BackwardEulerPreconditioner : Solver
 public:
    BackwardEulerPreconditioner(ParFiniteElementSpace &fes, double gamma,
                                HypreParMatrix &M, double dt, HypreParMatrix &A)
-      : Solver(fes.GetTrueVSize()), B(A), AMG_solver(NULL), use_gmres(false)
+      : Solver(fes.GetTrueVSize()), B(A), AMG_solver(NULL), GMRES_solver(NULL), use_gmres(false)
    {
       // Set B = gamma*M - dt*A
       B *= -dt;
@@ -146,6 +162,8 @@ public:
                                int AMG_iter, bool use_gmres_)
       : Solver(fes.GetTrueVSize()), B(A), prec(NULL), use_gmres(use_gmres_)
    {
+      AMG_solver = NULL;
+      GMRES_solver = NULL;
       // Set B = gamma*M - dt*A
       B *= -dt;
       SparseMatrix B_diag, M_diag;
@@ -157,40 +175,38 @@ public:
       int order = fes.GetOrder(0);
       blocksize = (order+1)*(order+1);
 
-      // BUild AMG solver
+      // Build AMG solver
       if (blocksize > 0) {
-         BlockInverseScale(&B, &B_s, NULL, NULL, blocksize, 0);
+         BlockInverseScale(&B, &B_s, NULL, NULL, blocksize, BlockInverseScaleJob::MATRIX_ONLY);
          AMG_solver = new HypreBoomerAMG(B_s);
       }
       else {
          AMG_solver = new HypreBoomerAMG(B);
       }
-      AMG_solver->SetMaxLevels(50); 
+      AMG_solver->SetMaxLevels(50);
+      AMG_solver->SetAdvectiveOptions(1.5, "", "FA");
+      AMG_solver->SetStrongThresholdR(0.01);
+      AMG_solver->SetStrengthThresh(0.1);
+      AMG_solver->SetRelaxType(3);
       if (eps > 1e-4) {
-         AMG_solver->SetLAIROptions(1.5, "", "FA", 0.1, 0.01, 0.0,
-                                    0, 3, 0.0, 6, -1, 1);
+          AMG_solver->SetInterpolation(0);
       }
       else {
-         AMG_solver->SetLAIROptions(1.5, "", "FA", 0.1, 0.01, 0.0,
-                                    100, 3, 0.0, 6, -1, 1);
-         // AMG_solver->SetLAIROptions(1.5, "", "FFC", 0.1, 0.01, 0.0,
-         //                           100, 3, 0.0, 6, -1, 1);
+          AMG_solver->SetInterpolation(100);
       }
       AMG_solver->SetTol(1e-12);
-      if (use_gmres) {
+      AMG_solver->SetTol(0);
+      AMG_solver->SetMaxIter(1);
+      AMG_solver->SetPrintLevel(0);
+      if (AMG_iter > 1) {
+         use_gmres = true;
          if (blocksize > 0) GMRES_solver = new HypreGMRES(B_s);
          else GMRES_solver = new HypreGMRES(B);
-         GMRES_solver->SetMaxIter(AMG_iter);
+         AMG_solver->SetMaxIter(AMG_iter);
+         AMG_solver->SetTol(0);
          GMRES_solver->SetTol(1e-12);
          GMRES_solver->SetPreconditioner(*AMG_solver);
-         AMG_solver->SetMaxIter(1);
       }
-      else {
-         GMRES_solver = NULL;
-         AMG_solver->SetTol(1e-12);
-         AMG_solver->SetMaxIter(AMG_iter);
-      }
-      AMG_solver->SetPrintLevel(0);
    }
    void Mult(const Vector &x, Vector &y) const
    {
@@ -198,7 +214,7 @@ public:
       if (AMG_solver) {
          if (blocksize > 0) {
             HypreParVector b_s;
-            BlockInverseScale(&B, NULL, &x, &b_s, blocksize, 2);
+            BlockInverseScale(&B, NULL, &x, &b_s, blocksize, BlockInverseScaleJob::RHS_ONLY);
             if (use_gmres) GMRES_solver->Mult(b_s, y);
             else AMG_solver->Mult(b_s, y);
          }
@@ -215,9 +231,9 @@ public:
 
    ~BackwardEulerPreconditioner()
    {
-      if (AMG_solver) delete AMG_solver;
-      if (GMRES_solver) delete GMRES_solver;
-      if (prec) delete prec;
+      delete AMG_solver;
+      delete GMRES_solver;
+      delete prec;
    }
 };
 
@@ -345,6 +361,10 @@ public:
       current_prec = prec[key];
    }
 
+   HypreParMatrix &GetA() { return *A_mat; }
+
+   HypreParMatrix &GetM() { return *M_mat; }
+
    ~DGAdvDiff()
    {
       for (auto &P : prec)
@@ -426,7 +446,7 @@ int run_adv_diff(int argc, char *argv[])
 
    static const double sigma = -1.0;
 
-   const char *mesh_file = MFEM_DIR "data/inline-quad.mesh";
+   const char *mesh_file = MFEM_SOURCE_DIR "/data/inline-quad.mesh";
    int ser_ref_levels = 3;
    int par_ref_levels = 2;
    int order = 1;
@@ -562,14 +582,21 @@ int run_adv_diff(int argc, char *argv[])
       ode.reset(irk);
    }
    // Block preconditioning
-   else if (use_irk != 0) {
-      // Build IRK object using spatial discretization 
-      block_irk = new BlockPreconditionedIRK(&dg, static_cast<RKData::Type>(use_irk), 
-                                 static_cast<BlockPreconditioner>(prec_id));        
+   else if (use_irk != 0 && prec_id <= 4) {
+      // Build IRK object using spatial discretization
+      block_irk = new BlockPreconditionedIRK(&dg, static_cast<RKData::Type>(use_irk),
+                                 static_cast<BlockPreconditioner>(prec_id));
       block_irk->SetKrylovParams(krylov_params);
       // Initialize IRK time-stepping solver
       block_irk->Init(dg);
       ode.reset(block_irk);
+   }
+   // ILU preconditioning
+   else if (use_irk != 0 && prec_id == 5)
+   {
+      RKData::Type rk_type = static_cast<RKData::Type>(use_irk);
+      int block_size = fes.GetFE(0)->GetDof();
+      ode.reset(new ILU_IRK(rk_type, dg.GetM(), dg.GetA(), block_size, dt, fes.GetComm()));
    }
    // Standard DIRK methods
    else
@@ -603,7 +630,6 @@ int run_adv_diff(int argc, char *argv[])
       if (t - t_vis > vis_int || done)
       {
          if (myid == 0) printf("t = %4.3f\n", t);
-         if (root) { printf("t = %4.3f\n", t); }
          if (visualization) {
             t_vis = t;
             dc.SetCycle(dc.GetCycle()+1);
@@ -613,7 +639,7 @@ int run_adv_diff(int argc, char *argv[])
       }
    }
    timer.Stop();
-   std::cout << "runtime = " << timer.RealTime() << "\n";
+   if (myid == 0) std::cout << "runtime = " << timer.RealTime() << "\n";
 
    return 0;
 }

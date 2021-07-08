@@ -1,38 +1,45 @@
-# Compiler, compile options, and link options
+-include Make.user
 
-MFEM_DIR  = $(HOME)/Documents/Coding/branches-mfem/AIR_pr
-HYPRE_DIR = $(HOME)/Documents/Coding/branches-mfem/hypre-2.19.0/src/hypre
-METIS_DIR = $(HOME)/Documents/Coding/metis-5.0
-CXX      = mpic++
-FLAGS    = -g -std=c++11
-INC      = -I$(MFEM_DIR) -I$(HYPRE_DIR)/include -I$(METIS_DIR)/include
-CXXFLAGS = $(FLAGS) $(INC) -DMFEM_DIR=\"$(MFEM_DIR)/\"
-LDFLAGS  = -L$(MFEM_DIR) -L$(HYPRE_DIR)/lib -L$(METIS_DIR)/lib -lz
-LDLIBS   = -lmfem -lHYPRE -lmetis
+ifndef MFEM_DIR
+$(error MFEM_DIR is not set. Please create a Make.user file to set MFEM_DIR)
+endif
 
-SOURCE_FILES  = $(wildcard *.cpp)
-OBJECT_FILES  = $(SOURCE_FILES:.cpp=.o)
-EXEC_FILES    = dg_adv_diff
+MFEM_BUILD_DIR = $(MFEM_DIR)
+CONFIG_MK = $(MFEM_BUILD_DIR)/config/config.mk
 
-.PHONY: all clean clean-build clean-exec
+-include $(CONFIG_MK)
 
-# Compile source files if the hpp or cpp has changed.
-%.o: %.cpp %.hpp makefile
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+# Overall structure
+BUILD_DIR=build
+SOURCES=$(wildcard *.cpp)
+OBJECTS=$(SOURCES:%.cpp=$(BUILD_DIR)/%.o)
+APP=dg_adv_diff
 
-# Recompile executables if cpp files or object dependencies have changed
-$(EXEC_FILES): $(OBJECT_FILES)
-	$(CXX) $(CXXFLAGS) -o $@ $(OBJECT_FILES) $(LDFLAGS) $(LDLIBS)
+# Use compiler configuration from MFEM
+LFLGAS=$(MFEM_LIBS)
+INCFLAGS=$(MFEM_INCFLAGS)
 
-# Specify that 'make' compiles all examples.
-all: $(OBJECT_FILES) $(EXEC_FILES)
+.PHONY: all clean style
 
-# Remove all object files and executables
-clean: clean-build clean-exec $(SUBDIRS_CLEAN)
+all: $(APP)
 
-clean-build:
-	rm -f *.o *~ $(OBJECT_FILES) $(EXEC_FILES)
-	rm -rf *.dSYM *.TVD.*breakpoints
+# Build the executable
+$(APP): $(OBJECTS) $(MFEM_LIB_FILE)
+	$(MFEM_CXX) $(MFEM_LINK_FLAGS) $(OBJECTS) $(LFLGAS) -o $@
 
-clean-exec:
-	@rm -f refined.mesh displaced.mesh mesh.*
+$(BUILD_DIR)/%.o: %.cpp makefile | $(BUILD_DIR)
+	$(MFEM_CXX) -c $(MFEM_CXXFLAGS) $(INCFLAGS) -o $@ $*.cpp
+
+# Ensure build directory exists
+$(BUILD_DIR):
+	mkdir -p $@
+
+clean:
+	rm -rf $(EXE) $(BUILD_DIR)
+
+FORMAT_FILES = $(wildcard *.?pp)
+ASTYLE = astyle --options=$(MFEM_DIR)/config/mfem.astylerc
+style:
+	@if ! $(ASTYLE) $(FORMAT_FILES) | grep Formatted; then\
+	   echo "No source files were changed.";\
+	fi
