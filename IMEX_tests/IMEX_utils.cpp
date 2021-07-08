@@ -627,7 +627,7 @@ void IMEXBDF::AlphaStep(Vector &x, double &t, double &r)
     }
 
     // Solve implicit equation for new solution
-    imex->SetTime(t + data.z0(data.q - 1)*r);
+    imex->SetTime(t + data.alpha*r);
     double gamma = r * data.Bi(data.q - 1);
     imex->ImplicitSolve2(gamma, *rhs, x);
 
@@ -788,7 +788,7 @@ void IMEXBDF::ClassicalStep(Vector &x, double &t, double &r)
 
     // Solve implicit equation for new solution
     double gamma = r * data.Bi(data.q - 1);
-    imex->SetTime(t + data.z0(data.q - 1)*r);
+    imex->SetTime(t + data.alpha*r);
     imex->ImplicitSolve2(gamma, rhs, x);
 }
 
@@ -848,7 +848,7 @@ void IMEXBDF::ClassicalStepNoStore(Vector &x, double &t, double &r)
 
     // Solve implicit equation for new solution
     double gamma = r * data.Bi(data.q - 1);
-    imex->SetTime(t + data.z0(data.q - 1)*r);
+    imex->SetTime(t + data.alpha*r);
     imex->ImplicitSolve2(gamma, rhs, x);
 }
 

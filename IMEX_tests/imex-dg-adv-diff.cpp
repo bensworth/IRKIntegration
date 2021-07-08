@@ -757,7 +757,7 @@ int run_adv_diff(int argc, char *argv[])
    // IMEX BDF
    else if (imex_id > 1000) {
       if (root) std::cout << "\n -------- BDF " << imex_id << "(" << alpha << ") -------- \n";
-      IMEXBDF imex(static_cast<BDFData::Type>(imex_id) , alpha);
+      IMEXBDF imex(static_cast<BDFData::Type>(imex_id-1000) , alpha);
       imex.Init(dg);
       ode = &imex;
       u = 0.0;
