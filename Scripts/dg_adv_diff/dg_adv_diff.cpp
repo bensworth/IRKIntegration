@@ -117,11 +117,6 @@ public:
       x = b;
       Solve(x);
    }
-
-   HypreParMatrix &GetMatrix()
-   {
-      return *M_hypre.As<HypreParMatrix>();
-   }
 };
 
 struct BackwardEulerPreconditioner : Solver
