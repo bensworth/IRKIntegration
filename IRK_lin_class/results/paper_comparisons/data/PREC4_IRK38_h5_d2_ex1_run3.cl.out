@@ -1,0 +1,71 @@
+Options used:
+   --example-problem 1
+   --alpha-x 0.85
+   --alpha-y 1
+   --mu-x 0.3
+   --mu-y 0.25
+   --dim 2
+   --IRK-solver-algorithm 1
+   --RK-method 38
+   --num-time-steps 10
+   --tf 2
+   --time-step-size -2
+   --block-preconditioning-ID 4
+   --gamma-value 1
+   --order 8
+   --bias 0
+   --level 5
+   --nprocs-in-x -1
+   --nprocs-in-y -1
+   --AMG-use-air 0
+   --AMG-coarseing 6
+   --AMG-aggressive-coarseing 0
+   --AMG-theta 0.25
+   --AMG-interp 0
+   --AMG-relax 8
+   --AMG-print 0
+   --krylov-method 2
+   --krylov-rel-tol 1e-13
+   --krylov-abs-tol 0
+   --krylov-max-iterations 200
+   --krylov-dimension 30
+   --krylov-print 2
+   --out-directory data/PREC4_IRK38_h5_d2_ex1_run3.probinfo.out
+   --save-sol-data 1
+Time-step 1 of 16 (t=0-->t=0.125)
+GMRES: Number of iterations: 27
+Time-step 2 of 16 (t=0.125-->t=0.25)
+GMRES: Number of iterations: 27
+Time-step 3 of 16 (t=0.25-->t=0.375)
+GMRES: Number of iterations: 27
+Time-step 4 of 16 (t=0.375-->t=0.5)
+GMRES: Number of iterations: 26
+Time-step 5 of 16 (t=0.5-->t=0.625)
+GMRES: Number of iterations: 26
+Time-step 6 of 16 (t=0.625-->t=0.75)
+GMRES: Number of iterations: 26
+Time-step 7 of 16 (t=0.75-->t=0.875)
+GMRES: Number of iterations: 26
+Time-step 8 of 16 (t=0.875-->t=1)
+GMRES: Number of iterations: 26
+Time-step 9 of 16 (t=1-->t=1.125)
+GMRES: Number of iterations: 26
+Time-step 10 of 16 (t=1.125-->t=1.25)
+GMRES: Number of iterations: 27
+Time-step 11 of 16 (t=1.25-->t=1.375)
+GMRES: Number of iterations: 26
+Time-step 12 of 16 (t=1.375-->t=1.5)
+GMRES: Number of iterations: 26
+Time-step 13 of 16 (t=1.5-->t=1.625)
+GMRES: Number of iterations: 26
+Time-step 14 of 16 (t=1.625-->t=1.75)
+GMRES: Number of iterations: 26
+Time-step 15 of 16 (t=1.75-->t=1.875)
+GMRES: Number of iterations: 26
+Time-step 16 of 16 (t=1.875-->t=2)
+GMRES: Number of iterations: 26
+PDE solution IS implemented for this example.
+Discrete error measured at final time:
+	eL1=7.31899e-08
+	eL2=4.57629e-08
+	eLinf=6.62783e-08

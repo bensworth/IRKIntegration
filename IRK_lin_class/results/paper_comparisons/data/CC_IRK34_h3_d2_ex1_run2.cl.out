@@ -1,0 +1,52 @@
+Options used:
+   --example-problem 1
+   --alpha-x 0.85
+   --alpha-y 1
+   --mu-x 0.3
+   --mu-y 0.25
+   --dim 2
+   --IRK-solver-algorithm 0
+   --RK-method 34
+   --num-time-steps 10
+   --tf 2
+   --time-step-size -2
+   --block-preconditioning-ID 1
+   --gamma-value 1
+   --order 4
+   --bias 0
+   --level 3
+   --nprocs-in-x -1
+   --nprocs-in-y -1
+   --AMG-use-air 0
+   --AMG-coarseing 6
+   --AMG-aggressive-coarseing 0
+   --AMG-theta 0.25
+   --AMG-interp 0
+   --AMG-relax 8
+   --AMG-print 0
+   --krylov-method 2
+   --krylov-rel-tol 1e-13
+   --krylov-abs-tol 0
+   --krylov-max-iterations 200
+   --krylov-dimension 30
+   --krylov-print 2
+   --out-directory data/CC_IRK34_h3_d2_ex1_run2.probinfo.out
+   --save-sol-data 1
+eta = 1.68709, beta = 2.50873, gamma = 3.02325
+Time-step 1 of 4 (t=0-->t=0.5)
+  System 1 of 2 (degree=1):  GMRES: Number of iterations: 9
+  System 2 of 2 (degree=2):  GMRES: Number of iterations: 14
+Time-step 2 of 4 (t=0.5-->t=1)
+  System 1 of 2 (degree=1):  GMRES: Number of iterations: 9
+  System 2 of 2 (degree=2):  GMRES: Number of iterations: 14
+Time-step 3 of 4 (t=1-->t=1.5)
+  System 1 of 2 (degree=1):  GMRES: Number of iterations: 9
+  System 2 of 2 (degree=2):  GMRES: Number of iterations: 14
+Time-step 4 of 4 (t=1.5-->t=2)
+  System 1 of 2 (degree=1):  GMRES: Number of iterations: 9
+  System 2 of 2 (degree=2):  GMRES: Number of iterations: 14
+PDE solution IS implemented for this example.
+Discrete error measured at final time:
+	eL1=0.0196804
+	eL2=0.0148258
+	eLinf=0.0241053
