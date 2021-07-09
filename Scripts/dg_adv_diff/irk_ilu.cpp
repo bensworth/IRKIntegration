@@ -83,12 +83,14 @@ void ILU_IRK::Step(Vector &u, double &t, double &dt)
    int s = rk_data.s;
    int n = u.Size();
 
-   // Form RHS
+   // Form RHS and set initial guess, w = u
    L.Mult(u, Lu);
    for (int i=0; i<s; ++i)
    {
       bs.MakeRef(b, n*i, n);
       bs = Lu;
+      ws.MakeRef(w, n*i, n);
+      ws = u;
    }
    // Solve system
    gmres.Mult(b, w);
