@@ -47,15 +47,12 @@ void v_fn(const Vector &xvec, Vector &v)
 
 class DGMassMatrix
 {
-   ParBilinearForm M_blf;
-   OperatorHandle M_hypre;
-
    mutable Array<double> M, Minv;
    mutable Array<int> ipiv;
    Array<int> vec_offsets, M_offsets;
    int nel;
 public:
-   DGMassMatrix(ParFiniteElementSpace &fes) : M_blf(&fes)
+   DGMassMatrix(ParFiniteElementSpace &fes)
    {
       // Precompute local mass matrix inverses
       nel = fes.GetNE();
@@ -89,13 +86,6 @@ public:
          LUFactors lu(&Minv[offset], &ipiv[vec_offsets[i]]);
          lu.Factor(dof);
       }
-
-      // Also assemble the system as a HypreParMatrix
-      M_blf.AddDomainIntegrator(new VectorMassIntegrator);
-      M_blf.Assemble(0);
-      M_blf.Finalize(0);
-      M_hypre.SetType(Operator::Hypre_ParCSR);
-      M_blf.ParallelAssemble(M_hypre);
    }
 
    // y = Mx
