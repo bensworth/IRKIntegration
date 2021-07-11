@@ -12,7 +12,7 @@ MFEM_DIR  = /Users/southworth/Software/mfem
 HYPRE_DIR = $(MFEM_DIR)/../hypre/src/hypre
 METIS_DIR = $(MFEM_DIR)/../metis-5.1.0/build/Darwin-x86_64
 CXX      = mpicxx
-FLAGS    = -g -std=c++14 -fopenmp
+FLAGS    = -O3 -std=c++14 -fopenmp
 INC      = -I$(MFEM_DIR)/bens_build -I$(HYPRE_DIR)/include -I$(METIS_DIR)/include -I./
 LDFLAGS  = -L$(MFEM_DIR)/bens_build -L$(HYPRE_DIR)/lib -L$(METIS_DIR)/libmetis
 LDLIBS   = -lmfem -lHYPRE -lmetis
@@ -21,12 +21,18 @@ CXXFLAGS = $(FLAGS) $(INC) $(LDFLAGS)
 # Files to compile
 SRCS  = IRK_utils.cpp IMEX_utils.cpp IRK.cpp
 SRCS1 = test-imex-dg-adv-diff.cpp
+SRCS2 = imex-dg-adv-diff.cpp
+SRCS3 = nl-imex-dg-adv-diff.cpp
 
 OBJS  = ${SRCS:.cpp=.o}
 OBJS1 = ${SRCS1:.cpp=.o}
+OBJS2 = ${SRCS2:.cpp=.o}
+OBJS3 = ${SRCS3:.cpp=.o}
 EXEC1 = test-imex-dg-adv-diff
+EXEC2 = imex-dg-adv-diff
+EXEC3 = nl-imex-dg-adv-diff
 
-all: $(EXEC1)
+all: $(EXEC1) $(EXEC2) $(EXEC3)
 
 .hpp.o:
 	$(CXX) $(CXXFLAGS) -c $<
@@ -37,6 +43,11 @@ all: $(EXEC1)
 $(EXEC1): $(OBJS) $(OBJS1) 
 	$(CXX) $(LDLIBS) $(OBJS) $(OBJS1) $(CXXFLAGS) -o $(EXEC1)
 
+$(EXEC2): $(OBJS) $(OBJS2) 
+	$(CXX) $(LDLIBS) $(OBJS) $(OBJS2) $(CXXFLAGS) -o $(EXEC2)
+
+$(EXEC3): $(OBJS) $(OBJS3) 
+	$(CXX) $(LDLIBS) $(OBJS) $(OBJS3) $(CXXFLAGS) -o $(EXEC3)
 
 .PHONY: clean 
 

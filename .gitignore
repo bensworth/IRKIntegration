@@ -36,6 +36,8 @@ analysis/fov.pdf
 irk_nl.pdf
 ODEs_linear/irk_lin.pdf
 .vscode
+nl-imex-dg-adv-diff
+test-imex-dg-adv-diff
 
 vorticity-streamfunction/
 letter_lin.pdf
