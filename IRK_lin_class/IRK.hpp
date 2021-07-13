@@ -41,7 +41,8 @@ enum class BlockPreconditioner {
     GSL      = 1,  // Gauss--Seidel LOWER
     GSU      = 2,  // Gauss--Seidel UPPER
     STAFFOPT = 3,  // Optimized lower triangular, from Staff et al. (2006)
-    RANALD   = 4,  // LD from LDU factorization of A0, from Rana et al. (2021)
+    RANALD   = 4,  // LD from LDU factorization of A0, from Rana et al. (2021) (this is a block LOWER triangular preconditioner)
+    RANADU   = 5,  // DU from LDU factorization of A0, from Rana et al. (2021) (this is a block UPPER triangular preconditioner)
 };
 
 
@@ -595,16 +596,20 @@ private:
 
     /* Set the preconditioner sparsity variable based on the the preconditioner ID */
     void SetBlockPreconditionerSparsity() {
+        // Diagonal preconditioners
         if (m_precID == BlockPreconditioner::JACOBI) {
             m_BlockPreconditionerSparsity = BlockPreconditionerSparsity::DIAGONAL;
         } 
+        // Lower triangular preconditioners
         else if (m_precID == BlockPreconditioner::GSL ||
                  m_precID == BlockPreconditioner::STAFFOPT ||
                  m_precID == BlockPreconditioner::RANALD) 
         {
             m_BlockPreconditionerSparsity = BlockPreconditionerSparsity::LOWERTRIANGULAR;
         } 
-        else if (m_precID == BlockPreconditioner::GSU) 
+        // Upper triangular preconditioners
+        else if (m_precID == BlockPreconditioner::GSU || 
+                 m_precID == BlockPreconditioner::RANADU)
         {
             m_BlockPreconditionerSparsity = BlockPreconditionerSparsity::UPPERTRIANGULAR;    
         } else {
