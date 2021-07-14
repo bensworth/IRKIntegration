@@ -61,20 +61,32 @@ double force_fn(const Vector &xvec, double t)
 {
    double x = xvec[0];
    double y = xvec[1];
-   double v = -4.0*M_PI*M_PI*eps*(2.0*t + 1.0)*(2.0*t + 1.0)*(-x*x*sin(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*\
-      sin(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0)) + 2.0*x*(x - 1.0)*cos(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*\
-      cos(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0)) - (x - 1.0)*(x - 1.0)*sin(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*\
-      sin(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0))) - 4.0*M_PI*M_PI*eps*(2.0*t + 1.0)*(2.0*t + 1.0)*\
-      (-y*y*sin(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*sin(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0)) +\
-      2.0*y*(y - 1.0)*cos(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*cos(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0)) - \
-      (y - 1.0)*(y - 1.0)*sin(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*sin(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0))) + \
-      4.0*M_PI*x*(1.0 - y)*sin(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0))*cos(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0)) - \
-      2.0*M_PI*x*(2.0*t + 1.0)*sin(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0))*cos(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0)) + \
-      4.0*M_PI*y*(1.0 - x)*sin(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0))*cos(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0)) - \
-      2.0*M_PI*y*(2.0*t + 1.0)*sin(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0))*cos(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0)) + \
-      2.0*M_PI*(1.0 - x)*(2.0*t + 1.0)*sin(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0))*cos(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0)) + \
-      2.0*M_PI*(1.0 - y)*(2.0*t + 1.0)*sin(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0))*cos(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0));
-   return -v;
+   // double v = -4.0*M_PI*M_PI*eps*(2.0*t + 1.0)*(2.0*t + 1.0)*(-x*x*sin(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*\
+   //    sin(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0)) + 2.0*x*(x - 1.0)*cos(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*\
+   //    cos(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0)) - (x - 1.0)*(x - 1.0)*sin(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*\
+   //    sin(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0))) - 4.0*M_PI*M_PI*eps*(2.0*t + 1.0)*(2.0*t + 1.0)*\
+   //    (-y*y*sin(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*sin(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0)) +\
+   //    2.0*y*(y - 1.0)*cos(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*cos(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0)) - \
+   //    (y - 1.0)*(y - 1.0)*sin(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*sin(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0))) + \
+   //    4.0*M_PI*x*(1.0 - y)*sin(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0))*cos(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0)) - \
+   //    2.0*M_PI*x*(2.0*t + 1.0)*sin(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0))*cos(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0)) + \
+   //    4.0*M_PI*y*(1.0 - x)*sin(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0))*cos(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0)) - \
+   //    2.0*M_PI*y*(2.0*t + 1.0)*sin(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0))*cos(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0)) + \
+   //    2.0*M_PI*(1.0 - x)*(2.0*t + 1.0)*sin(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0))*cos(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0)) + \
+   //    2.0*M_PI*(1.0 - y)*(2.0*t + 1.0)*sin(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0))*cos(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0));
+   // return -v;
+   double v = 4.0*(M_PI+2.0*M_PI*t)*(M_PI+2.0*M_PI*t)*eps*(cos(2.0*M_PI*(1.0+2.0*t)*(x+(-1.0)*y))+((-1.0)+ \
+      2.0*x+(-2.0)*x*x+2.0*y+(-2.0)*y*y)*cos(2.0*M_PI*(1.0+2.0*t)*((-1.0)*y+ \
+      x*((-1.0)+2.0*y))))+(-2.0)*M_PI*(1.0+2.0*t)*((-1.0)+x)*cos(2.0*M_PI*(1.0+2.0* \
+      t)*((-1.0)+x)*y)*sin(2.0*M_PI*(1.0+2.0*t)*x*((-1.0)+y))+(-2.0)*M_PI*(1.0+ \
+      2.0*t)*y*cos(2.0*M_PI*(1.0+2.0*t)*((-1.0)+x)*y)*sin(2.0*M_PI*(1.0+2.0*t)* \
+      x*((-1.0)+y))+4.0*M_PI*((-1.0)+x)*y*cos(2.0*M_PI*(1.0+2.0*t)*((-1.0)+x)*y) \
+      *sin(2.0*M_PI*(1.0+2.0*t)*x*((-1.0)+y))+(-2.0)*M_PI*(1.0+2.0*t)*x*cos(2.0* \
+      M_PI*(1.0+2.0*t)*x*((-1.0)+y))*sin(2.0*M_PI*(1.0+2.0*t)*((-1.0)+x)*y)+(-2.0) \
+      *M_PI*(1.0+2.0*t)*((-1.0)+y)*cos(2.0*M_PI*(1.0+2.0*t)*x*((-1.0)+y))*sin( \
+      2.0*M_PI*(1.0+2.0*t)*((-1.0)+x)*y)+4.0*M_PI*x*((-1.0)+y)*cos(2.0*M_PI*(1.0+ \
+      2.0*t)*x*((-1.0)+y))*sin(2.0*M_PI*(1.0+2.0*t)*((-1.0)+x)*y);
+   return v;
 }
 
 // Exact solution (x,y,t)
@@ -343,11 +355,14 @@ public:
       A_imp = a_imp.ParallelAssemble();
 
       // Set up advection bilinear form
-      a_exp.AddDomainIntegrator(new ConvectionIntegrator(v_coeff, -1.0));
+      // a_exp.AddDomainIntegrator(new ConvectionIntegrator(v_coeff, -1.0));
+      a_exp.AddDomainIntegrator(new ConvectionIntegrator(v_coeff, 1.0));
       a_exp.AddInteriorFaceIntegrator(
-         new TransposeIntegrator(new DGTraceIntegrator(v_coeff, 1.0, -0.5)));
+         // new TransposeIntegrator(new DGTraceIntegrator(v_coeff, 1.0, -0.5)));
+         new TransposeIntegrator(new DGTraceIntegrator(v_coeff, 1.0)));
       a_exp.AddBdrFaceIntegrator(
-         new TransposeIntegrator(new DGTraceIntegrator(v_coeff, 1.0, -0.5)));
+         // new TransposeIntegrator(new DGTraceIntegrator(v_coeff, 1.0, -0.5)));
+         new TransposeIntegrator(new DGTraceIntegrator(v_coeff, 1.0)));
       a_exp.Assemble(0);
       a_exp.Finalize(0);
       A_exp = a_exp.ParallelAssemble();
@@ -387,7 +402,7 @@ public:
          t_exp = this->GetTime();
          HypreParVector *B = new HypreParVector(*A_exp);
          B = b_exp.ParallelAssemble();
-         du_dt -= *B;
+         du_dt += *B;
          delete B;
       }
    }
@@ -402,7 +417,7 @@ public:
          t_exp = this->GetTime();
          HypreParVector *B = new HypreParVector(*A_exp);
          B = b_imp.ParallelAssemble();
-         du_dt -= *B;
+         du_dt += *B;
          delete B;
       }
    }
@@ -428,7 +443,7 @@ public:
          b_exp.Assemble();
          B = b_exp.ParallelAssemble();
       }
-      rhs.Add(-r, *B);
+      rhs.Add(r, *B);
    }
 
    void AddImplicitForcing(Vector &rhs, double t, double r, double z)
@@ -440,7 +455,7 @@ public:
          HypreParVector *B = new HypreParVector(*A_imp);
          b_imp.Assemble();
          B = b_imp.ParallelAssemble();
-         rhs.Add(-r, *B);
+         rhs.Add(r, *B);
       }
    }
 
@@ -741,6 +756,11 @@ int run_adv_diff(int argc, char *argv[])
    {
       std::cout << "Number of unknowns/proc: " << fes.GetVSize() << std::endl;
       std::cout << "Total number of unknowns: " << fes.GlobalVSize() << std::endl;
+
+      Vector zzz(2);
+      zzz(0) = 0.341;
+      zzz(1) = 0.984;
+      std::cout << "\n\n\ttest = " << force_fn(zzz,0.826) << "\n\n";
    }
 
    if (imex_id < 1000 && (imex_id > 0 || std::abs(imex_id) > 20) ) {
@@ -778,6 +798,8 @@ int run_adv_diff(int argc, char *argv[])
       simulate(ode, u, fes, tf, dt, myid);
       dg.ClearPrec();
    }
+
+
 
    return 0;
 }

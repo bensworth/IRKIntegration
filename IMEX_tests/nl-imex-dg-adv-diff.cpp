@@ -33,15 +33,16 @@
 
 using namespace mfem;
 
+bool root;
 double eps = 1e-2;   // Diffusion coeffient
-double eta = 0.0;    // reaction coefficient
+double eta = 0;    // reaction coefficient
 
 // Matlab plot of velocity field
 // [xs,ys] = meshgrid(0:0.05:1, 0:0.05:1);
 // quiver(xs,ys,sin(ys*4*M_PI),cos(xs*2*M_PI))
 
-// Initial condition sin(2M_PIx)sin(2M_PIy) for manufactured solution
-// sin(2M_PI(x-t))sin(2M_PI(y-t))
+// Initial condition sin(2pix)sin(2piy) for manufactured solution
+// sin(2pi(x-t))sin(2pi(y-t))
 double ic_fn(const Vector &xvec)
 {
    double x = xvec[0];
@@ -58,56 +59,24 @@ void v_fn(const Vector &xvec, Vector &v)
 
 // Reaction term: \gamma * u ( 1 - u) (u - 1/2)
 // Forcing function for u_t = e*\Delta u - [1,1]\cdot \nabla u+  f.
-// for solution u* = sin(2M_PIx(1-y)(1+2t))sin(2M_PIy(1-x)(1+2t))
+// for solution u* = sin(2*pi*x(1-y)(1+2t))sin(2*pi*y(1-x)(1+2t))
 double force_fn(const Vector &xvec, double t)
 {
    double x = xvec[0];
    double y = xvec[1];
    // Definitely correct for no reaction term
-   double v = -4.0*M_PI*M_PI*eps*(2.0*t + 1.0)*(2.0*t + 1.0)*(-x*x*sin(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*\
-      sin(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0)) + 2.0*x*(x - 1.0)*cos(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*\
-      cos(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0)) - (x - 1.0)*(x - 1.0)*sin(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*\
-      sin(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0))) - 4.0*M_PI*M_PI*eps*(2.0*t + 1.0)*(2.0*t + 1.0)*\
-      (-y*y*sin(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*sin(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0)) +\
-      2.0*y*(y - 1.0)*cos(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*cos(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0)) - \
-      (y - 1.0)*(y - 1.0)*sin(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*sin(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0))) + \
-      4.0*M_PI*x*(1.0 - y)*sin(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0))*cos(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0)) - \
-      2.0*M_PI*x*(2.0*t + 1.0)*sin(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0))*cos(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0)) + \
-      4.0*M_PI*y*(1.0 - x)*sin(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0))*cos(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0)) - \
-      2.0*M_PI*y*(2.0*t + 1.0)*sin(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0))*cos(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0)) + \
-      2.0*M_PI*(1.0 - x)*(2.0*t + 1.0)*sin(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0))*cos(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0)) + \
-      2.0*M_PI*(1.0 - y)*(2.0*t + 1.0)*sin(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0))*cos(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0));
-   return -v;
    // Supposed reaction solution, does not work
-   // double v = 4*(M_PI+2*M_PI*t)*(M_PI+2*M_PI*t)*eps*(cos(2*M_PI*(1+2*t)*(x+(-1)*y))+((-1)+ \
-   //    2*x+(-2)*x*x+2*y+(-2)*y*y)*cos(2*M_PI*(1+2*t)*((-1)*y+ \
-   //    x*((-1)+2*y))))+(-2)*M_PI*(1+2*t)*((-1)+x)*cos(2*M_PI*(1+2* \
-   //    t)*((-1)+x)*y)*sin(2*M_PI*(1+2*t)*x*((-1)+y))+(-2)*M_PI*(1+ \
-   //    2*t)*y*cos(2*M_PI*(1+2*t)*((-1)+x)*y)*sin(2*M_PI*(1+2*t)* \
-   //    x*((-1)+y))+4*M_PI*((-1)+x)*y*cos(2*M_PI*(1+2*t)*((-1)+x)*y) \
-   //    *sin(2*M_PI*(1+2*t)*x*((-1)+y))+(-2)*M_PI*(1+2*t)*x*cos(2* \
-   //    M_PI*(1+2*t)*x*((-1)+y))*sin(2*M_PI*(1+2*t)*((-1)+x)*y)+(-2) \
-   //    *M_PI*(1+2*t)*((-1)+y)*cos(2*M_PI*(1+2*t)*x*((-1)+y))*sin( \
-   //    2*M_PI*(1+2*t)*((-1)+x)*y)+4*M_PI*x*((-1)+y)*cos(2*M_PI*(1+ \
-   //    2*t)*x*((-1)+y))*sin(2*M_PI*(1+2*t)*((-1)+x)*y)+(-1)*eta* \
-   //    sin(2*M_PI*(1+2*t)*x*((-1)+y))*sin(2*M_PI*(1+2*t)*((-1)+x)* \
-   //    y)*(1+(-1)*sin(2*M_PI*(1+2*t)*x*((-1)+y))*sin(2*M_PI*(1+2* \
-   //    t)*((-1)+x)*y))*((-1/2)+sin(2*M_PI*(1+2*t)*x*((-1)+y))*sin( \
-   //    2*M_PI*(1+2*t)*((-1)+x)*y));
-   // return v;
-   // Supposed reaction solution with eta=0, does not work
-   // double v = 4.0*(M_PI+2.0*M_PI*t)*(M_PI+2.0*M_PI*t)*eps*(cos(2.0*M_PI*(1.0+2.0*t)*(x+(-1.0)*y))+((-1.0)+ \
-   //    2.0*x+(-2.0)*x*x+2.0*y+(-2.0)*y*y)*cos(2.0*M_PI*(1.0+2.0*t)*((-1.0)*y+ \
-   //    x*((-1.0)+2.0*y))))+(-2.0)*M_PI*(1.0+2.0*t)*((-1.0)+x)*cos(2.0*M_PI*(1.0+2.0* \
-   //    t)*((-1.0)+x)*y)*sin(2.0*M_PI*(1.0+2.0*t)*x*((-1.0)+y))+(-2.0)*M_PI*(1.0+ \
-   //    2.0*t)*y*cos(2.0*M_PI*(1.0+2.0*t)*((-1.0)+x)*y)*sin(2.0*M_PI*(1.0+2.0*t)* \
-   //    x*((-1.0)+y))+4.0*M_PI*((-1.0)+x)*y*cos(2.0*M_PI*(1.0+2.0*t)*((-1.0)+x)*y) \
-   //    *sin(2.0*M_PI*(1.0+2.0*t)*x*((-1.0)+y))+(-2.0)*M_PI*(1.0+2.0*t)*x*cos(2.0* \
-   //    M_PI*(1.0+2.0*t)*x*((-1.0)+y))*sin(2.0*M_PI*(1.0+2.0*t)*((-1.0)+x)*y)+(-2.0) \
-   //    *M_PI*(1.0+2.0*t)*((-1.0)+y)*cos(2.0*M_PI*(1.0+2.0*t)*x*((-1.0)+y))*sin( \
-   //    2.0*M_PI*(1.0+2.0*t)*((-1.0)+x)*y)+4.0*M_PI*x*((-1.0)+y)*cos(2.0*M_PI*(1.0+ \
-   //    2.0*t)*x*((-1.0)+y))*sin(2.0*M_PI*(1.0+2.0*t)*((-1.0)+x)*y);
-   // return v;
+   double v = 4.0*(M_PI+2.0*M_PI*t)*(M_PI+2.0*M_PI*t)*eps*(cos(2.0*M_PI*(1+2.0*t)*(x+(-1)*y))+((-1)+ \
+       2.0*x+(-2)*x*x+2.0*y+(-2)*y*y)*cos(2.0*M_PI*(1+2.0*t)*((-1)*y+ \
+       x*((-1)+2.0*y))))+4.0*M_PI*((-1)+x)*y*cos(2.0*M_PI*(1+2.0*t)*((-1)+ \
+       x)*y)*sin(2.0*M_PI*(1+2.0*t)*x*((-1)+y))+4.0*M_PI*x*((-1)+y)*cos( \
+       2.0*M_PI*(1+2.0*t)*x*((-1)+y))*sin(2.0*M_PI*(1+2.0*t)*((-1)+x)*y)+( \
+       -1)*eta*sin(2.0*M_PI*(1+2.0*t)*x*((-1)+y))*sin(2.0*M_PI*(1+2.0*t)*(( \
+       -1)+x)*y)*(1+(-1)*sin(2.0*M_PI*(1+2.0*t)*x*((-1)+y))*sin(2.0* \
+       M_PI*(1+2.0*t)*((-1)+x)*y))*((-1/2)+sin(2.0*M_PI*(1+2.0*t)*x*((-1) \
+       +y))*sin(2.0*M_PI*(1+2.0*t)*((-1)+x)*y))+(-2)*M_PI*(1+2.0*t)*((-1) \
+       +x+y)*(-1.0)*sin(2.0*M_PI*(1+2.0*t)*((-1)*y+x*((-1)+2.0*y)));
+   return v;
 }
 
 // Exact solution (x,y,t)
@@ -142,7 +111,7 @@ bool simulate(ODESolver *ode, ParGridFunction &u,
 
    double err = u_gf.ComputeL2Error(u_ex_coeff);
    if (myid == 0) {
-      std::cout << "l2(t) " << err << "\nruntime " << timer.RealTime();
+      std::cout << "l2(t) " << err << "\nruntime " << timer.RealTime() << "\n";
    }
 
    if (err > 1) return false;
@@ -384,9 +353,9 @@ public:
       // Set up advection bilinear form
       a_exp.AddDomainIntegrator(new ConvectionIntegrator(v_coeff, -1.0));
       a_exp.AddInteriorFaceIntegrator(
-         new TransposeIntegrator(new DGTraceIntegrator(v_coeff, 1.0, -0.5)));
+         new TransposeIntegrator(new DGTraceIntegrator(v_coeff, -1.0)));
       a_exp.AddBdrFaceIntegrator(
-         new TransposeIntegrator(new DGTraceIntegrator(v_coeff, 1.0, -0.5)));
+         new TransposeIntegrator(new DGTraceIntegrator(v_coeff, -1.0)));
       a_exp.Assemble(0);
       a_exp.Finalize(0);
       A_exp = a_exp.ParallelAssemble();
@@ -425,41 +394,41 @@ public:
 
    void ExplicitMult(const Vector &u, Vector &du_dt) const override
    {
+      double max = 0;
+      for (int i=0; i<reaction.Size(); i++) {
+         if (std::abs(u(i)) > max) {
+            max = std::abs(u(i));
+         }
+      }
+      if (root && max > 100) std::cout << "Large solution = " << max << "\n";
+      // if (root) std::cout << "Max solution = " << max << "\n";
+
       // Set nonlinear reaction term, reassemble explicit bilinear form
       SetReaction(u);
-#if 0
-      a_exp.Assemble(0);
-      a_exp.Finalize(0);
-      A_exp = a_exp.ParallelAssemble();
-      A_exp->Mult(u, du_dt);
-#else
+
       // Add nonlinear reaction term to explicit bilinear form, assemble at time
       ParBilinearForm m_nl(&fes);
       GridFunctionCoefficient apply_r(&reaction);
       m_nl.AddDomainIntegrator(new MassIntegrator(apply_r));
       m_nl.Assemble(0);
       m_nl.Finalize(0);
-      // m_nl.ParallelAssemble();
       HypreParMatrix *NL = m_nl.ParallelAssemble();
 
       A_exp->Mult(u, du_dt);
 
       Vector temp(u.Size());
       NL->Mult(u, temp);
-      du_dt += temp;
-#endif
+      du_dt -= temp;
+      delete NL;
 
       // Add forcing function and BCs
-      // TODO : could probably check whether this time needs to be
-      //    set or not, but need to coordinate between exp and imp.
-      // BC_coeff.SetTime(this->GetTime());
       if (!imp_forcing) {
          forcing_coeff.SetTime(this->GetTime());
          b_exp.Assemble();
          t_exp = this->GetTime();
          HypreParVector *B = new HypreParVector(*A_exp);
          B = b_exp.ParallelAssemble();
-         du_dt -= *B;
+         du_dt += *B;
          delete B;
       }
    }
@@ -474,7 +443,7 @@ public:
          t_exp = this->GetTime();
          HypreParVector *B = new HypreParVector(*A_exp);
          B = b_imp.ParallelAssemble();
-         du_dt -= *B;
+         du_dt += *B;
          delete B;
       }
    }
@@ -500,7 +469,7 @@ public:
          b_exp.Assemble();
          B = b_exp.ParallelAssemble();
       }
-      rhs.Add(-r, *B);
+      rhs.Add(r, *B);
    }
 
    void AddImplicitForcing(Vector &rhs, double t, double r, double z)
@@ -512,7 +481,7 @@ public:
          HypreParVector *B = new HypreParVector(*A_imp);
          b_imp.Assemble();
          B = b_imp.ParallelAssemble();
-         rhs.Add(-r, *B);
+         rhs.Add(r, *B);
       }
    }
 
@@ -696,7 +665,7 @@ int run_adv_diff(int argc, char *argv[])
    int num_procs, myid;
    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
    MPI_Comm_rank(MPI_COMM_WORLD, &myid);
-   bool root = (myid == 0);
+   root = (myid == 0);
 
    static const double sigma = -1.0;
 
@@ -729,6 +698,7 @@ int run_adv_diff(int argc, char *argv[])
                   "One of the two DG penalty parameters, should be positive."
                   " Negative values are replaced with (order+1)^2.");
    args.AddOption(&eps, "-e", "--epsilon", "Diffusion coefficient.");
+   args.AddOption(&eta, "-eta", "--eta", "Reaction coefficient.");
    args.AddOption(&dt, "-dt", "--time-step", "Time step.");
    args.AddOption(&tf, "-tf", "--final-time", "Final time.");
    args.AddOption(&imex_id, "-imex", "--imex", "Use IMEX solver (provide id; if 0, Euler-IMEX).");

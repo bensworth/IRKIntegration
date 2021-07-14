@@ -722,8 +722,8 @@ int run_adv_diff(int argc, char *argv[])
    }
 
    // Time integration testing data
-   // std::vector<int> rk_id = {111, 222, 443, -43};
-   // std::vector<bool> rk_bool = {true, true, true, true};
+   std::vector<int> rk_id = {111, 222, 443, -43};
+   std::vector<bool> rk_bool = {true, true, true, true};
 
    std::vector<int> bdf_id = {12, 13};
    std::vector<double> bdf_alpha = {1.0, 2.0, 3.0, 0.5, 1.0, 2.0};
