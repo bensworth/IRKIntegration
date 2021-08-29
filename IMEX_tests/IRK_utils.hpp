@@ -285,13 +285,17 @@ public:
         RadauIIA3 = 23, RadauIIA5 = 25, RadauIIA7 = 27, RadauIIA9 = 29,
         LobIIIC2 = 32, LobIIIC4 = 34, LobIIIC6 = 36, LobIIIC8 = 38,
         IMEXGauss4 = 114,
-        IMEXRadauIIA3 = 123, IMEXRadauIIA4 = 124, IMEXRadauIIA5 = 125, 
+        IMEXRadauIIA1 = 121, IMEXRadauIIA3 = 123, IMEXRadauIIA4 = 124, IMEXRadauIIA5 = 125, 
         IMEXRadauIIA6 = 126,
         IMEXLobIIIC2 = 132
     };  
     
 private:    
     Type ID;
+    
+    // Star methods use one more quadrature point for explicit method
+    // -> 1 higher order on explicit, less stability.
+    bool imex_star;
     
     /// Set data required by solvers 
     void SetData();     
@@ -309,7 +313,7 @@ public:
     };
 
     /// Constructor for real RK schemes
-    RKData(Type ID_) : ID(ID_) { SetData(); };
+    RKData(Type ID_, bool imex_star_=false) : ID(ID_), imex_star(imex_star_) { SetData(); };
     
     /** Constructor for setting dummy RK data with 2x2 matrix having complex 
         conjugate eigenvalues with ratio beta_on_eta and real-component of eta */

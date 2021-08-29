@@ -321,39 +321,9 @@ void PolyIMEX::Step(Vector &x, double &t, double &dt)
 
         // Perform order+num_iters applications of iterator
         for (int i=0; i<(m_Butcher.order+num_iters); i++) {
-        // for (int i=0; i<1; i++) {   // DEBUG
-
-            // // DEBUG
-            // if (exp_ind == 0) {
-            //     Vector u = sol_exp;
-            //     std::cout << std::setprecision(16) << "\tINIT: u0 = (" << u(0) << ", " << u(1) << ")\n";
-
-            //     for (int i=0; i<m_Butcher.s; i++) {
-            //         u = sol_imp.GetBlock(i);
-            //         std::cout << std::setprecision(16) << "\tINIT: u"<< i+1 << " = (" << u(0) << ", " << u(1) << ")\n";
-            //     }
-            // }
-            // // Implicit stages are first, followed by explicit
-            // else {
-            //     Vector u;
-            //     for (int i=0; i<m_Butcher.s; i++) {
-            //         u = sol_imp.GetBlock(i);
-            //         std::cout << std::setprecision(16) << "\tINIT: u"<< i << " = (" << u(0) << ", " << u(1) << ")\n";
-            //     }
-            //     u = sol_exp;
-            //     std::cout << std::setprecision(16) << "\tINIT: us-1 = (" << u(0) << ", " << u(1) << ")\n";
-            // } 
-            // for (int i=0; i<=m_Butcher.s; i++) {
-            //     Vector u = exp_part.GetBlock(i);
-            //     std::cout << std::setprecision(16) << "\tEXP("<< i << ") = (" << u(0) << ", " << u(1) << ")\n";
-            // }
-            // // DEBUG
-
             Iterate(x, t, r, true);        
-
         }
         initialized = true;
-
     }
 
     // Reset iteration counter for Jacobian solve from previous Newton iteration
@@ -387,30 +357,6 @@ void PolyIMEX::Step(Vector &x, double &t, double &dt)
         // x = sol_imp.GetBlock(0);
     }
     t += dt; // Update current time
-
-
-
-    // // DEBUG
-    // if (exp_ind == 0) {
-    //     Vector u = sol_exp;
-    //     std::cout << std::setprecision(16) << "\tu0 = (" << u(0) << ", " << u(1) << ")\n";
-
-    //     for (int i=0; i<m_Butcher.s; i++) {
-    //         u = sol_imp.GetBlock(i);
-    //         std::cout << std::setprecision(16) << "\tu"<< i << " = (" << u(0) << ", " << u(1) << ")\n";
-    //     }
-    // }
-    // // Implicit stages are first, followed by explicit
-    // else {
-    //     Vector u;
-    //     for (int i=0; i<m_Butcher.s; i++) {
-    //         u = sol_imp.GetBlock(i);
-    //         std::cout << std::setprecision(16) << "\tu"<< i << " = (" << u(0) << ", " << u(1) << ")\n";
-    //     }
-    //     u = sol_exp;
-    //     std::cout << std::setprecision(16) << "\tus-1 = (" << u(0) << ", " << u(1) << ")\n";
-    // } 
-    // // DEBUG
 }
 
 
@@ -495,12 +441,6 @@ void PolyIMEX::FormImpRHS(Vector &x_prev, const double &t,
         }
         coeffs = NULL;
     }
-
-    // // DEBUG
-    // for (int i=0; i<m_Butcher.s; i++) {
-    //     Vector u = rhs.GetBlock(i);
-    //     std::cout << std::setprecision(16) << "\tRHS("<< i << ") = (" << u(0) << ", " << u(1) << ")\n";
-    // }
 
     // Scale by (A0 x I)^{-1}, rhs <- (A0 x I)^{-1}rhs
     KronTransform(m_Butcher.invA0, rhs);
