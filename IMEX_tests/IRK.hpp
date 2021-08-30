@@ -136,6 +136,8 @@ private:
     Vector      sol_exp;        // Vector for explicit solution
     int exp_ind;
     int num_iters;
+    int total_precs;
+    int total_steps;
 
     bool initialized;
     bool linearly_imp;           // Linearly implicit
@@ -150,7 +152,7 @@ private:
 
     /** Update solution via one implicit-explicit pass; can be used as
         preconditioning for higher-order scheme or kernel of single time step. */
-    void Iterate(Vector &x, const double &t, const double &r, bool iterator);
+    void Iterate(Vector &x, const double &t, const double &r, bool iterator, bool init=false);
 
 public:
     PolyIMEX(IRKOperator *IRKOper_, const RKData &ButcherTableau,
@@ -161,6 +163,15 @@ public:
     void Init(TimeDependentOperator &F);
 
     void SetSolvers();
+
+    // Retrun average iterations and reset counter
+    double AverageIterations()
+    {
+        double temp = total_precs / (double (total_steps));
+        total_steps = 0;
+        total_precs = 0;
+        return temp;
+    }
 
     /// Full time stepping
     // void Run(Vector &x, double &t, double &dt, double tf);

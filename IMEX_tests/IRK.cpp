@@ -321,14 +321,10 @@ void PolyIMEX::Step(Vector &x, double &t, double &dt)
 
         // Perform order+num_iters applications of iterator
         for (int i=0; i<(m_Butcher.order+num_iters); i++) {
-            Iterate(x, t, r, true);        
+            Iterate(x, t, r, true, true);        
         }
         initialized = true;
     }
-
-    // Reset iteration counter for Jacobian solve from previous Newton iteration
-    // TODO : should this be called between every call to Iterate()?
-    m_tri_jac_solver->ResetNumIterations();
 
     // Apply propagator
     Iterate(x, t, r, false);
@@ -357,6 +353,13 @@ void PolyIMEX::Step(Vector &x, double &t, double &dt)
         // x = sol_imp.GetBlock(0);
     }
     t += dt; // Update current time
+    total_steps += 1;
+
+    /// DEBUG
+    // int myid;
+    // MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+    // bool root = (myid == 0);
+    // if (myid == 0) std::cout << "precs/step " << total_precs << ", total steps " << total_steps << "\n";
 }
 
 
@@ -472,7 +475,7 @@ void PolyIMEX::UpdateExplicitComponents(const double &t, const double &r)
     } 
 }
 
-void PolyIMEX::Iterate(Vector &x, const double &t, const double &r, bool iterator)
+void PolyIMEX::Iterate(Vector &x, const double &t, const double &r, bool iterator, bool init)
 {
     // If explicit stage is first, solve for explicit stage, 
     // u_{n+1} = u_n + dt*M^{-1}\sum_j expA0_it(0,j) exp_part(j)
@@ -547,26 +550,29 @@ void PolyIMEX::Iterate(Vector &x, const double &t, const double &r, bool iterato
         }
     }
 
+    // Reset iteration counter for Jacobian solve from previous Newton iteration
+    m_tri_jac_solver->ResetNumIterations();
+
     // ------------- Linearly implicit IMEX ------------- //
     if (linearly_imp) {
 
         // Solve linear system for implicit stages
         m_tri_jac_solver->Mult(rhs, sol_imp);
 
-        // // DEBUG
-        // BlockVector test(sol_imp);
-        // m_stageOper->Mult(sol_imp, test);
-        // test -= rhs;
-        // std::cout << "\t\tSystem solve error = " << test.Norml2() << "\n";
-        // // DEBUG
-        // for (int i=0; i<m_Butcher.s; i++) {
-        //     Vector u = sol_imp.GetBlock(i);
-        //     std::cout << std::setprecision(16) << "\t\tu"<< i << " = (" << u(0) << ", " << u(1) << ")\n";
-        // }
-        // // DEBUG
-
-        // TODO : add average Krylov iterations here
-
+        // Average Krylov iterations here
+        if (!init) {
+            total_precs += m_tri_jac_solver->GetNumPrecs();
+            // DEBUG
+            // int myid;
+            // MPI_Comm_rank(MPI_COMM_WORLD, &myid);
+            // bool root = (myid == 0);
+            // if (iterator) {
+            //     if (root) std::cout << "iterator " << m_tri_jac_solver->GetNumPrecs() << "\n";
+            // }
+            // else {
+            //     if (root) std::cout << "propagator " << m_tri_jac_solver->GetNumPrecs() << "\n";
+            // }
+        }
     }
     // ------------- Nonlinearly implicit IMEX ------------- //
     else {

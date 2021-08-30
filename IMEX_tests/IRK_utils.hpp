@@ -285,7 +285,7 @@ public:
         RadauIIA3 = 23, RadauIIA5 = 25, RadauIIA7 = 27, RadauIIA9 = 29,
         LobIIIC2 = 32, LobIIIC4 = 34, LobIIIC6 = 36, LobIIIC8 = 38,
         IMEXGauss4 = 114,
-        IMEXRadauIIA1 = 121, IMEXRadauIIA3 = 123, IMEXRadauIIA4 = 124, IMEXRadauIIA5 = 125, 
+        IMEXRadauIIA2 = 122, IMEXRadauIIA3 = 123, IMEXRadauIIA4 = 124, IMEXRadauIIA5 = 125, 
         IMEXRadauIIA6 = 126,
         IMEXLobIIIC2 = 132
     };  
@@ -730,6 +730,20 @@ public:
     
     /// Functions to track solver progress
     inline vector<int> GetNumIterations() { return krylov_iters; };
+    
+    /// Get number of preconditioner applications
+    int GetNumPrecs()
+    {
+        int s_eff = StageOper.Butcher.s_eff; 
+        Array<int> size = StageOper.Butcher.R0_block_sizes;
+        int temp = 0.0;
+        for (int diagBlock = s_eff-1; diagBlock >= 0; diagBlock--) {
+            if (size[diagBlock] == 2) temp += 2*krylov_iters[diagBlock];
+            else temp += krylov_iters[diagBlock];
+        }
+        return temp;
+    }
+
     void ResetNumIterations();
 
     /** Newton method will pass the operator returned from its GetGradient() to 

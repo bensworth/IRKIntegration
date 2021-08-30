@@ -8,15 +8,14 @@
 # Compiler, compile options, and link options
 
 # Ben's stuff
-MFEM_DIR  = /Users/southworth/Software/mfem
-HYPRE_DIR = $(MFEM_DIR)/../hypre/src/hypre
-METIS_DIR = $(MFEM_DIR)/../metis-5.1.0/build/Darwin-x86_64
+MFEM_DIR = /home/southworth/c_libs/mfem
+INST_DIR = /home/southworth/c_libs/install
 CXX      = mpicxx
 FLAGS    = -O3 -std=c++14 -fopenmp
-INC      = -I$(MFEM_DIR)/bens_build -I$(HYPRE_DIR)/include -I$(METIS_DIR)/include -I./
-LDFLAGS  = -L$(MFEM_DIR)/bens_build -L$(HYPRE_DIR)/lib -L$(METIS_DIR)/libmetis
+INC      = -I$(INST_DIR)/include
+LDFLAGS  = -L$(INST_DIR)/lib
 LDLIBS   = -lmfem -lHYPRE -lmetis
-CXXFLAGS = $(FLAGS) $(INC) $(LDFLAGS)
+CXXFLAGS = $(FLAGS) $(INC) $(LDLIBS) $(LDFLAGS)
 
 # Files to compile
 SRCS  = IRK_utils.cpp IMEX_utils.cpp IRK.cpp

@@ -2596,7 +2596,7 @@ void RKData::SetData() {
             break;
 
         // 1-stage 1st-order Radau IIA (= IMEX-Euler w/o iterators)
-        case Type::IMEXRadauIIA1:
+        case Type::IMEXRadauIIA2:
             is_imex = true;
             s = 1 ;
             s_eff = 1 ;

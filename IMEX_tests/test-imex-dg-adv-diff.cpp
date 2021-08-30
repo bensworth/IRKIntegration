@@ -61,20 +61,18 @@ double force_fn(const Vector &xvec, double t)
 {
    double x = xvec[0];
    double y = xvec[1];
-   double v = -4.0*M_PI*M_PI*eps*(2.0*t + 1.0)*(2.0*t + 1.0)*(-x*x*sin(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*\
-      sin(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0)) + 2.0*x*(x - 1.0)*cos(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*\
-      cos(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0)) - (x - 1.0)*(x - 1.0)*sin(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*\
-      sin(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0))) - 4.0*M_PI*M_PI*eps*(2.0*t + 1.0)*(2.0*t + 1.0)*\
-      (-y*y*sin(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*sin(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0)) +\
-      2.0*y*(y - 1.0)*cos(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*cos(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0)) - \
-      (y - 1.0)*(y - 1.0)*sin(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*sin(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0))) + \
-      4.0*M_PI*x*(1.0 - y)*sin(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0))*cos(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0)) - \
-      2.0*M_PI*x*(2.0*t + 1.0)*sin(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0))*cos(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0)) + \
-      4.0*M_PI*y*(1.0 - x)*sin(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0))*cos(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0)) - \
-      2.0*M_PI*y*(2.0*t + 1.0)*sin(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0))*cos(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0)) + \
-      2.0*M_PI*(1.0 - x)*(2.0*t + 1.0)*sin(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0))*cos(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0)) + \
-      2.0*M_PI*(1.0 - y)*(2.0*t + 1.0)*sin(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0))*cos(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0));
-   return -v;
+   double v = 4.0*(M_PI+2.0*M_PI*t)*(M_PI+2.0*M_PI*t)*eps*(cos(2.0*M_PI*(1.0+2.0*t)*(x+(-1.0)*y))+((-1.0)+ \
+      2.0*x+(-2.0)*x*x+2.0*y+(-2.0)*y*y)*cos(2.0*M_PI*(1.0+2.0*t)*((-1.0)*y+ \
+      x*((-1.0)+2.0*y))))+(-2.0)*M_PI*(1.0+2.0*t)*((-1.0)+x)*cos(2.0*M_PI*(1.0+2.0* \
+      t)*((-1.0)+x)*y)*sin(2.0*M_PI*(1.0+2.0*t)*x*((-1.0)+y))+(-2.0)*M_PI*(1.0+ \
+      2.0*t)*y*cos(2.0*M_PI*(1.0+2.0*t)*((-1.0)+x)*y)*sin(2.0*M_PI*(1.0+2.0*t)* \
+      x*((-1.0)+y))+4.0*M_PI*((-1.0)+x)*y*cos(2.0*M_PI*(1.0+2.0*t)*((-1.0)+x)*y) \
+      *sin(2.0*M_PI*(1.0+2.0*t)*x*((-1.0)+y))+(-2.0)*M_PI*(1.0+2.0*t)*x*cos(2.0* \
+      M_PI*(1.0+2.0*t)*x*((-1.0)+y))*sin(2.0*M_PI*(1.0+2.0*t)*((-1.0)+x)*y)+(-2.0) \
+      *M_PI*(1.0+2.0*t)*((-1.0)+y)*cos(2.0*M_PI*(1.0+2.0*t)*x*((-1.0)+y))*sin( \
+      2.0*M_PI*(1.0+2.0*t)*((-1.0)+x)*y)+4.0*M_PI*x*((-1.0)+y)*cos(2.0*M_PI*(1.0+ \
+      2.0*t)*x*((-1.0)+y))*sin(2.0*M_PI*(1.0+2.0*t)*((-1.0)+x)*y);
+   return v;
 }
 
 // Exact solution (x,y,t)
@@ -87,16 +85,19 @@ double sol_fn(const Vector &xvec, double t)
 
 
 // Return if error < 1 to note when divergence happens
-bool simulate(ODESolver *ode, ParGridFunction &u,
-   ParFiniteElementSpace &fes, double tf, double dt, bool myid)
+int simulate(ODESolver *ode, ParGridFunction &u,
+   ParFiniteElementSpace &fes, double tf, double dt, bool myid,
+   bool &did_converge)
 {
    bool done = false;
    StopWatch timer;
    timer.Start();
    double t = 0;
+   int nt = 0;
    while (!done)
    {
       ode->Step(u, t, dt);
+      nt++;
       done = (t >= tf - 1e-8*dt);
    }
    timer.Stop();
@@ -108,11 +109,13 @@ bool simulate(ODESolver *ode, ParGridFunction &u,
 
    double err = u_gf.ComputeL2Error(u_ex_coeff);
    if (myid == 0) {
-      std::cout << "l2(t) " << err << "\nruntime " << timer.RealTime();
+      std::cout << "l2(t) " << err << "\nruntime " << timer.RealTime() << "\n";
    }
 
-   if (err > 1) return false;
-   else return true;
+   if (err > 1) did_converge = false;
+   else did_converge = true;
+
+   return nt;
 }
 
 
@@ -193,32 +196,14 @@ public:
 struct BackwardEulerPreconditioner : Solver
 {
    HypreParMatrix B;
-   HypreParMatrix B_s;
    HypreBoomerAMG *AMG_solver;
+   // GMRESSolver *GMRES_solver;
    HypreGMRES *GMRES_solver;
-   BlockILU *prec;
-   int blocksize;
-   bool use_gmres;
 public:
    BackwardEulerPreconditioner(ParFiniteElementSpace &fes, double gamma,
-                               HypreParMatrix &M, double dt, HypreParMatrix &A)
-      : Solver(fes.GetTrueVSize()), B(A), AMG_solver(NULL), use_gmres(false),
-      GMRES_solver(NULL)
-   {
-      // Set B = gamma*M - dt*A
-      B *= -dt;
-      SparseMatrix B_diag, M_diag;
-      B.GetDiag(B_diag);
-      M.GetDiag(M_diag);
-      // M is block diagonal, so suffices to only add the processor-local part
-      B_diag.Add(gamma, M_diag);
-      prec = new BlockILU(B);
-   }
-   BackwardEulerPreconditioner(ParFiniteElementSpace &fes, double gamma,
                                HypreParMatrix &M, double dt, HypreParMatrix &A,
-                               int AMG_iter, bool use_gmres_)
-      : Solver(fes.GetTrueVSize()), B(A), prec(NULL), use_gmres(use_gmres_),
-      GMRES_solver(NULL)
+                               bool full_solve=false)
+      : Solver(fes.GetTrueVSize()), B(A), GMRES_solver(NULL)
    {
       // Set B = gamma*M - dt*A
       B *= -dt;
@@ -227,13 +212,9 @@ public:
       M.GetDiag(M_diag);
       // M is block diagonal, so suffices to only add the processor-local part
       B_diag.Add(gamma, M_diag);
-
-      int order = fes.GetOrder(0);
-      blocksize = (order+1)*(order+1);
 
       // Build AMG solver
       AMG_solver = new HypreBoomerAMG(B);
-      // AMG_solver->SetAdvectiveOptions(1.5, "", "FA");    // DEBUG
       AMG_solver->SetMaxLevels(50); 
       AMG_solver->SetStrengthThresh(0.2);
       AMG_solver->SetCoarsening(6);
@@ -242,35 +223,30 @@ public:
       AMG_solver->SetTol(0);
       AMG_solver->SetMaxIter(1);
       AMG_solver->SetPrintLevel(0);
-      if (AMG_iter > 1) {
-         use_gmres = true;
-         if (blocksize > 0) GMRES_solver = new HypreGMRES(B_s);
-         else GMRES_solver = new HypreGMRES(B);
-         GMRES_solver->SetMaxIter(AMG_iter);
-         GMRES_solver->SetTol(0);
+
+      if (full_solve) {
+      // GMRES_solver = new GMRESSolver();
+      // GMRES_solver->SetRelTol(1e-12);
+      // GMRES_solver->SetOperator(B);
+         GMRES_solver = new HypreGMRES(B);
+         GMRES_solver->SetTol(1e-12);
+         GMRES_solver->SetMaxIter(250);
+         GMRES_solver->SetKDim(10);
          GMRES_solver->SetPreconditioner(*AMG_solver);
+         GMRES_solver->SetPrintLevel(0);
       }
    } 
    void Mult(const Vector &x, Vector &y) const
    {
-      y = 0.0;
-      if (AMG_solver) {
-         if (use_gmres) GMRES_solver->Mult(x, y);
-         else AMG_solver->Mult(x, y);
-      }
-      else {
-         prec->Mult(x, y);
-      }
+      AMG_solver->Mult(x, y);
    }
-   void Solve(const Vector &x, Vector &y)
+   int Solve(const Vector &x, Vector &y)
    {
       y = 0.0;
-      GMRES_solver = new HypreGMRES(B);
-      GMRES_solver->SetMaxIter(250);
-      GMRES_solver->SetKDim(10);
-      GMRES_solver->SetTol(1e-12);
-      GMRES_solver->SetPreconditioner(*AMG_solver);
       GMRES_solver->Mult(x, y);
+      int temp;
+      GMRES_solver->GetNumIterations(temp);
+      return temp;
    }
    void SetOperator(const Operator &op) { }
 
@@ -278,7 +254,6 @@ public:
    {
       if (AMG_solver) delete AMG_solver;
       if (GMRES_solver) delete GMRES_solver;
-      if (prec) delete prec;
    }
 };
 
@@ -303,13 +278,12 @@ struct DGAdvDiff : IRKOperator
    std::map<std::pair<double,double>, int> prec_index;
    mutable BackwardEulerPreconditioner *current_prec;
    HypreParMatrix *A_imp, *M_mat, *A_exp;
-   int use_AMG;
-   bool use_gmres, imp_forcing;
+   bool imp_forcing;
    mutable double t_exp, t_imp, dt_;
    bool fully_implicit;
+   int total_precs;
 public:
-   DGAdvDiff(ParFiniteElementSpace &fes_, int use_AMG_= 1,
-      bool use_gmres_ = false, bool imp_forcing_=true)
+   DGAdvDiff(ParFiniteElementSpace &fes_, bool imp_forcing_=true)
       : IRKOperator(fes_.GetComm(), true, fes_.GetTrueVSize(), 0.0, IMPLICIT),
         fes(fes_),
         v_coeff(fes.GetMesh()->Dimension(), v_fn),
@@ -320,14 +294,13 @@ public:
         b_imp(&fes),
         b_exp(&fes),
         mass(fes),
-        use_AMG(use_AMG_),
-        use_gmres(use_gmres_),
         forcing_coeff(force_fn),
         t_exp(-1),
         t_imp(-1),
         imp_forcing(imp_forcing_),
         fully_implicit(false),
-        dt_(-1)
+        dt_(-1),
+        total_precs(0)
    {
       const int order = fes.GetOrder(0);
       const double sigma = -1.0;
@@ -342,11 +315,11 @@ public:
       A_imp = a_imp.ParallelAssemble();
 
       // Set up advection bilinear form
-      a_exp.AddDomainIntegrator(new ConvectionIntegrator(v_coeff, -1.0));
+      a_exp.AddDomainIntegrator(new ConvectionIntegrator(v_coeff, 1.0));
       a_exp.AddInteriorFaceIntegrator(
-         new TransposeIntegrator(new DGTraceIntegrator(v_coeff, 1.0, -0.5)));
+         new TransposeIntegrator(new DGTraceIntegrator(v_coeff, 1.0)));
       a_exp.AddBdrFaceIntegrator(
-         new TransposeIntegrator(new DGTraceIntegrator(v_coeff, 1.0, -0.5)));
+         new TransposeIntegrator(new DGTraceIntegrator(v_coeff, 1.0)));
       a_exp.Assemble(0);
       a_exp.Finalize(0);
       A_exp = a_exp.ParallelAssemble();
@@ -386,7 +359,7 @@ public:
          t_exp = this->GetTime();
          HypreParVector *B = new HypreParVector(*A_exp);
          B = b_exp.ParallelAssemble();
-         du_dt -= *B;
+         du_dt += *B;
          delete B;
       }
    }
@@ -401,7 +374,7 @@ public:
          t_imp = this->GetTime();
          HypreParVector *B = new HypreParVector(*A_exp);
          B = b_imp.ParallelAssemble();
-         du_dt -= *B;
+         du_dt += *B;
          delete B;
       }
    }
@@ -427,7 +400,7 @@ public:
          b_exp.Assemble();
          B = b_exp.ParallelAssemble();
       }
-      rhs.Add(-r, *B);
+      rhs.Add(r, *B);
    }
 
    void AddImplicitForcing(Vector &rhs, double t, double r, double z)
@@ -439,7 +412,7 @@ public:
          HypreParVector *B = new HypreParVector(*A_imp);
          b_imp.Assemble();
          B = b_imp.ParallelAssemble();
-         rhs.Add(-r, *B);
+         rhs.Add(r, *B);
       }
    }
 
@@ -477,14 +450,14 @@ public:
       if (current_prec == NULL || dt != dt_)
       {
          delete current_prec;
-         current_prec = new BackwardEulerPreconditioner(fes, 1.0, *M_mat, dt,
-                                                     *A_imp, use_AMG, use_gmres);
+         current_prec = new BackwardEulerPreconditioner(fes, 1.0, *M_mat, dt, *A_imp, true);
          dt_ = dt;
       }
       Vector rhs(x.Size());
       A_imp->Mult(x, rhs);
       AddImplicitForcing(rhs, this->GetTime(), 1.0, 0);
-      current_prec->Solve(rhs, k);
+      int temp = current_prec->Solve(rhs, k);
+      total_precs += temp;
    }
 
    /// Solve M*x - dtf(x, t) = b
@@ -494,16 +467,20 @@ public:
       if (current_prec == NULL || dt != dt_)
       {
          delete current_prec;
-         current_prec = new BackwardEulerPreconditioner(fes, 1.0, *M_mat, dt,
-                                                     *A_imp, use_AMG, use_gmres);
+         current_prec = new BackwardEulerPreconditioner(fes, 1.0, *M_mat, dt, *A_imp, true);
          dt_ = dt;
       }
       Vector rhs(b);
       rhs = b; // This shouldnt be necessary
       if (imp_forcing) AddForcing(rhs, this->GetTime(), dt, 0);
-      current_prec->Solve(rhs, x);
+      int temp = current_prec->Solve(rhs, x);
+      total_precs += temp;
    }
 
+   double TotalPrecs()
+   {
+      return total_precs;
+   }
 
    /** Ensures that this->ImplicitPrec() preconditions (\gamma*M - dt*L)
            + index -> index of system to solve, [0,s_eff)
@@ -518,13 +495,7 @@ public:
       if (!key_exists)
       {
          prec_index[key] = index;
-         if (use_AMG > 0) {
-            prec[index] = new BackwardEulerPreconditioner(fes, gamma, *M_mat, dt,
-                                                        *A_imp, use_AMG, use_gmres);
-         }
-         else {
-            prec[index] = new BackwardEulerPreconditioner(fes, gamma, *M_mat, dt, *A_imp);
-         }
+         prec[index] = new BackwardEulerPreconditioner(fes, gamma, *M_mat, dt, *A_imp);
       }
       current_prec = prec[index];
    }
@@ -538,6 +509,7 @@ public:
       }
       prec.clear();
       current_prec = NULL;
+      total_precs = 0.0;
    }
 
    ~DGAdvDiff()
@@ -549,72 +521,6 @@ public:
       delete A_imp;
       delete A_exp;
       delete M_mat;
-   }
-};
-
-class DG_Solver : public Solver
-{
-private:
-   DGAdvDiff &dg;
-   mutable GMRESSolver linear_solver;
-public:
-   DG_Solver(DGAdvDiff &dg_)
-      : dg(dg_),
-        linear_solver(dg.fes.GetComm())
-   {
-      linear_solver.iterative_mode = false;
-      linear_solver.SetRelTol(1e-12);
-      linear_solver.SetAbsTol(1e-10);
-      linear_solver.SetMaxIter(100);
-      linear_solver.SetKDim(100);
-      linear_solver.SetPrintLevel(2);
-   }
-
-   void SetTimeStep(double dt)
-   {
-      dg.SetPreconditioner(0, dt, 1.0, 0);
-      linear_solver.SetPreconditioner(*dg.current_prec);
-      linear_solver.SetOperator(dg.current_prec->B);
-   }
-
-   void SetOperator(const Operator &op) { }
-
-   virtual void Mult(const Vector &x, Vector &y) const
-   {
-      linear_solver.Mult(x, y);
-   }
-};
-
-class FE_Evolution : public TimeDependentOperator
-{
-private:
-   DGAdvDiff &dg;
-   DG_Solver dg_solver;
-   mutable Vector z;
-
-public:
-   FE_Evolution(DGAdvDiff &dg_)
-      : TimeDependentOperator(dg_.Height()),
-        dg(dg_),
-        dg_solver(dg)
-   { }
-
-   virtual void Mult(const Vector &x, Vector &y) const
-   {
-      dg.Mult(x, y);
-   }
-
-   // Solve the equation:
-   //    u_t = M^{-1}(Ku + b),
-   // by solving associated linear system
-   //    (M - dt*K) d = K*u + b
-   virtual void ImplicitSolve(const double dt, const Vector &x, Vector &k)
-   {
-      z.SetSize(x.Size());
-      dg.SetTime(this->GetTime());
-      dg.ExplicitMult(x, z);
-      dg_solver.SetTimeStep(dt);
-      dg_solver.Mult(z, k);
    }
 };
 
@@ -633,8 +539,7 @@ int run_adv_diff(int argc, char *argv[])
    int order = 1;
    double kappa = -1.0;
    double tf = 0.1;
-   int use_AMG = 1;
-   int use_gmres = false;
+   double min_dt = 0.001;
    int maxiter = 500;
    bool imp_force = true;
 
@@ -646,6 +551,7 @@ int run_adv_diff(int argc, char *argv[])
    args.AddOption(&order, "-o", "--order",
                   "Finite element order (polynomial degree) >= 0.");
    args.AddOption(&eps, "-e", "--epsilon", "Diffusion coefficient.");
+   args.AddOption(&min_dt, "-mdt", "--min-dt", "Minimum dt to simulate.");
    args.AddOption(&tf, "-tf", "--final-time", "Final time.");
 
    args.Parse();
@@ -698,14 +604,7 @@ int run_adv_diff(int argc, char *argv[])
    double err = u.ComputeL2Error(ic_coeff);
    if (myid == 0) std::cout << "t = " << 0 << ", error = " << err << ", norm = " << u.Norml2() << "\n";
 
-   bool temp_dg;
-   if (use_gmres==1) {
-      temp_dg = true;
-   }
-   else {
-      temp_dg = false;
-   }
-   DGAdvDiff dg(fes, use_AMG, temp_dg, imp_force);
+   DGAdvDiff dg(fes, imp_force);
    ODESolver *ode = NULL;
    KrylovParams krylov_params;
    krylov_params.printlevel = 0;
@@ -713,6 +612,7 @@ int run_adv_diff(int argc, char *argv[])
    krylov_params.maxiter = maxiter;
    krylov_params.reltol = 1e-12;
    krylov_params.solver = KrylovMethod::GMRES;
+   krylov_params.iterative_mode = true;
 
    // Vector sizes
    if (root)
@@ -723,42 +623,57 @@ int run_adv_diff(int argc, char *argv[])
 
    // Time integration testing data
    std::vector<int> rk_id = {111, 222, 443, -43};
-   std::vector<bool> rk_bool = {true, true, true, true};
+   // std::vector<int> rk_id = {222, 443, -43};
+   // std::vector<int> rk_id = {443, -43};
+   std::vector<bool> rk_bool(rk_id.size(), true);
 
-   std::vector<int> bdf_id = {12, 13};
-   std::vector<double> bdf_alpha = {1.0, 2.0, 3.0, 0.5, 1.0, 2.0};
-   std::vector<bool> bdf_bool = {true, true, true, true, true, true};
+   std::vector<int> bdf_id = {11, 12, 13};
+   // std::vector<double> bdf_alpha = {1.0, 2.0, 3.0, 0.5, 1.0, 2.0};
+   std::vector<double> bdf_alpha = {-1, -1,-1};
+   std::vector<bool> bdf_bool(bdf_alpha.size(), true);
 
-   std::vector<int> irk_id = {123, 124, 125};
+   // std::vector<int> irk_id = {123};
+   std::vector<int> irk_id = {122, 123, 124, 125};
    std::vector<int> irk_iter = {0, 1, 2};
-   std::vector<bool> irk_bool = {true, true, true, true, true, true, true, true, true};
+   std::vector<bool> irk_bool(2*irk_iter.size()*irk_id.size(), true);
 
    // Loop over dt
    std::vector<double> dt_ = {0.005, 0.01, 0.02, 0.04, 0.08, 0.16, 0.32};
-   // std::vector<double> dt_ = {0.01, 0.02, 0.04, 0.08, 0.16, 0.32};
+   // std::vector<double> dt_ = {0.08, 0.16, 0.32};
    // std::vector<double> dt_ = {0.005};
    for (int i=0; i<dt_.size(); i++) {
       double dt = dt_[i];
+
+      if (dt < min_dt) continue;
+
       if(root) std::cout << "\n\n ---------------------- dt = " << dt << "  ---------------------- \n\n";
 
+#if 1
       // IMEX-RK
       for (int j=0; j<rk_id.size(); j++) {
-         // Run time sinulation if previous dt did not diverge
+         // Run time simulation if previous dt did not diverge
          if (rk_bool[j]) {
-            if (root) std::cout << "\n -------- RK " << rk_id[j] << " -------- \n";
+            if (root) {
+               std::cout << "\n -------- RK " << rk_id[j] << " -------- \n";
+            }
             IMEXRKData coeffs(static_cast<IMEXRKData::Type>(rk_id[j]));
             IMEXRK imex(coeffs);
             imex.Init(dg);
             ode = &imex;
             u = 0.0;
             u.ProjectCoefficient(ic_coeff);
-            rk_bool[j] = simulate(ode, u, fes, tf, dt, myid);
+            bool tb;
+            int numsteps = simulate(ode, u, fes, tf, dt, myid, tb);
+            rk_bool[j] = tb;
+            int total_precs = dg.TotalPrecs();
+            if (root) std::cout << "prec/step "<<  total_precs / (double (numsteps)) << "\n"; 
             dg.ClearPrec();
          }
       }
+#endif
+#if 0
       // IMEX BDF
-      // for (int j=0; j<bdf_id.size(); j++) {
-      for (int j=0; j<0; j++) {
+      for (int j=0; j<bdf_id.size(); j++) {
          for (int ll=0; ll<(bdf_alpha.size()/2); ll++) {
             int ind = j*(bdf_alpha.size()/2) + ll;
             // Run time sinulation if previous dt did not diverge
@@ -770,31 +685,42 @@ int run_adv_diff(int argc, char *argv[])
                ode = &imex;
                u = 0.0;
                u.ProjectCoefficient(ic_coeff);
-               bdf_bool[ind] = simulate(ode, u, fes, tf, dt, myid);
+               bool tb;
+               int numsteps = simulate(ode, u, fes, tf, dt, myid, tb);
+               bdf_bool[ind] = tb;
+               int total_precs = dg.TotalPrecs();
+               if (root) std:cout << "prec/step "<<  total_precs / (double (numsteps)) << "\n"; 
                dg.ClearPrec();
             }
          }
       }
-
+#endif
       // Fully implicit IMEX
-      // for (int j=0; j<irk_id.size(); j++) {
-      for (int j=0; j<0; j++) {
-      // for (int j=0; j<-1; j++) {
-         for (int ll=0; ll<irk_iter.size(); ll++) {
-            int ind = j*irk_iter.size() + ll;
-            // Run time sinulation if previous dt did not diverge
-            if (irk_bool[ind]) {
-               int iter = irk_iter[ll];
-               if (root) std::cout << "\n -------- IRK " << irk_id[j] << "(" << iter << ") -------- \n";
-               RKData coeffs(static_cast<RKData::Type>(irk_id[j]));
-               PolyIMEX irk(&dg, coeffs, true, iter);
-               irk.SetKrylovParams(krylov_params);
-               irk.Init(dg);
-               ode = &irk;
-               u = 0.0;
-               u.ProjectCoefficient(ic_coeff);
-               irk_bool[ind] = simulate(ode, u, fes, tf, dt, myid);
-               dg.ClearPrec();
+      for (int j=0; j<irk_id.size(); j++) {
+         for (int imex_star=0; imex_star<=1; imex_star++) {
+            for (int ll=0; ll<irk_iter.size(); ll++) {
+               int ind = j*irk_iter.size()*2 + imex_star*irk_iter.size() + ll;
+               // Run time sinulation if previous dt did not diverge
+               if (irk_bool[ind]) {
+                  int iter = irk_iter[ll];
+                  if (root) {
+                     if (imex_star) std::cout << "\n -------- IRK* " << irk_id[j] << "(" << iter << ") -------- \n";
+                     else std::cout << "\n -------- IRK " << irk_id[j] << "(" << iter << ") -------- \n";
+                  }
+                  RKData coeffs(static_cast<RKData::Type>(irk_id[j]), imex_star);
+                  PolyIMEX irk(&dg, coeffs, true, iter);
+                  irk.SetKrylovParams(krylov_params);
+                  irk.Init(dg);
+                  ode = &irk;
+                  u = 0.0;
+                  u.ProjectCoefficient(ic_coeff);
+                  bool tb;
+                  simulate(ode, u, fes, tf, dt, myid, tb);
+                  irk_bool[ind] = tb;
+                  dg.ClearPrec();
+                  double av_iters = irk.AverageIterations();
+                  if (root) std::cout << "prec/step "<<  av_iters << "\n"; 
+               }
             }
          }
       }

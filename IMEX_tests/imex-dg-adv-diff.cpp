@@ -206,7 +206,6 @@ public:
 struct BackwardEulerPreconditioner : Solver
 {
    HypreParMatrix B;
-   HypreParMatrix B_s;
    HypreBoomerAMG *AMG_solver;
    HypreGMRES *GMRES_solver;
    BlockILU *prec;
@@ -241,12 +240,8 @@ public:
       // M is block diagonal, so suffices to only add the processor-local part
       B_diag.Add(gamma, M_diag);
 
-      int order = fes.GetOrder(0);
-      blocksize = (order+1)*(order+1);
-
       // Build AMG solver
       AMG_solver = new HypreBoomerAMG(B);
-      // AMG_solver->SetAdvectiveOptions(1.5, "", "FA");    // DEBUG
       AMG_solver->SetMaxLevels(50); 
       AMG_solver->SetStrengthThresh(0.2);
       AMG_solver->SetCoarsening(6);
@@ -257,16 +252,14 @@ public:
       AMG_solver->SetPrintLevel(0);
       if (AMG_iter > 1) {
          use_gmres = true;
-         if (blocksize > 0) GMRES_solver = new HypreGMRES(B_s);
-         else GMRES_solver = new HypreGMRES(B);
-         GMRES_solver->SetMaxIter(AMG_iter);
+         GMRES_solver = new HypreGMRES(B);
          GMRES_solver->SetTol(0);
+         GMRES_solver->SetMaxIter(AMG_iter);
          GMRES_solver->SetPreconditioner(*AMG_solver);
       }
    } 
    void Mult(const Vector &x, Vector &y) const
    {
-      y = 0.0;
       if (AMG_solver) {
          if (use_gmres) GMRES_solver->Mult(x, y);
          else AMG_solver->Mult(x, y);
@@ -277,13 +270,13 @@ public:
    }
    void Solve(const Vector &x, Vector &y)
    {
-      y = 0.0;
       GMRES_solver = new HypreGMRES(B);
       GMRES_solver->SetMaxIter(250);
       GMRES_solver->SetKDim(10);
       GMRES_solver->SetTol(1e-12);
       GMRES_solver->SetPreconditioner(*AMG_solver);
       GMRES_solver->Mult(x, y);
+      delete GMRES_solver;
    }
    void SetOperator(const Operator &op) { }
 
@@ -760,7 +753,6 @@ int run_adv_diff(int argc, char *argv[])
       Vector zzz(2);
       zzz(0) = 0.341;
       zzz(1) = 0.984;
-      std::cout << "\n\n\ttest = " << force_fn(zzz,0.826) << "\n\n";
    }
 
    if (imex_id < 1000 && (imex_id > 0 || std::abs(imex_id) > 20) ) {
