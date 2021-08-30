@@ -1,32 +1,3 @@
-/* --------------------------------------------------------------- */
-/* --------------------------------------------------------------- */
-/* ---------------------------------------------------------------
-  DEBUGGING/TODO:
-  - Print matrices to file for Tommaso to test RK on. Probably print
-  from other code.
-
-  - Merge IMEX codes to one framework.
-
-
-
-   TESTS:
-   - RK: mpirun -n 4 ./imex-dg-adv-diff -dt 0.01 -tf 2 -rs 3 -o 3 -e 10 -imex 222
-     Poly: mpirun -n 4 ./imex-dg-adv-diff -dt 0.2 -tf 2 -rs 3 -o 3 -e 10 -irk 123 -i 1
-   -  srun -n 40 ./imex-dg-adv-diff -dt 0.025 -tf 5 -rs 4 -rp 1 -o 3 -e 1 -imex 1013
-         Converge, not great accuracy
-      srun -n 40 ./imex-dg-adv-diff -dt 0.025 -tf 5 -rs 4 -rp 1 -o 3 -e 1 -imex 1013 -a 2
-         Converge nicely
-      srun -n 40 ./imex-dg-adv-diff -dt 0.025 -tf 5 -rs 4 -rp 1 -o 3 -e 1 -imex 1013 -a 3
-         Diverge
-      srun -n 40 ./imex-dg-adv-diff -dt 0.025 -tf 5 -rs 4 -rp 1 -o 3 -e 1 -imex -43
-         Poor accuracy
-      srun -n 40 ./imex-dg-adv-diff -dt 0.025 -tf 5 -rs 4 -rp 1 -o 3 -e 1 -irk 123 -i 0
-         Nice accuracy
-
-   --------------------------------------------------------------- */
-/* --------------------------------------------------------------- */
-/* --------------------------------------------------------------- */
-
 #include "mfem.hpp"
 #include "IRK.hpp"
 #include "IMEX_utils.hpp"
@@ -623,8 +594,6 @@ int run_adv_diff(int argc, char *argv[])
 
    // Time integration testing data
    std::vector<int> rk_id = {111, 222, 443, -43};
-   // std::vector<int> rk_id = {222, 443, -43};
-   // std::vector<int> rk_id = {443, -43};
    std::vector<bool> rk_bool(rk_id.size(), true);
 
    std::vector<int> bdf_id = {11, 12, 13};
@@ -632,15 +601,12 @@ int run_adv_diff(int argc, char *argv[])
    std::vector<double> bdf_alpha = {-1, -1,-1};
    std::vector<bool> bdf_bool(bdf_alpha.size(), true);
 
-   // std::vector<int> irk_id = {123};
    std::vector<int> irk_id = {122, 123, 124, 125};
    std::vector<int> irk_iter = {0, 1, 2};
    std::vector<bool> irk_bool(2*irk_iter.size()*irk_id.size(), true);
 
    // Loop over dt
    std::vector<double> dt_ = {0.005, 0.01, 0.02, 0.04, 0.08, 0.16, 0.32};
-   // std::vector<double> dt_ = {0.08, 0.16, 0.32};
-   // std::vector<double> dt_ = {0.005};
    for (int i=0; i<dt_.size(); i++) {
       double dt = dt_[i];
 
