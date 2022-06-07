@@ -1,0 +1,10 @@
+In new MFEM, IRK does not compile because we use Array<Vector>. The issue is using Array<T> or Array2D<T> where the type T is "non-trivial". This never worked properly in MFEM, but in recent versions it is now checked at compile time so that you get compiler errors rather than run-time bugs.
+
+One solution would be to replace T with a pointer, or perhaps use a different container like std::vector. This will of course require changes to your code.
+
+If you just want to compile in the mean-time, you can comment out the assertions here:
+
+mfem/general/array.hpp
+
+Line 57 in 539f663
+ static_assert(std::is_trivial<T>::value, "type T must be trivial"); 
