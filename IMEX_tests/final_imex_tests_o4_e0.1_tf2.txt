@@ -141,18 +141,15 @@ prec/step 156.02
  -------- IRK* 125(0) -------- 
 l2(t) 2.57743e+52
 
+ -------- IRK* 125(1) -------- 
+l2(t) 8.95573e-09
+runtime 412.946
+prec/step 130.465
 
-Options used:
-   --refine 4
-   --refine 1
-   --order 4
-   --epsilon 0.1
-   --min-dt 0.006
-   --final-time 2
-hmin = 0.0078125, hmax = 0.0078125, space order = 4, space acc. = 3.72529e-09
-t = 0, error = 2.05096e-12, norm = 7.2477
-Number of unknowns/proc: 3300
-Total number of unknowns: 409600
+ -------- IRK* 125(2) -------- 
+l2(t) 8.95541e-09
+runtime 430.021
+prec/step 132.25
 
 
  ---------------------- dt = 0.01  ---------------------- 
