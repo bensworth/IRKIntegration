@@ -8,21 +8,6 @@
   - Merge IMEX codes to one framework.
 
 
-
-   TESTS:
-   - RK: mM_PIrun -n 4 ./imex-dg-adv-diff -dt 0.01 -tf 2 -rs 3 -o 3 -e 10 -imex 222
-     Poly: mM_PIrun -n 4 ./imex-dg-adv-diff -dt 0.2 -tf 2 -rs 3 -o 3 -e 10 -irk 123 -i 1
-   -  srun -n 40 ./imex-dg-adv-diff -dt 0.025 -tf 5 -rs 4 -rp 1 -o 3 -e 1 -imex 1013
-         Converge, not great accuracy
-      srun -n 40 ./imex-dg-adv-diff -dt 0.025 -tf 5 -rs 4 -rp 1 -o 3 -e 1 -imex 1013 -a 2
-         Converge nicely
-      srun -n 40 ./imex-dg-adv-diff -dt 0.025 -tf 5 -rs 4 -rp 1 -o 3 -e 1 -imex 1013 -a 3
-         Diverge
-      srun -n 40 ./imex-dg-adv-diff -dt 0.025 -tf 5 -rs 4 -rp 1 -o 3 -e 1 -imex -43
-         Poor accuracy
-      srun -n 40 ./imex-dg-adv-diff -dt 0.025 -tf 5 -rs 4 -rp 1 -o 3 -e 1 -irk 123 -i 0
-         Nice accuracy
-
    --------------------------------------------------------------- */
 /* --------------------------------------------------------------- */
 /* --------------------------------------------------------------- */
@@ -34,15 +19,17 @@
 using namespace mfem;
 
 bool root;
-double eps = 1e-2;   // Diffusion coeffient
-double eta = 0;    // reaction coefficient
+double diff_const = 1e-2;   // Diffusion coeffient
+double react_const = 0;    // reaction coefficient
+double adv_const = 1;    // reaction coefficient
+double s_per = 2;
 
 // Matlab plot of velocity field
 // [xs,ys] = meshgrid(0:0.05:1, 0:0.05:1);
 // quiver(xs,ys,sin(ys*4*M_PI),cos(xs*2*M_PI))
 
-// Initial condition sin(2pix)sin(2piy) for manufactured solution
-// sin(2pi(x-t))sin(2pi(y-t))
+// Initial condition sin(2pix(1-y))sin(2piy(1-x)) for manufactured
+// solution sin(2pi*x(1-y)(1+2t))sin(2pi*y(1-x)(1+2t)) at t=0
 double ic_fn(const Vector &xvec)
 {
    double x = xvec[0];
@@ -53,8 +40,8 @@ double ic_fn(const Vector &xvec)
 // Velocity field [1,1] for manufactured solution
 void v_fn(const Vector &xvec, Vector &v)
 {
-   v(0) = 1;
-   v(1) = 1;
+   v(0) = adv_const;
+   v(1) = adv_const;
 }
 
 // Reaction term: \gamma * u ( 1 - u) (u - 1/2)
@@ -66,16 +53,25 @@ double force_fn(const Vector &xvec, double t)
    double y = xvec[1];
    // Definitely correct for no reaction term
    // Supposed reaction solution, does not work
-   double v = 4.0*(M_PI+2.0*M_PI*t)*(M_PI+2.0*M_PI*t)*eps*(cos(2.0*M_PI*(1+2.0*t)*(x+(-1)*y))+((-1)+ \
+   double v = 4.0*(M_PI+2.0*M_PI*t)*(M_PI+2.0*M_PI*t)*diff_const*(cos(2.0*M_PI*(1+2.0*t)*(x+(-1)*y))+((-1)+ \
        2.0*x+(-2)*x*x+2.0*y+(-2)*y*y)*cos(2.0*M_PI*(1+2.0*t)*((-1)*y+ \
        x*((-1)+2.0*y))))+4.0*M_PI*((-1)+x)*y*cos(2.0*M_PI*(1+2.0*t)*((-1)+ \
        x)*y)*sin(2.0*M_PI*(1+2.0*t)*x*((-1)+y))+4.0*M_PI*x*((-1)+y)*cos( \
        2.0*M_PI*(1+2.0*t)*x*((-1)+y))*sin(2.0*M_PI*(1+2.0*t)*((-1)+x)*y)+( \
-       -1)*eta*sin(2.0*M_PI*(1+2.0*t)*x*((-1)+y))*sin(2.0*M_PI*(1+2.0*t)*(( \
+       -1)*react_const*sin(2.0*M_PI*(1+2.0*t)*x*((-1)+y))*sin(2.0*M_PI*(1+2.0*t)*(( \
        -1)+x)*y)*(1+(-1)*sin(2.0*M_PI*(1+2.0*t)*x*((-1)+y))*sin(2.0* \
        M_PI*(1+2.0*t)*((-1)+x)*y))*((-1/2)+sin(2.0*M_PI*(1+2.0*t)*x*((-1) \
        +y))*sin(2.0*M_PI*(1+2.0*t)*((-1)+x)*y))+(-2)*M_PI*(1+2.0*t)*((-1) \
-       +x+y)*(-1.0)*sin(2.0*M_PI*(1+2.0*t)*((-1)*y+x*((-1)+2.0*y)));
+       +x+y)*(-adv_const)*sin(2.0*M_PI*(1+2.0*t)*((-1)*y+x*((-1)+2.0*y)));
+   
+   // adv-diff with no reaction annd variable wave speed
+   // double v = 4.0*diff_const*(M_PI+M_PI*s_per*t)*(M_PI+M_PI*s_per*t)*(cos(2.0*M_PI*(1.0+s_per*t)*(x+(-1)*y))+((-1)+ \
+   //   2.0*x+(-2)*x*x+2.0*y+(-2)*y*y)*cos(2.0*M_PI*(1+s_per*t)*((-1)*y+ \
+   //   x*((-1)+2.0*y))))+2.0*M_PI*s_per*((-1)+x)*y*cos(2.0*M_PI*(1+s_per*t)*(( \
+   //   -1)+x)*y)*sin(2.0*M_PI*(1+s_per*t)*x*((-1)+y))+2.0*M_PI*s_per*x*((-1)+ \
+   //   y)*cos(2.0*M_PI*(1+s_per*t)*x*((-1)+y))*sin(2.0*M_PI*(1+s_per*t)*((-1)+ \
+   //   x)*y)+(-2)*(-adv_const)*M_PI*(1+s_per*t)*((-1)+x+y)*sin(2.0*M_PI*(1+s_per*t)*(( \
+   //   -1)*y+x*((-1)+2.0*y)));
    return v;
 }
 
@@ -84,7 +80,7 @@ double sol_fn(const Vector &xvec, double t)
 {
    double x = xvec[0];
    double y = xvec[1];
-   return sin(2.0*M_PI*x*(1.0-y)*(1.0+2.0*t))*sin(2.0*M_PI*y*(1.0-x)*(1.0+2.0*t));
+   return sin(2.0*M_PI*x*(1.0-y)*(1.0+s_per*t))*sin(2.0*M_PI*y*(1.0-x)*(1.0+s_per*t));
 }
 
 
@@ -118,6 +114,46 @@ bool simulate(ODESolver *ode, ParGridFunction &u,
    else return true;
 }
 
+
+// Nonlinear integrator for reaction term eta*u*(1-u)(u-0.5)
+class NonlinearReaction : public NonlinearFormIntegrator
+{
+public:
+
+   const IntegrationRule &GetRule(const FiniteElement &trial_fe,
+     const FiniteElement &test_fe, ElementTransformation &Trans)
+   {
+      int order = trial_fe.GetOrder() + test_fe.GetOrder() + Trans.OrderW();
+      order *= 3;
+      return IntRules.Get(trial_fe.GetGeomType(), order);
+   }
+
+   virtual void AssembleElementVector (const FiniteElement &el,
+      ElementTransformation &Tr, const Vector &elfun, Vector &elvect)
+   {
+      int nd = el.GetDof();
+      Vector shape(nd);
+      elvect.SetSize(nd);
+
+      const IntegrationRule *ir = IntRule ? IntRule : &GetRule(el, el, Tr);
+
+      elvect = 0.0;
+      for (int i = 0; i < ir->GetNPoints(); i++)
+      {
+         const IntegrationPoint &ip = ir->IntPoint(i);
+         Tr.SetIntPoint(&ip);
+         double w = Tr.Weight() * ip.weight;
+
+         el.CalcShape(ip, shape);
+         double el_value = shape*elfun;
+         // Take inner product with jth test function, eta=reaction coeff
+         for (int j=0; j<nd; j++)
+         {
+            elvect[j] += w*shape[j]*react_const*el_value*(1 - el_value)*(el_value-0.5);
+         }
+      }
+   }
+};
 
 class DGMassMatrix
 {
@@ -320,7 +356,7 @@ public:
       : IRKOperator(fes_.GetComm(), true, fes_.GetTrueVSize(), 0.0, IMPLICIT),
         fes(fes_),
         v_coeff(fes.GetMesh()->Dimension(), v_fn),
-        diff_coeff(-eps),
+        diff_coeff(-diff_const),
         a_imp(&fes),
         a_exp(&fes),
         m(&fes),
@@ -381,45 +417,17 @@ public:
       std::cout << "Why is Mult() being called?? This is probably bad.\n\n";
    }
 
-   // Reaction term: \eta * u ( 1 - u) (u - 1/2) 
-   void SetReaction(const Vector &u) const
-   {
-      if (reaction.Size() != u.Size()) {
-         mfem_error("GetReaction vector sizes do not match!\n");
-      }
-      for (int i=0; i<reaction.Size(); i++) {
-         reaction(i) = eta*u(i)*(1 - u(i))*(u(i) - 0.5); 
-      }
-   }
-
    void ExplicitMult(const Vector &u, Vector &du_dt) const override
    {
-      double max = 0;
-      for (int i=0; i<reaction.Size(); i++) {
-         if (std::abs(u(i)) > max) {
-            max = std::abs(u(i));
-         }
-      }
-      if (root && max > 100) std::cout << "Large solution = " << max << "\n";
-      // if (root) std::cout << "Max solution = " << max << "\n";
+      // Add nonlinear reaction term
+      ParNonlinearForm m_nl(&fes);
+      m_nl.AddDomainIntegrator(new NonlinearReaction());
+      m_nl.Mult(u, du_dt);
 
-      // Set nonlinear reaction term, reassemble explicit bilinear form
-      SetReaction(u);
-
-      // Add nonlinear reaction term to explicit bilinear form, assemble at time
-      ParBilinearForm m_nl(&fes);
-      GridFunctionCoefficient apply_r(&reaction);
-      m_nl.AddDomainIntegrator(new MassIntegrator(apply_r));
-      m_nl.Assemble(0);
-      m_nl.Finalize(0);
-      HypreParMatrix *NL = m_nl.ParallelAssemble();
-
-      A_exp->Mult(u, du_dt);
-
+      // Add explicit bilinear form
       Vector temp(u.Size());
-      NL->Mult(u, temp);
-      du_dt -= temp;
-      delete NL;
+      A_exp->Mult(u, temp);
+      du_dt += temp;
 
       // Add forcing function and BCs
       if (!imp_forcing) {
@@ -526,7 +534,8 @@ public:
       Vector rhs(x.Size());
       A_imp->Mult(x, rhs);
       AddImplicitForcing(rhs, this->GetTime(), 1.0, 0);
-      current_prec->Solve(rhs, k);
+      if (diff_const != 0) current_prec->Solve(rhs, k);
+      else mass.Solve(rhs, k);
    }
 
    /// Solve M*x - dtf(x, t) = b
@@ -543,7 +552,8 @@ public:
       Vector rhs(b);
       rhs = b; // This shouldnt be necessary
       if (imp_forcing) AddForcing(rhs, this->GetTime(), dt, 0);
-      current_prec->Solve(rhs, x);
+      if (diff_const != 0) current_prec->Solve(rhs, x);
+      else mass.Solve(rhs, x);
    }
 
 
@@ -697,8 +707,9 @@ int run_adv_diff(int argc, char *argv[])
    args.AddOption(&kappa, "-k", "--kappa",
                   "One of the two DG penalty parameters, should be positive."
                   " Negative values are replaced with (order+1)^2.");
-   args.AddOption(&eps, "-e", "--epsilon", "Diffusion coefficient.");
-   args.AddOption(&eta, "-eta", "--eta", "Reaction coefficient.");
+   args.AddOption(&diff_const, "-eps", "--diffusion-constant", "Diffusion coefficient.");
+   args.AddOption(&react_const, "-eta", "--react_constant", "Reaction coefficient.");
+   args.AddOption(&adv_const, "-delta", "--adv_constant", "Advection coefficient.");
    args.AddOption(&dt, "-dt", "--time-step", "Time step.");
    args.AddOption(&tf, "-tf", "--final-time", "Final time.");
    args.AddOption(&imex_id, "-imex", "--imex", "Use IMEX solver (provide id; if 0, Euler-IMEX).");
@@ -707,10 +718,14 @@ int run_adv_diff(int argc, char *argv[])
    args.AddOption(&use_AMG, "-amg", "--use-amg", "Use AMG: > 0 implies # AMG iterations, 0 = Block ILU.");
    args.AddOption(&recompute_exp, "-re", "--recompute","-store", "--store-explicit", 
       "Recompute explicit component for IMEX-BDF.");
+   args.AddOption(&imp_force, "-if", "--imp-forcing","-ef", "--exp-forcing", 
+      "Implicit or explicit forcing.");
    args.AddOption(&interpolate, "-in", "--interpolate","-noin", "--no-interpolate", 
       "Interpolate initial guess for solver, only works for alpha BDF now.");
    args.AddOption(&iter, "-i", "--num-iters",
                "Number applications of iterator, default 1.");
+   args.AddOption(&s_per, "-s", "--s-per",
+               "Constant times t in solution.");
 
    args.Parse();
    if (!args.Good())

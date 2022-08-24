@@ -12,7 +12,17 @@
    TESTS:
    - RK: mpirun -n 4 ./imex-dg-adv-diff -dt 0.01 -tf 2 -rs 3 -o 3 -e 10 -imex 222
      Poly: mpirun -n 4 ./imex-dg-adv-diff -dt 0.2 -tf 2 -rs 3 -o 3 -e 10 -irk 123 -i 1
-   - 
+   -  srun -n 40 ./imex-dg-adv-diff -dt 0.025 -tf 5 -rs 4 -rp 1 -o 3 -e 1 -imex 1013
+         Converge, not great accuracy
+      srun -n 40 ./imex-dg-adv-diff -dt 0.025 -tf 5 -rs 4 -rp 1 -o 3 -e 1 -imex 1013 -a 2
+         Converge nicely
+      srun -n 40 ./imex-dg-adv-diff -dt 0.025 -tf 5 -rs 4 -rp 1 -o 3 -e 1 -imex 1013 -a 3
+         Diverge
+      srun -n 40 ./imex-dg-adv-diff -dt 0.025 -tf 5 -rs 4 -rp 1 -o 3 -e 1 -imex -43
+         Poor accuracy
+      srun -n 40 ./imex-dg-adv-diff -dt 0.025 -tf 5 -rs 4 -rp 1 -o 3 -e 1 -irk 123 -i 0
+         Nice accuracy
+
    --------------------------------------------------------------- */
 /* --------------------------------------------------------------- */
 /* --------------------------------------------------------------- */
@@ -724,7 +734,7 @@ int run_adv_diff(int argc, char *argv[])
       coeffs = new RKData(static_cast<RKData::Type>(use_irk));
       KrylovParams krylov_params;
       krylov_params.printlevel = 0;
-      krylov_params.kdim = 50;
+      krylov_params.kdim = 10;
       krylov_params.maxiter = maxiter;
       krylov_params.reltol = 1e-12;
       if (use_gmres==-1 || use_gmres==1) krylov_params.solver = KrylovMethod::FGMRES;
