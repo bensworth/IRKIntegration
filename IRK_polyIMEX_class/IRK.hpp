@@ -49,10 +49,10 @@ public:
 };
 
 
-/** Class implementing conjugate-pair preconditioned solution of fully implicit 
-    RK schemes for the nonlinear ODE system 
-        M*du/dt = N(u,t), 
-    as implemented as an IRKOperator */
+/** Class implementing conjugate-pair preconditioned solution
+ * of fully implicit RK schemes for the nonlinear ODE system 
+ *       M*du/dt = N(u,t), 
+ * as implemented as an IRKOperator */
 class IRK : public ODESolver
 {
 protected:    
@@ -136,10 +136,11 @@ public:
     void SetGammaID(int gamma_idx_) {gamma_idx = gamma_idx_; }
 };
 
-/** Class implementing conjugate-pair preconditioned solution of fully implicit 
-    RK schemes for the nonlinear ODE system 
-        M*du/dt = N(u,t), 
-    as implemented as an IRKOperator */
+/** Class implementing conjugate-pair preconditioned solution of
+ * fully-explicit polynomial integrators for the nonlinear ODE system 
+ *      M*du/dt = N_I(u,t) + N_E(u,t). 
+ * Implicit IRK solve is taken care of as in the parent IRK class
+ * using the block/conjugate pair preconditioning. */
 class PolyIMEX : public IRK
 {
 private:
@@ -175,9 +176,6 @@ public:
 
     void SetSolvers();
 
-    /// Full time stepping
-    // void Run(Vector &x, double &t, double &dt, double tf);
-    
     /** Apply RK update to take x from t to t+dt,
         x = x + (dt*b0^\top \otimes I)*k 
           = x + (dt*d0^\top \otimes I)*w,

@@ -269,9 +269,9 @@ public:
       // Convection
       a.AddDomainIntegrator(new ConvectionIntegrator(v_coeff, -1.0));
       a.AddInteriorFaceIntegrator(
-         new TransposeIntegrator(new DGTraceIntegrator(v_coeff, 1.0, -0.5)));
+         new NonconservativeDGTraceIntegrator(v_coeff, -1.0));
       a.AddBdrFaceIntegrator(
-         new TransposeIntegrator(new DGTraceIntegrator(v_coeff, 1.0, -0.5)));
+         new NonconservativeDGTraceIntegrator(v_coeff, -1.0));
       // Diffusion
       a.AddDomainIntegrator(new DiffusionIntegrator(diff_coeff));
       a.AddInteriorFaceIntegrator(new DGDiffusionIntegrator(diff_coeff, sigma,
@@ -462,7 +462,8 @@ int run_adv_diff(int argc, char *argv[])
    static const double sigma = -1.0;
 
    // const char *mesh_file = MFEM_DIR + "data/inline-quad.mesh";
-   const char *mesh_file = "/g/g19/bs/mfem/data/inline-quad.mesh";
+   // const char *mesh_file = "/g/g19/bs/mfem/data/inline-quad.mesh";
+   const char *mesh_file = "/Users/southworth/Software/mfem/data/inline-quad.mesh";
    int ser_ref_levels = 3;
    int par_ref_levels = 2;
    int order = 1;

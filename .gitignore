@@ -6,6 +6,7 @@ implementation_notes/linear/lin_implementation.pdf
 irk_DAE.pdf
 analysis_notes/fov.pdf
 mg_irk.pdf
+Paraview/
 
 arm_makefile
 darwin_make
@@ -38,6 +39,13 @@ ODEs_linear/irk_lin.pdf
 .vscode
 nl-imex-dg-adv-diff
 test-imex-dg-adv-diff
+imex-dg-adv-diff-mms
+nl-imex-dg-adv-diff-mms
+reaction-test
+reaction-test-ODE
+analytic_dg_adv_diff
+dg_adv_diff
+ord-red_dg_adv_diff
 
 vorticity-streamfunction/
 letter_lin.pdf

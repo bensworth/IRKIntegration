@@ -1,48 +1,20 @@
-/* --------------------------------------------------------------- */
-/* --------------------------------------------------------------- */
-/* ---------------------------------------------------------------
-  DEBUGGING/TODO:
-  - Print matrices to file for Tommaso to test RK on. Probably print
-  from other code.
-
-  - Merge IMEX codes to one framework.
-
-
-
-   TESTS:
-   - RK: mpirun -n 4 ./imex-dg-adv-diff -dt 0.01 -tf 2 -rs 3 -o 3 -e 10 -imex 222
-     Poly: mpirun -n 4 ./imex-dg-adv-diff -dt 0.2 -tf 2 -rs 3 -o 3 -e 10 -irk 123 -i 1
-   -  srun -n 40 ./imex-dg-adv-diff -dt 0.025 -tf 5 -rs 4 -rp 1 -o 3 -e 1 -imex 1013
-         Converge, not great accuracy
-      srun -n 40 ./imex-dg-adv-diff -dt 0.025 -tf 5 -rs 4 -rp 1 -o 3 -e 1 -imex 1013 -a 2
-         Converge nicely
-      srun -n 40 ./imex-dg-adv-diff -dt 0.025 -tf 5 -rs 4 -rp 1 -o 3 -e 1 -imex 1013 -a 3
-         Diverge
-      srun -n 40 ./imex-dg-adv-diff -dt 0.025 -tf 5 -rs 4 -rp 1 -o 3 -e 1 -imex -43
-         Poor accuracy
-      srun -n 40 ./imex-dg-adv-diff -dt 0.025 -tf 5 -rs 4 -rp 1 -o 3 -e 1 -irk 123 -i 0
-         Nice accuracy
-
-   --------------------------------------------------------------- */
-/* --------------------------------------------------------------- */
-/* --------------------------------------------------------------- */
-
 #include "mfem.hpp"
 #include "IRK.hpp"
 
 using namespace mfem;
 
 bool root;
-double eps = 1e-1;  // Diffusion magnitude
-double react = 0;    // reaction coefficient
+double eps = 1e-2;   // Diffusion coeffient
+double react = 1e-3;   // Reaction coeffient
+double C0 = 10;   // Constant in analytical solution
 
-// Initial condition sin(2pix)sin(2piy) for manufactured solution
-// sin(2pi*x(1-y)(1+2t))*sin(2pi*y(1-x)(1+2t))
+// Initial condition for manufactured solution
+// 1 / (exp(C0*(x+y-t)) + 1)
 double ic_fn(const Vector &xvec)
 {
    double x = xvec[0];
    double y = xvec[1];
-   return sin(2.0*M_PI*x*(1.0-y))*sin(2.0*M_PI*(1.0-x)*y);
+   return 1.0 / (std::exp(C0*(x + y)) + 1);
 }
 
 // Velocity field [1,1] for manufactured solution
@@ -52,26 +24,22 @@ void v_fn(const Vector &xvec, Vector &v)
    v(1) = 1;
 }
 
-// Forcing function for u_t = e*\Delta u - [1,1]\cdot \nabla u + eta*f(u).
-// for solution u* = sin(2*pi*x(1-y)(1+2t))sin(2*pi*y(1-x)(1+2t))
+// Forcing function for u_t = e*\Delta u - [1,1]\cdot \nabla u - f.
+// Note, sigsn are set up so assuming forcing function is -. Easiest this way.
 double force_fn(const Vector &xvec, double t)
 {
    double x = xvec[0];
    double y = xvec[1];
-   double v = -4.0*M_PI*M_PI*eps*(2.0*t + 1.0)*(2.0*t + 1.0)*(-x*x*sin(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*\
-      sin(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0)) + 2.0*x*(x - 1.0)*cos(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*\
-      cos(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0)) - (x - 1.0)*(x - 1.0)*sin(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*\
-      sin(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0))) - 4.0*M_PI*M_PI*eps*(2.0*t + 1.0)*(2.0*t + 1.0)*\
-      (-y*y*sin(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*sin(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0)) +\
-      2.0*y*(y - 1.0)*cos(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*cos(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0)) - \
-      (y - 1.0)*(y - 1.0)*sin(2.0*M_PI*x*(2.0*t + 1.0)*(y - 1.0))*sin(2.0*M_PI*y*(2.0*t + 1.0)*(x - 1.0))) + \
-      4.0*M_PI*x*(1.0 - y)*sin(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0))*cos(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0)) - \
-      2.0*M_PI*x*(2.0*t + 1.0)*sin(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0))*cos(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0)) + \
-      4.0*M_PI*y*(1.0 - x)*sin(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0))*cos(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0)) - \
-      2.0*M_PI*y*(2.0*t + 1.0)*sin(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0))*cos(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0)) + \
-      2.0*M_PI*(1.0 - x)*(2.0*t + 1.0)*sin(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0))*cos(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0)) + \
-      2.0*M_PI*(1.0 - y)*(2.0*t + 1.0)*sin(2.0*M_PI*y*(1.0 - x)*(2.0*t + 1.0))*cos(2.0*M_PI*x*(1.0 - y)*(2.0*t + 1.0));
-   return -v;
+   return -( 2*C0*C0*eps*(1-exp(C0*(x+y-t)))*exp(C0*(x+y-t)) - C0*(exp(C0*(x+y-t))+1)*exp(C0*(x+y-t)) -
+      react*std::pow(exp(C0*(x+y-t))+1,2) ) / std::pow((exp(C0*(x+y-t)) + 1),3);
+}
+
+// Boundary condition function (and exact solution)
+double BC_fn(const Vector &xvec, double t)
+{
+   double x = xvec[0];
+   double y = xvec[1];
+   return 1.0 / (std::exp(C0*(x + y - t)) + 1);
 }
 
 // Exact solution (x,y,t)
@@ -79,7 +47,7 @@ double sol_fn(const Vector &xvec, double t)
 {
    double x = xvec[0];
    double y = xvec[1];
-   return sin(2.0*M_PI*x*(1.0-y)*(1.0+2.0*t))*sin(2.0*M_PI*y*(1.0-x)*(1.0+2.0*t));
+   return 1.0 / (std::exp(C0*(x + y - t)) + 1);
 }
 
 class DGMassMatrix
@@ -170,7 +138,6 @@ public:
                                HypreParMatrix &M, double dt, HypreParMatrix &A)
       : Solver(fes.GetTrueVSize()), B(A), AMG_solver(nullptr), use_gmres(false),
       GMRES_solver(nullptr), GMRES_prec(nullptr), prec(nullptr)
-
    {
       // Set B = gamma*M - dt*A
       B *= -dt;
@@ -186,7 +153,6 @@ public:
                                int AMG_iter, bool use_gmres_)
       : Solver(fes.GetTrueVSize()), B(A), prec(nullptr), use_gmres(use_gmres_),
       GMRES_solver(nullptr), GMRES_prec(nullptr), AMG_solver(nullptr)
-
    {
       // Set B = gamma*M - dt*A
       B *= -dt;
@@ -239,7 +205,7 @@ public:
       y = 0.0;
       if (!GMRES_solver) {
          GMRES_solver = new HypreGMRES(B);
-         GMRES_solver->SetPrintLevel(1);
+         GMRES_solver->SetPrintLevel(0);
          GMRES_solver->SetMaxIter(250);
          GMRES_solver->SetTol(1e-12);
          GMRES_solver->SetPreconditioner(*AMG_solver);
@@ -272,6 +238,7 @@ struct DGAdvDiff : IRKOperator
    mutable ParBilinearForm a_exp;
    ParBilinearForm a_imp, m;
    mutable FunctionCoefficient forcing_coeff;
+   mutable FunctionCoefficient BC_coeff;
    mutable ParLinearForm lform;
    mutable ParGridFunction reaction;
    DGMassMatrix mass;
@@ -281,7 +248,7 @@ struct DGAdvDiff : IRKOperator
    HypreParMatrix *A_imp, *M_mat;
    mutable HypreParMatrix *A_exp;
    int use_AMG;
-   bool use_gmres, imp_reaction;
+   bool use_gmres;
    mutable double t_exp, t_imp, dt_;
    bool fully_implicit;
 public:
@@ -295,6 +262,7 @@ public:
         a_exp(&fes),
         m(&fes),
         lform(&fes),
+        BC_coeff(BC_fn),
         reaction(&fes),
         mass(fes),
         use_AMG(use_AMG_),
@@ -303,8 +271,8 @@ public:
         t_exp(-1),
         t_imp(-1),
         fully_implicit(fully_implicit_),
-        imp_reaction(false),
-        dt_(-1), A_imp(nullptr),
+        dt_(-1),
+        A_imp(nullptr),
         A_exp(nullptr),
         M_mat(nullptr),
         current_prec(nullptr)
@@ -312,17 +280,25 @@ public:
       const int order = fes.GetOrder(0);
       const double sigma = -1.0;
       const double kappa = (order+1)*(order+1);
-      // Set up diffusion bilinear form
+      const double v_alpha = -1.0;
+
+      m.AddDomainIntegrator(new MassIntegrator);
+      m.Assemble(0);
+      m.Finalize(0);
+      M_mat = m.ParallelAssemble();
+
+      // Set up convection-diffusion bilinear form
+      // Diffusion; diff_coeff < 0 because DiffusionIntegrator(1) = -\Delta
       a_imp.AddDomainIntegrator(new DiffusionIntegrator(diff_coeff));
       a_imp.AddInteriorFaceIntegrator(new DGDiffusionIntegrator(diff_coeff, sigma,
                                                             kappa));
       a_imp.AddBdrFaceIntegrator(new DGDiffusionIntegrator(diff_coeff, sigma, kappa));
       if (fully_implicit) {
-         a_imp.AddDomainIntegrator(new ConvectionIntegrator(v_coeff, -1.0));
+         a_imp.AddDomainIntegrator(new ConvectionIntegrator(v_coeff, v_alpha));
          a_imp.AddInteriorFaceIntegrator(
-            new NonconservativeDGTraceIntegrator(v_coeff, -1.0));
+            new NonconservativeDGTraceIntegrator(v_coeff, v_alpha));
          a_imp.AddBdrFaceIntegrator(
-            new NonconservativeDGTraceIntegrator(v_coeff, -1.0));
+            new NonconservativeDGTraceIntegrator(v_coeff, v_alpha));
       }      
       a_imp.Assemble(0);
       a_imp.Finalize(0);
@@ -330,23 +306,30 @@ public:
 
       // Convection
       if (!fully_implicit) {
-         a_exp.AddDomainIntegrator(new ConvectionIntegrator(v_coeff, -1.0));
+         a_exp.AddDomainIntegrator(new ConvectionIntegrator(v_coeff, v_alpha));
          a_exp.AddInteriorFaceIntegrator(
-            new NonconservativeDGTraceIntegrator(v_coeff, -1.0));
+            new NonconservativeDGTraceIntegrator(v_coeff, v_alpha));
          a_exp.AddBdrFaceIntegrator(
-            new NonconservativeDGTraceIntegrator(v_coeff, -1.0));
+            new NonconservativeDGTraceIntegrator(v_coeff, v_alpha));
          a_exp.Assemble(0);
          a_exp.Finalize(0);
          A_exp = a_exp.ParallelAssemble();
+         if (react != 0)  A_exp->Add(react, *M_mat);
+      }
+      // Only treat reaction explicit
+      else if (react != 0) { 
+         A_exp = new HypreParMatrix(*M_mat);
+         (*A_exp) *= react;
       }
 
-      m.AddDomainIntegrator(new MassIntegrator);
-      m.Assemble(0);
-      m.Finalize(0);
-      M_mat = m.ParallelAssemble();
- 
       // BCs and forcing function
       lform.AddDomainIntegrator(new DomainLFIntegrator(forcing_coeff));
+      lform.AddBdrFaceIntegrator(new DGDirichletLFIntegrator(BC_coeff, diff_coeff, sigma, kappa));
+      // Explicit BCs still treated as implicit forcing;
+      // swap sign on v_alpha because I subtract implicit forcing. I believe
+      // this is because DiffusionIntegrator = -\Delta, but we need +\Delta,
+      // so for consistency I subtract rhs, which then effects adv BCs.
+      lform.AddBdrFaceIntegrator(new BoundaryFlowIntegrator(BC_coeff, v_coeff, -v_alpha));
    }
 
    void SaveMats()
@@ -366,7 +349,7 @@ public:
    void ExplicitMult(const Vector &u, Vector &du_dt) const override
    {
       du_dt.SetSize(u.Size());
-      if (fully_implicit) {
+      if (fully_implicit && react == 0) {
          du_dt = 0.0;
       }
       else {
@@ -389,6 +372,7 @@ public:
    void AddForcing(Vector &x, double t, double c) const
    {
       forcing_coeff.SetTime(t);
+      BC_coeff.SetTime(t);
       lform.Assemble();
       HypreParVector *B = new HypreParVector(*A_imp);
       B = lform.ParallelAssemble();
@@ -401,6 +385,7 @@ public:
       // Add forcing function and BCs
       double ti = t + r*z;
       forcing_coeff.SetTime(ti);
+      BC_coeff.SetTime(ti);
       lform.Assemble();
       HypreParVector *B = new HypreParVector(*A_imp);
       B = lform.ParallelAssemble();
@@ -447,8 +432,9 @@ public:
          dt_ = dt;
       }
       Vector rhs(x.Size());
-      A_imp->Mult(x, rhs);
-      AddImplicitForcing(rhs, this->GetTime(), 1.0, 0);
+      // A_imp->Mult(x, rhs);
+      // AddImplicitForcing(rhs, this->GetTime(), 1.0, 0);
+      ImplicitMult(x, rhs);
       // std::cout << "IMPLICIT SOLVE1\n";
       current_prec->Solve(rhs, k);
    }
@@ -611,6 +597,7 @@ int run_adv_diff(int argc, char *argv[])
                   "Number of times to refine the parallel mesh uniformly.");
    args.AddOption(&order, "-o", "--order",
                   "Finite element order (polynomial degree) >= 0.");
+   args.AddOption(&react, "-eta", "--react_constant", "Reaction coefficient.");
    args.AddOption(&eps, "-eps", "--epsilon", "Diffusion coefficient.");
    args.AddOption(&dt, "-dt", "--time-step", "Time step.");
    args.AddOption(&tf, "-tf", "--final-time", "Final time.");
@@ -738,6 +725,7 @@ int run_adv_diff(int argc, char *argv[])
    }
    else
    {
+      if (root) std::cout << "using imex Euler\n";
       IMEXEuler *imex = new IMEXEuler();
       imex->Init(dg);
       ode.reset(imex);

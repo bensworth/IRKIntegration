@@ -873,7 +873,7 @@ void TriJacSolver::SetOperator(const Operator &op)
 }
 
 void TriJacSolver::Mult(const Vector &b_vector, Vector &x_vector) const
-{   
+{
     // Wrap scalar Vectors into BlockVectors
     b_block.Update(b_vector.GetData(), offsets);
     x_block.Update(x_vector.GetData(), offsets);
