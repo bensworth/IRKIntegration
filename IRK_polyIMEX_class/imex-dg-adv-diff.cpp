@@ -390,7 +390,7 @@ public:
    {
       forcing_coeff.SetTime(t);
       lform.Assemble();
-      HypreParVector *B = new HypreParVector(*A_imp);
+      HypreParVector *B;
       B = lform.ParallelAssemble();
       x.Add(-c, *B);
       delete B;
@@ -402,7 +402,7 @@ public:
       double ti = t + r*z;
       forcing_coeff.SetTime(ti);
       lform.Assemble();
-      HypreParVector *B = new HypreParVector(*A_imp);
+      HypreParVector *B;
       B = lform.ParallelAssemble();
       rhs.Add(-r, *B);
       delete B;

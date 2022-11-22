@@ -434,7 +434,7 @@ public:
       forcing_coeff.SetTime(t);
       BC_coeff.SetTime(t);
       lform.Assemble();
-      HypreParVector *B = new HypreParVector(*A_imp);
+      HypreParVector *B;
       B = lform.ParallelAssemble();
       x.Add(-c, *B);
       delete B;
@@ -447,7 +447,7 @@ public:
       forcing_coeff.SetTime(ti);
       BC_coeff.SetTime(ti);
       lform.Assemble();
-      HypreParVector *B = new HypreParVector(*A_imp);
+      HypreParVector *B;
       B = lform.ParallelAssemble();
       rhs.Add(-r, *B);
       delete B;
@@ -760,7 +760,7 @@ int run_adv_diff(int argc, char *argv[])
    {
       coeffs = new RKData(static_cast<RKData::Type>(use_irk));
       KrylovParams krylov_params;
-      krylov_params.printlevel = 0;
+      krylov_params.printlevel = 2;
       krylov_params.kdim = 10;
       krylov_params.maxiter = maxiter;
       krylov_params.reltol = 1e-8;
@@ -811,7 +811,7 @@ int run_adv_diff(int argc, char *argv[])
       done = (t >= tf - 1e-8*dt);
       if (t - t_vis > vis_int || done)
       {
-         // if (root) { printf("t = %4.3f\n", t); }
+         if (root) { printf("t = %4.3f\n", t); }
          if (visualization) {
             t_vis = t;
             dc.SetCycle(dc.GetCycle()+1);
