@@ -685,7 +685,7 @@ int run_adv_diff(int argc, char *argv[])
    {
       kappa = (order+1)*(order+1);
    }
-   if (root) { args.PrintOptions(std::cout); }
+   // if (root) { args.PrintOptions(std::cout); }
 
    Mesh *serial_mesh = new Mesh(mesh_file.c_str(), 1, 1);
    int dim = serial_mesh->Dimension();
@@ -756,14 +756,18 @@ int run_adv_diff(int argc, char *argv[])
    RKData* coeffs = nullptr;
    std::unique_ptr<ODESolver> ode;
 
+   // Set solve tolerance equal to max theoretical space-time accuracy / 10
+   double tol = std::max(std::pow(dt,(use_irk%10)),std::pow(hmax,order)) / 10.0;
    if (use_irk > 3)
    {
       coeffs = new RKData(static_cast<RKData::Type>(use_irk));
       KrylovParams krylov_params;
-      krylov_params.printlevel = 2;
+      krylov_params.printlevel = 0;
       krylov_params.kdim = 10;
       krylov_params.maxiter = maxiter;
-      krylov_params.reltol = 1e-8;
+      krylov_params.reltol = tol;
+      krylov_params.iterative_mode = true;
+      krylov_params.abstol = tol;
       if (use_gmres==-1 || use_gmres==1) krylov_params.solver = KrylovMethod::FGMRES;
       else if(use_gmres == 2) krylov_params.solver = KrylovMethod::FP;
       else krylov_params.solver = KrylovMethod::GMRES;
@@ -811,7 +815,7 @@ int run_adv_diff(int argc, char *argv[])
       done = (t >= tf - 1e-8*dt);
       if (t - t_vis > vis_int || done)
       {
-         if (root) { printf("t = %4.3f\n", t); }
+         // if (root) { printf("t = %4.3f\n", t); }
          if (visualization) {
             t_vis = t;
             dc.SetCycle(dc.GetCycle()+1);
