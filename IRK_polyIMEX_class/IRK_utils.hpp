@@ -292,7 +292,8 @@ public:
     
 private:    
     Type ID;
-    
+    bool star_method;
+
     /// Set data required by solvers 
     void SetData();     
     /// Set dimensions of data structures 
@@ -309,7 +310,8 @@ public:
     };
 
     /// Constructor for real RK schemes
-    RKData(Type ID_) : ID(ID_) { SetData(); };
+    RKData(Type ID_, star_method_=false) : ID(ID_), star_method(star_method_)
+    { SetData(); };
     
     /** Constructor for setting dummy RK data with 2x2 matrix having complex 
         conjugate eigenvalues with ratio beta_on_eta and real-component of eta */

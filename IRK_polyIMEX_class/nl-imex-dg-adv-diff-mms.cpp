@@ -652,6 +652,7 @@ int run_adv_diff(int argc, char *argv[])
    bool full_imp = false;
    bool imp_force = true;
    bool save_mats = false;
+   bool star_method = true;
 
    OptionsParser args(argc, argv);
    args.AddOption(&ser_ref_levels, "-rs", "--refine",
@@ -665,6 +666,8 @@ int run_adv_diff(int argc, char *argv[])
    args.AddOption(&dt, "-dt", "--time-step", "Time step.");
    args.AddOption(&tf, "-tf", "--final-time", "Final time.");
    args.AddOption(&use_irk, "-irk", "--irk", "Use IRK solver (provide id; if 0, no IRK).");
+   args.AddOption(&star_method, "-star", "--star-method", "-nostar", "--no-star-method",
+                  "Bool - use IMEX-Radau* methods vs. IMEX-Radau methods.");
    args.AddOption(&use_AMG, "-amg", "--use-amg", "Use AMG: > 0 implies # AMG iterations, 0 = Block ILU.");
    args.AddOption(&visualization, "-v", "--visualization", "-nov", "--no-visualization",
                   "Use visualization.");
@@ -712,14 +715,18 @@ int run_adv_diff(int argc, char *argv[])
    mesh.GetCharacteristics (hmin, hmax, kmin, kmax);
    int t_order;
    if (use_irk == 123) {
-      if (iters < 2) t_order = 2+iters;
-      else t_order = 3;
+      if (star_method || iter>0) t_order = 3;
+      else (iter==0) t_order = 2;
    }
    else if (use_irk == 124) {
-      t_order = 3+iters;
+      if (star_method) t_order = 4+iters;
+      else t_order = 3+iters;
+      if (t_order > 5) t_order = 5;
    }
    else if (use_irk == 125) {
-      t_order = 4+iters;
+      if (star_method) t_order = 5+iters;
+      else t_order = 4+iters;
+      if (t_order > 7) t_order = 7;
    } 
    if (root)
    {
