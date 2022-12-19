@@ -310,7 +310,7 @@ public:
     };
 
     /// Constructor for real RK schemes
-    RKData(Type ID_, star_method_=false) : ID(ID_), star_method(star_method_)
+    RKData(Type ID_, bool star_method_=false) : ID(ID_), star_method(star_method_)
     { SetData(); };
     
     /** Constructor for setting dummy RK data with 2x2 matrix having complex 

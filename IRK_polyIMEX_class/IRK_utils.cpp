@@ -2615,6 +2615,7 @@ void RKData::SetData() {
             A0( 2 , 2 ) = 0.5 ;
             /* --- exp A --- */
             if (star_method) {
+                order += 1;
                 expA0( 0 , 0 ) = 0.0 ;
                 expA0( 0 , 1 ) = 0.0 ;
                 expA0( 0 , 2 ) = 0.0 ;
@@ -2696,6 +2697,7 @@ void RKData::SetData() {
             A0( 3 , 3 ) = 0.22222222222222165 ;
             /* --- exp A --- */
             if (star_method) {
+                order += 1;
                 expA0( 0 , 0 ) = 0.0 ;
                 expA0( 0 , 1 ) = 0.0 ;
                 expA0( 0 , 2 ) = 0.0 ;
@@ -2823,6 +2825,7 @@ void RKData::SetData() {
             A0( 4 , 4 ) = 0.12499999999999982 ;
             /* --- exp A --- */
             if (star_method) {
+                order += 1;
                 expA0( 0 , 0 ) = 0.0 ;
                 expA0( 0 , 1 ) = -0.0 ;
                 expA0( 0 , 2 ) = 0.0 ;
@@ -3010,6 +3013,7 @@ void RKData::SetData() {
             A0( 5 , 5 ) = 0.07999999999999996 ;
             /* --- exp A --- */
             if (star_method) {
+                order += 1;
                 expA0( 0 , 0 ) = 0.0 ;
                 expA0( 0 , 1 ) = 0.0 ;
                 expA0( 0 , 2 ) = -0.0 ;

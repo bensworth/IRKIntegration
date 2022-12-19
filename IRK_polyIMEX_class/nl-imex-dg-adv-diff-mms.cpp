@@ -691,7 +691,7 @@ int run_adv_diff(int argc, char *argv[])
    {
       kappa = (order+1)*(order+1);
    }
-   // if (root) { args.PrintOptions(std::cout); }
+   if (root) { args.PrintOptions(std::cout); }
 
    Mesh *serial_mesh = new Mesh(mesh_file.c_str(), 1, 1);
    int dim = serial_mesh->Dimension();
@@ -714,9 +714,10 @@ int run_adv_diff(int argc, char *argv[])
    double hmin, hmax, kmin, kmax;
    mesh.GetCharacteristics (hmin, hmax, kmin, kmax);
    int t_order;
+#if 0
    if (use_irk == 123) {
-      if (star_method || iter>0) t_order = 3;
-      else (iter==0) t_order = 2;
+      if (star_method || iters>0) t_order = 3;
+      else t_order = 2;
    }
    else if (use_irk == 124) {
       if (star_method) t_order = 4+iters;
@@ -728,6 +729,17 @@ int run_adv_diff(int argc, char *argv[])
       else t_order = 4+iters;
       if (t_order > 7) t_order = 7;
    } 
+#else
+   if (use_irk == 123) {
+      t_order = 3;
+   }
+   else if (use_irk == 124) {
+      t_order = 4+iters;
+   }
+   else if (use_irk == 125) {
+      t_order = 5+iters;
+   } 
+#endif
    if (root)
    {
       std::cout << "dt = " << dt << ", hmin = " << hmin << ", hmax = " << hmax << "\n";
@@ -778,7 +790,7 @@ int run_adv_diff(int argc, char *argv[])
 
    // Set solve tolerance equal to max theoretical space-time accuracy / 10
    double tol = std::max(std::pow(dt,t_order),std::pow(hmax,order)) / 1000.0;
-   RKData coeffs(static_cast<RKData::Type>(use_irk));
+   RKData coeffs(static_cast<RKData::Type>(use_irk), star_method);
    KrylovParams krylov_params;
    krylov_params.printlevel = 0;
    krylov_params.kdim = kdim_;
@@ -807,6 +819,8 @@ int run_adv_diff(int argc, char *argv[])
    {
       std::cout << "Number of unknowns/proc: " << fes.GetVSize() << std::endl;
       std::cout << "Total number of unknowns: " << fes.GlobalVSize() << std::endl;
+   
+      coeffs.expA0.Print();
    }
 
    bool done = false;
