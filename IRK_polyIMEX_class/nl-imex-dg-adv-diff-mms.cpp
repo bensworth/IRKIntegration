@@ -5,9 +5,10 @@ using namespace mfem;
 
 bool root;
 double eps = 1e-2;   // Diffusion coeffient
-double react = 1e-3;   // Reaction coeffient
+double react = 1e-3;   // Reaction coeffient - NOTE : assume this to be positive
 double C0 = 10;   // Constant in analytical solution
 int which_reaction = 1;
+int kdim_ = 10;
 
 // Initial condition for manufactured solution
 // 1 / (exp(C0*(x+y-t)) + 1)
@@ -33,15 +34,15 @@ double force_fn(const Vector &xvec, double t)
    double y = xvec[1];
    if (which_reaction == 1) {
       return -( 2*C0*C0*eps*(1-exp(C0*(x+y-t)))*exp(C0*(x+y-t)) - C0*(exp(C0*(x+y-t))+1)*exp(C0*(x+y-t)) -
-      react*std::pow(exp(C0*(x+y-t))+1,2) ) / std::pow((exp(C0*(x+y-t)) + 1),3);
+      (-react)*std::pow(exp(C0*(x+y-t))+1,2) ) / std::pow((exp(C0*(x+y-t)) + 1),3);
    }
    else if (which_reaction == 2) {
       return -( 2*C0*C0*eps*(1-exp(C0*(x+y-t)))*exp(C0*(x+y-t)) -
-         (C0*exp(C0*(x+y-t))+react)*(exp(C0*(x+y-t))+1) ) / std::pow((exp(C0*(x+y-t)) + 1),3);
+         (C0*exp(C0*(x+y-t))-react)*(exp(C0*(x+y-t))+1) ) / std::pow((exp(C0*(x+y-t)) + 1),3);
    }
    else if (which_reaction == 3) {
       return -( 2*C0*C0*eps*(1-exp(C0*(x+y-t))) - C0*(exp(C0*(x+y-t))+1) - 
-         0.5*react*(1-exp(C0*(x+y-t))) ) * exp(C0*(x+y-t)) / std::pow((exp(C0*(x+y-t)) + 1),3);
+         0.5*(-react)*(1-exp(C0*(x+y-t))) ) * exp(C0*(x+y-t)) / std::pow((exp(C0*(x+y-t)) + 1),3);
    }
 }
 
@@ -95,17 +96,17 @@ public:
          // Take inner product with jth test function, eta=reaction coeff
          for (int j=0; j<nd; j++)
          {
-            if (which_reaction == 1)         // eta*u
+            if (which_reaction == 1)         // -eta*u
             {
-               elvect[j] += w*shape[j]*react*el_value;
+               elvect[j] += w*shape[j]*(-react)*el_value;
             }
-            else if (which_reaction == 2)    // eta*u^2
+            else if (which_reaction == 2)    // -eta*u^2
             {
-               elvect[j] += w*shape[j]*react*el_value*el_value;
+               elvect[j] += w*shape[j]*(-react)*el_value*el_value;
             }
-            else if (which_reaction == 3)    // eta*u*(1-u)*(u-0.5)
+            else if (which_reaction == 3)    // -eta*u*(1-u)*(u-0.5)
             {
-               elvect[j] += w*shape[j]*react*el_value*(1 - el_value)*(el_value-0.5);
+               elvect[j] += w*shape[j]*(-react)*el_value*(1 - el_value)*(el_value-0.5);
             }
          }
       }
@@ -244,8 +245,9 @@ public:
 #endif
       if (AMG_iter > 1) {
          use_gmres = true;
-         if (blocksize > 0) GMRES_prec = new HypreGMRES(B_s);
-         else GMRES_prec = new HypreGMRES(B);
+         // if (blocksize > 0) GMRES_prec = new HypreGMRES(B_s);
+         // else GMRES_prec = new HypreGMRES(B);
+         GMRES_prec = new HypreGMRES(B);
          GMRES_prec->SetMaxIter(AMG_iter);
          GMRES_prec->SetTol(0);
          GMRES_prec->SetPreconditioner(*AMG_solver);
@@ -271,6 +273,7 @@ public:
          GMRES_solver->SetMaxIter(250);
          GMRES_solver->SetTol(1e-12);
          GMRES_solver->SetPreconditioner(*AMG_solver);
+         GMRES_solver->SetKDim(kdim_);
       }
       GMRES_solver->Mult(x, y);
    }
@@ -707,11 +710,22 @@ int run_adv_diff(int argc, char *argv[])
    // Print mesh size
    double hmin, hmax, kmin, kmax;
    mesh.GetCharacteristics (hmin, hmax, kmin, kmax);
+   int t_order;
+   if (use_irk == 123) {
+      if (iters < 2) t_order = 2+iters;
+      else t_order = 3;
+   }
+   else if (use_irk == 124) {
+      t_order = 3+iters;
+   }
+   else if (use_irk == 125) {
+      t_order = 4+iters;
+   } 
    if (root)
    {
       std::cout << "dt = " << dt << ", hmin = " << hmin << ", hmax = " << hmax << "\n";
-      std::cout << "time order = " << use_irk%10 << ", space order = " << order << "\n";
-      std::cout << "time acc. = " << std::pow(dt,(use_irk%10))
+      std::cout << "time order = " << t_order << ", space order = " << order << "\n";
+      std::cout << "time acc. = " << std::pow(dt,t_order)
                 << ", space acc. = " << std::pow(hmax,order) << "\n";
    }
 
@@ -749,52 +763,34 @@ int run_adv_diff(int argc, char *argv[])
       temp_dg = false;
    }
    double t = 0.0;
-   if (use_irk < 100) full_imp = true;
+   if (use_irk < 100) {
+      std::cout << "Only PolyIMEX schemes supported in this code.\n";
+      return -1;
+   }
    DGAdvDiff dg(fes, use_AMG, temp_dg, full_imp);
-   FE_Evolution *evol = nullptr;
-   IRK *irk = nullptr;
-   RKData* coeffs = nullptr;
-   std::unique_ptr<ODESolver> ode;
 
    // Set solve tolerance equal to max theoretical space-time accuracy / 10
-   double tol = std::max(std::pow(dt,(use_irk%10)),std::pow(hmax,order)) / 10.0;
-   if (use_irk > 3)
-   {
-      coeffs = new RKData(static_cast<RKData::Type>(use_irk));
-      KrylovParams krylov_params;
-      krylov_params.printlevel = 0;
-      krylov_params.kdim = 10;
-      krylov_params.maxiter = maxiter;
-      krylov_params.reltol = tol;
-      krylov_params.iterative_mode = true;
-      krylov_params.abstol = tol;
-      if (use_gmres==-1 || use_gmres==1) krylov_params.solver = KrylovMethod::FGMRES;
-      else if(use_gmres == 2) krylov_params.solver = KrylovMethod::FP;
-      else krylov_params.solver = KrylovMethod::GMRES;
+   double tol = std::max(std::pow(dt,t_order),std::pow(hmax,order)) / 1000.0;
+   RKData coeffs(static_cast<RKData::Type>(use_irk));
+   KrylovParams krylov_params;
+   krylov_params.printlevel = 0;
+   krylov_params.kdim = kdim_;
+   krylov_params.maxiter = maxiter;
+   krylov_params.reltol = tol;
+   krylov_params.iterative_mode = true;
+   krylov_params.abstol = tol;
+   if (use_gmres==-1 || use_gmres==1) krylov_params.solver = KrylovMethod::FGMRES;
+   else if(use_gmres == 2) krylov_params.solver = KrylovMethod::FP;
+   else krylov_params.solver = KrylovMethod::GMRES;
 
-      if (use_irk < 100) {
-         irk = new IRK(&dg, *coeffs);
-      }
-      else {
-         irk = new PolyIMEX(&dg, *coeffs, true, iters);
-      }
-      irk->SetKrylovParams(krylov_params);
 
-      // NewtonParams NEWTON;
-      // NEWTON.printlevel = 1;
-      // NEWTON.abstol = 1e-4;
-      // irk->SetNewtonParams(NEWTON);
-
-      irk->Init(dg);
-      ode.reset(irk);
-   }
-   else
-   {
-      if (root) std::cout << "using imex Euler\n";
-      IMEXEuler *imex = new IMEXEuler();
-      imex->Init(dg);
-      ode.reset(imex);
-   }
+   PolyIMEX irk(&dg, coeffs, true, iters);
+   irk.SetKrylovParams(krylov_params);
+   // NewtonParams NEWTON;
+   // NEWTON.printlevel = 1;
+   // NEWTON.abstol = 1e-4;
+   // irk.SetNewtonParams(NEWTON);
+   irk.Init(dg);
 
    double t_vis = t;
    double vis_int = (tf-t)/double(vis_steps);
@@ -811,7 +807,7 @@ int run_adv_diff(int argc, char *argv[])
    timer.Start();
    while (!done)
    {
-      ode->Step(u, t, dt);
+      irk.Step(u, t, dt);
       done = (t >= tf - 1e-8*dt);
       if (t - t_vis > vis_int || done)
       {
@@ -842,10 +838,6 @@ int run_adv_diff(int argc, char *argv[])
       dg.SaveMats();
    }
 
-   if (evol) delete evol;
-   if (coeffs) delete coeffs;
-   // if (irk) delete irk;    /// TODO : SEGFAULT WHEN THIS IS DELETED
-
    return 0;
 }
 
@@ -853,7 +845,7 @@ int main(int argc, char **argv)
 {
    MPI_Init(&argc, &argv);
    int retval = run_adv_diff(argc, argv);
-   MPI_Barrier(MPI_COMM_WORLD);
+   // MPI_Barrier(MPI_COMM_WORLD);
    MPI_Finalize();
    return retval;
 }
