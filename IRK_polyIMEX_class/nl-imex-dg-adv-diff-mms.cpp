@@ -691,7 +691,7 @@ int run_adv_diff(int argc, char *argv[])
    {
       kappa = (order+1)*(order+1);
    }
-   if (root) { args.PrintOptions(std::cout); }
+   // if (root) { args.PrintOptions(std::cout); }
 
    Mesh *serial_mesh = new Mesh(mesh_file.c_str(), 1, 1);
    int dim = serial_mesh->Dimension();
@@ -714,7 +714,7 @@ int run_adv_diff(int argc, char *argv[])
    double hmin, hmax, kmin, kmax;
    mesh.GetCharacteristics (hmin, hmax, kmin, kmax);
    int t_order;
-#if 0
+#if 1
    if (use_irk == 123) {
       if (star_method || iters>0) t_order = 3;
       else t_order = 2;
@@ -729,6 +729,9 @@ int run_adv_diff(int argc, char *argv[])
       else t_order = 4+iters;
       if (t_order > 7) t_order = 7;
    } 
+// Accidentally ran tests using below; means we were solving
+// non-* methods more accurately than necessary. Probably
+// doesn't matter, as will plot results for *.
 #else
    if (use_irk == 123) {
       t_order = 3;
@@ -819,8 +822,6 @@ int run_adv_diff(int argc, char *argv[])
    {
       std::cout << "Number of unknowns/proc: " << fes.GetVSize() << std::endl;
       std::cout << "Total number of unknowns: " << fes.GlobalVSize() << std::endl;
-   
-      coeffs.expA0.Print();
    }
 
    bool done = false;
